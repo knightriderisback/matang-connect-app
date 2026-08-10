@@ -7,10 +7,7 @@ const PUBLIC_ROUTES = ["/", "/login", "/register"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  if (PUBLIC_ROUTES.includes(pathname)) {
-    return NextResponse.next();
-  }
+  if (PUBLIC_ROUTES.includes(pathname)) return NextResponse.next();
 
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   const session = token ? await verifySessionToken(token) : null;
