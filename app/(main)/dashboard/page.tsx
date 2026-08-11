@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { WelcomeAnimation } from "@/components/shared/WelcomeAnimation";
-import { LanguageToggle } from "@/components/shared/LanguageToggle";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { Users, AlertTriangle, Briefcase, Bell, Heart, BookOpen, Shield } from "lucide-react";
 
@@ -36,22 +35,16 @@ export default function DashboardPage() {
     <>
       {showWelcome && <WelcomeAnimation onComplete={() => setShowWelcome(false)} />}
       <div className="p-4 space-y-4">
-        <div className="flex items-start gap-3">
-          <img src="/logo.svg" alt="Matang" className="w-12 h-12 rounded-xl object-cover shadow shrink-0 bg-matang-navy" />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h1 className="text-lg font-bold text-matang-navy leading-tight">{t("app.name")}</h1>
-                <p className="text-sm text-gray-500 truncate">Welcome, {user?.full_name || "..."}</p>
-                {user?.role === "super_admin" && (
-                  <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-matang-gold/25 text-matang-navy text-[10px] rounded-full font-semibold">
-                    <Shield size={10} /> Super Admin
-                  </span>
-                )}
-              </div>
-              <LanguageToggle />
-            </div>
-          </div>
+        <div>
+          <p className="text-sm text-gray-500">Welcome,</p>
+          <h2 className="text-xl font-bold text-matang-navy flex items-center gap-2 flex-wrap">
+            {user?.full_name || "..."}
+            {user?.role === "super_admin" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-matang-gold/25 text-matang-navy text-[10px] rounded-full font-semibold">
+                <Shield size={10} /> Super Admin
+              </span>
+            )}
+          </h2>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
