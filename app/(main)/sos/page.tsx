@@ -68,7 +68,8 @@ export default function SOSPage() {
 
   const submitBlood = async () => {
     if (!blood.group || !blood.location) { toast("Blood group and location required", "error"); return; }
-    const msg = `🩸 BLOOD NEEDED\nGroup: ${blood.group}\nUnits: ${blood.units}\nLocation: ${blood.location}\nHospital: ${blood.hospital || "-"}\nContact: ${blood.contact || user?.phone || "-"}\n${blood.notes}\n\n— Matang Connect SOS`;
+    if (!blood.contact || blood.contact.replace(/\D/g, "").length < 10) { toast("Contact phone is mandatory", "error"); return; }
+    const msg = `🩸 BLOOD NEEDED\nGroup: ${blood.group}\nUnits: ${blood.units}\nLocation: ${blood.location}\nHospital: ${blood.hospital || "-"}\nContact: ${blood.contact}\n${blood.notes}\n\n— Matang Connect SOS`;
     const ok = await postSOS("blood", blood);
     if (ok) shareWA(msg);
     setMode("main");
@@ -76,7 +77,8 @@ export default function SOSPage() {
 
   const submitMed = async () => {
     if (!med.medicine || !med.location) { toast("Medicine name and location required", "error"); return; }
-    const msg = `💊 MEDICINE HELP\nMedicine: ${med.medicine}\nQty: ${med.quantity || "-"}\nUrgency: ${med.urgency}\nLocation: ${med.location}\nContact: ${med.contact || user?.phone || "-"}\n${med.notes}\n\n— Matang Connect SOS`;
+    if (!med.contact || med.contact.replace(/\D/g, "").length < 10) { toast("Contact phone is mandatory", "error"); return; }
+    const msg = `💊 MEDICINE HELP\nMedicine: ${med.medicine}\nQty: ${med.quantity || "-"}\nUrgency: ${med.urgency}\nLocation: ${med.location}\nContact: ${med.contact}\n${med.notes}\n\n— Matang Connect SOS`;
     const ok = await postSOS("medicine", med);
     if (ok) shareWA(msg);
     setMode("main");
@@ -93,7 +95,7 @@ export default function SOSPage() {
             options={["1", "2", "3", "4", "5+"].map((u) => ({ value: u, label: u + " unit(s)" }))} />
           <Input label="Location / City *" value={blood.location} onChange={(e) => setBlood({ ...blood, location: e.target.value })} />
           <Input label="Hospital Name" value={blood.hospital} onChange={(e) => setBlood({ ...blood, hospital: e.target.value })} />
-          <Input label="Contact Number" type="tel" value={blood.contact} onChange={(e) => setBlood({ ...blood, contact: e.target.value })} />
+          <Input label="Contact Phone *" type="tel" placeholder="10-digit mobile" value={blood.contact} onChange={(e) => setBlood({ ...blood, contact: e.target.value })} />
           <Input label="Additional Notes" value={blood.notes} onChange={(e) => setBlood({ ...blood, notes: e.target.value })} />
           <Button className="w-full" isLoading={sending} onClick={submitBlood}><Send size={16} /> Post in App + Share WhatsApp</Button>
         </CardContent></Card>
@@ -112,7 +114,7 @@ export default function SOSPage() {
           <Select label="Urgency" value={med.urgency} onChange={(e) => setMed({ ...med, urgency: e.target.value })}
             options={[{ value: "critical", label: "Critical (today)" }, { value: "high", label: "High (1-2 days)" }, { value: "normal", label: "Normal" }]} />
           <Input label="Location / City *" value={med.location} onChange={(e) => setMed({ ...med, location: e.target.value })} />
-          <Input label="Contact Number" type="tel" value={med.contact} onChange={(e) => setMed({ ...med, contact: e.target.value })} />
+          <Input label="Contact Phone *" type="tel" placeholder="10-digit mobile" value={med.contact} onChange={(e) => setMed({ ...med, contact: e.target.value })} />
           <Input label="Notes" value={med.notes} onChange={(e) => setMed({ ...med, notes: e.target.value })} />
           <Button className="w-full" isLoading={sending} onClick={submitMed}><Send size={16} /> Post in App + Share WhatsApp</Button>
         </CardContent></Card>
