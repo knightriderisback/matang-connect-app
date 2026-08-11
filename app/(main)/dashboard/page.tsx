@@ -95,6 +95,18 @@ export default function DashboardPage() {
           </div>
         </div>
 
+                <Card className="border-matang-gold/30">
+          <CardContent className="p-4">
+            <p className="text-sm font-bold text-matang-navy mb-1">Community posts</p>
+            <p className="text-xs text-gray-500 mb-3">View notices, heritage posts, and women empowerment updates. Staff can publish with the + button on each page.</p>
+            <div className="grid grid-cols-3 gap-2">
+              <button onClick={() => router.push("/notices")} className="p-2.5 bg-yellow-50 border border-yellow-100 rounded-xl text-xs font-medium text-matang-navy">Notices</button>
+              <button onClick={() => router.push("/dharohar")} className="p-2.5 bg-amber-50 border border-amber-100 rounded-xl text-xs font-medium text-matang-navy">Dharohar</button>
+              <button onClick={() => router.push("/mahila")} className="p-2.5 bg-pink-50 border border-pink-100 rounded-xl text-xs font-medium text-matang-navy">Mahila</button>
+            </div>
+          </CardContent>
+        </Card>
+
         {["core_committee", "super_admin", "volunteer"].includes(user?.role || "") && (
           <div>
             <h2 className="text-base font-bold text-matang-navy mb-2">Admin Tools</h2>

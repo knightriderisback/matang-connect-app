@@ -12,13 +12,24 @@ export async function GET() {
   const { data: user, error } = await supabase
     .from("users")
     .select(
-      "id, full_name, phone, role, city_id, native_village, verification_status, qr_code_id, photo_url, created_at, cities(name)"
+      "id, full_name, phone, role, city_id, native_village, verification_status, qr_code_id, photo_url, gender, blood_group, education_level, occupation, about, address, created_at, cities(name)"
     )
     .eq("id", session.userId)
     .single();
 
   if (error || !user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    // Fallback without optional profile columns
+    const retry = await supabase
+      .from("users")
+      .select(
+        "id, full_name, phone, role, city_id, native_village, verification_status, qr_code_id, photo_url, created_at, cities(name)"
+      )
+      .eq("id", session.userId)
+      .single();
+    if (retry.error || !retry.data) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    return NextResponse.json({ user: retry.data });
   }
 
   return NextResponse.json({ user });

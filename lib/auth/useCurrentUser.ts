@@ -11,6 +11,12 @@ export interface CurrentUser {
   verification_status: "pending" | "verified" | "rejected";
   qr_code_id: string | null;
   photo_url?: string | null;
+  gender?: string | null;
+  blood_group?: string | null;
+  education_level?: string | null;
+  occupation?: string | null;
+  about?: string | null;
+  address?: string | null;
   created_at: string;
   cities: { name: string } | null;
 }

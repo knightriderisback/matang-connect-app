@@ -158,7 +158,7 @@ export default function CensusPage() {
                   <><Camera size={24} className="text-matang-gold" /><span className="text-[10px] text-gray-500 mt-1">Family Photo</span></>
                 )}
               </button>
-              <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFamilyPhoto} />
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFamilyPhoto} />
             </div>
             <Input label="Native Village *" value={family.native_village} onChange={(e) => setFamily({ ...family, native_village: e.target.value })} required />
             <Input label="Current Address *" value={family.address} onChange={(e) => setFamily({ ...family, address: e.target.value })} required />
@@ -211,7 +211,7 @@ export default function CensusPage() {
                   className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex flex-col items-center justify-center overflow-hidden bg-gray-50">
                   {cur.photo ? <img src={cur.photo} alt="" className="w-full h-full object-cover" /> : <Camera size={20} className="text-gray-400" />}
                 </button>
-                <input ref={memberPhotoRef} type="file" accept="image/*" capture="user" className="hidden" onChange={onMemberPhoto} />
+                <input ref={memberPhotoRef} type="file" accept="image/*" className="hidden" onChange={onMemberPhoto} />
               </div>
               <Input label="Full Name *" value={cur.name} onChange={(e) => setCur({ ...cur, name: e.target.value })} required />
               <div className="grid grid-cols-2 gap-3">
