@@ -36,18 +36,24 @@ export default function DashboardPage() {
     <>
       {showWelcome && <WelcomeAnimation onComplete={() => setShowWelcome(false)} />}
       <div className="p-4 space-y-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-xl font-bold text-matang-navy">{t("app.name")}</h1>
-            <p className="text-sm text-gray-500">{user?.full_name ? `Welcome, ${user.full_name}` : t("app.tagline")}</p>
-            {user?.role === "super_admin" && (
-              <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-matang-gold/20 text-xs rounded-full font-medium">
-                <Shield size={12} /> Super Admin
-              </span>
-            )}
+        <div className="flex items-start gap-3">
+          <img src="/logo.svg" alt="Matang" className="w-12 h-12 rounded-xl object-cover shadow shrink-0 bg-matang-navy" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h1 className="text-lg font-bold text-matang-navy leading-tight">{t("app.name")}</h1>
+                <p className="text-sm text-gray-500 truncate">Welcome, {user?.full_name || "..."}</p>
+                {user?.role === "super_admin" && (
+                  <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-matang-gold/25 text-matang-navy text-[10px] rounded-full font-semibold">
+                    <Shield size={10} /> Super Admin
+                  </span>
+                )}
+              </div>
+              <LanguageToggle />
+            </div>
           </div>
-          <LanguageToggle />
         </div>
+
         <div className="grid grid-cols-2 gap-3">
           <Card className="bg-gradient-to-br from-matang-navy to-blue-900 text-white">
             <CardContent className="p-4">
@@ -57,34 +63,36 @@ export default function DashboardPage() {
           </Card>
           <Card className="bg-gradient-to-br from-matang-gold to-yellow-500 text-matang-navy">
             <CardContent className="p-4">
-              <p className="text-2xl font-bold">{user?.cities?.name || "-"}</p>
+              <p className="text-xl font-bold truncate">{user?.cities?.name || "-"}</p>
               <p className="text-xs opacity-80">Your City</p>
             </CardContent>
           </Card>
         </div>
+
         <div>
-          <h2 className="text-lg font-bold text-matang-navy mb-3">Quick Actions</h2>
-          <div className="grid grid-cols-3 gap-3">
+          <h2 className="text-base font-bold text-matang-navy mb-2">Quick Actions</h2>
+          <div className="grid grid-cols-3 gap-2.5">
             {actions.map((a) => (
               <button key={a.href} onClick={() => router.push(a.href)}
-                className="flex flex-col items-center gap-2 p-4 bg-white rounded-2xl shadow-sm border active:scale-95">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${a.color}`}><a.icon size={22} /></div>
-                <span className="text-xs font-medium">{a.label}</span>
+                className="flex flex-col items-center gap-1.5 p-3 bg-white rounded-2xl shadow-sm border border-gray-100 active:scale-95">
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${a.color}`}><a.icon size={20} /></div>
+                <span className="text-[11px] font-medium text-gray-700">{a.label}</span>
               </button>
             ))}
           </div>
         </div>
+
         <Card className="border-2 border-matang-gold/30">
-          <CardHeader><CardTitle>🪷 {t("profile.digitalId")}</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">🪷 {t("profile.digitalId")}</CardTitle></CardHeader>
           <CardContent>
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-matang-navy rounded-full flex items-center justify-center text-white text-2xl font-bold">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-matang-navy rounded-full flex items-center justify-center text-white text-lg font-bold shrink-0">
                 {user?.full_name?.[0] || "?"}
               </div>
-              <div>
-                <p className="font-bold text-matang-navy">{user?.full_name || "Guest"}</p>
+              <div className="min-w-0">
+                <p className="font-bold text-matang-navy truncate">{user?.full_name}</p>
                 <p className="text-sm text-gray-500">{user?.native_village}</p>
-                <p className="text-xs text-gray-400">{user?.qr_code_id}</p>
+                <p className="text-[10px] text-gray-400 font-mono truncate">{user?.qr_code_id}</p>
               </div>
             </div>
           </CardContent>
