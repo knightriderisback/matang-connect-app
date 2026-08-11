@@ -11,7 +11,9 @@ export async function GET() {
   const supabase = createAdminClient();
   const { data: user, error } = await supabase
     .from("users")
-    .select("id, full_name, phone, role, city_id, native_village, verification_status, qr_code_id, created_at, cities(name)")
+    .select(
+      "id, full_name, phone, role, city_id, native_village, verification_status, qr_code_id, photo_url, created_at, cities(name)"
+    )
     .eq("id", session.userId)
     .single();
 

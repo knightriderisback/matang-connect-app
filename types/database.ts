@@ -17,21 +17,12 @@ export interface Database {
           verified_at: string | null;
           qr_code_id: string | null;
           title: string | null;
+          photo_url: string | null;
           failed_mpin_attempts: number;
           mpin_locked_until: string | null;
           created_at: string;
         };
-        Insert: {
-          id?: string;
-          m_pin_hash: string;
-          full_name: string;
-          phone: string;
-          role?: string;
-          city_id?: string | null;
-          native_village: string;
-          verification_status?: string;
-          [key: string]: any;
-        };
+        Insert: { [key: string]: any };
         Update: { [key: string]: any };
       };
       cities: {
@@ -49,6 +40,7 @@ export interface Database {
           employment_status: string;
           needs: string[];
           is_duplicate_flag: boolean;
+          contact_phone: string | null;
           created_at: string;
         };
         Insert: { [key: string]: any };
@@ -61,10 +53,17 @@ export interface Database {
           name: string;
           relation: string;
           age: number | null;
+          date_of_birth: string | null;
+          gender: string | null;
           education_level: string | null;
           occupation: string | null;
+          blood_group: string | null;
+          marital_status: string | null;
+          phone: string | null;
+          photo_url: string | null;
           is_unemployed: boolean;
           needs_care: boolean;
+          linked_user_id: string | null;
           created_at: string;
         };
         Insert: { [key: string]: any };
@@ -77,6 +76,7 @@ export interface Database {
           type: string;
           status: string;
           city_id: string | null;
+          message: string | null;
           created_at: string;
         };
         Insert: { [key: string]: any };
@@ -85,10 +85,41 @@ export interface Database {
       audit_logs: {
         Row: {
           id: string;
-          actor_id: string;
+          actor_id: string | null;
           action: string;
           target_id: string | null;
-          metadata: Json;
+          meta: Json | null;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
+      };
+      notices: {
+        Row: {
+          id: string;
+          city_id: string | null;
+          title: string;
+          body: string;
+          priority: string;
+          created_by: string | null;
+          is_global: boolean;
+          created_at: string;
+        };
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
+      };
+      jobs: {
+        Row: {
+          id: string;
+          city_id: string | null;
+          title: string;
+          description: string | null;
+          location: string | null;
+          contact_phone: string | null;
+          salary_range: string | null;
+          created_by: string | null;
+          is_active: boolean;
           created_at: string;
         };
         Insert: { [key: string]: any };
@@ -119,7 +150,6 @@ export interface Database {
         Args: { p_user_id: string; p_new_mpin: string };
         Returns: undefined;
       };
-      [key: string]: { Args: any; Returns: any };
     };
   };
 }

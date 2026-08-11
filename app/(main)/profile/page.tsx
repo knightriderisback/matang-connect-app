@@ -31,7 +31,7 @@ export default function ProfilePage() {
     setForm({
       full_name: user?.full_name || "",
       native_village: user?.native_village || "",
-      photo: (user as any)?.photo_url || "",
+      photo: user?.photo_url || "",
     });
     setEditing(true);
   };
@@ -93,7 +93,7 @@ export default function ProfilePage() {
 
   if (loading) return <div className="p-8 text-center text-gray-500">{t("common.loading")}</div>;
   const style = ROLE_STYLE[user?.role || "normal"] || ROLE_STYLE.normal;
-  const photo = form.photo || (user as any)?.photo_url;
+  const photo = form.photo || user?.photo_url;
 
   return (
     <div className="p-4 space-y-4">
@@ -163,7 +163,7 @@ export default function ProfilePage() {
           <CardHeader><CardTitle className="flex items-center gap-2"><QrCode size={18} /> {t("profile.qrCode")}</CardTitle></CardHeader>
           <CardContent className="flex flex-col items-center py-4 gap-2">
             <div className="bg-white p-3 rounded-xl border">
-              <QRCodeSVG value={`https://matang-connect.vercel.app/u/${user.qr_code_id}`} size={160} level="M" />
+              <QRCodeSVG value={`${typeof window !== "undefined" ? window.location.origin : ""}/u/${user.qr_code_id}`} size={160} level="M" />
             </div>
             <p className="text-xs text-gray-500 text-center max-w-xs">Show this QR at community events for verification.</p>
             <button

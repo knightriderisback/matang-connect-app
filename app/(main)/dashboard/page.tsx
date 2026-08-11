@@ -132,7 +132,7 @@ export default function DashboardPage() {
               {user?.qr_code_id ? (
                 <div className="bg-white p-2 rounded-lg border shrink-0">
                   <QRCodeSVG
-                    value={`https://matang-connect.vercel.app/u/${user.qr_code_id}`}
+                    value={`${typeof window !== "undefined" ? window.location.origin : ""}/u/${user.qr_code_id}`}
                     size={72}
                     level="M"
                   />

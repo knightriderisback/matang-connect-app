@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifySessionToken, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 
-const ADMIN_ROLES = ["core_committee", "super_admin"];
 const STAFF_ROLES = ["volunteer", "core_committee", "super_admin"];
 const PUBLIC_ROUTES = ["/", "/login", "/register", "/history"];
 
@@ -29,7 +28,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (PUBLIC_ROUTES.includes(pathname)) {
+  // Public marketing + history + public Digital ID cards /u/MATANG-xxx
+  if (PUBLIC_ROUTES.includes(pathname) || pathname.startsWith("/u/")) {
     return NextResponse.next();
   }
 

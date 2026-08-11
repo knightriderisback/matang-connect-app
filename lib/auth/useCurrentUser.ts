@@ -10,6 +10,7 @@ export interface CurrentUser {
   native_village: string;
   verification_status: "pending" | "verified" | "rejected";
   qr_code_id: string | null;
+  photo_url?: string | null;
   created_at: string;
   cities: { name: string } | null;
 }
