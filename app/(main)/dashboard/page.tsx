@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { WelcomeAnimation } from "@/components/shared/WelcomeAnimation";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { Users, AlertTriangle, Briefcase, Bell, Heart, BookOpen, Shield } from "lucide-react";
+import { Users, AlertTriangle, Briefcase, Bell, Heart, BookOpen, Shield, HeartHandshake } from "lucide-react";
 
 export default function DashboardPage() {
   const { t } = useI18n();
@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const actions = [
     { icon: Users, label: t("nav.census"), href: "/census", color: "bg-blue-100 text-blue-600" },
     { icon: AlertTriangle, label: t("nav.sos"), href: "/sos", color: "bg-red-100 text-red-600" },
+    { icon: HeartHandshake, label: "Care", href: "/care", color: "bg-rose-100 text-rose-600" },
     { icon: Briefcase, label: "Jobs", href: "/jobs", color: "bg-green-100 text-green-600" },
     { icon: Bell, label: "Notices", href: "/notices", color: "bg-yellow-100 text-yellow-600" },
     { icon: Heart, label: "Sahyog", href: "/kosh", color: "bg-pink-100 text-pink-600" },
@@ -67,13 +68,28 @@ export default function DashboardPage() {
           <div className="grid grid-cols-3 gap-2.5">
             {actions.map((a) => (
               <button key={a.href} onClick={() => router.push(a.href)}
-                className="flex flex-col items-center gap-1.5 p-3 bg-white rounded-2xl shadow-sm border border-gray-100 active:scale-95">
+                className="relative flex flex-col items-center gap-1.5 p-3 bg-white rounded-2xl shadow-sm border border-gray-100 active:scale-95">
                 <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${a.color}`}><a.icon size={20} /></div>
                 <span className="text-[11px] font-medium text-gray-700">{a.label}</span>
               </button>
             ))}
           </div>
         </div>
+
+        {["core_committee", "super_admin", "volunteer"].includes(user?.role || "") && (
+          <div>
+            <h2 className="text-base font-bold text-matang-navy mb-2">Admin Tools</h2>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => router.push("/admin/verify")} className="p-3 bg-white rounded-xl border text-sm font-medium text-matang-navy text-left">Verify Users</button>
+              <button onClick={() => router.push("/admin/reset-mpin")} className="p-3 bg-white rounded-xl border text-sm font-medium text-matang-navy text-left">Reset M-PIN</button>
+              <button onClick={() => router.push("/admin/titles")} className="p-3 bg-white rounded-xl border text-sm font-medium text-matang-navy text-left">City Titles</button>
+              <button onClick={() => router.push("/admin/audit")} className="p-3 bg-white rounded-xl border text-sm font-medium text-matang-navy text-left">Audit Log</button>
+              {user?.role === "super_admin" && (
+                <button onClick={() => router.push("/admin/settings")} className="p-3 bg-white rounded-xl border text-sm font-medium text-matang-navy text-left col-span-2">Feature Flags</button>
+              )}
+            </div>
+          </div>
+        )}
 
         <Card className="border-2 border-matang-gold/30">
           <CardHeader><CardTitle className="text-base">🪷 {t("profile.digitalId")}</CardTitle></CardHeader>
