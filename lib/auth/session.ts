@@ -3,13 +3,22 @@ import { SignJWT, jwtVerify } from "jose";
 // Set a strong random value in your environment (.env.local / Vercel env):
 // APP_SESSION_SECRET=<openssl rand -base64 32>
 const secretKey = process.env.APP_SESSION_SECRET;
-if (!secretKey) {
-  // Fail loudly in dev rather than silently signing with an empty key.
-  console.warn(
-    "APP_SESSION_SECRET is not set. Set it in .env.local before using auth."
+
+if (!secretKey && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "APP_SESSION_SECRET is required in production. Generate one with: openssl rand -base64 32"
   );
 }
-const encodedKey = new TextEncoder().encode(secretKey || "dev-insecure-fallback-key");
+
+if (!secretKey) {
+  console.warn(
+    "APP_SESSION_SECRET is not set. Using insecure fallback — set it in .env.local before using auth."
+  );
+}
+
+const encodedKey = new TextEncoder().encode(
+  secretKey || "dev-insecure-fallback-key-do-not-use-in-prod"
+);
 
 export interface SessionPayload {
   userId: string;

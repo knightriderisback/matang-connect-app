@@ -10,16 +10,23 @@ export const metadata: Metadata = {
   title: "Matang Connect",
   description: "Digital ecosystem for the Matang community",
   manifest: "/manifest.json",
-  icons: { icon: "/icon-192x192.png", apple: "/icon-192x192.png" },
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Matang Connect" },
+  icons: {
+    icon: [{ url: "/logo.svg", type: "image/svg+xml" }],
+    apple: "/logo.svg",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Matang Connect",
+  },
 };
 
 export const viewport: Viewport = {
   themeColor: "#0a1628",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // Allow pinch-zoom for accessibility (was maximumScale: 1 / userScalable: false)
+  maximumScale: 5,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
