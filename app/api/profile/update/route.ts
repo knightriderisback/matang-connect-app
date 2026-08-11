@@ -6,17 +6,25 @@ export async function POST(request: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { full_name, native_village } = await request.json();
-  if (!full_name?.trim() || !native_village?.trim()) {
+  const body = await request.json();
+  const full_name = body.full_name?.trim();
+  const native_village = body.native_village?.trim();
+  const photo = body.photo;
+
+  if (!full_name || !native_village) {
     return NextResponse.json({ error: "Name and village required" }, { status: 400 });
   }
 
   const supabase = createAdminClient();
-  const { error } = await supabase
-    .from("users")
-    .update({ full_name: full_name.trim(), native_village: native_village.trim() })
-    .eq("id", session.userId);
+  const update: Record<string, unknown> = { full_name, native_village };
+  if (photo && typeof photo === "string" && photo.startsWith("data:")) {
+    update.photo_url = photo.slice(0, 500000);
+  }
 
+  let { error } = await supabase.from("users").update(update).eq("id", session.userId);
+  if (error && photo) {
+    ({ error } = await supabase.from("users").update({ full_name, native_village }).eq("id", session.userId));
+  }
   if (error) return NextResponse.json({ error: "Update failed" }, { status: 500 });
 
   await supabase.from("audit_logs").insert({
