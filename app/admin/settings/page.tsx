@@ -16,6 +16,14 @@ const LABELS: Record<string, string> = {
   care_enabled: "Care requests",
   titles_enabled: "City titles",
   kosh_transparency_mode: "Kosh transparency",
+  vyapar_enabled: "Vyapar (Business)",
+  matrimony_enabled: "Matrimony",
+  dharohar_enabled: "Dharohar",
+  panchang_enabled: "Panchang",
+  mahila_enabled: "Mahila Shakti",
+  polls_enabled: "Polls",
+  arthik_enabled: "Arthik Vikas",
+  scan_enabled: "QR Scan lookup",
 };
 
 export default function SettingsPage() {
@@ -26,14 +34,14 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetch("/api/admin/settings")
-      .then(r => r.json())
-      .then(d => setFlags(d.flags || {}))
+      .then((r) => r.json())
+      .then((d) => setFlags(d.flags || {}))
       .catch(() => toast("Failed to load settings", "error"))
       .finally(() => setLoading(false));
   }, []);
 
   const toggle = async (key: string, value: boolean) => {
-    setFlags(prev => ({ ...prev, [key]: value }));
+    setFlags((prev) => ({ ...prev, [key]: value }));
     const res = await fetch("/api/admin/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -41,7 +49,7 @@ export default function SettingsPage() {
     });
     if (!res.ok) {
       toast("Could not update", "error");
-      setFlags(prev => ({ ...prev, [key]: !value }));
+      setFlags((prev) => ({ ...prev, [key]: !value }));
       return;
     }
     toast(`${LABELS[key] || key}: ${value ? "ON" : "OFF"}`, "success");
@@ -60,7 +68,7 @@ export default function SettingsPage() {
       <p className="text-xs text-gray-500">Toggle modules on/off without redeploying.</p>
       {loading && <p className="text-center text-gray-400">Loading...</p>}
       <div className="space-y-2">
-        {Object.keys(LABELS).map(key => (
+        {Object.keys(LABELS).map((key) => (
           <Card key={key}>
             <CardContent className="p-3 flex items-center justify-between">
               <span className="text-sm font-medium text-matang-navy">{LABELS[key]}</span>
@@ -68,7 +76,9 @@ export default function SettingsPage() {
                 onClick={() => toggle(key, !flags[key])}
                 className={`relative w-12 h-7 rounded-full transition-colors ${flags[key] ? "bg-matang-gold" : "bg-gray-300"}`}
               >
-                <span className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${flags[key] ? "left-5" : "left-0.5"}`} />
+                <span
+                  className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${flags[key] ? "left-5" : "left-0.5"}`}
+                />
               </button>
             </CardContent>
           </Card>

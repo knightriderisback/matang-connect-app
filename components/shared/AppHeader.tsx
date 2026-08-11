@@ -12,8 +12,24 @@ const TITLES: Record<string, string> = {
   "/census": "nav.census",
   "/sos": "nav.sos",
   "/profile": "nav.profile",
+  "/care": "nav.care",
+  "/jobs": "nav.jobs",
+  "/notices": "nav.notices",
+  "/kosh": "nav.kosh",
+  "/vyapar": "nav.vyapar",
+  "/matrimony": "nav.matrimony",
+  "/dharohar": "nav.dharohar",
+  "/panchang": "nav.panchang",
+  "/mahila": "nav.mahila",
+  "/polls": "nav.polls",
+  "/arthik": "nav.arthik",
+  "/scan": "nav.scan",
   "/admin/directory": "nav.admin",
-  "/admin/verify": "nav.admin",
+  "/admin/verify": "nav.verify",
+  "/admin/titles": "nav.admin",
+  "/admin/audit": "nav.admin",
+  "/admin/settings": "nav.admin",
+  "/admin/reset-mpin": "nav.admin",
   "/history": "Matang History",
 };
 
@@ -37,7 +53,11 @@ export function AppHeader() {
 
   if (["/", "/login", "/register"].includes(pathname || "")) return null;
 
-  const titleKey = TITLES[pathname || ""] || Object.keys(TITLES).find((k) => pathname?.startsWith(k));
+  const exact = TITLES[pathname || ""];
+  const prefixKey = Object.keys(TITLES)
+    .filter((k) => k !== pathname && pathname?.startsWith(k + "/"))
+    .sort((a, b) => b.length - a.length)[0];
+  const titleKey = exact || (prefixKey ? TITLES[prefixKey] : null);
   const title = titleKey?.startsWith("nav.") ? t(titleKey) : titleKey || t("app.name");
 
   return (
@@ -51,13 +71,19 @@ export function AppHeader() {
     >
       <div className="h-0.5 bg-gradient-to-r from-transparent via-matang-gold to-transparent opacity-80" />
       <div className="px-3 py-2.5 flex items-center gap-2.5">
-        <button onClick={() => router.push("/history")} className="shrink-0 relative group" title="Matang Samaj History">
+        <button
+          onClick={() => router.push("/history")}
+          className="shrink-0 relative group"
+          title="Matang Samaj History"
+        >
           <Logo className="w-9 h-9 rounded-lg shadow-md ring-1 ring-matang-gold/40 group-active:scale-95 transition-transform" />
           <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-matang-gold rounded-full border border-matang-navy" />
         </button>
         <div className="flex-1 min-w-0">
           <p className="text-white font-semibold text-sm leading-tight truncate">{title}</p>
-          {user?.full_name && <p className="text-white/50 text-[10px] truncate">{user.full_name}</p>}
+          {user?.full_name && (
+            <p className="text-white/50 text-[10px] truncate">{user.full_name}</p>
+          )}
         </div>
         <LanguageToggle />
       </div>

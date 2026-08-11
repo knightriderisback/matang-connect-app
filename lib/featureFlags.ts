@@ -16,6 +16,8 @@ export interface FeatureFlags {
   panchang_enabled: boolean;
   mahila_enabled: boolean;
   polls_enabled: boolean;
+  arthik_enabled: boolean;
+  scan_enabled: boolean;
 }
 
 const DEFAULTS: FeatureFlags = {
@@ -33,6 +35,8 @@ const DEFAULTS: FeatureFlags = {
   panchang_enabled: true,
   mahila_enabled: true,
   polls_enabled: true,
+  arthik_enabled: true,
+  scan_enabled: true,
 };
 
 function parseFlags(data: any[]): FeatureFlags {

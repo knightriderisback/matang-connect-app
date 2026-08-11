@@ -1,10 +1,66 @@
 {
-  "app": { "name": "मातंग कनेक्ट", "tagline": "आपला समुदाय एकत्र आणणे" },
-  "nav": { "home": "होम", "census": "जनगणना", "profile": "प्रोफाइल", "sos": "एसओएस", "admin": "अॅडमिन", "directory": "निर्देशिका", "verify": "सत्यापित करा" },
-  "auth": { "login": "लॉगिन", "register": "नोंदणी", "phone": "फोन नंबर", "mpin": "एम-पिन", "confirmMpin": "एम-पिनची पुष्टी करा", "fullName": "पूर्ण नाव", "city": "शहर", "nativeVillage": "मूळ गाव", "submit": "सबमिट करा", "alreadyHaveAccount": "आधीच खाते आहे?", "dontHaveAccount": "खाते नाही?", "welcomeBack": "परत स्वागत", "createAccount": "खाते तयार करा", "verificationPending": "तुमचे खाते स्वयंसेवकाने सत्यापनासाठी प्रलंबित आहे." },
-  "census": { "title": "स्मार्ट फॅमिली जनगणना", "addFamily": "कुटुंब जोडा", "familyDetails": "कुटुंबाचा तपशील", "headOfFamily": "कुटुंब प्रमुख", "address": "पत्ता", "education": "शिक्षण सारांश", "employment": "रोजगार स्थिती", "needs": "कुटुंबाच्या गरजा", "addMember": "सदस्य जोडा", "memberName": "नाव", "relation": "नाते", "age": "वय", "educationLevel": "शिक्षण स्तर", "occupation": "व्यवसाय", "isUnemployed": "सध्या बेरोजगार", "needsCare": "काळजीची गरज/वृद्ध", "saveFamily": "कुटुंब जतन करा", "success": "कुटुंब यशस्वीरित्या नोंदणीकृत!" },
-  "profile": { "title": "माझे प्रोफाइल", "digitalId": "मातंग डिजिटल आयडी", "verified": "सत्यापित", "pending": "सत्यापन प्रलंबित", "role": "भूमिका", "qrCode": "QR कोड स्कॅन करा", "memberSince": "सदस्य तारीख", "myFamily": "माझे कुटुंब" },
-  "sos": { "title": "आणीबाणी एसओएस", "bloodRequest": "रक्त विनंती", "medicalEmergency": "वैद्यकीय आणीबाणी", "shareWhatsApp": "व्हाट्सअॅपवर शेअर करा", "tapAndHold": "3 सेकंदांसाठी दाबून ठेवा", "sosSent": "एसओएस अलर्ट समुदायाला पाठवला!" },
-  "admin": { "title": "अॅडमिन पॅनेल", "directory": "शहर निर्देशिका", "verifyUsers": "वापरकर्ते सत्यापित करा", "pendingUsers": "प्रलंबित सत्यापन", "filterBy": "फिल्टर करा", "village": "गाव", "education": "शिक्षण", "employment": "रोजगार", "verify": "सत्यापित करा", "reject": "नाकारा" },
-  "common": { "loading": "लोड होत आहे...", "error": "काहीतरी चुकीचे झाले", "retry": "पुन्हा प्रयत्न करा", "cancel": "रद्द करा", "save": "जतन करा", "delete": "हटवा", "edit": "संपादित करा", "search": "शोधा", "close": "बंद करा", "welcome": "मातंग कनेक्टमध्ये आपले स्वागत आहे!", "welcomeMessage": "आपण आता आमच्या डिजिटल कुटुंबाचा भाग आहात." }
+  "app": { "name": "मातंग कनेक्ट", "tagline": "आपल्या समुदायाला एकत्र आणणे" },
+  "nav": {
+    "home": "मुख्य", "census": "जनगणना", "profile": "प्रोफाइल", "sos": "एसओएस",
+    "admin": "अॅड्मिन", "directory": "निर्देशिका", "verify": "पडताळणी",
+    "care": "काळजी", "jobs": "नोकऱ्या", "notices": "सूचना", "kosh": "सहयोग",
+    "vyapar": "व्यापार", "matrimony": "विवाह", "dharohar": "वारसा",
+    "panchang": "पंचांग", "mahila": "महिला शक्ती", "polls": "मतदान",
+    "arthik": "आर्थिक विकास", "scan": "QR स्कॅन"
+  },
+  "auth": {
+    "login": "लॉगिन", "register": "नोंदणी", "phone": "फोन नंबर", "mpin": "एम-पिन",
+    "confirmMpin": "एम-पिनची पुष्टी", "fullName": "पूर्ण नाव", "city": "शहर",
+    "nativeVillage": "मूळ गाव", "submit": "सबमिट",
+    "alreadyHaveAccount": "आधीच खाते आहे?", "dontHaveAccount": "खाते नाही?",
+    "welcomeBack": "पुन्हा स्वागत", "createAccount": "खाते तयार करा",
+    "verificationPending": "तुमचे खाते स्वयंसेवक पडताळणीसाठी प्रलंबित आहे.",
+    "forgotMpin": "एम-पिन विसरलात? शहर स्वयंसेवकाशी संपर्क साधा."
+  },
+  "census": {
+    "title": "स्मार्ट कुटुंब जनगणना", "addFamily": "कुटुंब जोडा",
+    "familyDetails": "कुटुंबाचा तपशील", "headOfFamily": "कुटुंबप्रमुख",
+    "address": "पत्ता", "education": "शिक्षण सारांश", "employment": "रोजगार स्थिती",
+    "needs": "कुटुंबाच्या गरजा", "addMember": "सदस्य जोडा", "memberName": "नाव",
+    "relation": "नाते", "age": "वय", "educationLevel": "शिक्षण स्तर",
+    "occupation": "व्यवसाय", "isUnemployed": "सध्या बेरोजगार",
+    "needsCare": "काळजी आवश्यक/वृद्ध", "saveFamily": "कुटुंब जतन करा",
+    "success": "कुटुंब यशस्वीरित्या नोंदवले!", "dob": "जन्मतारीख",
+    "gender": "लिंग", "bloodGroup": "रक्तगट", "maritalStatus": "वैवाहिक स्थिती",
+    "phone": "फोन", "photo": "फोटो"
+  },
+  "profile": {
+    "title": "माझे प्रोफाइल", "digitalId": "मातंग डिजिटल आयडी",
+    "verified": "पडताळले", "pending": "पडताळणी प्रलंबित", "role": "भूमिका",
+    "qrCode": "तुमचा QR कोड", "memberSince": "सदस्य दिनांक", "myFamily": "माझे कुटुंब",
+    "scanQr": "सदस्य QR स्कॅन करा"
+  },
+  "sos": {
+    "title": "आपत्कालीन एसओएस", "bloodRequest": "रक्त विनंती",
+    "medicalEmergency": "वैद्यकीय आपत्काल", "shareWhatsApp": "व्हाट्सअॅपवर शेअर करा",
+    "tapAndHold": "३ सेकंद दाबून ठेवा", "sosSent": "एसओएस अलर्ट समुदायाला पाठवला!"
+  },
+  "admin": {
+    "title": "अॅड्मिन पॅनेल", "directory": "शहर निर्देशिका",
+    "verifyUsers": "वापरकर्ते पडताळा", "pendingUsers": "प्रलंबित पडताळणी",
+    "filterBy": "फिल्टर", "village": "गाव", "education": "शिक्षण",
+    "employment": "रोजगार", "verify": "पडताळा", "reject": "नकार"
+  },
+  "common": {
+    "loading": "लोड होत आहे...", "error": "काहीतरी चुकले", "retry": "पुन्हा प्रयत्न",
+    "cancel": "रद्द", "save": "जतन", "delete": "हटवा", "edit": "संपादन",
+    "search": "शोध", "close": "बंद", "welcome": "मातंग कनेक्टमध्ये स्वागत!",
+    "welcomeMessage": "तुम्ही आता आमच्या डिजिटल कुटुंबाचे सदस्य आहात.",
+    "submit": "सबमिट", "back": "मागे", "next": "पुढे", "skip": "वगळा", "done": "पूर्ण"
+  },
+  "onboarding": {
+    "step1Title": "मातंग कनेक्टमध्ये स्वागत",
+    "step1Body": "तुमच्या समुदायाचे डिजिटल घर — जनगणना, आपत्कालीन मदत, नोकऱ्या आणि संस्कृती.",
+    "step2Title": "जनगणना पूर्ण करा",
+    "step2Body": "कुटुंब नोंदवा जेणेकरून समुदाय शिक्षण, नोकरी आणि काळजीत मदत करू शकेल.",
+    "step3Title": "आपत्कालीन एसओएस",
+    "step3Body": "रक्त किंवा औषधासाठी जवळच्या स्वयंसेवकांना अलर्ट करण्यासाठी एसओएस बटण ३ सेकंद दाबा.",
+    "step4Title": "मॉड्यूल्स एक्सप्लोर करा",
+    "step4Body": "नोकऱ्या, सूचना, व्यापार, विवाह, वारसा आणि बरेच काही — सर्व शहर-स्कोप्ड आणि सुरक्षित."
+  }
 }

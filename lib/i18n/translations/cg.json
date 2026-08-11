@@ -1,10 +1,66 @@
 {
-  "app": { "name": "मातंग कनेक्ट", "tagline": "हमर समुदाय ला एकजुट करना" },
-  "nav": { "home": "होम", "census": "जनगणना", "profile": "प्रोफाइल", "sos": "एसओएस", "admin": "एडमिन", "directory": "निर्देशिका", "verify": "सत्यापित करव" },
-  "auth": { "login": "लॉग इन", "register": "पंजीकरण", "phone": "फोन नंबर", "mpin": "एम-पिन", "confirmMpin": "एम-पिन के पुष्टि", "fullName": "पूरा नाम", "city": "शहर", "nativeVillage": "मूल गांव", "submit": "जमा करव", "alreadyHaveAccount": "पहिले से खाता हे?", "dontHaveAccount": "खाता नइं हे?", "welcomeBack": "वापसी पर स्वागत", "createAccount": "खाता बनाव", "verificationPending": "आपके खाता स्वयंसेवक द्वारा सत्यापन के लिए लंबित हे।" },
-  "census": { "title": "स्मार्ट फैमिली जनगणना", "addFamily": "परिवार जोड़व", "familyDetails": "परिवार के विवरण", "headOfFamily": "परिवार के मुखिया", "address": "पता", "education": "शिक्षा सारांश", "employment": "रोजगार स्थिति", "needs": "परिवार के जरूरत", "addMember": "सदस्य जोड़व", "memberName": "नाम", "relation": "संबंध", "age": "उम्र", "educationLevel": "शिक्षा स्तर", "occupation": "पेशा", "isUnemployed": "अभी बेरोजगार", "needsCare": "देखभाल के जरूरत/बुजुर्ग", "saveFamily": "परिवार सहेजव", "success": "परिवार सफलतापूर्वक पंजीकृत!" },
-  "profile": { "title": "मोर प्रोफाइल", "digitalId": "मातंग डिजिटल आईडी", "verified": "सत्यापित", "pending": "सत्यापन लंबित", "role": "भूमिका", "qrCode": "QR कोड स्कैन करव", "memberSince": "सदस्य तिथि", "myFamily": "मोर परिवार" },
-  "sos": { "title": "आपातकालीन एसओएस", "bloodRequest": "रक्त अनुरोध", "medicalEmergency": "चिकित्सा आपातकाल", "shareWhatsApp": "व्हाट्सएप मं साझा करव", "tapAndHold": "3 सेकंड तक दबाए रखव", "sosSent": "एसओएस अलर्ट समुदाय ला भेजा गे!" },
-  "admin": { "title": "एडमिन पैनल", "directory": "शहर निर्देशिका", "verifyUsers": "उपयोगकर्ता सत्यापित करव", "pendingUsers": "लंबित सत्यापन", "filterBy": "फिल्टर करव", "village": "गांव", "education": "शिक्षा", "employment": "रोजगार", "verify": "सत्यापित करव", "reject": "अस्वीकार करव" },
-  "common": { "loading": "लोड होवत हे...", "error": "कुछ गलत होगे", "retry": "फेर से कोशिश करव", "cancel": "रद्द करव", "save": "सहेजव", "delete": "हटाव", "edit": "संपादित करव", "search": "खोजव", "close": "बंद करव", "welcome": "मातंग कनेक्ट मं आपका स्वागत हे!", "welcomeMessage": "आप अब हमर डिजिटल परिवार के हिस्सा हो।" }
+  "app": { "name": "मातंग कनेक्ट", "tagline": "हमर समुदाय ल एकजुट करना" },
+  "nav": {
+    "home": "होम", "census": "जनगणना", "profile": "प्रोफाइल", "sos": "एसओएस",
+    "admin": "एडमिन", "directory": "निर्देशिका", "verify": "सत्यापन",
+    "care": "देखभाल", "jobs": "नौकरी", "notices": "सूचना", "kosh": "सहयोग",
+    "vyapar": "व्यापार", "matrimony": "बिहाव", "dharohar": "धरोहर",
+    "panchang": "पंचांग", "mahila": "महिला शक्ति", "polls": "मतदान",
+    "arthik": "आर्थिक विकास", "scan": "QR स्कैन"
+  },
+  "auth": {
+    "login": "लॉग इन", "register": "पंजीकरण", "phone": "फोन नंबर", "mpin": "एम-पिन",
+    "confirmMpin": "एम-पिन के पुष्टि", "fullName": "पूरा नाम", "city": "शहर",
+    "nativeVillage": "मूल गाँव", "submit": "जमा करव",
+    "alreadyHaveAccount": "पहिलें ले खाता हे?", "dontHaveAccount": "खाता नइं हे?",
+    "welcomeBack": "वापसी मं स्वागत", "createAccount": "खाता बनाव",
+    "verificationPending": "आप मन के खाता स्वयंसेवक के सत्यापन बर लंबित हे।",
+    "forgotMpin": "एम-पिन भूल गेव? शहर स्वयंसेवक ले संपर्क करव।"
+  },
+  "census": {
+    "title": "स्मार्ट परिवार जनगणना", "addFamily": "परिवार जोड़व",
+    "familyDetails": "परिवार के विवरण", "headOfFamily": "परिवार के मुखिया",
+    "address": "पता", "education": "शिक्षा सारांश", "employment": "रोजगार स्थिति",
+    "needs": "परिवार के जरूरत", "addMember": "सदस्य जोड़व", "memberName": "नाम",
+    "relation": "संबंध", "age": "उम्र", "educationLevel": "शिक्षा स्तर",
+    "occupation": "पेशा", "isUnemployed": "अभी बेरोजगार",
+    "needsCare": "देखभाल के जरूरत/बुजुर्ग", "saveFamily": "परिवार सहेजव",
+    "success": "परिवार सफलतापूर्वक पंजीकृत!", "dob": "जन्म तारीख",
+    "gender": "लिंग", "bloodGroup": "खून समूह", "maritalStatus": "वैवाहिक स्थिति",
+    "phone": "फोन", "photo": "फोटो"
+  },
+  "profile": {
+    "title": "मोर प्रोफाइल", "digitalId": "मातंग डिजिटल आईडी",
+    "verified": "सत्यापित", "pending": "सत्यापन लंबित", "role": "भूमिका",
+    "qrCode": "आप मन के QR कोड", "memberSince": "सदस्य तारीख", "myFamily": "मोर परिवार",
+    "scanQr": "सदस्य QR स्कैन करव"
+  },
+  "sos": {
+    "title": "आपातकालीन एसओएस", "bloodRequest": "खून के अनुरोध",
+    "medicalEmergency": "चिकित्सा आपातकाल", "shareWhatsApp": "व्हाट्सएप मं साझा करव",
+    "tapAndHold": "३ सेकंड बर दबाए रखव", "sosSent": "एसओएस अलर्ट समुदाय ल भेजा गे!"
+  },
+  "admin": {
+    "title": "एडमिन पैनल", "directory": "शहर निर्देशिका",
+    "verifyUsers": "उपयोगकर्ता सत्यापित करव", "pendingUsers": "लंबित सत्यापन",
+    "filterBy": "फिल्टर करव", "village": "गाँव", "education": "शिक्षा",
+    "employment": "रोजगार", "verify": "सत्यापित करव", "reject": "अस्वीकार"
+  },
+  "common": {
+    "loading": "लोड होवत हे...", "error": "कुछ गलत हो गे", "retry": "फिर ले कोशिश",
+    "cancel": "रद्द", "save": "सहेजव", "delete": "हटाव", "edit": "संपादित",
+    "search": "खोजव", "close": "बंद", "welcome": "मातंग कनेक्ट मं आप मन के स्वागत हे!",
+    "welcomeMessage": "आप मन अब हमर डिजिटल परिवार के हिस्सा हव।",
+    "submit": "जमा करव", "back": "वापस", "next": "अगला", "skip": "छोड़व", "done": "पूरा"
+  },
+  "onboarding": {
+    "step1Title": "मातंग कनेक्ट मं स्वागत",
+    "step1Body": "आप मन के समुदाय के डिजिटल घर — जनगणना, आपातकालीन मदद, नौकरी अउ संस्कृति।",
+    "step2Title": "जनगणना पूरा करव",
+    "step2Body": "परिवार पंजीकृत करव ताकि समुदाय शिक्षा, नौकरी अउ देखभाल मं मदद कर सके।",
+    "step3Title": "आपातकालीन एसओएस",
+    "step3Body": "खून या दवाई बर पास के स्वयंसेवक ल अलर्ट करे बर एसओएस बटन ३ सेकंड दबाव।",
+    "step4Title": "मॉड्यूल देखव",
+    "step4Body": "नौकरी, सूचना, व्यापार, बिहाव, धरोहर अउ बहुत कुछ — सब शहर-स्कोप्ड अउ सुरक्षित।"
+  }
 }

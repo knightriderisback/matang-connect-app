@@ -165,7 +165,13 @@ export default function ProfilePage() {
             <div className="bg-white p-3 rounded-xl border">
               <QRCodeSVG value={`https://matang-connect.vercel.app/u/${user.qr_code_id}`} size={160} level="M" />
             </div>
-            <p className="text-xs text-gray-500 text-center max-w-xs">QR scan planned in Stage 2.</p>
+            <p className="text-xs text-gray-500 text-center max-w-xs">Show this QR at community events for verification.</p>
+            <button
+              onClick={() => router.push("/scan")}
+              className="text-sm text-matang-gold font-medium flex items-center gap-1"
+            >
+              <QrCode size={14} /> {t("profile.scanQr")}
+            </button>
           </CardContent>
         </Card>
       )}
