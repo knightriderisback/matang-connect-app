@@ -3,6 +3,8 @@ import "./globals.css";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import { ToastProvider } from "@/components/ui/Toaster";
 import { BottomNav } from "@/components/shared/BottomNav";
+import { AppHeader } from "@/components/shared/AppHeader";
+import { FloatingLogo } from "@/components/shared/FloatingLogo";
 
 export const metadata: Metadata = {
   title: "Matang Connect",
@@ -27,9 +29,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <LanguageProvider>
           <ToastProvider>
             <div className="min-h-screen flex justify-center bg-gray-100 md:bg-gray-200">
-              <div className="w-full max-w-lg min-h-screen bg-matang-cream shadow-xl md:shadow-2xl relative">
-                <main className="pb-20">{children}</main>
+              <div
+                data-scroll-root
+                className="w-full max-w-lg h-[100dvh] overflow-y-auto bg-matang-cream shadow-xl md:shadow-2xl relative"
+              >
+                <AppHeader />
+                <main className="pb-4 min-h-[calc(100dvh-8rem)]">{children}</main>
                 <BottomNav />
+                <FloatingLogo />
               </div>
             </div>
           </ToastProvider>

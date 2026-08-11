@@ -8,7 +8,7 @@ export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
-  if (["/login", "/register", "/"].includes(pathname || "")) return null;
+  if (["/login", "/register", "/", "/history"].includes(pathname || "")) return null;
 
   const items = [
     { icon: Home, label: t("nav.home"), href: "/dashboard" },
@@ -19,7 +19,7 @@ export function BottomNav() {
   ];
 
   return (
-    <nav className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
+    <nav className="sticky bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 z-40">
       <div className="flex justify-around items-center h-16 px-1">
         {items.map((item) => {
           const active = pathname === item.href || pathname?.startsWith(item.href + "/");
