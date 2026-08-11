@@ -113,9 +113,14 @@ export default function AdminDirectoryPage() {
           </button>
         ))}
       </div>
-      <Button variant="outline" className="w-full text-sm" onClick={() => { window.location.href = "/admin/verify"; }}>
-        Go to Verify Pending Users →
-      </Button>
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant="outline" className="w-full text-sm" onClick={() => { window.location.href = "/admin/verify"; }}>
+          Verify Users →
+        </Button>
+        <Button variant="outline" className="w-full text-sm" onClick={() => { window.location.href = "/admin/reset-mpin"; }}>
+          Reset M-PIN →
+        </Button>
+      </div>
     </div>
   );
 }
