@@ -1,70 +1,128 @@
 "use client";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useToast } from "@/components/ui/Toaster";
 import { QRCodeSVG } from "qrcode.react";
-import { LogOut, Shield, MapPin, Phone } from "lucide-react";
+import { LogOut, Shield, MapPin, Phone, Pencil, Save, QrCode } from "lucide-react";
+
+const ROLE_STYLE: Record<string, { label: string; gradient: string; badge: string }> = {
+  super_admin: { label: "Super Admin", gradient: "from-matang-navy via-blue-900 to-purple-900", badge: "bg-matang-gold text-matang-navy" },
+  core_committee: { label: "Core Committee", gradient: "from-indigo-800 to-matang-navy", badge: "bg-indigo-200 text-indigo-900" },
+  volunteer: { label: "Volunteer", gradient: "from-emerald-700 to-teal-800", badge: "bg-emerald-100 text-emerald-800" },
+  normal: { label: "Member", gradient: "from-matang-navy to-blue-900", badge: "bg-white/20 text-white" },
+};
 
 export default function ProfilePage() {
   const { t } = useI18n();
   const router = useRouter();
+  const { toast } = useToast();
   const { user, loading } = useCurrentUser();
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ full_name: "", native_village: "" });
+
+  const startEdit = () => {
+    setForm({ full_name: user?.full_name || "", native_village: user?.native_village || "" });
+    setEditing(true);
+  };
+
+  const saveProfile = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/profile/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) { const e = await res.json(); toast(e.error || "Update failed", "error"); return; }
+      toast("Profile updated", "success");
+      setEditing(false);
+      window.location.reload();
+    } catch { toast(t("common.error"), "error"); }
+    finally { setSaving(false); }
+  };
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
   };
 
-  const roleLabels: Record<string, string> = {
-    normal: "Member", volunteer: "Volunteer",
-    core_committee: "Core Committee", super_admin: "Super Admin",
-  };
-
   if (loading) return <div className="p-8 text-center text-gray-500">{t("common.loading")}</div>;
+  const style = ROLE_STYLE[user?.role || "normal"] || ROLE_STYLE.normal;
 
   return (
     <div className="p-4 space-y-4">
-      <h1 className="text-xl font-bold text-matang-navy">{t("profile.title")}</h1>
-      <Card className="border-2 border-matang-gold overflow-hidden">
-        <div className="bg-gradient-to-r from-matang-navy to-blue-900 p-4 text-white">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-matang-navy">{t("profile.title")}</h1>
+        {!editing && (
+          <button onClick={startEdit} className="flex items-center gap-1 text-sm text-matang-gold font-medium">
+            <Pencil size={14} /> Edit
+          </button>
+        )}
+      </div>
+
+      <Card className="border-2 border-matang-gold/40 overflow-hidden shadow-md">
+        <div className={`bg-gradient-to-r ${style.gradient} p-4 text-white`}>
           <div className="flex items-center justify-between mb-4">
-            <span className="font-bold text-matang-gold">🪷 {t("profile.digitalId")}</span>
-            {user?.verification_status === "verified" && (
-              <span className="bg-green-500 text-xs px-2 py-1 rounded-full">✓ {t("profile.verified")}</span>
-            )}
+            <span className="font-bold text-matang-gold text-sm">🪷 {t("profile.digitalId")}</span>
+            <span className={`text-xs px-2 py-1 rounded-full font-medium ${style.badge}`}>{style.label}</span>
           </div>
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center text-3xl font-bold">
+            <div className="w-16 h-16 bg-white/15 rounded-full flex items-center justify-center text-2xl font-bold border-2 border-matang-gold/50">
               {user?.full_name?.[0] || "?"}
             </div>
-            <div>
-              <h2 className="text-xl font-bold">{user?.full_name}</h2>
-              <p className="text-white/70 text-sm flex items-center gap-1"><MapPin size={14} /> {user?.native_village}</p>
-              <p className="text-white/70 text-sm flex items-center gap-1"><Phone size={14} /> {user?.phone}</p>
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold truncate">{user?.full_name}</h2>
+              <p className="text-white/70 text-sm flex items-center gap-1"><MapPin size={12} /> {user?.native_village}</p>
+              <p className="text-white/70 text-sm flex items-center gap-1"><Phone size={12} /> {user?.phone}</p>
             </div>
           </div>
+          {user?.verification_status === "verified" && (
+            <span className="inline-block mt-3 bg-green-500/90 text-white text-xs px-2 py-0.5 rounded-full">✓ Verified</span>
+          )}
         </div>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex justify-between">
-            <span className="text-gray-500">{t("profile.role")}</span>
-            <span className="font-medium flex items-center gap-1"><Shield size={14} /> {roleLabels[user?.role || "normal"]}</span>
-          </div>
-          <div className="flex justify-between"><span className="text-gray-500">City</span><span className="font-medium">{user?.cities?.name || "-"}</span></div>
-          <div className="flex justify-between"><span className="text-gray-500">QR ID</span><span className="font-mono text-xs">{user?.qr_code_id}</span></div>
-        </CardContent>
+
+        {editing ? (
+          <CardContent className="p-4 space-y-3">
+            <Input label="Full Name" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+            <Input label="Native Village" value={form.native_village} onChange={(e) => setForm({ ...form, native_village: e.target.value })} />
+            <p className="text-xs text-gray-400">Phone cannot be changed here (security).</p>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setEditing(false)}>Cancel</Button>
+              <Button className="flex-1" isLoading={saving} onClick={saveProfile}><Save size={16} /> Save</Button>
+            </div>
+          </CardContent>
+        ) : (
+          <CardContent className="p-4 space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-gray-500">City</span><span className="font-medium">{user?.cities?.name || "-"}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">QR ID</span><span className="font-mono text-xs">{user?.qr_code_id}</span></div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500">Role</span>
+              <span className="font-medium flex items-center gap-1"><Shield size={14} /> {style.label}</span>
+            </div>
+          </CardContent>
+        )}
       </Card>
+
       {user?.qr_code_id && (
         <Card>
-          <CardHeader><CardTitle>{t("profile.qrCode")}</CardTitle></CardHeader>
-          <CardContent className="flex justify-center py-4">
+          <CardHeader><CardTitle className="flex items-center gap-2"><QrCode size={18} /> {t("profile.qrCode")}</CardTitle></CardHeader>
+          <CardContent className="flex flex-col items-center py-4 gap-2">
             <div className="bg-white p-3 rounded-xl border">
-              <QRCodeSVG value={user.qr_code_id} size={160} level="M" />
+              <QRCodeSVG value={`https://matang-connect.vercel.app/u/${user.qr_code_id}`} size={160} level="M" />
             </div>
+            <p className="text-xs text-gray-500 text-center max-w-xs">
+              QR scan planned in Stage 2 — Volunteer/Admin scan at events to verify membership.
+            </p>
           </CardContent>
         </Card>
       )}
+
       <Button variant="danger" className="w-full" onClick={handleLogout}>
         <LogOut size={18} /> Logout
       </Button>

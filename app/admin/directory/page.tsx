@@ -1,18 +1,21 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useToast } from "@/components/ui/Toaster";
-import { MapPin, Phone, Search } from "lucide-react";
+import { MapPin, Phone, Search, ChevronLeft, Shield, Users } from "lucide-react";
 
 interface DirectoryUser {
   id: string;
   full_name: string;
   phone: string;
   native_village: string;
+  role?: string;
+  qr_code_id?: string;
   cities: { name: string } | null;
-  families: { education_summary: string; employment_status: string; family_members: any[] }[];
+  families: { education_summary: string; employment_status: string; address?: string; needs?: string[]; family_members: { name: string; relation: string; age?: number; blood_group?: string; occupation?: string }[] }[];
 }
 
 export default function AdminDirectoryPage() {
@@ -22,6 +25,7 @@ export default function AdminDirectoryPage() {
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<DirectoryUser | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/directory")
@@ -34,40 +38,84 @@ export default function AdminDirectoryPage() {
   const filtered = users.filter(
     (u) =>
       u.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-      u.native_village?.toLowerCase().includes(search.toLowerCase())
+      u.native_village?.toLowerCase().includes(search.toLowerCase()) ||
+      u.phone?.includes(search)
   );
+
+  if (selected) {
+    const fam = selected.families?.[0];
+    return (
+      <div className="p-4 space-y-4">
+        <button onClick={() => setSelected(null)} className="flex items-center gap-1 text-sm text-matang-gold font-medium">
+          <ChevronLeft size={16} /> Back to Directory
+        </button>
+        <Card className="overflow-hidden border-matang-gold/30">
+          <div className="bg-gradient-to-r from-matang-navy to-blue-900 p-4 text-white">
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 bg-white/15 rounded-full flex items-center justify-center text-xl font-bold">{selected.full_name?.[0]}</div>
+              <div>
+                <h2 className="text-lg font-bold">{selected.full_name}</h2>
+                <p className="text-sm text-white/70 flex items-center gap-1"><Shield size={12} /> {selected.role || "member"}</p>
+              </div>
+            </div>
+          </div>
+          <CardContent className="p-4 space-y-2 text-sm">
+            <p className="flex items-center gap-2"><Phone size={14} className="text-gray-400" /> {selected.phone}</p>
+            <p className="flex items-center gap-2"><MapPin size={14} className="text-gray-400" /> {selected.native_village} · {selected.cities?.name || "-"}</p>
+            {selected.qr_code_id && <p className="text-xs font-mono text-gray-500">QR: {selected.qr_code_id}</p>}
+            {fam && (
+              <div className="mt-3 pt-3 border-t space-y-1">
+                <p className="font-semibold text-matang-navy flex items-center gap-1"><Users size={14} /> Family</p>
+                <p>Employment: {fam.employment_status || "-"}</p>
+                <p>Education: {fam.education_summary || "-"}</p>
+                {fam.address && <p>Address: {fam.address}</p>}
+                {(fam.family_members || []).map((m, i) => (
+                  <p key={i} className="text-gray-600">• {m.name} ({m.relation}{m.age ? `, ${m.age}y` : ""})</p>
+                ))}
+              </div>
+            )}
+            {!fam && <p className="text-gray-400 mt-2">No census data yet</p>}
+          </CardContent>
+        </Card>
+        <Button variant="outline" className="w-full" onClick={() => window.open(`tel:${selected.phone}`)}>
+          <Phone size={16} /> Call {selected.phone}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-4">
       <div>
         <h1 className="text-xl font-bold text-matang-navy">City Directory</h1>
-        {user?.role === "core_committee" && <p className="text-sm text-gray-500">Showing your city only</p>}
+        <p className="text-xs text-gray-400 mt-0.5">Tap a member to view full profile</p>
       </div>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name or village..."
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-matang-gold focus:outline-none"
-        />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, village, phone..."
+          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-matang-gold focus:outline-none bg-white" />
       </div>
       {loading && <p className="text-gray-400 text-center py-8">Loading...</p>}
       {!loading && filtered.length === 0 && <p className="text-gray-400 text-center py-8">No members found</p>}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {filtered.map((u) => (
-          <Card key={u.id}>
-            <CardContent className="p-4">
-              <p className="font-bold text-matang-navy">{u.full_name}</p>
-              <p className="text-sm text-gray-500 flex items-center gap-1"><Phone size={13} /> {u.phone}</p>
-              <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin size={13} /> {u.native_village} • {u.cities?.name || "-"}</p>
-              {u.families?.[0] && (
-                <p className="text-xs text-gray-400 mt-1">{u.families[0].employment_status} • {u.families[0].family_members?.length || 0} family members</p>
-              )}
-            </CardContent>
-          </Card>
+          <button key={u.id} onClick={() => setSelected(u)} className="w-full text-left">
+            <Card className="hover:border-matang-gold/50 transition-colors active:scale-[0.99]">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="w-10 h-10 bg-matang-navy text-white rounded-full flex items-center justify-center font-bold text-sm shrink-0">{u.full_name?.[0]}</div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-matang-navy truncate">{u.full_name}</p>
+                  <p className="text-xs text-gray-500 truncate">{u.native_village} · {u.cities?.name || "-"}</p>
+                </div>
+                <span className="text-gray-300 text-lg">›</span>
+              </CardContent>
+            </Card>
+          </button>
         ))}
       </div>
+      <Button variant="outline" className="w-full text-sm" onClick={() => { window.location.href = "/admin/verify"; }}>
+        Go to Verify Pending Users →
+      </Button>
     </div>
   );
 }
