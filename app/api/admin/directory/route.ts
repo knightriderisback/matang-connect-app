@@ -11,7 +11,7 @@ export async function GET() {
   const supabase = createAdminClient();
   let query = supabase
     .from("users")
-    .select("id, full_name, phone, native_village, city_id, cities(name), families(education_summary, employment_status, family_members(name, relation))")
+    .select("id, full_name, phone, native_village, role, qr_code_id, verification_status, city_id, cities(name), families(education_summary, employment_status, address, needs, family_members(name, relation, age, blood_group, occupation))")
     .eq("verification_status", "verified")
     .order("created_at", { ascending: false });
 
@@ -20,6 +20,14 @@ export async function GET() {
   }
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: "Could not load directory" }, { status: 500 });
+  if (error) {
+    const { data: d2, error: e2 } = await supabase
+      .from("users")
+      .select("id, full_name, phone, native_village, role, city_id, cities(name), families(education_summary, employment_status, family_members(name, relation))")
+      .eq("verification_status", "verified")
+      .order("created_at", { ascending: false });
+    if (e2) return NextResponse.json({ error: "Could not load directory" }, { status: 500 });
+    return NextResponse.json({ users: d2 });
+  }
   return NextResponse.json({ users: data });
 }

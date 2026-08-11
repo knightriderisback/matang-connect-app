@@ -34,7 +34,7 @@ export default function LoginPage() {
       toast("Login successful!", "success");
       router.push("/dashboard");
       router.refresh();
-    } catch (err) {
+    } catch {
       toast(t("common.error"), "error");
     } finally {
       setLoading(false);
@@ -45,7 +45,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-matang-cream flex flex-col">
       <div className="p-4 flex justify-end"><LanguageToggle /></div>
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
-        <div className="w-20 h-20 bg-matang-gold rounded-2xl flex items-center justify-center mb-6 shadow-lg"><span className="text-4xl">🪷</span></div>
+        <img src="/logo.svg" alt="Matang Connect" className="w-20 h-20 rounded-2xl object-cover shadow-lg mb-5 bg-matang-navy" />
         <h1 className="text-2xl font-bold text-matang-navy mb-1">{t("app.name")}</h1>
         <p className="text-gray-500 mb-8">{t("app.tagline")}</p>
         <form onSubmit={handleLogin} className="w-full max-w-sm space-y-4">
@@ -53,7 +53,13 @@ export default function LoginPage() {
           <Input label={t("auth.mpin")} type="password" placeholder="****" maxLength={4} value={mpin} onChange={(e) => setMpin(e.target.value)} required />
           <Button type="submit" className="w-full" isLoading={loading}>{t("auth.login")}</Button>
         </form>
-        <p className="mt-6 text-sm text-gray-500">{t("auth.dontHaveAccount")}{" "}<button onClick={() => router.push("/register")} className="text-matang-gold font-semibold">{t("auth.register")}</button></p>
+        <p className="mt-4 text-xs text-gray-400 text-center max-w-xs">
+          Forgot M-PIN? Contact Volunteer / Core Committee / Super Admin — they can reset it from Admin tools.
+        </p>
+        <p className="mt-4 text-sm text-gray-500">
+          {t("auth.dontHaveAccount")}{" "}
+          <button onClick={() => router.push("/register")} className="text-matang-gold font-semibold">{t("auth.register")}</button>
+        </p>
       </div>
     </div>
   );
