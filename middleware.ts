@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { verifySessionToken, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 
 const ADMIN_ROLES = ["core_committee", "super_admin"];
+const STAFF_ROLES = ["volunteer", "core_committee", "super_admin"];
 const PUBLIC_ROUTES = ["/", "/login", "/register", "/history"];
 
 export async function middleware(request: NextRequest) {
@@ -41,7 +42,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (pathname.startsWith("/admin") && !ADMIN_ROLES.includes(session.role)) {
+  // Volunteers + committee + super admin can access admin tools
+  if (pathname.startsWith("/admin") && !STAFF_ROLES.includes(session.role)) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
