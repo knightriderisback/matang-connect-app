@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -8,7 +8,7 @@ import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useToast } from "@/components/ui/Toaster";
 import { QRCodeSVG } from "qrcode.react";
-import { LogOut, Shield, MapPin, Phone, Pencil, Save, QrCode } from "lucide-react";
+import { LogOut, Shield, MapPin, Phone, Pencil, Save, QrCode, Camera } from "lucide-react";
 
 const ROLE_STYLE: Record<string, { label: string; gradient: string; badge: string }> = {
   super_admin: { label: "Super Admin", gradient: "from-matang-navy via-blue-900 to-purple-900", badge: "bg-matang-gold text-matang-navy" },
@@ -22,16 +22,48 @@ export default function ProfilePage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user, loading } = useCurrentUser();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ full_name: "", native_village: "" });
+  const [form, setForm] = useState({ full_name: "", native_village: "", photo: "" });
 
   const startEdit = () => {
-    setForm({ full_name: user?.full_name || "", native_village: user?.native_village || "" });
+    setForm({
+      full_name: user?.full_name || "",
+      native_village: user?.native_village || "",
+      photo: (user as any)?.photo_url || "",
+    });
     setEditing(true);
   };
 
+  const onPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { toast("Max 5MB", "error"); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const max = 600;
+        let w = img.width, h = img.height;
+        if (w > max || h > max) {
+          if (w > h) { h = Math.round((h * max) / w); w = max; }
+          else { w = Math.round((w * max) / h); h = max; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        setForm((prev) => ({ ...prev, photo: canvas.toDataURL("image/jpeg", 0.75) }));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(f);
+  };
+
   const saveProfile = async () => {
+    if (!form.full_name.trim() || !form.native_village.trim()) {
+      toast("Name and village required", "error"); return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/profile/update", {
@@ -39,12 +71,19 @@ export default function ProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      if (!res.ok) { const e = await res.json(); toast(e.error || "Update failed", "error"); return; }
+      if (!res.ok) {
+        const e = await res.json();
+        toast(e.error || "Update failed", "error");
+        return;
+      }
       toast("Profile updated", "success");
       setEditing(false);
       window.location.reload();
-    } catch { toast(t("common.error"), "error"); }
-    finally { setSaving(false); }
+    } catch {
+      toast(t("common.error"), "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -54,11 +93,12 @@ export default function ProfilePage() {
 
   if (loading) return <div className="p-8 text-center text-gray-500">{t("common.loading")}</div>;
   const style = ROLE_STYLE[user?.role || "normal"] || ROLE_STYLE.normal;
+  const photo = form.photo || (user as any)?.photo_url;
 
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-matang-navy">{t("profile.title")}</h1>
+        <h1 className="text-lg font-bold text-matang-navy">{t("profile.title")}</h1>
         {!editing && (
           <button onClick={startEdit} className="flex items-center gap-1 text-sm text-matang-gold font-medium">
             <Pencil size={14} /> Edit
@@ -73,8 +113,17 @@ export default function ProfilePage() {
             <span className={`text-xs px-2 py-1 rounded-full font-medium ${style.badge}`}>{style.label}</span>
           </div>
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-white/15 rounded-full flex items-center justify-center text-2xl font-bold border-2 border-matang-gold/50">
-              {user?.full_name?.[0] || "?"}
+            <div className="relative">
+              <div className="w-16 h-16 bg-white/15 rounded-full flex items-center justify-center text-2xl font-bold border-2 border-matang-gold/50 overflow-hidden">
+                {photo ? <img src={photo} alt="" className="w-full h-full object-cover" /> : (user?.full_name?.[0] || "?")}
+              </div>
+              {editing && (
+                <button type="button" onClick={() => fileRef.current?.click()}
+                  className="absolute -bottom-1 -right-1 w-7 h-7 bg-matang-gold rounded-full flex items-center justify-center text-matang-navy">
+                  <Camera size={14} />
+                </button>
+              )}
+              <input ref={fileRef} type="file" accept="image/*" capture="user" className="hidden" onChange={onPhoto} />
             </div>
             <div className="min-w-0">
               <h2 className="text-lg font-bold truncate">{user?.full_name}</h2>
@@ -89,8 +138,8 @@ export default function ProfilePage() {
 
         {editing ? (
           <CardContent className="p-4 space-y-3">
-            <Input label="Full Name" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
-            <Input label="Native Village" value={form.native_village} onChange={(e) => setForm({ ...form, native_village: e.target.value })} />
+            <Input label="Full Name *" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required />
+            <Input label="Native Village *" value={form.native_village} onChange={(e) => setForm({ ...form, native_village: e.target.value })} required />
             <p className="text-xs text-gray-400">Phone cannot be changed here (security).</p>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setEditing(false)}>Cancel</Button>
@@ -116,9 +165,7 @@ export default function ProfilePage() {
             <div className="bg-white p-3 rounded-xl border">
               <QRCodeSVG value={`https://matang-connect.vercel.app/u/${user.qr_code_id}`} size={160} level="M" />
             </div>
-            <p className="text-xs text-gray-500 text-center max-w-xs">
-              QR scan planned in Stage 2 — Volunteer/Admin scan at events to verify membership.
-            </p>
+            <p className="text-xs text-gray-500 text-center max-w-xs">QR scan planned in Stage 2.</p>
           </CardContent>
         </Card>
       )}
