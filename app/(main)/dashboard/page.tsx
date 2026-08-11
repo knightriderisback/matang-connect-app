@@ -21,12 +21,12 @@ export default function DashboardPage() {
   }, []);
 
   const actions = [
-    { icon: Users, label: t("nav.census"), href: "/census", color: "bg-blue-100 text-blue-600" },
-    { icon: AlertTriangle, label: t("nav.sos"), href: "/sos", color: "bg-red-100 text-red-600" },
-    { icon: Briefcase, label: "Jobs", href: "/jobs", color: "bg-green-100 text-green-600" },
-    { icon: Bell, label: "Notices", href: "/notices", color: "bg-yellow-100 text-yellow-600" },
-    { icon: Heart, label: "Sahyog", href: "/kosh", color: "bg-pink-100 text-pink-600" },
-    { icon: BookOpen, label: "Directory", href: "/admin/directory", color: "bg-purple-100 text-purple-600" },
+    { icon: Users, label: t("nav.census"), href: "/census", color: "bg-blue-100 text-blue-600", stage: 1 },
+    { icon: AlertTriangle, label: t("nav.sos"), href: "/sos", color: "bg-red-100 text-red-600", stage: 1 },
+    { icon: Briefcase, label: "Jobs", href: "/jobs", color: "bg-green-100 text-green-600", stage: 2 },
+    { icon: Bell, label: "Notices", href: "/notices", color: "bg-yellow-100 text-yellow-600", stage: 2 },
+    { icon: Heart, label: "Sahyog", href: "/kosh", color: "bg-pink-100 text-pink-600", stage: 2 },
+    { icon: BookOpen, label: "Directory", href: "/admin/directory", color: "bg-purple-100 text-purple-600", stage: 1 },
   ];
 
   if (loading) return <div className="p-8 text-center text-gray-500">{t("common.loading")}</div>;
@@ -67,7 +67,10 @@ export default function DashboardPage() {
           <div className="grid grid-cols-3 gap-2.5">
             {actions.map((a) => (
               <button key={a.href} onClick={() => router.push(a.href)}
-                className="flex flex-col items-center gap-1.5 p-3 bg-white rounded-2xl shadow-sm border border-gray-100 active:scale-95">
+                className="relative flex flex-col items-center gap-1.5 p-3 bg-white rounded-2xl shadow-sm border border-gray-100 active:scale-95">
+                {a.stage === 2 && (
+                  <span className="absolute -top-1 -right-1 text-[8px] font-bold bg-matang-gold text-matang-navy px-1.5 py-0.5 rounded-full">S2</span>
+                )}
                 <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${a.color}`}><a.icon size={20} /></div>
                 <span className="text-[11px] font-medium text-gray-700">{a.label}</span>
               </button>
