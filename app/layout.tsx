@@ -5,6 +5,7 @@ import { ToastProvider } from "@/components/ui/Toaster";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { FloatingLogo } from "@/components/shared/FloatingLogo";
+import { MatangAI } from "@/components/shared/MatangAI";
 
 export const metadata: Metadata = {
   title: "Matang Connect",
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </main>
                 <BottomNav />
                 <FloatingLogo />
+                <MatangAI />
               </div>
             </div>
           </ToastProvider>

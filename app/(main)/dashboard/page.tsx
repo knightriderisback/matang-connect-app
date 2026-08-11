@@ -9,7 +9,7 @@ import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Users, AlertTriangle, Briefcase, Bell, Heart, BookOpen, Shield, HeartHandshake,
-  Store, Landmark, Calendar, Flower2, BarChart3, TrendingUp, QrCode,
+  Store, Landmark, Calendar, Flower2, BarChart3, TrendingUp, QrCode, Sparkles,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -52,6 +52,7 @@ export default function DashboardPage() {
       <div className="p-4 space-y-4">
         <div>
           <p className="text-sm text-gray-500">Welcome,</p>
+          <p className="text-[11px] text-matang-gold/90 flex items-center gap-1 mt-0.5"><Sparkles size={12} /> Matang AI — left bottom chat button</p>
           <h2 className="text-xl font-bold text-matang-navy flex items-center gap-2 flex-wrap">
             {user?.full_name || "..."}
             {user?.role === "super_admin" && (
