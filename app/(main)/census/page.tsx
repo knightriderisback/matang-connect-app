@@ -94,13 +94,19 @@ export default function CensusPage() {
     const f = e.target.files?.[0];
     if (!f) return;
     if (f.size > 5 * 1024 * 1024) { toast("Max 5MB image", "error"); return; }
-    try { setFamilyPhoto(await compressImage(f)); } catch { toast("Could not read image", "error"); }
+    try {
+      const data = await compressImage(f);
+      setFamilyPhoto(data);
+    } catch { toast("Could not read image", "error"); }
   };
 
   const onMemberPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    try { setCur((c) => ({ ...c, photo: await compressImage(f) })); } catch { toast("Could not read image", "error"); }
+    try {
+      const data = await compressImage(f);
+      setCur((c) => ({ ...c, photo: data }));
+    } catch { toast("Could not read image", "error"); }
   };
 
   const save = async () => {
