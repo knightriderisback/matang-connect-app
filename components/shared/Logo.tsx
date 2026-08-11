@@ -1,0 +1,28 @@
+"use client";
+
+/** Matang golden tree mark — always available */
+export function Logo({ className = "w-10 h-10", title = "Matang Connect" }: { className?: string; title?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" className={className} role="img" aria-label={title}>
+      <rect width="200" height="200" rx="20" fill="#0a1628" />
+      <g fill="#c9a227" transform="translate(100 105)">
+        <path d="M-32 28 L-32 -18 L-14 -42 L0 -18 L14 -42 L32 -18 L32 28 L20 28 L20 -6 L8 -24 L0 -8 L-8 -24 L-20 -6 L-20 28 Z" />
+        <ellipse cx="0" cy="-58" rx="14" ry="18" />
+        <ellipse cx="-22" cy="-48" rx="12" ry="16" />
+        <ellipse cx="22" cy="-48" rx="12" ry="16" />
+        <ellipse cx="-38" cy="-32" rx="10" ry="14" />
+        <ellipse cx="38" cy="-32" rx="10" ry="14" />
+        <ellipse cx="-12" cy="-70" rx="9" ry="12" />
+        <ellipse cx="12" cy="-70" rx="9" ry="12" />
+        <ellipse cx="0" cy="-78" rx="7" ry="9" />
+        <circle cx="-28" cy="8" r="3.5" />
+        <circle cx="-22" cy="18" r="2.5" />
+        <circle cx="28" cy="8" r="3.5" />
+        <circle cx="22" cy="18" r="2.5" />
+        <circle cx="-8" cy="32" r="3" />
+        <circle cx="8" cy="32" r="3" />
+        <circle cx="0" cy="40" r="3.5" />
+      </g>
+    </svg>
+  );
+}

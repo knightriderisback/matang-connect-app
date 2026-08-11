@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
-import { LanguageToggle } from "@/components/shared/LanguageToggle";
+import { LanguageToggleLight } from "@/components/shared/LanguageToggleLight";
+import { Logo } from "@/components/shared/Logo";
 import { useToast } from "@/components/ui/Toaster";
 
 export default function LoginPage() {
@@ -43,9 +44,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-matang-cream flex flex-col">
-      <div className="p-4 flex justify-end"><LanguageToggle /></div>
+      <div className="p-4 flex justify-end"><LanguageToggleLight /></div>
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
-        <img src="/logo.svg" alt="Matang Connect" className="w-20 h-20 rounded-2xl object-cover shadow-lg mb-5 bg-matang-navy" />
+        <Logo className="w-20 h-20 rounded-2xl shadow-lg mb-5" />
         <h1 className="text-2xl font-bold text-matang-navy mb-1">{t("app.name")}</h1>
         <p className="text-gray-500 mb-8">{t("app.tagline")}</p>
         <form onSubmit={handleLogin} className="w-full max-w-sm space-y-4">

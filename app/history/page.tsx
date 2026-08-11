@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Logo } from "@/components/shared/Logo";
 import { ArrowLeft, BookOpen } from "lucide-react";
 
 export default function HistoryPage() {
@@ -9,14 +10,15 @@ export default function HistoryPage() {
 
   return (
     <div className="pb-8">
-      <div className="relative h-44 bg-gradient-to-br from-matang-navy via-[#0d1f3c] to-black overflow-hidden">
-        <img src="/logo.png" alt="Matang" className="absolute inset-0 w-full h-full object-contain opacity-30 p-6"
-          onError={(e) => { (e.target as HTMLImageElement).src = "/logo.svg"; }} />
+      <div className="relative h-44 bg-gradient-to-br from-matang-navy via-[#0d1f3c] to-black overflow-hidden flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center opacity-40">
+          <Logo className="w-36 h-36" />
+        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-matang-navy via-transparent to-transparent" />
-        <button onClick={() => router.back()} className="absolute top-3 left-3 p-2 rounded-full bg-black/40 text-white backdrop-blur">
+        <button onClick={() => router.back()} className="absolute top-3 left-3 p-2 rounded-full bg-black/40 text-white backdrop-blur z-10">
           <ArrowLeft size={18} />
         </button>
-        <div className="absolute bottom-4 left-4 right-4">
+        <div className="absolute bottom-4 left-4 right-4 z-10">
           <h1 className="text-2xl font-bold text-matang-gold">Matang Samaj</h1>
           <p className="text-white/70 text-sm">Our Roots · Our Identity · Our Future</p>
         </div>

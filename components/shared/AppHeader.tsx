@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { LanguageToggle } from "./LanguageToggle";
+import { Logo } from "./Logo";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { cn } from "@/lib/utils";
@@ -51,12 +52,7 @@ export function AppHeader() {
       <div className="h-0.5 bg-gradient-to-r from-transparent via-matang-gold to-transparent opacity-80" />
       <div className="px-3 py-2.5 flex items-center gap-2.5">
         <button onClick={() => router.push("/history")} className="shrink-0 relative group" title="Matang Samaj History">
-          <img
-            src="/logo.png"
-            alt="Matang"
-            className="w-9 h-9 rounded-lg object-cover ring-1 ring-matang-gold/40 shadow-md group-active:scale-95 transition-transform bg-black"
-            onError={(e) => { (e.target as HTMLImageElement).src = "/logo.svg"; }}
-          />
+          <Logo className="w-9 h-9 rounded-lg shadow-md ring-1 ring-matang-gold/40 group-active:scale-95 transition-transform" />
           <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-matang-gold rounded-full border border-matang-navy" />
         </button>
         <div className="flex-1 min-w-0">
