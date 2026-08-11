@@ -3,11 +3,34 @@ import type { NextRequest } from "next/server";
 import { verifySessionToken, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 
 const ADMIN_ROLES = ["core_committee", "super_admin"];
-const PUBLIC_ROUTES = ["/", "/login", "/register"];
+const PUBLIC_ROUTES = ["/", "/login", "/register", "/history"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (PUBLIC_ROUTES.includes(pathname)) return NextResponse.next();
+
+  // Static assets & public files — never auth-gate these
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname === "/favicon.ico" ||
+    pathname === "/manifest.json" ||
+    pathname === "/manifest.webmanifest" ||
+    pathname.startsWith("/icon-") ||
+    pathname.startsWith("/logo") ||
+    pathname.endsWith(".png") ||
+    pathname.endsWith(".jpg") ||
+    pathname.endsWith(".jpeg") ||
+    pathname.endsWith(".svg") ||
+    pathname.endsWith(".webp") ||
+    pathname.endsWith(".ico") ||
+    pathname.endsWith(".json")
+  ) {
+    return NextResponse.next();
+  }
+
+  if (PUBLIC_ROUTES.includes(pathname)) {
+    return NextResponse.next();
+  }
 
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   const session = token ? await verifySessionToken(token) : null;
@@ -31,5 +54,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|manifest.json).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
