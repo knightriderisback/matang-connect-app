@@ -10,33 +10,49 @@ export interface FeatureFlags {
   notices_enabled: boolean;
   care_enabled: boolean;
   titles_enabled: boolean;
+  vyapar_enabled: boolean;
+  matrimony_enabled: boolean;
+  dharohar_enabled: boolean;
+  panchang_enabled: boolean;
+  mahila_enabled: boolean;
+  polls_enabled: boolean;
 }
 
 const DEFAULTS: FeatureFlags = {
   stage_2_enabled: true,
-  stage_3_enabled: false,
+  stage_3_enabled: true,
   kosh_transparency_mode: true,
   sos_enabled: true,
   jobs_enabled: true,
   notices_enabled: true,
   care_enabled: true,
   titles_enabled: true,
+  vyapar_enabled: true,
+  matrimony_enabled: true,
+  dharohar_enabled: true,
+  panchang_enabled: true,
+  mahila_enabled: true,
+  polls_enabled: true,
 };
+
+function parseFlags(data: any[]): FeatureFlags {
+  const flags = { ...DEFAULTS };
+  data.forEach((row: any) => {
+    const key = row.setting_key as keyof FeatureFlags;
+    if (key in flags) {
+      const v = row.setting_value;
+      flags[key] = typeof v === "boolean" ? v : v === true || v === "true";
+    }
+  });
+  return flags;
+}
 
 export async function getFeatureFlags(): Promise<FeatureFlags> {
   try {
     const supabase = createClient();
     const { data } = await supabase.from("app_settings").select("setting_key, setting_value");
     if (!data?.length) return { ...DEFAULTS };
-    const flags = { ...DEFAULTS };
-    data.forEach((row: any) => {
-      const key = row.setting_key as keyof FeatureFlags;
-      if (key in flags) {
-        const v = row.setting_value;
-        flags[key] = typeof v === "boolean" ? v : v === true || v === "true";
-      }
-    });
-    return flags;
+    return parseFlags(data);
   } catch {
     return { ...DEFAULTS };
   }
@@ -47,15 +63,7 @@ export async function getFeatureFlagsAdmin(): Promise<FeatureFlags> {
     const supabase = createAdminClient();
     const { data } = await supabase.from("app_settings").select("setting_key, setting_value");
     if (!data?.length) return { ...DEFAULTS };
-    const flags = { ...DEFAULTS };
-    data.forEach((row: any) => {
-      const key = row.setting_key as keyof FeatureFlags;
-      if (key in flags) {
-        const v = row.setting_value;
-        flags[key] = typeof v === "boolean" ? v : v === true || v === "true";
-      }
-    });
-    return flags;
+    return parseFlags(data);
   } catch {
     return { ...DEFAULTS };
   }

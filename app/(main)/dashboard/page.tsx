@@ -5,7 +5,10 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { WelcomeAnimation } from "@/components/shared/WelcomeAnimation";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { Users, AlertTriangle, Briefcase, Bell, Heart, BookOpen, Shield, HeartHandshake } from "lucide-react";
+import {
+  Users, AlertTriangle, Briefcase, Bell, Heart, BookOpen, Shield, HeartHandshake,
+  Store, Landmark, Calendar, Flower2, BarChart3,
+} from "lucide-react";
 
 export default function DashboardPage() {
   const { t } = useI18n();
@@ -27,6 +30,12 @@ export default function DashboardPage() {
     { icon: Briefcase, label: "Jobs", href: "/jobs", color: "bg-green-100 text-green-600" },
     { icon: Bell, label: "Notices", href: "/notices", color: "bg-yellow-100 text-yellow-600" },
     { icon: Heart, label: "Sahyog", href: "/kosh", color: "bg-pink-100 text-pink-600" },
+    { icon: Store, label: "Vyapar", href: "/vyapar", color: "bg-orange-100 text-orange-600" },
+    { icon: Heart, label: "Matrimony", href: "/matrimony", color: "bg-fuchsia-100 text-fuchsia-600" },
+    { icon: Landmark, label: "Dharohar", href: "/dharohar", color: "bg-amber-100 text-amber-700" },
+    { icon: Calendar, label: "Panchang", href: "/panchang", color: "bg-indigo-100 text-indigo-600" },
+    { icon: Flower2, label: "Mahila", href: "/mahila", color: "bg-pink-100 text-pink-600" },
+    { icon: BarChart3, label: "Polls", href: "/polls", color: "bg-cyan-100 text-cyan-600" },
     { icon: BookOpen, label: "Directory", href: "/admin/directory", color: "bg-purple-100 text-purple-600" },
   ];
 

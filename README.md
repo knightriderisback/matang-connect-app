@@ -43,6 +43,26 @@ vercel --prod
 
 Or connect the GitHub repo to Vercel and set the 4 environment variables.
 
-## Stage 2 / 3
+## Stage 2 (Complete)
 
-Feature-flagged. Schema ready. Implementation on demand.
+- Notices (priority + WhatsApp share)
+- Jobs & Livelihood board
+- Care requests (medical / elderly / disability)
+- Kosh transparency ledger
+- City Titles assignment
+- Audit log viewer
+- Feature flags / app settings
+
+## Stage 3 (Complete)
+
+- **Vyapar** – Business directory (shop / service / food / manufacturing)
+- **Matrimony** – Community match profiles
+- **Dharohar** – Heritage, culture, history posts
+- **Panchang** – Festivals & important dates
+- **Mahila Shakti** – Women empowerment resources / events / schemes
+- **Polls** – Community polls with live vote counts
+
+Run migrations in order:
+1. `supabase/migrations/20260811_stage1_complete.sql`
+2. `supabase/migrations/20260811_stage2_core.sql`
+3. `supabase/migrations/20260811_stage3_modules.sql`
