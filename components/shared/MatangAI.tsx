@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
+import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { MessageCircle, X, Send, Sparkles } from "lucide-react";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -22,6 +23,8 @@ const SUGGESTIONS_HI = [
 export function MatangAI() {
   const pathname = usePathname();
   const { lang, t } = useI18n();
+  const { user } = useCurrentUser();
+  const isSuper = user?.role === "super_admin";
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -108,7 +111,7 @@ export function MatangAI() {
           <div className="bg-gradient-to-r from-matang-navy to-blue-900 px-4 py-3 flex items-center gap-2 text-white shrink-0">
             <MessageCircle size={18} className="text-matang-gold" />
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm">Matang AI</p>
+              <p className="font-semibold text-sm">Matang AI{isSuper ? " · God Mode" : ""}</p>
               <p className="text-[10px] text-white/60">
                 {hi ? "आपका समुदाय सहायक" : "Your community assistant"}
               </p>

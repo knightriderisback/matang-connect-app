@@ -2,6 +2,7 @@ import { createClient } from "./supabase/client";
 import { createAdminClient } from "./supabase/admin";
 
 export interface FeatureFlags {
+  stage_1_enabled: boolean;
   stage_2_enabled: boolean;
   stage_3_enabled: boolean;
   kosh_transparency_mode: boolean;
@@ -18,11 +19,17 @@ export interface FeatureFlags {
   polls_enabled: boolean;
   arthik_enabled: boolean;
   scan_enabled: boolean;
+  rides_enabled: boolean;
+  gaurav_enabled: boolean;
+  gamification_enabled: boolean;
+  ai_member_enabled: boolean;
+  ai_god_mode_enabled: boolean;
 }
 
-const DEFAULTS: FeatureFlags = {
+export const DEFAULTS: FeatureFlags = {
+  stage_1_enabled: true,
   stage_2_enabled: true,
-  stage_3_enabled: true,
+  stage_3_enabled: false,
   kosh_transparency_mode: true,
   sos_enabled: true,
   jobs_enabled: true,
@@ -37,6 +44,34 @@ const DEFAULTS: FeatureFlags = {
   polls_enabled: true,
   arthik_enabled: true,
   scan_enabled: true,
+  rides_enabled: true,
+  gaurav_enabled: true,
+  gamification_enabled: true,
+  ai_member_enabled: true,
+  ai_god_mode_enabled: true,
+};
+
+export const MODULE_STAGE: Record<string, 1 | 2 | 3> = {
+  census: 1,
+  profile: 1,
+  directory: 1,
+  scan: 1,
+  sos: 2,
+  jobs: 2,
+  notices: 2,
+  care: 2,
+  kosh: 2,
+  titles: 2,
+  vyapar: 3,
+  matrimony: 3,
+  dharohar: 3,
+  panchang: 3,
+  mahila: 3,
+  polls: 3,
+  arthik: 3,
+  rides: 3,
+  gaurav: 3,
+  gamification: 3,
 };
 
 function parseFlags(data: any[]): FeatureFlags {
@@ -71,4 +106,39 @@ export async function getFeatureFlagsAdmin(): Promise<FeatureFlags> {
   } catch {
     return { ...DEFAULTS };
   }
+}
+
+export function isModuleVisible(
+  moduleKey: string,
+  flags: FeatureFlags,
+  role?: string | null
+): boolean {
+  if (role === "super_admin") return true;
+  const stage = MODULE_STAGE[moduleKey] ?? 1;
+  if (stage === 1 && !flags.stage_1_enabled) return false;
+  if (stage === 2 && !flags.stage_2_enabled) return false;
+  if (stage === 3 && !flags.stage_3_enabled) return false;
+
+  const flagMap: Partial<Record<string, keyof FeatureFlags>> = {
+    sos: "sos_enabled",
+    jobs: "jobs_enabled",
+    notices: "notices_enabled",
+    care: "care_enabled",
+    titles: "titles_enabled",
+    vyapar: "vyapar_enabled",
+    matrimony: "matrimony_enabled",
+    dharohar: "dharohar_enabled",
+    panchang: "panchang_enabled",
+    mahila: "mahila_enabled",
+    polls: "polls_enabled",
+    arthik: "arthik_enabled",
+    scan: "scan_enabled",
+    rides: "rides_enabled",
+    gaurav: "gaurav_enabled",
+    gamification: "gamification_enabled",
+    kosh: "kosh_transparency_mode",
+  };
+  const fk = flagMap[moduleKey];
+  if (fk && flags[fk] === false) return false;
+  return true;
 }

@@ -25,6 +25,8 @@ export default function AdminDirectoryPage() {
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [filterVillage, setFilterVillage] = useState("");
+  const [filterEmployment, setFilterEmployment] = useState("");
   const [selected, setSelected] = useState<DirectoryUser | null>(null);
 
   useEffect(() => {
@@ -35,12 +37,19 @@ export default function AdminDirectoryPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = users.filter(
-    (u) =>
-      u.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-      u.native_village?.toLowerCase().includes(search.toLowerCase()) ||
-      u.phone?.includes(search)
-  );
+  const villages = Array.from(new Set(users.map((u) => u.native_village).filter(Boolean))).sort();
+  const filtered = users.filter((u) => {
+    const q = search.toLowerCase();
+    const matchSearch =
+      !q ||
+      u.full_name?.toLowerCase().includes(q) ||
+      u.native_village?.toLowerCase().includes(q) ||
+      u.phone?.includes(search);
+    const matchVillage = !filterVillage || u.native_village === filterVillage;
+    const emp = u.families?.[0]?.employment_status || "";
+    const matchEmp = !filterEmployment || emp === filterEmployment;
+    return matchSearch && matchVillage && matchEmp;
+  });
 
   if (selected) {
     const fam = selected.families?.[0];
@@ -96,7 +105,23 @@ export default function AdminDirectoryPage() {
           className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-matang-gold focus:outline-none bg-white" />
       </div>
       {loading && <p className="text-gray-400 text-center py-8">Loading...</p>}
-      {!loading && filtered.length === 0 && <p className="text-gray-400 text-center py-8">No members found</p>}
+      
+      <div className="grid grid-cols-2 gap-2">
+        <select className="px-3 py-2 rounded-xl border text-sm" value={filterVillage} onChange={(e) => setFilterVillage(e.target.value)}>
+          <option value="">All villages</option>
+          {villages.map((v) => <option key={v} value={v}>{v}</option>)}
+        </select>
+        <select className="px-3 py-2 rounded-xl border text-sm" value={filterEmployment} onChange={(e) => setFilterEmployment(e.target.value)}>
+          <option value="">All employment</option>
+          <option value="employed">Employed</option>
+          <option value="unemployed">Unemployed</option>
+          <option value="self_employed">Self Employed</option>
+          <option value="student">Student</option>
+          <option value="retired">Retired</option>
+        </select>
+      </div>
+      <p className="text-[10px] text-gray-400">CRM filters — village & employment (DPR city CRM)</p>
+{!loading && filtered.length === 0 && <p className="text-gray-400 text-center py-8">No members found</p>}
       <div className="space-y-2">
         {filtered.map((u) => (
           <button key={u.id} onClick={() => setSelected(u)} className="w-full text-left">

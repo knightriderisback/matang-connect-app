@@ -136,12 +136,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Message required" }, { status: 400 });
     }
 
+    const isSuper = session.role === "super_admin";
+    const systemPrompt = isSuper
+      ? SYSTEM + `\n\nGOD-MODE (super admin only): You may explain how to use Admin → Stage Lock/Unlock, Verify, Audit, Titles, Feature Flags, Directory CRM filters, award volunteer points, manage Kosh campaigns. Never expose M-PIN hashes or secrets. Suggest SQL-safe operational steps; do not invent live DB counts.`
+      : SYSTEM;
+
     const apiKey = process.env.XAI_API_KEY || process.env.GROK_API_KEY;
 
     if (apiKey) {
       try {
         const messages = [
-          { role: "system", content: SYSTEM },
+          { role: "system", content: systemPrompt },
           ...history
             .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && m.content)
             .map((m: any) => ({
@@ -170,7 +175,12 @@ export async function POST(request: NextRequest) {
           const reply =
             data?.choices?.[0]?.message?.content?.trim() ||
             localAnswer(message, lang);
-          return NextResponse.json({ reply, source: "grok" });
+          try {
+            const { createAdminClient } = await import("@/lib/supabase/admin");
+            const admin = createAdminClient();
+            await admin.from("audit_logs").insert({ actor_id: session.userId, action: "ai_chat", meta: { source: "grok", god: isSuper } });
+          } catch {}
+          return NextResponse.json({ reply, source: "grok", godMode: isSuper });
         }
         console.error("xAI chat error", await res.text());
       } catch (e) {

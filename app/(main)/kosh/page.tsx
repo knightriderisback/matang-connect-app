@@ -15,6 +15,7 @@ export default function KoshPage() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const { lang } = useI18n();
+  const [campaigns, setCampaigns] = useState<any[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [summary, setSummary] = useState({ income: 0, expense: 0, balance: 0 });
   const [loading, setLoading] = useState(true);
@@ -25,7 +26,7 @@ export default function KoshPage() {
 
   const load = () => {
     fetch("/api/kosh").then(r => r.json()).then(d => {
-      setEntries(d.entries || []);
+      setEntries(d.entries || []); setCampaigns(d.campaigns || []);
       setSummary(d.summary || { income: 0, expense: 0, balance: 0 });
     }).catch(() => {}).finally(() => setLoading(false));
   };
@@ -90,7 +91,31 @@ export default function KoshPage() {
 
       {loading && <p className="text-center text-gray-400 py-8">Loading...</p>}
       <div className="space-y-2">
-        {entries.map(e => (
+        
+      {campaigns.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-bold text-matang-navy">Fundraising campaigns</h2>
+          {campaigns.map((c: any) => {
+            const pct = c.goal_amount > 0 ? Math.min(100, Math.round((Number(c.raised_amount||0) / Number(c.goal_amount)) * 100)) : 0;
+            return (
+              <Card key={c.id} className="border-matang-gold/20">
+                <CardContent className="p-3 space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-semibold text-matang-navy">{c.title}</span>
+                    <span className="text-xs text-gray-500">{pct}%</span>
+                  </div>
+                  <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-matang-gold to-yellow-500 rounded-full transition-all" style={{ width: pct + "%" }} />
+                  </div>
+                  <p className="text-[11px] text-gray-500">₹{Number(c.raised_amount||0).toLocaleString("en-IN")} / ₹{Number(c.goal_amount||0).toLocaleString("en-IN")}</p>
+                  {c.description && <p className="text-xs text-gray-600">{c.description}</p>}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+{entries.map(e => (
           <Card key={e.id}>
             <CardContent className="p-3 flex items-center justify-between">
               <div>

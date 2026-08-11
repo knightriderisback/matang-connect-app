@@ -7,7 +7,7 @@ import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { Bell, Plus, Share2 } from "lucide-react";
 
-interface Notice { id: string; title: string; body: string; priority: string; created_at: string; is_global?: boolean; }
+interface Notice { id: string; title: string; body: string; priority: string; category?: string; created_at: string; is_global?: boolean; }
 
 export default function NoticesPage() {
   const { toast } = useToast();
@@ -15,7 +15,7 @@ export default function NoticesPage() {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: "", body: "", priority: "normal" });
+  const [form, setForm] = useState({ title: "", body: "", priority: "normal", category: "general" });
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
 
   const load = () => {
@@ -35,10 +35,20 @@ export default function NoticesPage() {
   };
 
   const shareWA = (n: Notice) => {
-    const msg = `📢 *${n.title}*\n\n${n.body}\n\n— Matang Connect`;
+    const msg = `📢 *${n.title}
+                {n.category && n.category !== "general" && (
+                  <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{categoryLabel[n.category] || n.category}</span>
+                )}*\n\n${n.body}\n\n— Matang Connect`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
+  const categoryLabel: Record<string, string> = {
+    shok_sandesh: "Shok Sandesh",
+    meeting: "Meeting",
+    announcement: "Announcement",
+    general: "General",
+    other: "Other",
+  };
   const priorityColor: Record<string, string> = {
     urgent: "bg-red-100 text-red-700",
     high: "bg-orange-100 text-orange-700",
