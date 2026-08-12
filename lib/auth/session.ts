@@ -1,24 +1,23 @@
 import { SignJWT, jwtVerify } from "jose";
 
-// Set a strong random value in your environment (.env.local / Vercel env):
-// APP_SESSION_SECRET=<openssl rand -base64 32>
-const secretKey = process.env.APP_SESSION_SECRET;
-
-if (!secretKey && process.env.NODE_ENV === "production") {
-  throw new Error(
-    "APP_SESSION_SECRET is required in production. Generate one with: openssl rand -base64 32"
+function getSecretKey(): Uint8Array {
+  const secretKey = process.env.APP_SESSION_SECRET;
+  if (!secretKey) {
+    if (process.env.NODE_ENV === "production") {
+      // Avoid hard crash during `next build` page collection; fail at runtime token ops
+      console.error(
+        "APP_SESSION_SECRET is not set. Set it in Vercel env (openssl rand -base64 32)."
+      );
+    } else {
+      console.warn(
+        "APP_SESSION_SECRET is not set. Using insecure fallback — set it in .env.local."
+      );
+    }
+  }
+  return new TextEncoder().encode(
+    secretKey || "dev-insecure-fallback-key-do-not-use-in-prod"
   );
 }
-
-if (!secretKey) {
-  console.warn(
-    "APP_SESSION_SECRET is not set. Using insecure fallback — set it in .env.local before using auth."
-  );
-}
-
-const encodedKey = new TextEncoder().encode(
-  secretKey || "dev-insecure-fallback-key-do-not-use-in-prod"
-);
 
 export interface SessionPayload {
   userId: string;
@@ -35,14 +34,14 @@ export async function createSessionToken(payload: SessionPayload): Promise<strin
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_DURATION_SECONDS}s`)
-    .sign(encodedKey);
+    .sign(getSecretKey());
 }
 
 export async function verifySessionToken(
   token: string
 ): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, encodedKey);
+    const { payload } = await jwtVerify(token, getSecretKey());
     return payload as unknown as SessionPayload;
   } catch {
     return null;
