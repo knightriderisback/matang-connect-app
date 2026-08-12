@@ -3,10 +3,23 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { HeartHandshake, Plus, Share2 } from "lucide-react";
+
+/** Matches live care_requests columns */
+interface CareReq {
+  id: string;
+  requester_id?: string;
+  family_member_id?: string | null;
+  care_type: string;
+  description?: string | null;
+  urgency: string;
+  status: string;
+  assigned_to?: string | null;
+  notes?: string | null;
+  created_at: string;
+}
 
 const TYPES = [
   { value: "medical", label: "Medical Help" },
@@ -16,6 +29,7 @@ const TYPES = [
   { value: "educational", label: "Educational Support" },
   { value: "other", label: "Other Care" },
 ];
+
 const URGENCY = [
   { value: "low", label: "Low" },
   { value: "normal", label: "Normal" },
@@ -23,37 +37,74 @@ const URGENCY = [
   { value: "emergency", label: "Emergency" },
 ];
 
-interface CareReq { id: string; title?: string; description?: string; request_type?: string; care_type?: string; notes?: string; urgency: string; status: string; created_at: string; }
-
 export default function CarePage() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [requests, setRequests] = useState<CareReq[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", request_type: "medical", contact_phone: "", location: "", urgency: "normal" });
+  const [form, setForm] = useState({
+    care_type: "medical",
+    description: "",
+    urgency: "normal",
+    notes: "",
+  });
+  const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
 
   const load = () => {
-    fetch("/api/care").then(r => r.json()).then(d => setRequests(d.requests || [])).catch(() => {}).finally(() => setLoading(false));
+    fetch("/api/care")
+      .then((r) => r.json())
+      .then((d) => setRequests(d.requests || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const submit = async () => {
-    if (!form.title) { toast("Title required", "error"); return; }
-    if (!form.contact_phone) { toast("Contact phone mandatory", "error"); return; }
-    const res = await fetch("/api/care", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    if (!form.description.trim()) {
+      toast("Description required", "error");
+      return;
+    }
+    const res = await fetch("/api/care", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        care_type: form.care_type,
+        description: form.description,
+        urgency: form.urgency,
+        notes: form.notes || form.description,
+      }),
+    });
     const data = await res.json();
-    if (!res.ok) { toast(data.error || "Failed", "error"); return; }
-    toast("Care request posted", "success");
+    if (!res.ok) {
+      toast(data.error || "Failed", "error");
+      return;
+    }
+    toast("Care request submitted", "success");
     setShowForm(false);
+    setForm({ care_type: "medical", description: "", urgency: "normal", notes: "" });
     load();
-    const msg = `🤝 *Care Request*\nType: ${form.request_type}\n${form.title}\n${form.description || ""}\n📍 ${form.location || "-"}\n📞 ${form.contact_phone}\n— Matang Connect`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
   const closeReq = async (id: string) => {
-    await fetch("/api/care", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status: "completed" }) });
+    const res = await fetch("/api/care", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status: "completed" }),
+    });
+    if (!res.ok) {
+      toast("Could not update", "error");
+      return;
+    }
+    toast("Marked completed", "success");
     load();
+  };
+
+  const shareWA = (r: CareReq) => {
+    const msg = `🤝 *Care Request*\nType: ${r.care_type}\n${r.description || ""}\nUrgency: ${r.urgency}\n— Matang Connect`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
   return (
@@ -61,47 +112,104 @@ export default function CarePage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <HeartHandshake className="text-matang-gold" size={22} />
-          <h1 className="text-lg font-bold text-matang-navy">Care Requests</h1>
+          <h1 className="text-lg font-bold text-matang-navy">Care / Vridh Seva</h1>
         </div>
-        <Button className="text-sm px-3 py-1.5" onClick={() => setShowForm(!showForm)}><Plus size={16} /> Request</Button>
+        <Button className="text-sm px-3 py-1.5" onClick={() => setShowForm(!showForm)}>
+          <Plus size={16} /> Request
+        </Button>
       </div>
+      <p className="text-sm text-gray-600">
+        Medical, elderly, disability, financial or educational support from the community.
+      </p>
 
       {showForm && (
         <Card className="border-matang-gold/30">
           <CardContent className="p-4 space-y-3">
-            <Select label="Type *" options={TYPES} value={form.request_type} onChange={e => setForm({ ...form, request_type: e.target.value })} />
-            <Input label="Title *" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
-            <textarea className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm min-h-[80px]" placeholder="Description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
-            <Input label="Contact Phone *" type="tel" value={form.contact_phone} onChange={e => setForm({ ...form, contact_phone: e.target.value })} />
-            <Input label="Location" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} />
-            <Select label="Urgency" options={URGENCY} value={form.urgency} onChange={e => setForm({ ...form, urgency: e.target.value })} />
+            <label className="block text-sm font-medium text-matang-navy">Care type</label>
+            <select
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm"
+              value={form.care_type}
+              onChange={(e) => setForm({ ...form, care_type: e.target.value })}
+            >
+              {TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            <label className="block text-sm font-medium text-matang-navy">Description *</label>
+            <textarea
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm min-h-[90px]"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="What help is needed?"
+            />
+            <label className="block text-sm font-medium text-matang-navy">Urgency</label>
+            <select
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm"
+              value={form.urgency}
+              onChange={(e) => setForm({ ...form, urgency: e.target.value })}
+            >
+              {URGENCY.map((u) => (
+                <option key={u.value} value={u.value}>
+                  {u.label}
+                </option>
+              ))}
+            </select>
+            <Input
+              label="Notes (optional)"
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            />
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>Cancel</Button>
-              <Button className="flex-1" onClick={submit}>Post + WhatsApp</Button>
+              <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>
+                Cancel
+              </Button>
+              <Button className="flex-1" onClick={submit}>
+                Submit
+              </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {loading && <p className="text-center text-gray-400 py-8">Loading...</p>}
-      {!loading && requests.length === 0 && <p className="text-center text-gray-400 py-8">No care requests</p>}
+      {loading && <p className="text-center text-gray-400 py-8">Loading…</p>}
+      {!loading && requests.length === 0 && (
+        <Card>
+          <CardContent className="p-8 text-center text-gray-400 text-sm">No care requests yet.</CardContent>
+        </Card>
+      )}
+
       <div className="space-y-3">
-        {requests.map(r => (
-          <Card key={r.id} className={r.status === "closed" ? "opacity-60" : ""}>
-            <CardContent className="p-4 space-y-1.5">
+        {requests.map((r) => (
+          <Card key={r.id}>
+            <CardContent className="p-4 space-y-2">
               <div className="flex justify-between gap-2">
-                <h3 className="font-semibold text-matang-navy">{r.title || r.notes || r.care_type || "Care request"}</h3>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-matang-gold/20 text-matang-navy font-medium">{r.care_type || r.request_type}</span>
+                <h3 className="font-semibold text-matang-navy capitalize">
+                  {r.care_type?.replace("_", " ") || "Care"} request
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-matang-gold/20 text-matang-navy font-medium">
+                  {r.status}
+                </span>
               </div>
               {r.description && <p className="text-sm text-gray-600">{r.description}</p>}
-              <p className="text-xs text-gray-500">{r.urgency} · {r.status}</p>
+              <p className="text-xs text-gray-500">
+                Urgency: {r.urgency}
+                {r.notes ? ` · ${r.notes}` : ""}
+              </p>
               <div className="flex gap-2 pt-1">
-                {r.status === "open" && user?.role && user.role !== "normal" && (
-                  <Button variant="outline" className="text-xs px-2 py-1" onClick={() => closeReq(r.id)}>Mark Closed</Button>
+                {r.status === "open" && isStaff && (
+                  <Button
+                    variant="outline"
+                    className="text-xs px-2 py-1"
+                    onClick={() => closeReq(r.id)}
+                  >
+                    Mark Completed
+                  </Button>
                 )}
                 <button
                   className="flex items-center gap-1 text-xs text-green-600 font-medium"
-                  onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`🤝 ${r.title || r.notes || r.care_type || "Care request"}\n${r.description || ""}\n📞 ${r.contact_phone || ""}`)}`, "_blank")}
+                  onClick={() => shareWA(r)}
                 >
                   <Share2 size={12} /> Share
                 </button>
