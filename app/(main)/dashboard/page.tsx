@@ -49,7 +49,11 @@ export default function DashboardPage() {
     { key: "directory", icon: BookOpen, label: t("nav.directory"), href: "/admin/directory", color: "bg-purple-100 text-purple-600" },
   ];
 
-  const actions = allActions.filter((a) => can(a.key));
+  // Super Admin / while loading: show everything. Members: stage flags.
+  const actions = allActions.filter((a) => {
+    if (user?.role === "super_admin") return true;
+    return can(a.key);
+  });
 
   if (loading) return <div className="p-8 text-center text-gray-500">{t("common.loading")}</div>;
 

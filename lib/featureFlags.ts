@@ -29,7 +29,7 @@ export interface FeatureFlags {
 export const DEFAULTS: FeatureFlags = {
   stage_1_enabled: true,
   stage_2_enabled: true,
-  stage_3_enabled: false,
+  stage_3_enabled: true,
   kosh_transparency_mode: true,
   sos_enabled: true,
   jobs_enabled: true,
