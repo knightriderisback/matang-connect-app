@@ -2,30 +2,70 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession, STAFF_ROLES } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+/** Live schema: kosh_transactions + sahyog_kosh_contributions (no kosh_entries) */
+
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const supabase = createAdminClient();
-  let q = supabase.from("kosh_entries").select("*").order("entry_date", { ascending: false }).limit(100);
-  if (session.role !== "super_admin" && session.cityId) {
-    q = q.eq("city_id", session.cityId);
-  }
-  const { data, error } = await q;
-  if (error) return NextResponse.json({ entries: [], campaigns: [], error: error.message });
-  const entries = data || [];
-  const income = entries.filter((e: any) => e.entry_type === "income").reduce((s: number, e: any) => s + Number(e.amount || 0), 0);
-  const expense = entries.filter((e: any) => e.entry_type === "expense").reduce((s: number, e: any) => s + Number(e.amount || 0), 0);
 
-  let cq = supabase.from("kosh_campaigns").select("*").order("created_at", { ascending: false }).limit(20);
-  if (session.role !== "super_admin" && session.cityId) {
-    cq = cq.or(`is_global.eq.true,city_id.eq.${session.cityId}`);
+  const { data: transactions, error: txErr } = await supabase
+    .from("kosh_transactions")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const { data: contributions } = await supabase
+    .from("sahyog_kosh_contributions")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (txErr) {
+    return NextResponse.json({
+      entries: [],
+      contributions: contributions || [],
+      summary: { income: 0, expense: 0, balance: 0 },
+      error: txErr.message,
+    });
   }
-  const { data: campaigns } = await cq;
+
+  const txs = transactions || [];
+  // category: treat "income"/"donation"/"contribution" as income; else expense
+  const isIncome = (c: string) =>
+    /income|donation|contribution|inflow|credit/i.test(c || "");
+  const income = txs
+    .filter((e: any) => isIncome(e.category))
+    .reduce((s: number, e: any) => s + Number(e.amount || 0), 0);
+  const expense = txs
+    .filter((e: any) => !isIncome(e.category))
+    .reduce((s: number, e: any) => s + Number(e.amount || 0), 0);
+  const contribTotal = (contributions || []).reduce(
+    (s: number, e: any) => s + Number(e.amount || 0),
+    0
+  );
+
+  // Normalize for UI that expects entry_type + description
+  const entries = txs.map((e: any) => ({
+    id: e.id,
+    entry_type: isIncome(e.category) ? "income" : "expense",
+    amount: e.amount,
+    description: e.description || e.category,
+    category: e.category,
+    entry_date: e.created_at?.slice?.(0, 10) || null,
+    created_at: e.created_at,
+    recorded_by: e.recorded_by,
+  }));
 
   return NextResponse.json({
     entries,
-    summary: { income, expense, balance: income - expense },
-    campaigns: campaigns || [],
+    contributions: contributions || [],
+    summary: {
+      income: income + contribTotal,
+      expense,
+      balance: income + contribTotal - expense,
+      contributions: contribTotal,
+    },
   });
 }
 
@@ -37,47 +77,42 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const supabase = createAdminClient();
 
-  // Create fundraising campaign
-  if (body.action === "campaign") {
-    if (!body.title || body.goal_amount == null) {
-      return NextResponse.json({ error: "title and goal_amount required" }, { status: 400 });
+  // Member contribution
+  if (body.action === "contribution") {
+    if (body.amount == null) {
+      return NextResponse.json({ error: "amount required" }, { status: 400 });
     }
-    const { data, error } = await supabase.from("kosh_campaigns").insert({
-      title: body.title,
-      description: body.description || null,
-      goal_amount: Number(body.goal_amount),
-      raised_amount: Number(body.raised_amount || 0),
-      status: "open",
-      city_id: session.cityId || null,
-      created_by: session.userId,
-    }).select().single();
+    const { data, error } = await supabase
+      .from("sahyog_kosh_contributions")
+      .insert({
+        contributor_id: session.userId,
+        amount: Number(body.amount),
+        purpose: body.purpose || body.description || null,
+      })
+      .select()
+      .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ success: true, campaign: data });
+    return NextResponse.json({ success: true, contribution: data });
   }
 
-  if (!body.entry_type || body.amount == null) {
-    return NextResponse.json({ error: "entry_type and amount required" }, { status: 400 });
+  // Ledger transaction
+  if (body.amount == null) {
+    return NextResponse.json({ error: "amount required" }, { status: 400 });
   }
-  const amount = Number(body.amount);
-  const { data, error } = await supabase.from("kosh_entries").insert({
-    entry_type: body.entry_type,
-    amount,
-    description: body.description || null,
-    entry_date: body.entry_date || new Date().toISOString().slice(0, 10),
-    city_id: session.cityId || null,
-    created_by: session.userId,
-    campaign_id: body.campaign_id || null,
-  }).select().single();
+  const category =
+    body.category ||
+    (body.entry_type === "expense" ? "expense" : "income");
+
+  const { data, error } = await supabase
+    .from("kosh_transactions")
+    .insert({
+      amount: Number(body.amount),
+      category,
+      description: body.description || null,
+      recorded_by: session.userId,
+    })
+    .select()
+    .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  if (body.campaign_id && body.entry_type === "income") {
-    const { data: camp } = await supabase.from("kosh_campaigns").select("raised_amount").eq("id", body.campaign_id).single();
-    if (camp) {
-      await supabase.from("kosh_campaigns").update({
-        raised_amount: Number(camp.raised_amount || 0) + amount,
-      }).eq("id", body.campaign_id);
-    }
-  }
-
   return NextResponse.json({ success: true, entry: data });
 }

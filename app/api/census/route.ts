@@ -24,19 +24,16 @@ export async function POST(request: NextRequest) {
   const members = body.members || [];
   const supabase = createAdminClient();
 
-  // Soft-warning duplicate family by contact phone (no hard block)
+  // Soft-warning: another family already headed by same user
   let duplicateWarning: string | null = null;
-  if (family.contact_phone) {
-    const phone = String(family.contact_phone).replace(/\D/g, "").slice(-10);
-    if (phone.length === 10) {
-      const { data: existing } = await supabase
-        .from("families")
-        .select("id, head_of_family")
-        .eq("contact_phone", phone)
-        .limit(1);
-      if (existing && existing.length > 0) {
-        duplicateWarning = "A family with this contact phone may already exist. Saved with soft warning flag.";
-      }
+  {
+    const { data: existing } = await supabase
+      .from("families")
+      .select("id")
+      .eq("head_of_family", session.userId)
+      .limit(1);
+    if (existing && existing.length > 0) {
+      duplicateWarning = "You already have a family record. New entry saved; review for duplicates.";
     }
   }
 
@@ -48,9 +45,8 @@ export async function POST(request: NextRequest) {
     employment_status: family.employment_status || null,
     needs: family.needs ?? [],
   };
-  // Optional columns — ignore if schema doesn't have them yet
-  if (family.contact_phone) familyInsert.contact_phone = String(family.contact_phone).replace(/\D/g, "").slice(-10);
-  if (duplicateWarning) familyInsert.duplicate_flag = true;
+  // contact_phone is NOT on families (live schema). Phone lives on users / family_members.
+  if (duplicateWarning) familyInsert.is_duplicate_flag = true;
 
   let familyRow: any = null;
   let familyError: any = null;
@@ -62,9 +58,8 @@ export async function POST(request: NextRequest) {
     .single());
 
   // Fallback if optional columns missing
-  if (familyError && (familyError.message?.includes("contact_phone") || familyError.message?.includes("duplicate_flag"))) {
-    delete familyInsert.contact_phone;
-    delete familyInsert.duplicate_flag;
+  if (familyError && (familyError.message?.includes("is_duplicate_flag") || familyError.message?.includes("duplicate"))) {
+    delete familyInsert.is_duplicate_flag;
     ({ data: familyRow, error: familyError } = await supabase
       .from("families")
       .insert(familyInsert)

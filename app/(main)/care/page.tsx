@@ -12,16 +12,18 @@ const TYPES = [
   { value: "medical", label: "Medical Help" },
   { value: "elderly", label: "Elderly Care" },
   { value: "disability", label: "Disability Support" },
+  { value: "financial", label: "Financial Support" },
+  { value: "educational", label: "Educational Support" },
   { value: "other", label: "Other Care" },
 ];
 const URGENCY = [
   { value: "low", label: "Low" },
   { value: "normal", label: "Normal" },
   { value: "high", label: "High" },
-  { value: "urgent", label: "Urgent" },
+  { value: "emergency", label: "Emergency" },
 ];
 
-interface CareReq { id: string; title: string; description?: string; request_type: string; contact_phone?: string; location?: string; urgency: string; status: string; created_at: string; }
+interface CareReq { id: string; title?: string; description?: string; request_type?: string; care_type?: string; notes?: string; urgency: string; status: string; created_at: string; }
 
 export default function CarePage() {
   const { toast } = useToast();
@@ -50,7 +52,7 @@ export default function CarePage() {
   };
 
   const closeReq = async (id: string) => {
-    await fetch("/api/care", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status: "closed" }) });
+    await fetch("/api/care", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status: "completed" }) });
     load();
   };
 
@@ -88,8 +90,8 @@ export default function CarePage() {
           <Card key={r.id} className={r.status === "closed" ? "opacity-60" : ""}>
             <CardContent className="p-4 space-y-1.5">
               <div className="flex justify-between gap-2">
-                <h3 className="font-semibold text-matang-navy">{r.title}</h3>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-matang-gold/20 text-matang-navy font-medium">{r.request_type}</span>
+                <h3 className="font-semibold text-matang-navy">{r.title || r.notes || r.care_type || "Care request"}</h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-matang-gold/20 text-matang-navy font-medium">{r.care_type || r.request_type}</span>
               </div>
               {r.description && <p className="text-sm text-gray-600">{r.description}</p>}
               <p className="text-xs text-gray-500">📍 {r.location || "-"} · 📞 {r.contact_phone || "-"} · {r.urgency}</p>
@@ -99,7 +101,7 @@ export default function CarePage() {
                 )}
                 <button
                   className="flex items-center gap-1 text-xs text-green-600 font-medium"
-                  onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`🤝 ${r.title}\n${r.description || ""}\n📞 ${r.contact_phone || ""}`)}`, "_blank")}
+                  onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`🤝 ${r.title || r.notes || r.care_type || "Care request"}\n${r.description || ""}\n📞 ${r.contact_phone || ""}`)}`, "_blank")}
                 >
                   <Share2 size={12} /> Share
                 </button>
