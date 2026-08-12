@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession, STAFF_ROLES } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export const TITLE_OPTIONS = [
+const TITLE_OPTIONS = [
   { key: "adhyaksh", label: "अध्यक्ष (Adhyaksh)" },
   { key: "sachiv", label: "सचिव (Sachiv)" },
   { key: "kosadhyaksh", label: "कोषाध्यक्ष (Kosadhyaksh)" },
