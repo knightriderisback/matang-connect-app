@@ -94,7 +94,7 @@ export default function CarePage() {
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-matang-gold/20 text-matang-navy font-medium">{r.care_type || r.request_type}</span>
               </div>
               {r.description && <p className="text-sm text-gray-600">{r.description}</p>}
-              <p className="text-xs text-gray-500">📍 {r.location || "-"} · 📞 {r.contact_phone || "-"} · {r.urgency}</p>
+              <p className="text-xs text-gray-500">{r.urgency} · {r.status}</p>
               <div className="flex gap-2 pt-1">
                 {r.status === "open" && user?.role && user.role !== "normal" && (
                   <Button variant="outline" className="text-xs px-2 py-1" onClick={() => closeReq(r.id)}>Mark Closed</Button>
