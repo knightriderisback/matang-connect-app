@@ -27,6 +27,8 @@ export default function AdminDirectoryPage() {
   const [search, setSearch] = useState("");
   const [filterVillage, setFilterVillage] = useState("");
   const [filterEmployment, setFilterEmployment] = useState("");
+  const [memberDetail, setMemberDetail] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [selected, setSelected] = useState<DirectoryUser | null>(null);
 
   useEffect(() => {
@@ -51,43 +53,142 @@ export default function AdminDirectoryPage() {
     return matchSearch && matchVillage && matchEmp;
   });
 
+
   if (selected) {
-    const fam = selected.families?.[0];
+    const fam = memberDetail?.family || selected.families?.[0];
+    const detail = memberDetail?.user || selected;
+    const overrides: Record<string, boolean> = memberDetail?.overrides || {};
+    const MODULE_FLAGS = [
+      ["sos_enabled", "SOS"],
+      ["jobs_enabled", "Jobs"],
+      ["notices_enabled", "Notices / Feed"],
+      ["care_enabled", "Care"],
+      ["kosh_transparency_mode", "Kosh"],
+      ["vyapar_enabled", "Vyapar"],
+      ["matrimony_enabled", "Matrimony"],
+      ["dharohar_enabled", "Dharohar"],
+      ["panchang_enabled", "Panchang"],
+      ["mahila_enabled", "Mahila"],
+      ["polls_enabled", "Polls"],
+      ["arthik_enabled", "Arthik"],
+      ["rides_enabled", "Rides"],
+      ["gaurav_enabled", "Gaurav"],
+      ["gamification_enabled", "Credits"],
+      ["scan_enabled", "Scan"],
+    ] as const;
+
+    const toggleMemberFlag = async (key: string, value: boolean) => {
+      setMemberDetail((prev: any) => ({
+        ...prev,
+        overrides: { ...(prev?.overrides || {}), [key]: value },
+      }));
+      const res = await fetch("/api/admin/member-flags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: selected.id, key, value }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast(data.error || "Could not save", "error");
+        setMemberDetail((prev: any) => ({
+          ...prev,
+          overrides: { ...(prev?.overrides || {}), [key]: !value },
+        }));
+        return;
+      }
+      if (data.overrides) {
+        setMemberDetail((prev: any) => ({ ...prev, overrides: data.overrides }));
+      }
+      toast(value ? "Feature ON for member" : "Feature OFF for member", "success");
+    };
+
     return (
       <div className="p-4 space-y-4">
-        <button onClick={() => setSelected(null)} className="flex items-center gap-1 text-sm text-matang-gold font-medium">
+        <button
+          type="button"
+          onClick={() => {
+            setSelected(null);
+            setMemberDetail(null);
+          }}
+          className="flex items-center gap-1 text-sm text-matang-gold font-medium"
+        >
           <ChevronLeft size={16} /> Back to Directory
         </button>
         <Card className="overflow-hidden border-matang-gold/30">
           <div className="bg-gradient-to-r from-matang-navy to-blue-900 p-4 text-white">
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 bg-white/15 rounded-full flex items-center justify-center text-xl font-bold">{selected.full_name?.[0]}</div>
+              <div className="w-14 h-14 bg-white/15 rounded-full flex items-center justify-center text-xl font-bold overflow-hidden">
+                {detail.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={detail.photo_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  detail.full_name?.[0]
+                )}
+              </div>
               <div>
-                <h2 className="text-lg font-bold">{selected.full_name}</h2>
-                <p className="text-sm text-white/70 flex items-center gap-1"><Shield size={12} /> {selected.role || "member"}</p>
+                <h2 className="text-lg font-bold">{detail.full_name}</h2>
+                <p className="text-sm text-white/70 flex items-center gap-1">
+                  <Shield size={12} /> {detail.role || "member"} · {detail.verification_status || "-"}
+                </p>
               </div>
             </div>
           </div>
           <CardContent className="p-4 space-y-2 text-sm">
-            <p className="flex items-center gap-2"><Phone size={14} className="text-gray-400" /> {selected.phone}</p>
-            <p className="flex items-center gap-2"><MapPin size={14} className="text-gray-400" /> {selected.native_village} · {selected.cities?.name || "-"}</p>
-            {selected.qr_code_id && <p className="text-xs font-mono text-gray-500">QR: {selected.qr_code_id}</p>}
+            {detailLoading && <p className="text-gray-400 text-xs">Loading full profile…</p>}
+            <p className="flex items-center gap-2"><Phone size={14} className="text-gray-400" /> {detail.phone}</p>
+            <p className="flex items-center gap-2"><MapPin size={14} className="text-gray-400" /> {detail.native_village} · {detail.cities?.name || "-"}</p>
+            {detail.qr_code_id && <p className="text-xs font-mono text-gray-500">QR: {detail.qr_code_id}</p>}
+            <div className="grid grid-cols-2 gap-2 pt-2 text-xs">
+              <p><span className="text-gray-400">Gender</span><br />{detail.gender || "-"}</p>
+              <p><span className="text-gray-400">Blood</span><br />{detail.blood_group || "-"}</p>
+              <p><span className="text-gray-400">Education</span><br />{detail.education_level || "-"}</p>
+              <p><span className="text-gray-400">Occupation</span><br />{detail.occupation || "-"}</p>
+            </div>
+            {detail.address && <p className="text-xs"><span className="text-gray-400">Address:</span> {detail.address}</p>}
+            {detail.about && <p className="text-xs"><span className="text-gray-400">About:</span> {detail.about}</p>}
             {fam && (
               <div className="mt-3 pt-3 border-t space-y-1">
                 <p className="font-semibold text-matang-navy flex items-center gap-1"><Users size={14} /> Family</p>
                 <p>Employment: {fam.employment_status || "-"}</p>
                 <p>Education: {fam.education_summary || "-"}</p>
                 {fam.address && <p>Address: {fam.address}</p>}
-                {(fam.family_members || []).map((m, i) => (
-                  <p key={i} className="text-gray-600">• {m.name} ({m.relation}{m.age ? `, ${m.age}y` : ""})</p>
+                {(fam.family_members || []).map((m: any, i: number) => (
+                  <p key={i} className="text-gray-600">• {m.name} ({m.relation}{m.age ? `, ${m.age}y` : ""}{m.occupation ? ` · ${m.occupation}` : ""})</p>
                 ))}
               </div>
             )}
             {!fam && <p className="text-gray-400 mt-2">No census data yet</p>}
           </CardContent>
         </Card>
-        <Button variant="outline" className="w-full" onClick={() => window.open(`tel:${selected.phone}`)}>
-          <Phone size={16} /> Call {selected.phone}
+
+        {(user?.role === "super_admin" || user?.role === "core_committee") && (
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <p className="font-semibold text-matang-navy text-sm">Personal feature access</p>
+              <p className="text-[11px] text-gray-500">Override global stage flags for this member only. OFF = hidden for them.</p>
+              <div className="space-y-2">
+                {MODULE_FLAGS.map(([key, label]) => {
+                  const on = overrides[key] !== undefined ? overrides[key] : true;
+                  return (
+                    <div key={key} className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-50">
+                      <span className="text-sm text-matang-navy">{label}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleMemberFlag(key, !on)}
+                        className={`text-xs font-bold px-3 py-1 rounded-full ${on ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}
+                      >
+                        {on ? "ON" : "OFF"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <Button variant="outline" className="w-full" onClick={() => window.open(`tel:${detail.phone}`)}>
+          <Phone size={16} /> Call {detail.phone}
         </Button>
       </div>
     );
@@ -124,7 +225,16 @@ export default function AdminDirectoryPage() {
 {!loading && filtered.length === 0 && <p className="text-gray-400 text-center py-8">No members found</p>}
       <div className="space-y-2">
         {filtered.map((u) => (
-          <button key={u.id} onClick={() => setSelected(u)} className="w-full text-left">
+          <button key={u.id} onClick={() => {
+            setSelected(u);
+            setDetailLoading(true);
+            setMemberDetail(null);
+            fetch(`/api/admin/member-flags?userId=${u.id}`)
+              .then((r) => r.json())
+              .then((d) => setMemberDetail(d))
+              .catch(() => {})
+              .finally(() => setDetailLoading(false));
+          }} className="w-full text-left">
             <Card className="hover:border-matang-gold/50 transition-colors active:scale-[0.99]">
               <CardContent className="p-3 flex items-center gap-3">
                 <div className="w-10 h-10 bg-matang-navy text-white rounded-full flex items-center justify-center font-bold text-sm shrink-0">{u.full_name?.[0]}</div>

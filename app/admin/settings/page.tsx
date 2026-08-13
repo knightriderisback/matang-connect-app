@@ -51,17 +51,26 @@ export default function SettingsPage() {
 
   const toggle = async (key: string, value: boolean) => {
     setFlags((prev) => ({ ...prev, [key]: value }));
-    const res = await fetch("/api/admin/settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, value }),
-    });
-    if (!res.ok) {
-      toast("Could not update", "error");
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, value }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast(data.error || "Could not update", "error");
+        setFlags((prev) => ({ ...prev, [key]: !value }));
+        return;
+      }
+      if (data.flags && typeof data.flags === "object") {
+        setFlags((prev) => ({ ...prev, ...data.flags }));
+      }
+      toast(`${key}: ${value ? "UNLOCKED / ON" : "LOCKED / OFF"}`, "success");
+    } catch {
+      toast("Network error", "error");
       setFlags((prev) => ({ ...prev, [key]: !value }));
-      return;
     }
-    toast(`${key}: ${value ? "UNLOCKED / ON" : "LOCKED / OFF"}`, "success");
   };
 
   if (!user || user.role !== "super_admin") {

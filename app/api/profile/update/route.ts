@@ -15,54 +15,41 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
-
-  // Core fields always present on live schema
-  const core: Record<string, unknown> = {
-    full_name,
-    native_village,
-  };
-
-  // Optional extended profile columns (may be missing until migrations run)
+  const core: Record<string, unknown> = { full_name, native_village };
   const optional: Record<string, unknown> = {};
-  if (body.gender) optional.gender = String(body.gender).slice(0, 20);
+  if (body.gender !== undefined && body.gender !== "") optional.gender = String(body.gender).slice(0, 20);
   if (body.blood_group !== undefined) optional.blood_group = body.blood_group || null;
   if (body.education_level !== undefined) optional.education_level = body.education_level || null;
   if (body.occupation !== undefined) optional.occupation = body.occupation || null;
   if (body.about !== undefined) optional.about = String(body.about || "").slice(0, 1000);
   if (body.address !== undefined) optional.address = String(body.address || "").slice(0, 300);
-
-  const photo =
-    body.photo && typeof body.photo === "string" && body.photo.startsWith("data:")
-      ? body.photo.slice(0, 400000)
-      : null;
-  if (photo) optional.photo_url = photo;
-
-  // 1) Try core + optional
-  let { error } = await supabase
-    .from("users")
-    .update({ ...core, ...optional })
-    .eq("id", session.userId);
-
-  // 2) If column missing / size issue — try without photo
-  if (error && photo) {
-    const withoutPhoto = { ...core, ...optional };
-    delete withoutPhoto.photo_url;
-    ({ error } = await supabase.from("users").update(withoutPhoto).eq("id", session.userId));
+  if (body.photo && typeof body.photo === "string" && body.photo.startsWith("data:")) {
+    optional.photo_url = body.photo.slice(0, 400000);
   }
 
-  // 3) Still failing — save only core columns (full_name, native_village)
+  let saved: Record<string, unknown> = { ...core, ...optional };
+  let { error } = await supabase.from("users").update(saved).eq("id", session.userId);
+
+  if (error && optional.photo_url) {
+    delete saved.photo_url;
+    ({ error } = await supabase.from("users").update(saved).eq("id", session.userId));
+  }
   if (error) {
-    console.warn("profile optional update failed:", error.message);
+    // strip unknown columns one by one by falling back to core only
+    console.warn("profile update soft fail:", error.message);
     ({ error } = await supabase.from("users").update(core).eq("id", session.userId));
+    saved = { ...core };
+  }
+  if (error) {
+    return NextResponse.json({ error: "Update failed: " + error.message }, { status: 500 });
   }
 
-  if (error) {
-    console.error("profile update failed:", error.message);
-    return NextResponse.json(
-      { error: "Update failed: " + error.message },
-      { status: 500 }
-    );
-  }
+  // Read back what is actually stored
+  const { data: user } = await supabase
+    .from("users")
+    .select("id, full_name, phone, role, city_id, native_village, verification_status, qr_code_id, photo_url, gender, blood_group, education_level, occupation, about, address, created_at, cities(name)")
+    .eq("id", session.userId)
+    .maybeSingle();
 
   try {
     await supabase.from("audit_logs").insert({
@@ -71,8 +58,8 @@ export async function POST(request: NextRequest) {
       target_id: session.userId,
     });
   } catch {
-    /* non-fatal */
+    /* ignore */
   }
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, user: user || saved });
 }

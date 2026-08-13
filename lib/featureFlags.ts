@@ -74,13 +74,24 @@ export const MODULE_STAGE: Record<string, 1 | 2 | 3> = {
   gamification: 3,
 };
 
+function coerceBool(v: unknown): boolean {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v !== 0;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    if (s === "true" || s === "1" || s === "yes" || s === "on") return true;
+    if (s === "false" || s === "0" || s === "no" || s === "off") return false;
+  }
+  // jsonb sometimes arrives already parsed; null/undefined keep default via caller
+  return Boolean(v);
+}
+
 function parseFlags(data: any[]): FeatureFlags {
   const flags = { ...DEFAULTS };
   data.forEach((row: any) => {
     const key = row.setting_key as keyof FeatureFlags;
     if (key in flags) {
-      const v = row.setting_value;
-      flags[key] = typeof v === "boolean" ? v : v === true || v === "true";
+      flags[key] = coerceBool(row.setting_value);
     }
   });
   return flags;

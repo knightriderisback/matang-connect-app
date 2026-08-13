@@ -138,14 +138,15 @@ export default function ProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const e = await res.json();
-        toast(e.error || "Update failed", "error");
+        toast(data.error || "Update failed", "error");
         return;
       }
       toast("Profile updated", "success");
       setEditing(false);
-      window.location.reload();
+      // Soft refresh so saved fields reappear from server
+      window.location.href = "/profile";
     } catch {
       toast(t("common.error"), "error");
     } finally {

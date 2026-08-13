@@ -17,18 +17,49 @@ export async function POST(request: NextRequest) {
   if (!session || session.role !== "super_admin") {
     return NextResponse.json({ error: "Super Admin only" }, { status: 403 });
   }
-  const { key, value } = await request.json();
+  const body = await request.json();
+  const key = body.key;
+  const value = body.value;
   if (!key || typeof value !== "boolean") {
     return NextResponse.json({ error: "key and boolean value required" }, { status: 400 });
   }
+
   const supabase = createAdminClient();
-  const { error } = await supabase.from("app_settings").upsert({
+
+  // JSONB boolean — explicit true/false
+  const payload = {
     setting_key: key,
-    setting_value: value,
+    setting_value: value, // json boolean
     updated_by: session.userId,
     updated_at: new Date().toISOString(),
+  };
+
+  // Prefer upsert on setting_key (works when setting_key is UNIQUE/PK)
+  let { error } = await supabase.from("app_settings").upsert(payload, {
+    onConflict: "setting_key",
   });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  await supabase.from("audit_logs").insert({ actor_id: session.userId, action: "feature_flag_toggle", meta: { key, value } });
-  return NextResponse.json({ success: true });
+
+  // Fallback: delete + insert (older schemas / duplicate rows)
+  if (error) {
+    await supabase.from("app_settings").delete().eq("setting_key", key);
+    ({ error } = await supabase.from("app_settings").insert(payload));
+  }
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  try {
+    await supabase.from("audit_logs").insert({
+      actor_id: session.userId,
+      action: "feature_flag_toggle",
+      meta: { key, value },
+    });
+  } catch {
+    /* non-fatal */
+  }
+
+  // Return fresh flags so UI can sync
+  const flags = await getFeatureFlagsAdmin();
+  return NextResponse.json({ success: true, flags });
 }
