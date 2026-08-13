@@ -20,16 +20,16 @@ const MEMBER_SUGGESTIONS_HI = [
   "M-PIN भूल गए?",
 ];
 const GOD_SUGGESTIONS_EN = [
-  "How do Stage Lock flags work?",
-  "How to verify pending members?",
-  "Reset a member M-PIN",
-  "Where is Audit Log?",
+  "Enable stage 3",
+  "How many users",
+  "Verify all pending",
+  "List pending",
 ];
 const GOD_SUGGESTIONS_HI = [
-  "Stage Lock कैसे चलता है?",
-  "Pending members verify कैसे करें?",
-  "Member का M-PIN reset",
-  "Audit Log कहाँ है?",
+  "Stage 3 enable करो",
+  "Kitne users hain",
+  "Sab pending verify करो",
+  "List pending",
 ];
 
 export function MatangAI() {
@@ -159,8 +159,8 @@ export function MatangAI() {
                 <p>
                   {isSuper
                     ? hi
-                      ? "Stage Lock, Verify, Directory, Audit, Reset M-PIN — पूछें।"
-                      : "Ask about Stage Lock, Verify, Directory, Audit, Reset M-PIN."
+                      ? "God Mode: command लिखो — Enable stage 3, Verify all, Post notice: ..., How many users, What is ..."
+                      : "God Mode: type commands — Enable stage 3, Verify all, Post notice: ..., How many users, What is ..."
                     : hi
                       ? "Census, SOS, Jobs, Care, Feed, Profile — पूछें।"
                       : "Ask about Census, SOS, Jobs, Care, Feed, Profile."}
