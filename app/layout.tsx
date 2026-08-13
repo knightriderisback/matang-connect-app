@@ -6,6 +6,8 @@ import { BottomNav } from "@/components/shared/BottomNav";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { FloatingLogo } from "@/components/shared/FloatingLogo";
 import { MatangAI } from "@/components/shared/MatangAI";
+import { PWARegister } from "@/components/shared/PWARegister";
+import { InstallPrompt } from "@/components/shared/InstallPrompt";
 
 export const metadata: Metadata = {
   title: "Matang Connect",
@@ -42,6 +44,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <BottomNav />
                 <FloatingLogo />
                 <MatangAI />
+                <PWARegister />
+                <InstallPrompt />
               </div>
             </div>
           </ToastProvider>
