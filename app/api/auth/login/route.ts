@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSessionToken, sessionCookieOptions } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import bcrypt from "bcryptjs";
+import { writeAuditLog } from "@/lib/audit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,6 +48,8 @@ export async function POST(request: NextRequest) {
     if (!ok) {
       return NextResponse.json({ error: "Invalid phone number or M-PIN" }, { status: 401 });
     }
+
+    await writeAuditLog({ actorId: row.id, action: "user_login", targetId: row.id });
 
     const token = await createSessionToken({
       userId: row.id,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeatureFlagsAdmin } from "@/lib/featureFlags";
+import { writeAuditLog } from "@/lib/audit";
 
 export async function GET() {
   const session = await getSession();
@@ -49,15 +50,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  try {
-    await supabase.from("audit_logs").insert({
-      actor_id: session.userId,
-      action: "feature_flag_toggle",
-      meta: { key, value },
-    });
-  } catch {
-    /* non-fatal */
-  }
+  await writeAuditLog({ actorId: session.userId, action: "feature_flag_toggle", meta: { key, value } });
 
   // Return fresh flags so UI can sync
   const flags = await getFeatureFlagsAdmin();

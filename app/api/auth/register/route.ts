@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createSessionToken, sessionCookieOptions } from "@/lib/auth/session";
 import bcrypt from "bcryptjs";
+import { writeAuditLog } from "@/lib/audit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -90,6 +91,8 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    await writeAuditLog({ actorId: created.id, action: "user_registered", targetId: created.id, meta: { phone: cleanPhone } });
 
     const token = await createSessionToken({
       userId: created.id,

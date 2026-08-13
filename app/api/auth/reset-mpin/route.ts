@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession, STAFF_ROLES } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
 import bcrypt from "bcryptjs";
+import { writeAuditLog } from "@/lib/audit";
 
 export async function POST(request: NextRequest) {
   const session = await getSession();
@@ -45,15 +46,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  try {
-    await supabase.from("audit_logs").insert({
-      actor_id: session.userId,
-      action: "reset_mpin",
-      target_id: userId,
-    });
-  } catch {
-    /* ignore */
-  }
+  await writeAuditLog({ actorId: session.userId, action: "reset_mpin", targetId: userId });
 
   return NextResponse.json({ success: true, user: data });
 }
