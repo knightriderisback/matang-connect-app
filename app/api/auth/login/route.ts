@@ -18,11 +18,11 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = createAdminClient();
-    const { data: row, error } = await admin
+
+    // Select only core columns (avoid missing optional columns in schema cache)
+    let { data: row, error } = await admin
       .from("users")
-      .select(
-        "id, full_name, role, city_id, qr_code_id, verification_status, m_pin_hash, mpin_locked_until, failed_mpin_attempts"
-      )
+      .select("id, full_name, role, city_id, qr_code_id, verification_status, m_pin_hash")
       .eq("phone", cleanPhone)
       .maybeSingle();
 
@@ -32,13 +32,6 @@ export async function POST(request: NextRequest) {
     }
     if (!row) {
       return NextResponse.json({ error: "Invalid phone number or M-PIN" }, { status: 401 });
-    }
-
-    if (row.mpin_locked_until && new Date(row.mpin_locked_until) > new Date()) {
-      return NextResponse.json(
-        { error: "Account temporarily locked. Try again after 15 minutes." },
-        { status: 429 }
-      );
     }
 
     const hash = row.m_pin_hash || "";
@@ -51,32 +44,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Legacy: some rows may use pgcrypto format that bcrypt still accepts;
-    // if still false, try one more time with trimmed hash
-    if (!ok && hash.startsWith("$2")) {
-      try {
-        ok = await bcrypt.compare(String(mpin), hash.trim());
-      } catch {
-        ok = false;
-      }
-    }
-
     if (!ok) {
-      const fails = (row.failed_mpin_attempts || 0) + 1;
-      await admin
-        .from("users")
-        .update({
-          failed_mpin_attempts: fails,
-          mpin_locked_until: fails >= 5 ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null,
-        })
-        .eq("id", row.id);
       return NextResponse.json({ error: "Invalid phone number or M-PIN" }, { status: 401 });
     }
-
-    await admin
-      .from("users")
-      .update({ failed_mpin_attempts: 0, mpin_locked_until: null })
-      .eq("id", row.id);
 
     const token = await createSessionToken({
       userId: row.id,

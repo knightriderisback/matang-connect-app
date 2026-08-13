@@ -26,7 +26,6 @@ export async function POST(request: NextRequest) {
 
     const { data: city } = await admin.from("cities").select("id").eq("id", cityId).maybeSingle();
     if (!city) {
-      // try by name if client sent wrong id
       return NextResponse.json(
         { error: "Selected city is invalid. Pick a city from the list." },
         { status: 400 }
@@ -42,39 +41,56 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "This phone number is already registered" }, { status: 409 });
     }
 
-    // Always bcryptjs so login fallback matches 100%
     const hash = await bcrypt.hash(mpin, 10);
     const qr =
       "MATANG-" +
       Math.random().toString(36).slice(2, 8).toUpperCase() +
       Date.now().toString(36).slice(-4).toUpperCase();
 
-    const { data: created, error: insErr } = await admin
+    // Only columns that exist on live users table
+    const baseRow = {
+      full_name: fullName,
+      phone: cleanPhone,
+      m_pin_hash: hash,
+      city_id: cityId,
+      native_village: nativeVillage,
+      qr_code_id: qr,
+      role: "normal",
+      verification_status: "pending",
+    };
+
+    let { data: created, error: insErr } = await admin
       .from("users")
-      .insert({
+      .insert(baseRow)
+      .select("id, full_name, role, city_id, qr_code_id, verification_status")
+      .single();
+
+    // Retry without optional columns if schema cache complains
+    if (insErr) {
+      console.warn("register insert retry:", insErr.message);
+      const minimal = {
         full_name: fullName,
         phone: cleanPhone,
         m_pin_hash: hash,
         city_id: cityId,
         native_village: nativeVillage,
-        qr_code_id: qr,
         role: "normal",
         verification_status: "pending",
-        failed_mpin_attempts: 0,
-        mpin_locked_until: null,
-      })
-      .select("id, full_name, role, city_id, qr_code_id, verification_status")
-      .single();
+      };
+      ({ data: created, error: insErr } = await admin
+        .from("users")
+        .insert(minimal)
+        .select("id, full_name, role, city_id, qr_code_id, verification_status")
+        .single());
+    }
 
     if (insErr || !created) {
-      console.error("register insert:", insErr?.message);
       return NextResponse.json(
         { error: "Registration failed: " + (insErr?.message || "unknown") },
         { status: 500 }
       );
     }
 
-    // Auto-login so user is not stuck on Invalid M-PIN after register
     const token = await createSessionToken({
       userId: created.id,
       role: (created.role as any) || "normal",
@@ -91,7 +107,7 @@ export async function POST(request: NextRequest) {
         fullName: created.full_name,
         role: created.role,
       },
-      message: "Registered and logged in. Verification can be done by volunteer later.",
+      message: "Registered and logged in.",
     });
     response.cookies.set(sessionCookieOptions.name, token, sessionCookieOptions);
     return response;

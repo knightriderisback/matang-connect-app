@@ -33,11 +33,7 @@ export async function POST(request: NextRequest) {
   const hash = await bcrypt.hash(newMpin, 10);
   const { data, error } = await supabase
     .from("users")
-    .update({
-      m_pin_hash: hash,
-      failed_mpin_attempts: 0,
-      mpin_locked_until: null,
-    })
+    .update({ m_pin_hash: hash })
     .eq("id", userId)
     .select("id, full_name")
     .maybeSingle();
