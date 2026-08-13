@@ -3,32 +3,45 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { MessageCircle, X, Send, Sparkles } from "lucide-react";
+import { MessageCircle, X, Send, Sparkles, Shield } from "lucide-react";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-const SUGGESTIONS_EN = [
+const MEMBER_SUGGESTIONS_EN = [
   "How do I raise SOS?",
   "Where is family census?",
-  "How to post a notice?",
+  "How does Care work?",
   "Forgot M-PIN?",
 ];
-const SUGGESTIONS_HI = [
+const MEMBER_SUGGESTIONS_HI = [
   "SOS कैसे करें?",
   "जनगणना कहाँ है?",
-  "सूचना कैसे पोस्ट करें?",
+  "Care कैसे काम करता है?",
   "M-PIN भूल गए?",
+];
+const GOD_SUGGESTIONS_EN = [
+  "How do Stage Lock flags work?",
+  "How to verify pending members?",
+  "Reset a member M-PIN",
+  "Where is Audit Log?",
+];
+const GOD_SUGGESTIONS_HI = [
+  "Stage Lock कैसे चलता है?",
+  "Pending members verify कैसे करें?",
+  "Member का M-PIN reset",
+  "Audit Log कहाँ है?",
 ];
 
 export function MatangAI() {
   const pathname = usePathname();
-  const { lang, t } = useI18n();
+  const { lang } = useI18n();
   const { user } = useCurrentUser();
   const isSuper = user?.role === "super_admin";
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [godMode, setGodMode] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const hi = lang === "hi" || lang === "cg";
 
@@ -36,15 +49,21 @@ export function MatangAI() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, open, loading]);
 
-  // Hide on auth / public marketing
-  if (
-    ["/", "/login", "/register"].includes(pathname || "") ||
-    pathname?.startsWith("/u/")
-  ) {
+  useEffect(() => {
+    setGodMode(isSuper);
+  }, [isSuper]);
+
+  if (["/", "/login", "/register"].includes(pathname || "") || pathname?.startsWith("/u/")) {
     return null;
   }
 
-  const suggestions = hi ? SUGGESTIONS_HI : SUGGESTIONS_EN;
+  const suggestions = isSuper
+    ? hi
+      ? GOD_SUGGESTIONS_HI
+      : GOD_SUGGESTIONS_EN
+    : hi
+      ? MEMBER_SUGGESTIONS_HI
+      : MEMBER_SUGGESTIONS_EN;
 
   const send = async (text?: string) => {
     const message = (text ?? input).trim();
@@ -57,13 +76,10 @@ export function MatangAI() {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message,
-          lang,
-          history: next.slice(-8),
-        }),
+        body: JSON.stringify({ message, lang, history: next.slice(-8) }),
       });
       const data = await res.json();
+      if (typeof data.godMode === "boolean") setGodMode(data.godMode);
       if (!res.ok) {
         setMessages((m) => [
           ...m,
@@ -76,16 +92,13 @@ export function MatangAI() {
         ]);
         return;
       }
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", content: data.reply || "…" },
-      ]);
+      setMessages((m) => [...m, { role: "assistant", content: data.reply || "…" }]);
     } catch {
       setMessages((m) => [
         ...m,
         {
           role: "assistant",
-          content: hi ? "नेटवर्क त्रुटि। फिर कोशिश करें।" : "Network error. Please try again.",
+          content: hi ? "नेटवर्क त्रुटि। फिर कोशिश करें।" : "Network error. Try again.",
         },
       ]);
     } finally {
@@ -93,53 +106,76 @@ export function MatangAI() {
     }
   };
 
+  const fabClass = isSuper
+    ? "fixed bottom-20 left-3 md:bottom-24 md:left-6 z-50 flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-purple-700 to-indigo-900 text-amber-300 shadow-lg shadow-purple-900/40 ring-2 ring-purple-400/50"
+    : "fixed bottom-20 left-3 md:bottom-24 md:left-6 z-50 flex items-center justify-center w-14 h-14 rounded-full bg-matang-navy text-matang-gold shadow-lg ring-2 ring-matang-gold/40";
+
+  const panelClass = isSuper
+    ? "fixed bottom-36 left-3 right-3 md:left-6 md:right-auto md:w-[380px] z-50 rounded-2xl overflow-hidden border border-purple-400/40 shadow-2xl bg-gradient-to-b from-[#1a1033]/95 to-[#0d0820]/98 backdrop-blur-xl"
+    : "fixed bottom-36 left-3 right-3 md:left-6 md:right-auto md:w-[380px] z-50 rounded-2xl overflow-hidden border border-matang-gold/30 shadow-2xl bg-white";
+
   return (
     <>
-      {/* FAB */}
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-20 left-3 md:bottom-24 md:left-6 z-50 w-12 h-12 rounded-full bg-gradient-to-br from-matang-navy to-blue-900 text-matang-gold shadow-xl shadow-matang-navy/40 ring-2 ring-matang-gold/40 flex items-center justify-center active:scale-90 transition-transform"
-        title="Matang AI"
-        aria-label="Open Matang AI"
-      >
-        {open ? <X size={22} /> : <Sparkles size={22} />}
-      </button>
+      {!open && (
+        <button type="button" onClick={() => setOpen(true)} className={fabClass} title="Matang AI" aria-label="Open Matang AI">
+          {isSuper ? <Shield size={24} /> : <Sparkles size={24} />}
+        </button>
+      )}
 
       {open && (
-        <div className="fixed bottom-36 left-3 right-3 md:left-6 md:right-auto md:w-[380px] z-50 flex flex-col max-h-[min(70vh,520px)] rounded-2xl border border-matang-gold/30 bg-white shadow-2xl overflow-hidden">
-          <div className="bg-gradient-to-r from-matang-navy to-blue-900 px-4 py-3 flex items-center gap-2 text-white shrink-0">
-            <MessageCircle size={18} className="text-matang-gold" />
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm">Matang AI{isSuper ? " · God Mode" : ""}</p>
-              <p className="text-[10px] text-white/60">
-                {hi ? "आपका समुदाय सहायक" : "Your community assistant"}
-              </p>
+        <div className={panelClass}>
+          <div
+            className={
+              isSuper
+                ? "px-4 py-3 flex items-center justify-between bg-purple-900/80 text-amber-200"
+                : "px-4 py-3 flex items-center justify-between bg-matang-navy text-white"
+            }
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              {isSuper ? <Shield size={18} /> : <MessageCircle size={18} className="text-matang-gold" />}
+              <div className="min-w-0">
+                <p className="font-semibold text-sm truncate">
+                  {isSuper ? "Matang AI · God Mode" : "Matang AI"}
+                </p>
+                <p className={`text-[10px] ${isSuper ? "text-amber-200/70" : "text-white/60"}`}>
+                  {isSuper
+                    ? hi
+                      ? "Super Admin कॉपायलट"
+                      : "Super Admin copilot"
+                    : hi
+                      ? "समुदाय सहायक"
+                      : "Community helper"}
+                </p>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="p-1 rounded-lg hover:bg-white/10"
-            >
+            <button type="button" onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-white/10">
               <X size={18} />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-matang-cream/40 min-h-[200px]">
+          <div className={`h-64 overflow-y-auto p-3 space-y-2 ${isSuper ? "text-purple-50" : ""}`}>
             {messages.length === 0 && (
-              <div className="space-y-2">
-                <p className="text-xs text-gray-500 text-center py-2">
-                  {hi
-                    ? "नमस्ते! जनगणना, SOS, पोस्ट, नौकरी… कुछ भी पूछें।"
-                    : "Namaste! Ask about census, SOS, posts, jobs…"}
+              <div className={`text-xs space-y-2 ${isSuper ? "text-purple-200/80" : "text-gray-500"}`}>
+                <p>
+                  {isSuper
+                    ? hi
+                      ? "Stage Lock, Verify, Directory, Audit, Reset M-PIN — पूछें।"
+                      : "Ask about Stage Lock, Verify, Directory, Audit, Reset M-PIN."
+                    : hi
+                      ? "Census, SOS, Jobs, Care, Feed, Profile — पूछें।"
+                      : "Ask about Census, SOS, Jobs, Care, Feed, Profile."}
                 </p>
-                <div className="flex flex-wrap gap-1.5 justify-center">
+                <div className="flex flex-wrap gap-1.5">
                   {suggestions.map((s) => (
                     <button
                       key={s}
                       type="button"
                       onClick={() => send(s)}
-                      className="text-[11px] px-2.5 py-1 rounded-full bg-white border border-gray-200 text-matang-navy hover:border-matang-gold/50"
+                      className={
+                        isSuper
+                          ? "text-[11px] px-2 py-1 rounded-full bg-purple-500/30 text-amber-100 border border-purple-400/30"
+                          : "text-[11px] px-2 py-1 rounded-full bg-matang-cream text-matang-navy border border-gray-200"
+                      }
                     >
                       {s}
                     </button>
@@ -150,51 +186,55 @@ export function MatangAI() {
             {messages.map((m, i) => (
               <div
                 key={i}
-                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`text-sm px-3 py-2 rounded-2xl max-w-[90%] whitespace-pre-wrap ${
+                  m.role === "user"
+                    ? isSuper
+                      ? "ml-auto bg-purple-600 text-white"
+                      : "ml-auto bg-matang-navy text-white"
+                    : isSuper
+                      ? "bg-purple-950/60 text-purple-50 border border-purple-500/30"
+                      : "bg-gray-100 text-gray-800"
+                }`}
               >
-                <div
-                  className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
-                    m.role === "user"
-                      ? "bg-matang-navy text-white rounded-br-md"
-                      : "bg-white border border-gray-100 text-gray-800 rounded-bl-md shadow-sm"
-                  }`}
-                >
-                  {m.content}
-                </div>
+                {m.content}
               </div>
             ))}
             {loading && (
-              <div className="flex justify-start">
-                <div className="bg-white border rounded-2xl px-3 py-2 text-xs text-gray-400">
-                  {hi ? "सोच रहा हूँ…" : "Thinking…"}
-                </div>
-              </div>
+              <p className={`text-xs ${isSuper ? "text-purple-300" : "text-gray-400"}`}>
+                {hi ? "सोच रहा हूँ…" : "Thinking…"}
+              </p>
             )}
             <div ref={endRef} />
           </div>
 
-          <form
-            className="p-2 border-t bg-white flex gap-2 shrink-0"
-            onSubmit={(e) => {
-              e.preventDefault();
-              send();
-            }}
-          >
+          <div className={`p-2 flex gap-2 border-t ${isSuper ? "border-purple-500/30 bg-purple-950/40" : "border-gray-100 bg-white"}`}>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={hi ? "अपना सवाल लिखें…" : "Type your question…"}
-              className="flex-1 px-3 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:border-matang-gold"
-              maxLength={2000}
+              onKeyDown={(e) => e.key === "Enter" && send()}
+              placeholder={hi ? "सवाल लिखें…" : "Ask something…"}
+              className={
+                isSuper
+                  ? "flex-1 text-sm px-3 py-2 rounded-xl bg-purple-900/50 text-purple-50 border border-purple-500/30 placeholder:text-purple-300/50 outline-none"
+                  : "flex-1 text-sm px-3 py-2 rounded-xl border border-gray-200 outline-none focus:border-matang-gold"
+              }
             />
             <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              className="w-10 h-10 rounded-xl bg-matang-navy text-matang-gold flex items-center justify-center disabled:opacity-40"
+              type="button"
+              onClick={() => send()}
+              disabled={loading}
+              className={
+                isSuper
+                  ? "w-10 h-10 rounded-xl bg-amber-400 text-purple-950 flex items-center justify-center disabled:opacity-50"
+                  : "w-10 h-10 rounded-xl bg-matang-gold text-matang-navy flex items-center justify-center disabled:opacity-50"
+              }
             >
-              <Send size={16} />
+              <Send size={18} />
             </button>
-          </form>
+          </div>
+          {godMode && isSuper && (
+            <p className="text-[9px] text-center text-amber-200/50 pb-1">God Mode · Super Admin only</p>
+          )}
         </div>
       )}
     </>

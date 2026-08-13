@@ -1,148 +1,164 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/getSession";
+import { writeAuditLog } from "@/lib/audit";
 
-const SYSTEM = `You are Matang AI — the official in-app assistant for Matang Connect, a community app for the Matang Samaj (pilot: Bilaspur, Chhattisgarh).
+const SYSTEM_MEMBER = `You are Matang AI — the community help assistant for Matang Connect (Bilaspur pilot, Chhattisgarh).
+Help members in simple, warm language (prefer Hindi if user writes Hindi; otherwise match Hindi, English, Marathi, or Chhattisgarhi).
 
-Help members in simple, warm language (prefer Hindi if user writes Hindi; otherwise match their language: Hindi, English, Marathi, or Chhattisgarhi).
+You guide ONLY on member features:
+- Census (/census): family registration, members, DOB, photo, blood group, needs
+- SOS (/sos): emergency / blood alert, WhatsApp share
+- Jobs (/jobs): view and post jobs
+- Care (/care): medical, elderly, disability, financial, educational support requests
+- Community Feed / Notices (Home): announcements, Shok Sandesh, meetings
+- Sahyog Kosh (/kosh): transparent community fund
+- Profile (/profile): Digital ID, QR, edit details, change M-PIN
+- Scan (/scan): lookup by QR
+- History (/history): Matang culture / history
+- Vyapar, Matrimony, Dharohar, Panchang, Mahila, Polls, Rides, Gaurav, Credits when Stage 3 is on
 
-App modules you know:
-- Census (/census): Smart family registration — members, DOB, photo, blood group, needs
-- SOS (/sos): Emergency blood / medicine — hold button 3 seconds
-- Notices (/notices): Community posts — staff can publish with +
-- Jobs (/jobs): Livelihood opportunities
-- Care (/care): Medical / elderly care requests
-- Kosh/Sahyog (/kosh): Transparent community fund ledger
-- Vyapar (/vyapar): Business directory
-- Matrimony (/matrimony): Marriage profiles
-- Dharohar (/dharohar): Heritage & culture posts
-- Panchang (/panchang): Festivals calendar
-- Mahila Shakti (/mahila): Women empowerment
-- Arthik Vikas (/arthik): Schemes, skills, loans
-- Polls (/polls): Community voting
-- Profile (/profile): Digital ID, QR, edit details
-- Scan (/scan): Lookup member by QR ID or phone
-- History (/history): Matang Samaj story
-- Admin: Verify users, Reset M-PIN, Titles, Audit, Feature flags (staff only)
+Rules:
+- Never invent personal data about real members.
+- Never ask for or store M-PIN digits. For forgot M-PIN: contact city Volunteer / Core Committee / Super Admin (Admin → Reset M-PIN).
+- Do not explain Super Admin Stage Lock, Feature Flags, Audit, or internal DB/SQL.
+- If unsure, point to the right screen or city volunteer.
+Keep answers short (3–6 sentences).`;
 
-Auth: Login with 10-digit phone + 4-digit M-PIN. New users register then wait for volunteer verification.
-Never invent personal data about real members. Never ask for or store M-PIN. If unsure, guide them to the right screen or city volunteer.
-Keep answers short (2–6 sentences) unless they ask for steps.`;
+const SYSTEM_GOD = `You are Matang AI · GOD MODE — Super Admin copilot for Matang Connect.
+The user is SUPER ADMIN. Speak clearly (Hindi or English as they write).
 
-/** Offline / no-API knowledge answers */
-function localAnswer(message: string, langHint: string): string {
-  const q = message.toLowerCase();
-  const hi = langHint === "hi" || langHint === "cg" || /[\u0900-\u097F]/.test(message);
+You help operate the full platform:
+MEMBER areas: Census, SOS, Jobs, Care, Feed/Notices, Kosh, Profile, Scan, History, Stage-3 modules.
+ADMIN areas (priority):
+- Admin hub (/admin): all module shortcuts
+- Stage Lock / Feature Flags (/admin/settings): turn stages and modules ON/OFF for members (Super Admin always sees everything)
+- Verify Users (/admin/verify): approve pending registrations
+- Directory (/admin/directory): member CRM, open profile, personal feature ON/OFF per member
+- Reset M-PIN (/admin/reset-mpin): set 4-digit PIN after in-person verification
+- City Titles (/admin/titles): assign titles via titles + city_titles
+- Audit Log (/admin/audit): who did what; use “Write test entry” if empty
+- Demo data: Admin → Load demo data (50 members, posts, jobs, care, kosh)
 
-  const pick = (en: string, h: string) => (hi ? h : en);
+God Mode rules:
+- Never expose M-PIN hashes, service role keys, JWT secrets, or raw env values.
+- Do not invent live database counts or claim you executed SQL.
+- Suggest safe operational steps only (which screen, which toggle).
+- For schema issues, suggest checking Supabase table columns — never paste secrets.
+Keep answers practical and step-by-step.`;
 
-  if (/sos|emergency|blood|medicine|आपातकाल|एसओएस|खून|रक्त|दवा/.test(q)) {
-    return pick(
-      "For emergency help open SOS from the home screen or bottom bar. Choose Blood or Medicine, fill contact phone, then hold the red button for 3 seconds. You can also share to WhatsApp.",
-      "आपातकाल के लिए होम या नीचे SOS खोलें। रक्त या दवा चुनें, संपर्क फोन भरें, फिर लाल बटन 3 सेकंड दबाए रखें। WhatsApp पर भी शेयर कर सकते हैं।"
-    );
+function localMember(q0: string, lang: string): string {
+  const q = q0.toLowerCase();
+  const hi = lang === "hi" || lang === "cg" || /[\u0900-\u097F]/.test(q0);
+  if (/sos|emergency|blood|आपातकाल|खून/.test(q)) {
+    return hi
+      ? "SOS के लिए नीचे मेनू में SOS खोलें → प्रकार चुनें → भेजें। WhatsApp से शेयर भी कर सकते हैं।"
+      : "Open SOS from the bottom menu → choose type → send. You can also share on WhatsApp.";
   }
-  if (/census|family|जनगणना|परिवार|member/.test(q)) {
-    return pick(
-      "Go to Census from Home or bottom navigation. Add family details and each member (name, relation, DOB, education, occupation, photo). Save when done so the community can support needs.",
-      "होम या नीचे से जनगणना (Census) खोलें। परिवार और हर सदस्य का विवरण (नाम, संबंध, जन्म तिथि, शिक्षा, पेशा, फोटो) भरें और सेव करें।"
-    );
+  if (/census|family|जनगणना|परिवार/.test(q)) {
+    return hi
+      ? "जनगणना Home या नीचे Census से खोलें। परिवार और सदस्यों की जानकारी भरकर Save करें।"
+      : "Open Census from Home or bottom nav. Add family and members, then Save.";
   }
-  if (/notice|post|सूचना|पोस्ट|publish/.test(q)) {
-    return pick(
-      "Community posts: open Notices (bottom bar or Home → Community posts). Staff (volunteer/committee) can tap + to publish. Also see Dharohar (heritage) and Mahila Shakti.",
-      "पोस्ट देखने के लिए Notices खोलें (नीचे मेनू या होम → Community posts)। स्वयंसेवक/कमिटी + दबाकर सूचना प्रकाशित कर सकते हैं। धरोहर और महिला शक्ति भी देखें।"
-    );
+  if (/job|rojgar|नौकरी/.test(q)) {
+    return hi
+      ? "Jobs मॉड्यूल में खुली नौकरियाँ देखें या नई पोस्ट करें।"
+      : "Open Jobs to browse openings or post a new job.";
   }
-  if (/job|नौकरी|रोजगार|livelihood/.test(q)) {
-    return pick(
-      "Open Jobs from Home quick actions. Browse openings; staff can post new jobs with location and contact phone.",
-      "होम से Jobs खोलें। नौकरियाँ देखें; स्टाफ स्थान और फोन के साथ नई नौकरी पोस्ट कर सकते हैं।"
-    );
+  if (/care|बुजुर्ग|medical|सहायता/.test(q)) {
+    return hi
+      ? "Care में medical / elderly / disability / financial / educational मदद माँग सकते हैं।"
+      : "In Care, request medical, elderly, disability, financial or educational help.";
   }
-  if (/register|sign up|पंजीकरण|account|login|लॉग/.test(q)) {
-    return pick(
-      "Register with full name, 10-digit phone, city, native village, and a 4-digit M-PIN. After register, a volunteer must verify you before login works.",
-      "पंजीकरण: नाम, 10 अंक फोन, शहर, मूल गाँव और 4 अंक M-PIN। लॉगिन से पहले स्वयंसेवक सत्यापन ज़रूरी है।"
-    );
+  if (/notice|feed|सूचना|शोक/.test(q)) {
+    return hi
+      ? "Home पर Community Feed है — सूचनाएँ और शोक संदेश वहीं दिखते हैं।"
+      : "Community Feed on Home shows notices and Shok Sandesh.";
   }
-  if (/mpin|pin|पास|password|भूल/.test(q)) {
-    return pick(
-      "M-PIN is your 4-digit app PIN. If forgotten, contact a city volunteer or committee member — they can reset it from Admin → Reset M-PIN. It cannot be reset by SMS.",
-      "M-PIN 4 अंकों का पिन है। भूल जाएँ तो शहर के स्वयंसेवक/कमिटी से संपर्क करें — Admin → Reset M-PIN से रीसेट होता है।"
-    );
+  if (/mpin|m-pin|पिन|password|भूल/.test(q)) {
+    return hi
+      ? "M-PIN भूल गए तो शहर के Volunteer / Committee से मिलें — वे Admin → Reset M-PIN से नया 4 अंक सेट करेंगे। SMS से रिसेट नहीं होता।"
+      : "Forgot M-PIN? Meet a city volunteer/committee — they reset it under Admin → Reset M-PIN. No SMS reset.";
   }
-  if (/qr|scan|digital id|डिजिटल/.test(q)) {
-    return pick(
-      "Your Digital ID and QR are on Profile and Home. Others can open Scan and enter your QR ID or phone. Public card: /u/YOUR-QR-ID.",
-      "डिजिटल आईडी और QR प्रोफाइल व होम पर हैं। Scan से QR ID या फोन डालकर सदस्य खोजें।"
-    );
+  if (/profile|प्रोफाइल|qr|digital/.test(q)) {
+    return hi
+      ? "Profile में Digital ID, QR और Edit से नाम/गाँव आदि अपडेट करें।"
+      : "Profile has Digital ID, QR, and Edit for name/village and more.";
   }
-  if (/matrimony|विवाह|शादी|marriage/.test(q)) {
-    return pick(
-      "Open Matrimony from Home. Create your profile (gender, age, education, about). You can hide contact until you choose to show it.",
-      "होम से Matrimony खोलें। प्रोफाइल बनाएँ (लिंग, उम्र, शिक्षा)। संपर्क छुपा सकते हैं।"
-    );
+  if (/kosh|sahyog|कोष/.test(q)) {
+    return hi
+      ? "Sahyog / Kosh में समुदाय की फंड एंट्री और योगदान देखे जा सकते हैं।"
+      : "Sahyog / Kosh shows community fund entries and contributions.";
   }
-  if (/vyapar|business|दुकान|व्यापार/.test(q)) {
-    return pick(
-      "Vyapar is the business directory. List your shop/service with phone and WhatsApp so community members can find you.",
-      "Vyapar व्यापार निर्देशिका है। दुकान/सेवा फोन और WhatsApp के साथ जोड़ें।"
-    );
-  }
-  if (/kosh|sahyog|fund|कोष|सहयोग/.test(q)) {
-    return pick(
-      "Sahyog / Kosh shows transparent income and expense entries for the city fund. Staff can add ledger entries.",
-      "सहयोग / कोष में शहर कोष की आय-व्यय प्रविष्टियाँ दिखती हैं। स्टाफ प्रविष्टि जोड़ सकते हैं।"
-    );
-  }
-  if (/language|भाषा|hindi|मराठी|छत्तीस/.test(q)) {
-    return pick(
-      "Tap the language button (EN/हि/मर/छग) in the top header to switch English, Hindi, Marathi, or Chhattisgarhi.",
-      "ऊपर हेडर में भाषा बटन (EN/हि/मर/छग) से भाषा बदलें।"
-    );
-  }
-  if (/admin|verify|सत्याप|volunteer/.test(q)) {
-    return pick(
-      "Volunteers and committee: Home → Admin Tools → Verify Users, Reset M-PIN, City Titles, Audit. Super Admin also has Feature Flags.",
-      "स्वयंसेवक/कमिटी: होम → Admin Tools → Verify, Reset M-PIN, Titles, Audit।"
-    );
-  }
-  if (/hello|hi|namaste|नमस्ते|help|मदद|क्या कर/.test(q)) {
-    return pick(
-      "Namaste! I'm Matang AI. Ask me about Census, SOS, Notices, Jobs, Profile, QR, or any module. How can I help?",
-      "नमस्ते! मैं मातंग AI हूँ। जनगणना, SOS, सूचना, नौकरी, प्रोफाइल या किसी भी मॉड्यूल के बारे में पूछें।"
-    );
-  }
+  return hi
+    ? "मैं Matang AI हूँ — Census, SOS, Jobs, Care, Feed, Profile में मदद करता हूँ। अपना सवाल छोटा लिखें या नीचे सुझाव चुनें।"
+    : "I'm Matang AI — I help with Census, SOS, Jobs, Care, Feed, Profile. Ask a short question or pick a suggestion.";
+}
 
-  return pick(
-    "I can guide you on Census, SOS, Notices/posts, Jobs, Care, Kosh, Vyapar, Matrimony, Profile QR, and admin tools. Ask a specific question, or open Home for all modules.",
-    "मैं जनगणना, SOS, सूचना/पोस्ट, नौकरी, देखभाल, कोष, व्यापार, विवाह, प्रोफाइल QR और एडमिन टूल में मदद कर सकता हूँ। स्पष्ट प्रश्न पूछें, या होम पर सभी मॉड्यूल देखें।"
-  );
+function localGod(q0: string, lang: string): string {
+  const q = q0.toLowerCase();
+  const hi = lang === "hi" || lang === "cg" || /[\u0900-\u097F]/.test(q0);
+  if (/stage|lock|flag|feature|मॉड्यूल|ऑन|ऑफ/.test(q)) {
+    return hi
+      ? "Admin → Stage Lock / Feature Flags खोलें। Stage 1/2/3 और हर मॉड्यूल ON/OFF करें। यह सिर्फ members पर लगता है — Super Admin को सब दिखता रहता है।"
+      : "Open Admin → Stage Lock / Feature Flags. Toggle Stage 1/2/3 and each module. Affects members only — Super Admin always has full access.";
+  }
+  if (/verify|pending|सत्यापन/.test(q)) {
+    return hi
+      ? "Admin → Verify Users में pending सदस्यों को approve करें।"
+      : "Admin → Verify Users — approve pending members.";
+  }
+  if (/audit|लॉग/.test(q)) {
+    return hi
+      ? "Admin → Audit Log में login/register/profile/flags दिखते हैं। खाली हो तो “Write test entry” दबाएँ।"
+      : "Admin → Audit Log lists login/register/profile/flags. If empty, tap “Write test entry”.";
+  }
+  if (/directory|crm|सदस्य|profile/.test(q)) {
+    return hi
+      ? "Admin → Directory में सदस्य खोलें — पूरी प्रोफ़ाइल + Personal feature ON/OFF।"
+      : "Admin → Directory → open a member for full profile + personal feature ON/OFF.";
+  }
+  if (/mpin|reset|पिन/.test(q)) {
+    return hi
+      ? "Admin → Reset M-PIN → सदस्य चुनें → नया 4 अंक → Confirm। पहचान पहले खुद verify करें।"
+      : "Admin → Reset M-PIN → pick member → new 4 digits → Confirm. Verify identity first.";
+  }
+  if (/demo|seed|डमी|50/.test(q)) {
+    return hi
+      ? "Admin हब में “Load demo data” — 50 सदस्य (90000xxxxx / M-PIN 1234), posts, jobs, care, kosh।"
+      : "Admin hub → “Load demo data” — 50 members (90000xxxxx / PIN 1234), posts, jobs, care, kosh.";
+  }
+  if (/title|पद/.test(q)) {
+    return hi
+      ? "Admin → City Titles से शहर-वार पद असाइन करें (titles + city_titles)।"
+      : "Admin → City Titles assigns city-wise titles (titles + city_titles).";
+  }
+  if (/sos|census|job|care|feed/.test(q)) {
+    return localMember(q0, lang) + (hi ? "\n\n(God Mode: Admin टूल्स भी पूछ सकते हैं।)" : "\n\n(God Mode: you can also ask about Admin tools.)");
+  }
+  return hi
+    ? "God Mode: Stage Lock, Verify, Directory, Reset M-PIN, Titles, Audit, Demo data — क्या करना है लिखें, स्टेप बताऊँगा।"
+    : "God Mode: ask about Stage Lock, Verify, Directory, Reset M-PIN, Titles, Audit, or Demo data — I'll give steps.";
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Login required to use Matang AI" }, { status: 401 });
-  }
-
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Login required for Matang AI" }, { status: 401 });
+    }
+
     const body = await request.json();
     const message = String(body.message || "").trim().slice(0, 2000);
     const history = Array.isArray(body.history) ? body.history.slice(-8) : [];
     const lang = String(body.lang || "en").slice(0, 5);
-
     if (!message) {
       return NextResponse.json({ error: "Message required" }, { status: 400 });
     }
 
     const isSuper = session.role === "super_admin";
-    const systemPrompt = isSuper
-      ? SYSTEM + `\n\nGOD-MODE (super admin only): You may explain how to use Admin → Stage Lock/Unlock, Verify, Audit, Titles, Feature Flags, Directory CRM filters, award volunteer points, manage Kosh campaigns. Never expose M-PIN hashes or secrets. Suggest SQL-safe operational steps; do not invent live DB counts.`
-      : SYSTEM;
+    const systemPrompt = isSuper ? SYSTEM_GOD : SYSTEM_MEMBER;
 
     const apiKey = process.env.XAI_API_KEY || process.env.GROK_API_KEY;
-
     if (apiKey) {
       try {
         const messages = [
@@ -155,7 +171,6 @@ export async function POST(request: NextRequest) {
             })),
           { role: "user", content: message },
         ];
-
         const res = await fetch("https://api.x.ai/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -165,21 +180,20 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({
             model: "grok-2-latest",
             messages,
-            temperature: 0.5,
-            max_tokens: 500,
+            temperature: isSuper ? 0.4 : 0.5,
+            max_tokens: isSuper ? 700 : 450,
           }),
         });
-
         if (res.ok) {
           const data = await res.json();
           const reply =
             data?.choices?.[0]?.message?.content?.trim() ||
-            localAnswer(message, lang);
-          try {
-            const { createAdminClient } = await import("@/lib/supabase/admin");
-            const admin = createAdminClient();
-            await admin.from("audit_logs").insert({ actor_id: session.userId, action: "ai_chat", meta: { source: "grok", god: isSuper } });
-          } catch {}
+            (isSuper ? localGod(message, lang) : localMember(message, lang));
+          await writeAuditLog({
+            actorId: session.userId,
+            action: isSuper ? "ai_god_mode" : "ai_member",
+            meta: { source: "grok" },
+          });
           return NextResponse.json({ reply, source: "grok", godMode: isSuper });
         }
         console.error("xAI chat error", await res.text());
@@ -188,11 +202,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Built-in knowledge assistant (works without API key)
-    return NextResponse.json({
-      reply: localAnswer(message, lang),
-      source: "local",
+    const reply = isSuper ? localGod(message, lang) : localMember(message, lang);
+    await writeAuditLog({
+      actorId: session.userId,
+      action: isSuper ? "ai_god_mode" : "ai_member",
+      meta: { source: "local" },
     });
+    return NextResponse.json({ reply, source: "local", godMode: isSuper });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "AI error" }, { status: 500 });
   }
