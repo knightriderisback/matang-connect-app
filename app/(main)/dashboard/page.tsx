@@ -10,11 +10,7 @@ import { Onboarding } from "@/components/shared/Onboarding";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useToast } from "@/components/ui/Toaster";
 import { QRCodeSVG } from "qrcode.react";
-import {
-  Users, AlertTriangle, Briefcase, Bell, Heart, BookOpen, Shield, HeartHandshake,
-  Store, Landmark, Calendar, Flower2, BarChart3, TrendingUp, QrCode, Sparkles,
-  Car, Award, Trophy, Settings, UserCheck, KeyRound, ScrollText, Share2, Plus,
-} from "lucide-react";
+import { Bell, Plus, Share2, Sparkles, Shield } from "lucide-react";
 
 interface Notice {
   id: string;
@@ -26,38 +22,6 @@ interface Notice {
   type?: string;
   created_at: string;
 }
-
-const ALL_ACTIONS = [
-  { key: "census", icon: Users, label: "Census", href: "/census", color: "bg-blue-100 text-blue-600" },
-  { key: "sos", icon: AlertTriangle, label: "SOS", href: "/sos", color: "bg-red-100 text-red-600" },
-  { key: "care", icon: HeartHandshake, label: "Care", href: "/care", color: "bg-rose-100 text-rose-600" },
-  { key: "jobs", icon: Briefcase, label: "Jobs", href: "/jobs", color: "bg-green-100 text-green-600" },
-  { key: "notices", icon: Bell, label: "Notices", href: "/notices", color: "bg-yellow-100 text-yellow-600" },
-  { key: "kosh", icon: Heart, label: "Sahyog", href: "/kosh", color: "bg-pink-100 text-pink-600" },
-  { key: "vyapar", icon: Store, label: "Vyapar", href: "/vyapar", color: "bg-orange-100 text-orange-600" },
-  { key: "matrimony", icon: Heart, label: "Matrimony", href: "/matrimony", color: "bg-fuchsia-100 text-fuchsia-600" },
-  { key: "dharohar", icon: Landmark, label: "Dharohar", href: "/dharohar", color: "bg-amber-100 text-amber-700" },
-  { key: "panchang", icon: Calendar, label: "Panchang", href: "/panchang", color: "bg-indigo-100 text-indigo-600" },
-  { key: "mahila", icon: Flower2, label: "Mahila", href: "/mahila", color: "bg-pink-100 text-pink-600" },
-  { key: "polls", icon: BarChart3, label: "Polls", href: "/polls", color: "bg-cyan-100 text-cyan-600" },
-  { key: "arthik", icon: TrendingUp, label: "Arthik", href: "/arthik", color: "bg-emerald-100 text-emerald-700" },
-  { key: "rides", icon: Car, label: "Rides", href: "/rides", color: "bg-sky-100 text-sky-700" },
-  { key: "gaurav", icon: Award, label: "Gaurav", href: "/gaurav", color: "bg-yellow-100 text-yellow-800" },
-  { key: "gamification", icon: Trophy, label: "Credits", href: "/badges", color: "bg-violet-100 text-violet-700" },
-  { key: "scan", icon: QrCode, label: "Scan", href: "/scan", color: "bg-slate-100 text-slate-700" },
-  { key: "directory", icon: BookOpen, label: "Directory", href: "/admin/directory", color: "bg-purple-100 text-purple-600" },
-  { key: "history", icon: ScrollText, label: "History", href: "/history", color: "bg-stone-100 text-stone-700" },
-  { key: "profile", icon: Users, label: "Profile", href: "/profile", color: "bg-blue-50 text-blue-800" },
-];
-
-const ADMIN_LINKS = [
-  { href: "/admin/verify", label: "Verify Users", icon: UserCheck },
-  { href: "/admin/reset-mpin", label: "Reset M-PIN", icon: KeyRound },
-  { href: "/admin/titles", label: "City Titles", icon: Award },
-  { href: "/admin/directory", label: "Directory", icon: BookOpen },
-  { href: "/admin/audit", label: "Audit Log", icon: ScrollText },
-  { href: "/admin/settings", label: "Stage Lock / Feature Flags", icon: Settings },
-];
 
 function timeAgo(iso: string) {
   const d = new Date(iso).getTime();
@@ -142,7 +106,6 @@ export default function DashboardPage() {
       <Onboarding />
       {showWelcome && <WelcomeAnimation onComplete={() => setShowWelcome(false)} />}
       <div className="space-y-4 pb-4">
-        {/* Header strip */}
         <div className="px-4 pt-4">
           <p className="text-sm text-gray-500">Welcome,</p>
           <h2 className="text-xl font-bold text-matang-navy flex items-center gap-2 flex-wrap">
@@ -158,7 +121,6 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* ===== COMMUNITY FEED (primary home) ===== */}
         <div className="px-4 flex items-center justify-between">
           <h2 className="text-base font-bold text-matang-navy flex items-center gap-2">
             <Bell size={18} className="text-matang-gold" /> Community Feed
@@ -210,7 +172,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Feed list — channel style */}
         <div className="px-3 space-y-3">
           {feedLoading && (
             <p className="text-center text-gray-400 text-sm py-8">Loading feed…</p>
@@ -220,7 +181,7 @@ export default function DashboardPage() {
               <Bell className="mx-auto text-gray-300 mb-2" size={28} />
               <p className="text-sm text-gray-400">No posts yet</p>
               {isStaff && (
-                <p className="text-xs text-gray-400 mt-1">Tap + Post to publish the first notice</p>
+                <p className="text-xs text-gray-400 mt-1">Tap + Post to publish</p>
               )}
             </div>
           )}
@@ -228,7 +189,8 @@ export default function DashboardPage() {
             const text = n.body || n.content || "";
             const tag = n.category || n.type || "general";
             const isShok = tag === "shok_sandesh";
-            const isUrgent = tag === "urgent" || n.priority === "high" || n.priority === "urgent";
+            const isUrgent =
+              tag === "urgent" || n.priority === "high" || n.priority === "urgent";
             return (
               <article
                 key={n.id}
@@ -289,7 +251,6 @@ export default function DashboardPage() {
           })}
         </div>
 
-        {/* Digital ID — everyone */}
         <div className="px-4">
           <Card className="border-2 border-matang-gold/30">
             <CardHeader>
@@ -326,59 +287,6 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-
-        {/* ===== ADMIN ONLY: modules grid + tools (at the end) ===== */}
-        {isStaff && (
-          <div className="px-4 pt-2 space-y-4 border-t border-gray-200">
-            <div>
-              <h2 className="text-base font-bold text-matang-navy mb-1 flex items-center gap-2">
-                <Shield size={16} className="text-matang-gold" />
-                Admin — All modules
-              </h2>
-              <p className="text-[11px] text-gray-500 mb-2">
-                Stage lock (members) is controlled in Stage Lock settings.
-              </p>
-              <div className="grid grid-cols-3 gap-2.5">
-                {ALL_ACTIONS.map((a) => (
-                  <button
-                    key={a.href + a.key}
-                    type="button"
-                    onClick={() => router.push(a.href)}
-                    className="flex flex-col items-center gap-1.5 p-3 bg-white rounded-2xl shadow-sm border border-gray-100 active:scale-95"
-                  >
-                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${a.color}`}>
-                      <a.icon size={20} />
-                    </div>
-                    <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
-                      {a.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h2 className="text-base font-bold text-matang-navy mb-2">Admin Tools</h2>
-              <div className="grid grid-cols-2 gap-2">
-                {ADMIN_LINKS.map((l) => (
-                  <button
-                    key={l.href}
-                    type="button"
-                    onClick={() => router.push(l.href)}
-                    className={`p-3 rounded-xl border text-sm font-medium text-left flex items-center gap-2 ${
-                      l.href === "/admin/settings"
-                        ? "bg-matang-navy text-matang-gold col-span-2"
-                        : "bg-white text-matang-navy"
-                    }`}
-                  >
-                    <l.icon size={16} />
-                    {l.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </>
   );

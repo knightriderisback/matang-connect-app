@@ -22,7 +22,7 @@ export function BottomNav() {
     { icon: Users, label: t("nav.census"), href: "/census" },
     { icon: AlertTriangle, label: t("nav.sos"), href: "/sos" },
     { icon: UserCircle, label: t("nav.profile"), href: "/profile" },
-    { icon: Shield, label: "Admin", href: "/admin/directory" },
+    { icon: Shield, label: "Admin", href: "/admin" },
   ];
 
   return (
