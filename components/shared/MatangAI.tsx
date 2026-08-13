@@ -99,7 +99,7 @@ export function MatangAI() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="absolute bottom-20 left-3 md:bottom-24 md:left-6 z-30 w-12 h-12 rounded-full bg-gradient-to-br from-matang-navy to-blue-900 text-matang-gold shadow-xl shadow-matang-navy/40 ring-2 ring-matang-gold/40 flex items-center justify-center active:scale-90 transition-transform"
+        className="fixed bottom-20 left-3 md:bottom-24 md:left-6 z-50 w-12 h-12 rounded-full bg-gradient-to-br from-matang-navy to-blue-900 text-matang-gold shadow-xl shadow-matang-navy/40 ring-2 ring-matang-gold/40 flex items-center justify-center active:scale-90 transition-transform"
         title="Matang AI"
         aria-label="Open Matang AI"
       >
@@ -107,7 +107,7 @@ export function MatangAI() {
       </button>
 
       {open && (
-        <div className="absolute bottom-36 left-3 right-3 md:left-6 md:right-auto md:w-[380px] z-40 flex flex-col max-h-[min(70vh,520px)] rounded-2xl border border-matang-gold/30 bg-white shadow-2xl overflow-hidden">
+        <div className="fixed bottom-36 left-3 right-3 md:left-6 md:right-auto md:w-[380px] z-50 flex flex-col max-h-[min(70vh,520px)] rounded-2xl border border-matang-gold/30 bg-white shadow-2xl overflow-hidden">
           <div className="bg-gradient-to-r from-matang-navy to-blue-900 px-4 py-3 flex items-center gap-2 text-white shrink-0">
             <MessageCircle size={18} className="text-matang-gold" />
             <div className="flex-1 min-w-0">

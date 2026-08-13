@@ -25,22 +25,19 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-matang-cream antialiased">
+    <html lang="en" className="h-full" suppressHydrationWarning>
+      <body className="h-full overflow-hidden bg-matang-cream antialiased">
         <LanguageProvider>
           <ToastProvider>
-            {/* Outer shell: phone on mobile, wide desktop panel */}
-            <div className="min-h-[100dvh] flex justify-center bg-gradient-to-br from-gray-100 via-gray-50 to-gray-200 md:from-slate-200 md:via-slate-100 md:to-slate-200">
-              <div className="w-full max-w-lg md:max-w-5xl lg:max-w-6xl min-h-[100dvh] md:min-h-[100dvh] flex flex-col bg-matang-cream shadow-xl md:shadow-2xl md:my-0 md:border-x md:border-gray-200 relative">
+            {/* Fixed viewport height so main scrolls and footer stays visible */}
+            <div className="h-[100dvh] flex justify-center bg-gradient-to-br from-gray-100 via-gray-50 to-gray-200 md:from-slate-200 md:via-slate-100 md:to-slate-200">
+              <div className="w-full max-w-lg md:max-w-5xl lg:max-w-6xl h-full flex flex-col bg-matang-cream shadow-xl md:shadow-2xl md:border-x md:border-gray-200 relative overflow-hidden">
                 <AppHeader />
-                {/* Scroll only the main content — footer stays fixed at bottom */}
                 <main
                   data-scroll-root
-                  className="flex-1 overflow-y-auto overscroll-contain pb-20 md:pb-6 min-h-0"
+                  className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y pb-4"
                 >
-                  <div className="md:grid md:grid-cols-12 md:gap-6 md:px-6 md:py-4">
-                    <div className="md:col-span-12 lg:col-span-12">{children}</div>
-                  </div>
+                  <div className="md:px-6 md:py-4">{children}</div>
                 </main>
                 <BottomNav />
                 <FloatingLogo />

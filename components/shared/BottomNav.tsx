@@ -8,7 +8,10 @@ export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
-  if (["/login", "/register", "/", "/history"].includes(pathname || "") || pathname?.startsWith("/u/")) {
+  if (
+    ["/", "/login", "/register", "/history"].includes(pathname || "") ||
+    pathname?.startsWith("/u/")
+  ) {
     return null;
   }
 
@@ -21,17 +24,19 @@ export function BottomNav() {
   ];
 
   return (
-    <nav className="shrink-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200 md:border-t-0 md:bg-white md:shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
-      <div className="flex justify-around items-center h-16 px-1 max-w-lg md:max-w-5xl lg:max-w-6xl mx-auto">
+    <nav className="shrink-0 z-40 w-full bg-white border-t border-gray-200 safe-area-pb">
+      <div className="flex justify-around items-center h-14 px-1 max-w-lg md:max-w-5xl lg:max-w-6xl mx-auto">
         {items.map((item) => {
-          const active = pathname === item.href || pathname?.startsWith(item.href + "/");
+          const active =
+            pathname === item.href || pathname?.startsWith(item.href + "/");
           return (
             <button
               key={item.href}
+              type="button"
               onClick={() => router.push(item.href)}
               className={cn(
                 "flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors",
-                active ? "text-matang-gold" : "text-gray-400 hover:text-matang-navy"
+                active ? "text-matang-gold" : "text-gray-400"
               )}
             >
               <item.icon size={22} strokeWidth={active ? 2.5 : 2} />
