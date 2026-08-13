@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import {
@@ -42,18 +43,31 @@ const ADMIN_LINKS = [
 export default function AdminHubPage() {
   const router = useRouter();
   const { user, loading } = useCurrentUser();
+  const [seeding, setSeeding] = useState(false);
+  const [seedMsg, setSeedMsg] = useState("");
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
 
   if (loading) {
     return <div className="p-8 text-center text-gray-500">Loading…</div>;
   }
   if (!isStaff) {
-    return (
-      <div className="p-8 text-center text-sm text-gray-500">
-        Staff / Admin access only
-      </div>
-    );
+    return <div className="p-8 text-center text-sm text-gray-500">Staff / Admin access only</div>;
   }
+
+  const runSeed = async () => {
+    setSeeding(true);
+    setSeedMsg("");
+    try {
+      const r = await fetch("/api/admin/seed", { method: "POST" });
+      const d = await r.json();
+      if (!r.ok) setSeedMsg(d.error || "Failed");
+      else setSeedMsg("Done: " + JSON.stringify(d.results));
+    } catch {
+      setSeedMsg("Network error");
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   return (
     <div className="p-4 space-y-5 pb-6">
@@ -65,6 +79,24 @@ export default function AdminHubPage() {
           All modules + tools. Stage lock only affects members.
         </p>
       </div>
+
+      {user?.role === "super_admin" && (
+        <div className="p-4 rounded-2xl border border-matang-gold/40 bg-matang-gold/10 space-y-2">
+          <p className="text-sm font-semibold text-matang-navy">Demo data</p>
+          <p className="text-[11px] text-gray-600">
+            50 members (phone 90000xxxxx, M-PIN 1234), 12 posts all types, jobs, care, kosh.
+          </p>
+          <button
+            type="button"
+            disabled={seeding}
+            onClick={runSeed}
+            className="w-full py-2.5 rounded-xl bg-matang-navy text-matang-gold text-sm font-semibold disabled:opacity-50"
+          >
+            {seeding ? "Seeding…" : "Load demo data (50+ members)"}
+          </button>
+          {seedMsg && <p className="text-[10px] text-gray-600 break-all">{seedMsg}</p>}
+        </div>
+      )}
 
       <div>
         <h2 className="text-sm font-bold text-matang-navy mb-2">All modules</h2>
