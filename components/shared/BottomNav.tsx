@@ -2,37 +2,45 @@
 import { usePathname, useRouter } from "next/navigation";
 import { Home, Users, UserCircle, AlertTriangle, Shield } from "lucide-react";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
+import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { cn } from "@/lib/utils";
 
+const HIDE_ON = ["/", "/login", "/register", "/history"];
+
 export function BottomNav() {
-  const pathname = usePathname();
+  const pathname = usePathname() || "";
   const router = useRouter();
   const { t } = useI18n();
+  const { user } = useCurrentUser();
 
-  if (
-    ["/", "/login", "/register", "/history"].includes(pathname || "") ||
-    pathname?.startsWith("/u/")
-  ) {
+  if (HIDE_ON.includes(pathname) || pathname.startsWith("/u/")) {
     return null;
   }
 
-  // Logged-in app shell: always show Admin last (route itself enforces role)
-  const items = [
-    { icon: Home, label: t("nav.home"), href: "/dashboard" },
-    { icon: Users, label: t("nav.census"), href: "/census" },
-    { icon: AlertTriangle, label: t("nav.sos"), href: "/sos" },
-    { icon: UserCircle, label: t("nav.profile"), href: "/profile" },
-    { icon: Shield, label: "Admin", href: "/admin" },
+  const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
+
+  const items: { icon: typeof Home; label: string; href: string }[] = [
+    { icon: Home, label: t("nav.home") || "Home", href: "/dashboard" },
+    { icon: Users, label: t("nav.census") || "Census", href: "/census" },
+    { icon: AlertTriangle, label: t("nav.sos") || "SOS", href: "/sos" },
+    { icon: UserCircle, label: t("nav.profile") || "Profile", href: "/profile" },
   ];
 
+  if (isStaff) {
+    items.push({ icon: Shield, label: "Admin", href: "/admin" });
+  }
+
   return (
-    <nav className="shrink-0 z-40 w-full bg-white border-t border-gray-200 safe-area-pb">
-      <div className="flex justify-around items-center h-14 px-1 max-w-lg md:max-w-5xl lg:max-w-6xl mx-auto">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200"
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+    >
+      <div className="mx-auto w-full max-w-lg md:max-w-5xl lg:max-w-6xl flex justify-around items-center h-14 px-1">
         {items.map((item) => {
           const active =
             pathname === item.href ||
-            pathname?.startsWith(item.href + "/") ||
-            (item.href === "/admin/directory" && pathname?.startsWith("/admin"));
+            pathname.startsWith(item.href + "/") ||
+            (item.href === "/admin" && pathname.startsWith("/admin"));
           return (
             <button
               key={item.href}
@@ -40,7 +48,7 @@ export function BottomNav() {
               onClick={() => router.push(item.href)}
               className={cn(
                 "flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors",
-                active ? "text-matang-gold" : "text-gray-400"
+                active ? "text-matang-gold" : "text-gray-500"
               )}
             >
               <item.icon size={22} strokeWidth={active ? 2.5 : 2} />
