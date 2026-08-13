@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 export interface CurrentUser {
   id: string;
@@ -17,6 +17,7 @@ export interface CurrentUser {
   occupation?: string | null;
   about?: string | null;
   address?: string | null;
+  title?: string | null;
   created_at: string;
   cities: { name: string } | null;
 }
@@ -24,16 +25,56 @@ export interface CurrentUser {
 export function useCurrentUser() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    return fetch("/api/auth/me", { credentials: "include", cache: "no-store" })
+      .then(async (res) => {
+        if (res.status === 401) {
+          setUser(null);
+          setError("not_authenticated");
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.user) {
+          setUser(null);
+          setError(data.error || "load_failed");
+          return;
+        }
+        setUser(data.user);
+      })
+      .catch(() => {
+        setUser(null);
+        setError("network");
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/auth/me")
-      .then((res) => (res.ok ? res.json() : Promise.reject()))
-      .then((data) => {
-        if (!cancelled) setUser(data.user);
+    fetch("/api/auth/me", { credentials: "include", cache: "no-store" })
+      .then(async (res) => {
+        if (cancelled) return;
+        if (res.status === 401) {
+          setUser(null);
+          setError("not_authenticated");
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.user) {
+          setUser(null);
+          setError(data.error || "load_failed");
+          return;
+        }
+        setUser(data.user);
       })
       .catch(() => {
-        if (!cancelled) setUser(null);
+        if (!cancelled) {
+          setUser(null);
+          setError("network");
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -43,5 +84,5 @@ export function useCurrentUser() {
     };
   }, []);
 
-  return { user, loading };
+  return { user, loading, error, refresh };
 }

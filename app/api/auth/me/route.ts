@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+/** Live users core columns from 001 schema + optional profile extras */
+const CORE =
+  "id, full_name, phone, role, city_id, native_village, verification_status, qr_code_id, created_at";
+const WITH_CITY = `${CORE}, cities(name)`;
+const EXTENDED = `${CORE}, photo_url, gender, blood_group, education_level, occupation, about, address, title, cities(name)`;
+
 export async function GET() {
   const session = await getSession();
   if (!session) {
@@ -9,27 +15,49 @@ export async function GET() {
   }
 
   const supabase = createAdminClient();
-  const { data: user, error } = await supabase
-    .from("users")
-    .select(
-      "id, full_name, phone, role, city_id, native_village, verification_status, qr_code_id, photo_url, gender, blood_group, education_level, occupation, about, address, created_at, cities(name)"
-    )
-    .eq("id", session.userId)
-    .single();
 
+  // 1) Prefer extended profile columns
+  let { data: user, error } = await supabase
+    .from("users")
+    .select(EXTENDED)
+    .eq("id", session.userId)
+    .maybeSingle();
+
+  // 2) Core + city join
   if (error || !user) {
-    // Fallback without optional profile columns
-    const retry = await supabase
+    ({ data: user, error } = await supabase
       .from("users")
-      .select(
-        "id, full_name, phone, role, city_id, native_village, verification_status, qr_code_id, photo_url, created_at, cities(name)"
-      )
+      .select(WITH_CITY)
       .eq("id", session.userId)
-      .single();
-    if (retry.error || !retry.data) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-    return NextResponse.json({ user: retry.data });
+      .maybeSingle());
+  }
+
+  // 3) Absolute core only
+  if (error || !user) {
+    ({ data: user, error } = await supabase
+      .from("users")
+      .select(CORE)
+      .eq("id", session.userId)
+      .maybeSingle());
+  }
+
+  if (!user) {
+    // Session valid but DB row missing — still return session-based stub so UI works
+    return NextResponse.json({
+      user: {
+        id: session.userId,
+        full_name: session.fullName,
+        phone: "",
+        role: session.role,
+        city_id: session.cityId,
+        native_village: "",
+        verification_status: "pending",
+        qr_code_id: null,
+        created_at: new Date().toISOString(),
+        cities: null,
+      },
+      warning: "profile_row_missing",
+    });
   }
 
   return NextResponse.json({ user });

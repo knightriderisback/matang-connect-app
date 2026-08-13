@@ -159,6 +159,20 @@ export default function ProfilePage() {
   };
 
   if (loading) return <div className="p-8 text-center text-gray-500">{t("common.loading")}</div>;
+  if (!user) {
+    return (
+      <div className="p-8 text-center space-y-3">
+        <p className="text-gray-500 text-sm">Profile details could not be loaded.</p>
+        <button
+          type="button"
+          className="text-sm font-semibold text-matang-gold"
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
   const style = ROLE_STYLE[user?.role || "normal"] || ROLE_STYLE.normal;
   const photo = form.photo || user?.photo_url;
   const u = user as any;

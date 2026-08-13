@@ -2,14 +2,12 @@
 import { usePathname, useRouter } from "next/navigation";
 import { Home, Users, UserCircle, AlertTriangle, Shield } from "lucide-react";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
-import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { cn } from "@/lib/utils";
 
 export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
-  const { user } = useCurrentUser();
 
   if (
     ["/", "/login", "/register", "/history"].includes(pathname || "") ||
@@ -18,19 +16,14 @@ export function BottomNav() {
     return null;
   }
 
-  const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
-
-  const items: { icon: typeof Home; label: string; href: string }[] = [
+  // Logged-in app shell: always show Admin last (route itself enforces role)
+  const items = [
     { icon: Home, label: t("nav.home"), href: "/dashboard" },
     { icon: Users, label: t("nav.census"), href: "/census" },
     { icon: AlertTriangle, label: t("nav.sos"), href: "/sos" },
     { icon: UserCircle, label: t("nav.profile"), href: "/profile" },
+    { icon: Shield, label: "Admin", href: "/admin/directory" },
   ];
-
-  // Admin Tools last in footer (staff / super admin)
-  if (isStaff) {
-    items.push({ icon: Shield, label: "Admin", href: "/admin/directory" });
-  }
 
   return (
     <nav className="shrink-0 z-40 w-full bg-white border-t border-gray-200 safe-area-pb">
