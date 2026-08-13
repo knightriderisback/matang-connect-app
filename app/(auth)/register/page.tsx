@@ -74,8 +74,13 @@ export default function RegisterPage() {
         toast(result.error || result.detail || t("common.error"), "error");
         return;
       }
-      toast("Registration successful! Awaiting verification.", "success");
-      router.push("/login");
+      toast(result.message || "Registration successful!", "success");
+      if (result.autoLogin) {
+        router.push("/dashboard");
+        router.refresh();
+      } else {
+        router.push("/login");
+      }
     } catch {
       toast(t("common.error"), "error");
     } finally {

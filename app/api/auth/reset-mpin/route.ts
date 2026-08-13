@@ -19,7 +19,6 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // Core committee limited to same city
   if (session.role === "core_committee") {
     const { data: target } = await supabase
       .from("users")
@@ -31,64 +30,34 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // 1) Prefer DB RPC (pgcrypto crypt — same as login_with_mpin)
-  const rpc = await supabase.rpc("admin_reset_mpin", {
-    p_user_id: userId,
-    p_new_mpin: newMpin,
-  });
+  const hash = await bcrypt.hash(newMpin, 10);
+  const { data, error } = await supabase
+    .from("users")
+    .update({
+      m_pin_hash: hash,
+      failed_mpin_attempts: 0,
+      mpin_locked_until: null,
+    })
+    .eq("id", userId)
+    .select("id, full_name")
+    .maybeSingle();
 
-  if (!rpc.error) {
-    try {
-      await supabase.from("audit_logs").insert({
-        actor_id: session.userId,
-        action: "reset_mpin",
-        target_id: userId,
-      });
-    } catch {
-      /* non-fatal */
-    }
-    return NextResponse.json({ success: true, method: "rpc" });
+  if (error) {
+    return NextResponse.json({ error: "Reset failed: " + error.message }, { status: 500 });
+  }
+  if (!data) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  console.warn("admin_reset_mpin RPC failed, trying direct hash:", rpc.error.message);
-
-  // 2) Fallback: bcryptjs hash written to m_pin_hash (compatible with crypt bf)
   try {
-    const hash = await bcrypt.hash(newMpin, 10);
-    const { error: upErr } = await supabase
-      .from("users")
-      .update({
-        m_pin_hash: hash,
-        failed_mpin_attempts: 0,
-        mpin_locked_until: null,
-      })
-      .eq("id", userId);
-
-    if (upErr) {
-      return NextResponse.json(
-        {
-          error: "Reset failed",
-          detail: upErr.message,
-          rpc: rpc.error.message,
-        },
-        { status: 500 }
-      );
-    }
-
-    try {
-      await supabase.from("audit_logs").insert({
-        actor_id: session.userId,
-        action: "reset_mpin",
-        target_id: userId,
-      });
-    } catch {
-      /* non-fatal */
-    }
-    return NextResponse.json({ success: true, method: "direct" });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: "Reset failed", detail: e?.message || rpc.error.message },
-      { status: 500 }
-    );
+    await supabase.from("audit_logs").insert({
+      actor_id: session.userId,
+      action: "reset_mpin",
+      target_id: userId,
+    });
+  } catch {
+    /* ignore */
   }
+
+  return NextResponse.json({ success: true, user: data });
 }

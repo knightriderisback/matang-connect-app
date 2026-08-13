@@ -6,6 +6,7 @@ import { Logo } from "./Logo";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { cn } from "@/lib/utils";
+import { ChevronLeft } from "lucide-react";
 
 const TITLES: Record<string, string> = {
   "/dashboard": "nav.home",
@@ -27,12 +28,13 @@ const TITLES: Record<string, string> = {
   "/badges": "Volunteer Credits",
   "/gaurav": "Matang Gaurav",
   "/rides": "Ride Share",
-  "/admin/directory": "nav.admin",
-  "/admin/verify": "nav.verify",
-  "/admin/titles": "nav.admin",
-  "/admin/audit": "nav.admin",
-  "/admin/settings": "nav.admin",
-  "/admin/reset-mpin": "nav.admin",
+  "/admin": "Admin",
+  "/admin/directory": "Directory",
+  "/admin/verify": "Verify Users",
+  "/admin/titles": "City Titles",
+  "/admin/audit": "Audit Log",
+  "/admin/settings": "Stage Lock",
+  "/admin/reset-mpin": "Reset M-PIN",
   "/history": "Matang History",
 };
 
@@ -63,6 +65,17 @@ export function AppHeader() {
   const titleKey = exact || (prefixKey ? TITLES[prefixKey] : null);
   const title = titleKey?.startsWith("nav.") ? t(titleKey) : titleKey || t("app.name");
 
+  const isHome = pathname === "/dashboard";
+  const goBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else if (pathname?.startsWith("/admin")) {
+      router.push("/admin");
+    } else {
+      router.push("/dashboard");
+    }
+  };
+
   return (
     <header
       className={cn(
@@ -73,15 +86,27 @@ export function AppHeader() {
       )}
     >
       <div className="h-0.5 bg-gradient-to-r from-transparent via-matang-gold to-transparent opacity-80" />
-      <div className="px-3 py-2.5 flex items-center gap-2.5">
-        <button
-          onClick={() => router.push("/history")}
-          className="shrink-0 relative group"
-          title="Matang Samaj History"
-        >
-          <Logo className="w-9 h-9 rounded-lg shadow-md ring-1 ring-matang-gold/40 group-active:scale-95 transition-transform" />
-          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-matang-gold rounded-full border border-matang-navy" />
-        </button>
+      <div className="px-2 py-2.5 flex items-center gap-1.5">
+        {!isHome ? (
+          <button
+            type="button"
+            onClick={goBack}
+            className="shrink-0 flex items-center justify-center w-9 h-9 rounded-xl text-white/90 active:bg-white/10"
+            aria-label="Back"
+          >
+            <ChevronLeft size={24} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => router.push("/history")}
+            className="shrink-0 relative group ml-1"
+            title="Matang Samaj History"
+          >
+            <Logo className="w-9 h-9 rounded-lg shadow-md ring-1 ring-matang-gold/40 group-active:scale-95 transition-transform" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-matang-gold rounded-full border border-matang-navy" />
+          </button>
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-white font-semibold text-sm leading-tight truncate">{title}</p>
           {user?.full_name && (
