@@ -78,6 +78,8 @@ export function AppHeader() {
     }
   };
 
+  const showSos = can("sos");
+
   return (
     <header
       className={cn(
@@ -115,19 +117,18 @@ export function AppHeader() {
             <p className="text-white/50 text-[10px] truncate">{user.full_name}</p>
           )}
         </div>
-        {can("sos") && (
-        {/* 3D-style SOS — always visible near language */}
-        <button
-          type="button"
-          onClick={() => router.push("/sos")}
-          title="Emergency SOS"
-          aria-label="Emergency SOS"
-          className="shrink-0 relative flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-b from-red-400 to-red-700 text-white shadow-[0_3px_0_0_#7f1d1d,0_4px_8px_rgba(0,0,0,0.35)] active:shadow-[0_1px_0_0_#7f1d1d] active:translate-y-0.5 transition-all ring-1 ring-red-300/40"
-        >
-          <HeartPulse size={18} strokeWidth={2.5} />
-          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-300 animate-pulse" />
-        </button>
-        )}
+        {showSos ? (
+          <button
+            type="button"
+            onClick={() => router.push("/sos")}
+            title="Emergency SOS"
+            aria-label="Emergency SOS"
+            className="shrink-0 relative flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-b from-red-400 to-red-700 text-white shadow-[0_3px_0_0_#7f1d1d,0_4px_8px_rgba(0,0,0,0.35)] active:shadow-[0_1px_0_0_#7f1d1d] active:translate-y-0.5 transition-all ring-1 ring-red-300/40"
+          >
+            <HeartPulse size={18} strokeWidth={2.5} />
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-300 animate-pulse" />
+          </button>
+        ) : null}
         <LanguageToggle />
       </div>
     </header>
