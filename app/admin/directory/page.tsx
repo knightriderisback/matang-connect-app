@@ -79,6 +79,8 @@ function AdminDirectoryPageInner() {
       ["sos_enabled", "SOS"],
       ["jobs_enabled", "Jobs"],
       ["notices_enabled", "Notices / Feed"],
+      ["feed_images_enabled", "Feed images"],
+      ["feed_member_post_enabled", "Can post on Feed"],
       ["care_enabled", "Care"],
       ["kosh_transparency_mode", "Kosh"],
       ["vyapar_enabled", "Vyapar"],

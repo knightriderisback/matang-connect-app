@@ -24,6 +24,8 @@ export interface FeatureFlags {
   gamification_enabled: boolean;
   ai_member_enabled: boolean;
   ai_god_mode_enabled: boolean;
+  feed_images_enabled: boolean;
+  feed_member_post_enabled: boolean;
 }
 
 export const DEFAULTS: FeatureFlags = {
@@ -49,6 +51,8 @@ export const DEFAULTS: FeatureFlags = {
   gamification_enabled: true,
   ai_member_enabled: true,
   ai_god_mode_enabled: true,
+  feed_images_enabled: true,
+  feed_member_post_enabled: false,
 };
 
 export const MODULE_STAGE: Record<string, 1 | 2 | 3> = {

@@ -16,7 +16,9 @@ const STAGE_KEYS = [
 const MODULE_LABELS: Record<string, string> = {
   sos_enabled: "SOS / Emergency",
   jobs_enabled: "Jobs (Rojgar)",
-  notices_enabled: "Notices / Shok Sandesh",
+  notices_enabled: "Notices / Feed",
+  feed_images_enabled: "Feed image posts",
+  feed_member_post_enabled: "Members can post on Feed",
   care_enabled: "Care / Vridh Seva",
   kosh_transparency_mode: "Kosh transparency",
   titles_enabled: "City titles",

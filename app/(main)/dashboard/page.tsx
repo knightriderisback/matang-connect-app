@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { WelcomeAnimation } from "@/components/shared/WelcomeAnimation";
 import { Onboarding } from "@/components/shared/Onboarding";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import { useToast } from "@/components/ui/Toaster";
 import { QRCodeSVG } from "qrcode.react";
 import { Bell, Plus, Share2, Sparkles, Shield } from "lucide-react";
@@ -41,14 +42,18 @@ export default function DashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user, loading } = useCurrentUser();
+  const { flags } = useFeatureFlags(user?.role);
   const [showWelcome, setShowWelcome] = useState(false);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [feedLoading, setFeedLoading] = useState(true);
   const [showPost, setShowPost] = useState(false);
-  const [form, setForm] = useState({ title: "", body: "", category: "general" });
+  const [form, setForm] = useState({ title: "", body: "", category: "general", image: "" });
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const isSuper = user?.role === "super_admin";
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
+  const canPost = isStaff || flags.feed_member_post_enabled === true;
+  const canImage = flags.feed_images_enabled !== false;
 
   useEffect(() => {
     if (localStorage.getItem("matang-welcome") === "true") {
@@ -77,12 +82,7 @@ export default function DashboardPage() {
     const res = await fetch("/api/notices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: form.title,
-        body: form.body,
-        category: form.category,
-        type: form.category,
-      }),
+      body: JSON.stringify({ title: form.title, body: form.body, category: form.category, image: form.image || undefined }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -90,7 +90,7 @@ export default function DashboardPage() {
       return;
     }
     toast("Posted", "success");
-    setForm({ title: "", body: "", category: "general" });
+    setForm({ title: "", body: "", category: "general", image: "" });
     setShowPost(false);
     loadFeed();
   };
@@ -129,7 +129,7 @@ export default function DashboardPage() {
           <h2 className="text-base font-bold text-matang-navy flex items-center gap-2">
             <Bell size={18} className="text-matang-gold" /> Community Feed
           </h2>
-          {isStaff && (
+          {canPost && (
             <button
               type="button"
               onClick={() => setShowPost((v) => !v)}
@@ -140,7 +140,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {showPost && isStaff && (
+        {showPost && canPost && (
           <div className="mx-4 p-4 bg-white rounded-2xl border border-matang-gold/30 space-y-3 shadow-sm">
             <Input
               label="Title"
@@ -165,6 +165,26 @@ export default function DashboardPage() {
               <option value="shok_sandesh">Shok Sandesh</option>
               <option value="urgent">Urgent</option>
             </select>
+            {canImage && (
+              <div className="space-y-2">
+                <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={onPickImage} />
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  className="text-xs font-semibold text-matang-navy border border-dashed border-matang-gold/50 rounded-xl w-full py-2"
+                >
+                  {form.image ? "Change image" : "Add image"}
+                </button>
+                {form.image && (
+                  <div className="relative">
+                    <img src={form.image} alt="" className="w-full max-h-48 object-cover rounded-xl" />
+                    <button type="button" className="absolute top-2 right-2 text-xs bg-black/60 text-white px-2 py-0.5 rounded" onClick={() => setForm({ ...form, image: "" })}>
+                      Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setShowPost(false)}>
                 Cancel
@@ -249,6 +269,11 @@ export default function DashboardPage() {
                     <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
                       {text}
                     </p>
+                  </div>
+                )}
+                {(n as any).image_url && (
+                  <div className="px-4 pb-2">
+                    <img src={(n as any).image_url} alt="" className="w-full max-h-72 object-cover rounded-xl" />
                   </div>
                 )}
                 <div className="px-4 py-2 border-t border-gray-50 flex justify-end">
