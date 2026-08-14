@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -19,7 +19,7 @@ interface DirectoryUser {
   families: { education_summary: string; employment_status: string; address?: string; needs?: string[]; family_members: { name: string; relation: string; age?: number; blood_group?: string; occupation?: string }[] }[];
 }
 
-export default function AdminDirectoryPage() {
+function AdminDirectoryPageInner() {
   const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useCurrentUser();
@@ -274,5 +274,13 @@ export default function AdminDirectoryPage() {
         </Button>
       </div>
     </div>
+  );
+}
+
+export default function AdminDirectoryPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-sm text-gray-400">Loading directory…</div>}>
+      <AdminDirectoryPageInner />
+    </Suspense>
   );
 }
