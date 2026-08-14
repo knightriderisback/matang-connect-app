@@ -3,6 +3,10 @@ import { getSession } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAuditLog } from "@/lib/audit";
 
+/**
+ * Live sos_alerts columns (001 schema):
+ * id, raised_by, type, status, city_id, message, created_at
+ */
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -14,9 +18,7 @@ export async function GET() {
     .order("created_at", { ascending: false })
     .limit(30);
 
-  if (error) {
-    return NextResponse.json({ alerts: [], error: error.message });
-  }
+  if (error) return NextResponse.json({ alerts: [], error: error.message });
   return NextResponse.json({ alerts: data || [] });
 }
 
@@ -29,11 +31,12 @@ export async function POST(request: NextRequest) {
   const details = body.details || body.message || {};
 
   const supabase = createAdminClient();
-  let cityId = session.cityId;
+
+  let cityId: string | null = session.cityId || null;
   try {
     const { data: requester } = await supabase
       .from("users")
-      .select("city_id, full_name, phone")
+      .select("city_id")
       .eq("id", session.userId)
       .maybeSingle();
     if (requester?.city_id) cityId = requester.city_id;
@@ -46,13 +49,13 @@ export async function POST(request: NextRequest) {
       ? JSON.stringify(details).slice(0, 2000)
       : String(details).slice(0, 2000);
 
-  // Try inserts with progressive column sets (live schema may differ)
+  // Only real columns — never invent alert_type / user_id / notes
   const attempts: Record<string, unknown>[] = [
     {
       raised_by: session.userId,
       type,
       status: "active",
-      city_id: cityId || null,
+      city_id: cityId,
       message,
     },
     {
@@ -65,13 +68,6 @@ export async function POST(request: NextRequest) {
       raised_by: session.userId,
       type,
       message,
-    },
-    // alternate column names some schemas use
-    {
-      user_id: session.userId,
-      alert_type: type,
-      status: "active",
-      notes: message,
     },
   ];
 
@@ -82,13 +78,17 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from("sos_alerts")
       .insert(row)
-      .select("*")
+      .select("id, raised_by, type, status, city_id, message, created_at")
       .maybeSingle();
     if (!error && data) {
       saved = data;
       break;
     }
     lastError = error?.message || lastError;
+    // If table missing, stop early
+    if (lastError && /does not exist|schema cache/i.test(lastError) && /sos_alerts/i.test(lastError)) {
+      break;
+    }
   }
 
   if (!saved) {
@@ -96,7 +96,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Could not raise SOS alert",
-        detail: lastError || "sos_alerts insert failed — check table exists in Supabase",
+        detail:
+          lastError ||
+          "sos_alerts insert failed. In Supabase run: CREATE TABLE IF NOT EXISTS sos_alerts (id uuid DEFAULT gen_random_uuid() PRIMARY KEY, raised_by uuid REFERENCES users(id), type text, status text DEFAULT 'active', city_id uuid, message text, created_at timestamptz DEFAULT now());",
       },
       { status: 500 }
     );
@@ -106,7 +108,7 @@ export async function POST(request: NextRequest) {
     actorId: session.userId,
     action: "sos_" + type,
     targetId: saved.id,
-    meta: typeof details === "object" ? details : { message },
+    meta: typeof details === "object" ? (details as object) : { message },
   });
 
   return NextResponse.json({ success: true, alert: saved });
