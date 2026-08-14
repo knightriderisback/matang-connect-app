@@ -64,6 +64,9 @@ export default function ProfilePage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showMpin, setShowMpin] = useState(false);
+  const [mpinSaving, setMpinSaving] = useState(false);
+  const [mpinForm, setMpinForm] = useState({ current: "", next: "", confirm: "" });
   const [form, setForm] = useState({
     full_name: "",
     native_village: "",
@@ -151,6 +154,41 @@ export default function ProfilePage() {
       toast(t("common.error"), "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const changeOwnMpin = async () => {
+    if (!/^\d{4}$/.test(mpinForm.current) || !/^\d{4}$/.test(mpinForm.next)) {
+      toast("M-PIN must be 4 digits", "error");
+      return;
+    }
+    if (mpinForm.next !== mpinForm.confirm) {
+      toast("New M-PIN and confirm do not match", "error");
+      return;
+    }
+    setMpinSaving(true);
+    try {
+      const res = await fetch("/api/auth/change-mpin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentMpin: mpinForm.current,
+          newMpin: mpinForm.next,
+          confirmMpin: mpinForm.confirm,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast(data.error || "Could not change M-PIN", "error");
+        return;
+      }
+      toast("M-PIN changed successfully", "success");
+      setMpinForm({ current: "", next: "", confirm: "" });
+      setShowMpin(false);
+    } catch {
+      toast("Network error", "error");
+    } finally {
+      setMpinSaving(false);
     }
   };
 
@@ -377,6 +415,50 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <button
+            type="button"
+            onClick={() => setShowMpin((v) => !v)}
+            className="w-full flex items-center justify-between text-sm font-semibold text-matang-navy"
+          >
+            <span>Change M-PIN</span>
+            <span className="text-matang-gold text-xs">{showMpin ? "Hide" : "Open"}</span>
+          </button>
+          {showMpin && (
+            <div className="space-y-2 pt-1 border-t border-gray-100">
+              <Input
+                label="Current M-PIN"
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={mpinForm.current}
+                onChange={(e) => setMpinForm({ ...mpinForm, current: e.target.value.replace(/\D/g, "").slice(0, 4) })}
+              />
+              <Input
+                label="New M-PIN"
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={mpinForm.next}
+                onChange={(e) => setMpinForm({ ...mpinForm, next: e.target.value.replace(/\D/g, "").slice(0, 4) })}
+              />
+              <Input
+                label="Confirm new M-PIN"
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={mpinForm.confirm}
+                onChange={(e) => setMpinForm({ ...mpinForm, confirm: e.target.value.replace(/\D/g, "").slice(0, 4) })}
+              />
+              <Button className="w-full" isLoading={mpinSaving} onClick={changeOwnMpin}>
+                Save new M-PIN
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Button variant="danger" className="w-full" onClick={handleLogout}>
         <LogOut size={18} /> Logout
