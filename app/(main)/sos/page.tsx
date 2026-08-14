@@ -65,8 +65,9 @@ export default function SOSPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type, details }),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast("Could not save SOS alert", "error");
+        toast(data.detail || data.error || "Could not save SOS alert", "error");
         return false;
       }
       toast(t("sos.sosSent") || "SOS posted to community!", "success");
@@ -83,16 +84,27 @@ export default function SOSPage() {
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
-  const startHold = () => {
+  const startHold = (e?: React.SyntheticEvent) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    if (sending) return;
     if (timer.current) clearInterval(timer.current);
     setHolding(true);
+    setProgress(0);
     let p = 0;
     timer.current = setInterval(() => {
-      p += 2.5;
-      setProgress(p);
+      p += 3.5; // ~1.5s hold
+      setProgress(Math.min(p, 100));
       if (p >= 100) {
         stopHold();
-        postSOS("medical", { note: "Emergency SOS - immediate help needed" });
+        const note = "Emergency SOS - immediate help needed";
+        postSOS("medical", { note }).then((ok) => {
+          if (ok) {
+            shareWA(
+              `🚨 *MATANG SOS*\n${user?.full_name || "Member"} needs help NOW.\nPhone: ${user?.phone || "-"}\n— Matang Connect`
+            );
+          }
+        });
       }
     }, 50);
   };
@@ -243,12 +255,13 @@ export default function SOSPage() {
       <Card className="border-red-200 bg-gradient-to-b from-red-50 to-white overflow-hidden">
         <div className="p-6 flex flex-col items-center">
           <button
-            onMouseDown={startHold}
-            onMouseUp={stopHold}
-            onMouseLeave={stopHold}
-            onTouchStart={startHold}
-            onTouchEnd={stopHold}
-            className="relative w-44 h-44 rounded-full bg-gradient-to-br from-red-500 to-red-700 shadow-2xl flex flex-col items-center justify-center text-white select-none"
+            type="button"
+            onPointerDown={startHold}
+            onPointerUp={stopHold}
+            onPointerCancel={stopHold}
+            onPointerLeave={stopHold}
+            onContextMenu={(e) => e.preventDefault()}
+            className="relative w-44 h-44 rounded-full bg-gradient-to-br from-red-500 to-red-700 shadow-2xl flex flex-col items-center justify-center text-white select-none touch-none"
             style={{
               animation: holding ? "none" : "heartbeat 1.2s ease-in-out infinite",
               transform: holding ? `scale(${1 + progress / 400})` : undefined,
@@ -273,7 +286,21 @@ export default function SOSPage() {
             <span className="font-bold text-lg mt-1">SOS</span>
             <span className="text-[11px] opacity-80 px-2 text-center">{t("sos.tapAndHold")}</span>
           </button>
-          <p className="text-xs text-gray-500 mt-3 text-center">Hold 3 seconds → alert community</p>
+          <p className="text-xs text-gray-500 mt-3 text-center">Hold ~1.5 sec → alert community</p>
+          <Button
+            className="mt-4 w-full max-w-xs bg-red-600 hover:bg-red-700 text-white"
+            isLoading={sending}
+            onClick={async () => {
+              const ok = await postSOS("medical", { note: "Emergency SOS - immediate help needed" });
+              if (ok) {
+                shareWA(
+                  `🚨 *MATANG SOS*\n${user?.full_name || "Member"} needs help NOW.\nPhone: ${user?.phone || "-"}\n— Matang Connect`
+                );
+              }
+            }}
+          >
+            <Send size={16} /> Send SOS now
+          </Button>
         </div>
       </Card>
       <div className="grid grid-cols-2 gap-3">
