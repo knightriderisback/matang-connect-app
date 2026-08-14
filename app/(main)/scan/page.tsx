@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import {
   QrCode,
   Search,
@@ -68,6 +69,7 @@ function ScanPageInner() {
   const { toast } = useToast();
   const router = useRouter();
   const { user, loading: userLoading } = useCurrentUser();
+  const { can, loading: flagsLoading } = useFeatureFlags(user?.role);
   const isStaff = STAFF.includes(user?.role || "");
 
   const [code, setCode] = useState("");
@@ -218,8 +220,25 @@ function ScanPageInner() {
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
-  if (userLoading) {
+  if (userLoading || flagsLoading) {
     return <div className="p-8 text-center text-sm text-gray-400">Loading…</div>;
+  }
+
+  if (!can("scan")) {
+    return (
+      <div className="p-8 max-w-sm mx-auto text-center space-y-3">
+        <div className="w-14 h-14 mx-auto rounded-2xl bg-gray-100 flex items-center justify-center">
+          <Lock className="text-gray-400" size={28} />
+        </div>
+        <h2 className="text-lg font-bold text-matang-navy">Scan is turned off</h2>
+        <p className="text-sm text-gray-500">
+          QR Scan is disabled in Stage / Feature control (or for your account).
+        </p>
+        <button type="button" onClick={() => router.push("/dashboard")} className="text-sm font-semibold text-matang-gold">
+          ← Back to Home
+        </button>
+      </div>
+    );
   }
 
   if (!isStaff) {

@@ -8,7 +8,7 @@ import { Settings, Lock, Unlock } from "lucide-react";
 type Flags = Record<string, boolean>;
 
 const STAGE_KEYS = [
-  { key: "stage_1_enabled", label: "Stage 1 — Foundation", desc: "Census, Digital ID, Directory, Profile (members)" },
+  { key: "stage_1_enabled", label: "Stage 1 — Foundation", desc: "Census, Digital ID, Directory, Profile, QR Scan (staff)" },
   { key: "stage_2_enabled", label: "Stage 2 — Support System", desc: "SOS, Jobs, Notices, Care, Kosh" },
   { key: "stage_3_enabled", label: "Stage 3 — Expansion", desc: "Vyapar, Matrimony, Dharohar, Rides, Gaurav, Gamification…" },
 ];
@@ -27,7 +27,7 @@ const MODULE_LABELS: Record<string, string> = {
   mahila_enabled: "Mahila Shakti",
   polls_enabled: "Polls",
   arthik_enabled: "Arthik / Portfolio",
-  scan_enabled: "QR Scan",
+  scan_enabled: "QR Scan (Volunteer / Core / Super Admin)",
   rides_enabled: "Ride sharing",
   gaurav_enabled: "Matang Gaurav",
   gamification_enabled: "Volunteer points & badges",

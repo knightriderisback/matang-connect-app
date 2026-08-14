@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import { useToast } from "@/components/ui/Toaster";
 import { QRCodeSVG } from "qrcode.react";
 import { LogOut, Shield, MapPin, Phone, Pencil, Save, QrCode, ImagePlus } from "lucide-react";
@@ -61,6 +62,8 @@ export default function ProfilePage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user, loading, refresh } = useCurrentUser();
+  const { can } = useFeatureFlags(user?.role);
+  const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
   const fileRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -406,12 +409,14 @@ export default function ProfilePage() {
             <p className="text-xs text-gray-500 text-center max-w-xs">
               Show this QR at community events for verification.
             </p>
+            {isStaff && can("scan") && (
             <button
               onClick={() => router.push("/scan")}
               className="text-sm text-matang-gold font-medium flex items-center gap-1"
             >
               <QrCode size={14} /> {t("profile.scanQr")}
             </button>
+            )}
           </CardContent>
         </Card>
       )}
