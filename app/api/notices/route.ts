@@ -18,13 +18,39 @@ export async function GET() {
   }
   const { data, error } = await q;
   if (error) return NextResponse.json({ notices: [], error: error.message });
-  // Normalize for UI (body/priority/category)
-  const notices = (data || []).map((n: any) => ({
-    ...n,
-    body: n.content,
-    priority: n.type === "urgent" || n.type === "shok_sandesh" ? "high" : "normal",
-    category: n.type || "general",
-  }));
+
+  const posterIds = Array.from(
+    new Set((data || []).map((n: any) => n.posted_by).filter(Boolean))
+  ) as string[];
+
+  const posterMap: Record<
+    string,
+    { id: string; full_name: string; role?: string; qr_code_id?: string | null }
+  > = {};
+
+  if (posterIds.length) {
+    const { data: posters } = await supabase
+      .from("users")
+      .select("id, full_name, role, qr_code_id")
+      .in("id", posterIds);
+    for (const p of posters || []) {
+      posterMap[p.id] = p;
+    }
+  }
+
+  const notices = (data || []).map((n: any) => {
+    const poster = n.posted_by ? posterMap[n.posted_by] : null;
+    return {
+      ...n,
+      body: n.content,
+      priority: n.type === "urgent" || n.type === "shok_sandesh" ? "high" : "normal",
+      category: n.type || "general",
+      posted_by: n.posted_by,
+      poster_name: poster?.full_name || null,
+      poster_role: poster?.role || null,
+      poster_qr: poster?.qr_code_id || null,
+    };
+  });
   return NextResponse.json({ notices });
 }
 
@@ -38,7 +64,6 @@ export async function POST(request: NextRequest) {
   const content = body.content || body.body || "";
   if (!content) return NextResponse.json({ error: "Content required" }, { status: 400 });
 
-  // Map UI category/priority → type
   let type = body.type || body.category || "general";
   if (body.priority === "urgent") type = "urgent";
   if (body.category === "shok_sandesh") type = "shok_sandesh";

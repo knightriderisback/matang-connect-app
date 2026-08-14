@@ -21,6 +21,10 @@ interface Notice {
   category?: string;
   type?: string;
   created_at: string;
+  posted_by?: string;
+  poster_name?: string | null;
+  poster_role?: string | null;
+  poster_qr?: string | null;
 }
 
 function timeAgo(iso: string) {
@@ -205,9 +209,19 @@ export default function DashboardPage() {
                 <div className="px-4 pt-3 pb-1 flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-matang-gold">
-                        Matang Samaj
-                      </span>
+                      {n.poster_name && n.posted_by ? (
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/member/${n.posted_by}`)}
+                          className="text-[11px] font-semibold text-matang-navy hover:underline"
+                        >
+                          {n.poster_name}
+                        </button>
+                      ) : (
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-matang-gold">
+                          Matang Samaj
+                        </span>
+                      )}
                       {tag !== "general" && (
                         <span
                           className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
