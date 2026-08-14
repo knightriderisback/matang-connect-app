@@ -74,6 +74,34 @@ export default function DashboardPage() {
     loadFeed();
   }, []);
 
+  const onPickImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (f.size > 4 * 1024 * 1024) {
+      toast("Max 4MB image", "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const max = 1000;
+        let w = img.width, h = img.height;
+        if (w > max || h > max) {
+          if (w > h) { h = Math.round((h * max) / w); w = max; }
+          else { w = Math.round((w * max) / h); h = max; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        setForm((prev) => ({ ...prev, image: canvas.toDataURL("image/jpeg", 0.72) }));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(f);
+  };
+
   const publish = async () => {
     if (!form.title.trim() || !form.body.trim()) {
       toast("Title and message required", "error");
