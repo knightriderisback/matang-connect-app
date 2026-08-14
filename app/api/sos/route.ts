@@ -1,25 +1,78 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/getSession";
+import { getSession, STAFF_ROLES } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAuditLog } from "@/lib/audit";
 
-/**
- * Live sos_alerts columns (001 schema):
- * id, raised_by, type, status, city_id, message, created_at
- */
-export async function GET() {
+async function ensureTables(supabase: ReturnType<typeof createAdminClient>) {
+  // Best-effort: if tables missing, inserts will surface clear errors
+}
+
+export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const supabase = createAdminClient();
+  const id = request.nextUrl.searchParams.get("id");
+
+  if (id) {
+    const { data: alert, error } = await supabase
+      .from("sos_alerts")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error || !alert) {
+      return NextResponse.json({ error: error?.message || "Not found" }, { status: 404 });
+    }
+    let raiser: any = null;
+    if (alert.raised_by) {
+      const { data: u } = await supabase
+        .from("users")
+        .select("id, full_name, phone, native_village, role")
+        .eq("id", alert.raised_by)
+        .maybeSingle();
+      raiser = u;
+    }
+    const { data: responses } = await supabase
+      .from("sos_responses")
+      .select("*")
+      .eq("alert_id", id)
+      .order("created_at", { ascending: false });
+    // attach responder names
+    const responsesWithNames = [];
+    for (const r of responses || []) {
+      const { data: u } = await supabase
+        .from("users")
+        .select("full_name, phone, role")
+        .eq("id", r.responder_id)
+        .maybeSingle();
+      responsesWithNames.push({ ...r, responder: u });
+    }
+    return NextResponse.json({ alert, raiser, responses: responsesWithNames });
+  }
+
   const { data, error } = await supabase
     .from("sos_alerts")
-    .select("id, raised_by, type, status, city_id, message, created_at")
+    .select("*")
     .order("created_at", { ascending: false })
-    .limit(30);
+    .limit(40);
 
   if (error) return NextResponse.json({ alerts: [], error: error.message });
-  return NextResponse.json({ alerts: data || [] });
+
+  // Enrich with raiser name
+  const alerts = [];
+  for (const a of data || []) {
+    let name = "";
+    if (a.raised_by) {
+      const { data: u } = await supabase
+        .from("users")
+        .select("full_name, phone")
+        .eq("id", a.raised_by)
+        .maybeSingle();
+      name = u?.full_name || "";
+    }
+    alerts.push({ ...a, raiser_name: name });
+  }
+  return NextResponse.json({ alerts });
 }
 
 export async function POST(request: NextRequest) {
@@ -28,28 +81,39 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}));
   const type = String(body.type || "medical").toLowerCase().slice(0, 40);
-  const details = body.details || body.message || {};
+  const details = body.details || {};
+  const lat = body.lat != null ? Number(body.lat) : null;
+  const lng = body.lng != null ? Number(body.lng) : null;
 
   const supabase = createAdminClient();
 
   let cityId: string | null = session.cityId || null;
+  let fullName = session.fullName || "Member";
+  let phone = "";
   try {
     const { data: requester } = await supabase
       .from("users")
-      .select("city_id")
+      .select("city_id, full_name, phone")
       .eq("id", session.userId)
       .maybeSingle();
     if (requester?.city_id) cityId = requester.city_id;
+    if (requester?.full_name) fullName = requester.full_name;
+    if (requester?.phone) phone = requester.phone;
   } catch {
     /* ignore */
   }
 
-  const message =
-    typeof details === "object"
-      ? JSON.stringify(details).slice(0, 2000)
-      : String(details).slice(0, 2000);
+  const detailObj =
+    typeof details === "object" && details
+      ? { ...details, lat, lng, phone, name: fullName }
+      : { note: String(details), lat, lng, phone, name: fullName };
 
-  // Only real columns — never invent alert_type / user_id / notes
+  const message = JSON.stringify(detailObj).slice(0, 2500);
+  const mapsLink =
+    lat != null && lng != null && !Number.isNaN(lat) && !Number.isNaN(lng)
+      ? `https://maps.google.com/?q=${lat},${lng}`
+      : null;
+
   const attempts: Record<string, unknown>[] = [
     {
       raised_by: session.userId,
@@ -73,43 +137,170 @@ export async function POST(request: NextRequest) {
 
   let saved: any = null;
   let lastError = "";
-
   for (const row of attempts) {
     const { data, error } = await supabase
       .from("sos_alerts")
       .insert(row)
-      .select("id, raised_by, type, status, city_id, message, created_at")
+      .select("*")
       .maybeSingle();
     if (!error && data) {
       saved = data;
       break;
     }
     lastError = error?.message || lastError;
-    // If table missing, stop early
-    if (lastError && /does not exist|schema cache/i.test(lastError) && /sos_alerts/i.test(lastError)) {
-      break;
-    }
   }
 
   if (!saved) {
-    console.error("SOS insert failed:", lastError);
     return NextResponse.json(
-      {
-        error: "Could not raise SOS alert",
-        detail:
-          lastError ||
-          "sos_alerts insert failed. In Supabase run: CREATE TABLE IF NOT EXISTS sos_alerts (id uuid DEFAULT gen_random_uuid() PRIMARY KEY, raised_by uuid REFERENCES users(id), type text, status text DEFAULT 'active', city_id uuid, message text, created_at timestamptz DEFAULT now());",
-      },
+      { error: "Could not raise SOS alert", detail: lastError },
       { status: 500 }
     );
+  }
+
+  // Feed short card via notices (so Home feed shows it)
+  const feedTitle =
+    type === "blood"
+      ? `🩸 Blood needed — ${detailObj.group || ""}`
+      : type === "medicine"
+        ? `💊 Medicine help — ${detailObj.medicine || ""}`
+        : `🚨 SOS Emergency — ${fullName}`;
+  const feedBody =
+    type === "medical"
+      ? `${fullName} needs urgent help.${mapsLink ? `\n📍 ${mapsLink}` : ""}\nOpen SOS for details & to respond.`
+      : type === "blood"
+        ? `Group: ${detailObj.group || "-"} · Units: ${detailObj.units || "-"} · ${detailObj.location || ""}${mapsLink ? `\n📍 ${mapsLink}` : ""}`
+        : `Medicine: ${detailObj.medicine || "-"} · ${detailObj.location || ""}${mapsLink ? `\n📍 ${mapsLink}` : ""}`;
+
+  try {
+    await supabase.from("notices").insert({
+      title: feedTitle.slice(0, 120),
+      content: feedBody.slice(0, 2000),
+      type: type === "medical" ? "urgent" : "urgent",
+      posted_by: session.userId,
+      city_id: cityId,
+    });
+  } catch {
+    /* feed optional */
+  }
+
+  // In-app notifications for staff (volunteer + core + super) in same city / all staff
+  try {
+    const { data: staff } = await supabase
+      .from("users")
+      .select("id, role")
+      .in("role", ["volunteer", "core_committee", "super_admin"])
+      .limit(200);
+    const rows = (staff || [])
+      .filter((u) => u.id !== session.userId)
+      .map((u) => ({
+        user_id: u.id,
+        title: feedTitle.slice(0, 100),
+        body: feedBody.slice(0, 300),
+        type: "sos",
+        ref_id: saved.id,
+        is_read: false,
+      }));
+    if (rows.length) {
+      // notifications table may not exist — ignore fail
+      await supabase.from("notifications").insert(rows);
+    }
+  } catch {
+    /* optional */
   }
 
   await writeAuditLog({
     actorId: session.userId,
     action: "sos_" + type,
     targetId: saved.id,
-    meta: typeof details === "object" ? (details as object) : { message },
+    meta: { type, lat, lng },
   });
 
-  return NextResponse.json({ success: true, alert: saved });
+  return NextResponse.json({
+    success: true,
+    alert: saved,
+    mapsLink,
+    shareWhatsApp: type === "blood" || type === "medicine",
+    feedPosted: true,
+  });
+}
+
+/** Volunteer/core: respond / update status on an alert */
+export async function PATCH(request: NextRequest) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!STAFF_ROLES.includes(session.role as any) && session.role !== "super_admin") {
+    // allow any logged-in to show interest? User said volunteer and core
+    if (!["volunteer", "core_committee", "super_admin"].includes(session.role)) {
+      return NextResponse.json({ error: "Staff only to respond" }, { status: 403 });
+    }
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const alertId = body.alertId || body.alert_id;
+  const status = String(body.status || "interested").slice(0, 40);
+  // interested | en_route | arrived | completed | fake | cancelled
+  if (!alertId) return NextResponse.json({ error: "alertId required" }, { status: 400 });
+
+  const supabase = createAdminClient();
+  const allowed = ["interested", "en_route", "arrived", "completed", "fake", "cancelled"];
+  const st = allowed.includes(status) ? status : "interested";
+
+  // upsert-like: try insert response
+  const { data: existing } = await supabase
+    .from("sos_responses")
+    .select("id")
+    .eq("alert_id", alertId)
+    .eq("responder_id", session.userId)
+    .maybeSingle();
+
+  let row;
+  if (existing?.id) {
+    const { data, error } = await supabase
+      .from("sos_responses")
+      .update({ status: st, updated_at: new Date().toISOString() })
+      .eq("id", existing.id)
+      .select("*")
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    row = data;
+  } else {
+    const { data, error } = await supabase
+      .from("sos_responses")
+      .insert({
+        alert_id: alertId,
+        responder_id: session.userId,
+        status: st,
+      })
+      .select("*")
+      .maybeSingle();
+    if (error) {
+      // table may not exist
+      return NextResponse.json(
+        {
+          error: error.message,
+          hint: "Create sos_responses table in Supabase (see migration note)",
+        },
+        { status: 500 }
+      );
+    }
+    row = data;
+  }
+
+  // Update alert status when completed / fake
+  if (st === "completed" || st === "fake") {
+    await supabase
+      .from("sos_alerts")
+      .update({ status: st === "fake" ? "fake" : "resolved" })
+      .eq("id", alertId);
+  } else if (st === "en_route" || st === "arrived") {
+    await supabase.from("sos_alerts").update({ status: "in_progress" }).eq("id", alertId);
+  }
+
+  await writeAuditLog({
+    actorId: session.userId,
+    action: "sos_response_" + st,
+    targetId: alertId,
+  });
+
+  return NextResponse.json({ success: true, response: row });
 }
