@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -37,7 +38,7 @@ const URGENCY = [
   { value: "emergency", label: "Emergency" },
 ];
 
-export default function CarePage() {
+function CarePageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [requests, setRequests] = useState<CareReq[]>([]);
@@ -219,5 +220,13 @@ export default function CarePage() {
         ))}
       </div>
     </div>
+  );
+}
+
+export default function CarePage() {
+  return (
+    <FeatureGate moduleKey="care">
+      <CarePageInner />
+    </FeatureGate>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -26,7 +27,7 @@ const CATEGORIES = [
   { value: "other", label: "Other" },
 ];
 
-export default function ArthikPage() {
+function ArthikPageInner() {
   const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useCurrentUser();
@@ -189,5 +190,13 @@ export default function ArthikPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ArthikPage() {
+  return (
+    <FeatureGate moduleKey="arthik">
+      <ArthikPageInner />
+    </FeatureGate>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -32,7 +33,7 @@ const PRIORITY_COLOR: Record<string, string> = {
   low: "bg-gray-100 text-gray-600",
 };
 
-export default function NoticesPage() {
+function NoticesPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [notices, setNotices] = useState<Notice[]>([]);
@@ -190,5 +191,13 @@ export default function NoticesPage() {
         ))}
       </div>
     </div>
+  );
+}
+
+export default function NoticesPage() {
+  return (
+    <FeatureGate moduleKey="notices">
+      <NoticesPageInner />
+    </FeatureGate>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
@@ -42,7 +43,7 @@ const emptyMember = (): Member => ({
   is_unemployed: false, needs_care: false, disability: "",
 });
 
-export default function CensusPage() {
+function CensusPageInner() {
   const { t } = useI18n();
   const { toast } = useToast();
   const router = useRouter();
@@ -273,5 +274,13 @@ export default function CensusPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+export default function CensusPage() {
+  return (
+    <FeatureGate moduleKey="census">
+      <CensusPageInner />
+    </FeatureGate>
   );
 }

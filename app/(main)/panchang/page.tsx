@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -15,7 +16,7 @@ interface Festival {
   is_recurring?: boolean;
 }
 
-export default function PanchangPage() {
+function PanchangPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [list, setList] = useState<Festival[]>([]);
@@ -147,5 +148,13 @@ export default function PanchangPage() {
         })
       )}
     </div>
+  );
+}
+
+export default function PanchangPage() {
+  return (
+    <FeatureGate moduleKey="panchang">
+      <PanchangPageInner />
+    </FeatureGate>
   );
 }

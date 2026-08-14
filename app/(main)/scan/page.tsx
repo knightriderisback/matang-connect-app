@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -19,7 +20,7 @@ interface MemberResult {
   photo_url?: string;
 }
 
-export default function ScanPage() {
+function ScanPageInner() {
   const { t } = useI18n();
   const { toast } = useToast();
   const [code, setCode] = useState("");
@@ -123,5 +124,13 @@ export default function ScanPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+export default function ScanPage() {
+  return (
+    <FeatureGate moduleKey="scan">
+      <ScanPageInner />
+    </FeatureGate>
   );
 }

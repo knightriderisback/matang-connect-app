@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -24,7 +25,7 @@ const TYPES = [
   { value: "scheme", label: "Scheme" },
 ];
 
-export default function MahilaPage() {
+function MahilaPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [posts, setPosts] = useState<Post[]>([]);
@@ -166,5 +167,13 @@ export default function MahilaPage() {
         ))
       )}
     </div>
+  );
+}
+
+export default function MahilaPage() {
+  return (
+    <FeatureGate moduleKey="mahila">
+      <MahilaPageInner />
+    </FeatureGate>
   );
 }

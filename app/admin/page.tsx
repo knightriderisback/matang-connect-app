@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import {
   Users, AlertTriangle, Briefcase, Bell, Heart, BookOpen, Shield, HeartHandshake,
   Store, Landmark, Calendar, Flower2, BarChart3, TrendingUp, QrCode,
@@ -43,6 +44,7 @@ const ADMIN_LINKS = [
 export default function AdminHubPage() {
   const router = useRouter();
   const { user, loading } = useCurrentUser();
+  const { can } = useFeatureFlags(user?.role);
   const [seeding, setSeeding] = useState(false);
   const [seedMsg, setSeedMsg] = useState("");
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
@@ -101,7 +103,7 @@ export default function AdminHubPage() {
       <div>
         <h2 className="text-sm font-bold text-matang-navy mb-2">All modules</h2>
         <div className="grid grid-cols-3 gap-2.5">
-          {ALL_ACTIONS.map((a) => (
+          {ALL_ACTIONS.filter((a) => can(a.key)).map((a) => (
             <button
               key={a.href + a.key}
               type="button"

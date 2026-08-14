@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -11,7 +12,7 @@ import { useI18n } from "@/lib/i18n/LanguageProvider";
 
 interface Entry { id: string; entry_type: string; amount: number; description?: string; entry_date: string; }
 
-export default function KoshPage() {
+function KoshPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const { lang } = useI18n();
@@ -130,5 +131,13 @@ export default function KoshPage() {
         ))}
       </div>
     </div>
+  );
+}
+
+export default function KoshPage() {
+  return (
+    <FeatureGate moduleKey="kosh">
+      <KoshPageInner />
+    </FeatureGate>
   );
 }

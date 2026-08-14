@@ -5,6 +5,7 @@ import { LanguageToggle } from "./LanguageToggle";
 import { Logo } from "./Logo";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, HeartPulse } from "lucide-react";
 
@@ -43,6 +44,7 @@ export function AppHeader() {
   const router = useRouter();
   const { t } = useI18n();
   const { user } = useCurrentUser();
+  const { can } = useFeatureFlags(user?.role);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -113,6 +115,7 @@ export function AppHeader() {
             <p className="text-white/50 text-[10px] truncate">{user.full_name}</p>
           )}
         </div>
+        {can("sos") && (
         {/* 3D-style SOS — always visible near language */}
         <button
           type="button"
@@ -124,6 +127,7 @@ export function AppHeader() {
           <HeartPulse size={18} strokeWidth={2.5} />
           <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-300 animate-pulse" />
         </button>
+        )}
         <LanguageToggle />
       </div>
     </header>

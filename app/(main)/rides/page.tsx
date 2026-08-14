@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -9,7 +10,7 @@ import { Car, Plus, Phone, MapPin } from "lucide-react";
 
 interface Ride { id: string; ride_type: string; from_place: string; to_place: string; ride_date?: string; ride_time?: string; seats?: number; contact_phone?: string; notes?: string; }
 
-export default function RidesPage() {
+function RidesPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [rides, setRides] = useState<Ride[]>([]);
@@ -78,5 +79,13 @@ export default function RidesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function RidesPage() {
+  return (
+    <FeatureGate moduleKey="rides">
+      <RidesPageInner />
+    </FeatureGate>
   );
 }

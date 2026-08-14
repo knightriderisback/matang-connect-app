@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -18,7 +19,7 @@ interface Post {
 
 const CATS = ["culture", "history", "festival", "art", "language"];
 
-export default function DharoharPage() {
+function DharoharPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [posts, setPosts] = useState<Post[]>([]);
@@ -128,5 +129,13 @@ export default function DharoharPage() {
         ))
       )}
     </div>
+  );
+}
+
+export default function DharoharPage() {
+  return (
+    <FeatureGate moduleKey="dharohar">
+      <DharoharPageInner />
+    </FeatureGate>
   );
 }

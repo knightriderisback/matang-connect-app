@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -18,7 +19,7 @@ interface Poll {
   created_at: string;
 }
 
-export default function PollsPage() {
+function PollsPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [polls, setPolls] = useState<Poll[]>([]);
@@ -156,5 +157,13 @@ export default function PollsPage() {
         })
       )}
     </div>
+  );
+}
+
+export default function PollsPage() {
+  return (
+    <FeatureGate moduleKey="polls">
+      <PollsPageInner />
+    </FeatureGate>
   );
 }

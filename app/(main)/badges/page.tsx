@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -7,7 +8,7 @@ import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { Trophy, Award } from "lucide-react";
 
-export default function BadgesPage() {
+function BadgesPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [me, setMe] = useState<{ points: number; badges: string[] }>({ points: 0, badges: [] });
@@ -67,5 +68,13 @@ export default function BadgesPage() {
         </CardContent></Card>
       )}
     </div>
+  );
+}
+
+export default function BadgesPage() {
+  return (
+    <FeatureGate moduleKey="gamification">
+      <BadgesPageInner />
+    </FeatureGate>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -9,7 +10,7 @@ import { Award, Plus } from "lucide-react";
 
 interface Post { id: string; title: string; body: string; month_label?: string; created_at: string; }
 
-export default function GauravPage() {
+function GauravPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [posts, setPosts] = useState<Post[]>([]);
@@ -66,5 +67,13 @@ export default function GauravPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function GauravPage() {
+  return (
+    <FeatureGate moduleKey="gaurav">
+      <GauravPageInner />
+    </FeatureGate>
   );
 }

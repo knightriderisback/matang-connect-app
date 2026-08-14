@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -21,7 +22,7 @@ interface Profile {
   contact_visible?: boolean;
 }
 
-export default function MatrimonyPage() {
+function MatrimonyPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -206,5 +207,13 @@ export default function MatrimonyPage() {
         ))
       )}
     </div>
+  );
+}
+
+export default function MatrimonyPage() {
+  return (
+    <FeatureGate moduleKey="matrimony">
+      <MatrimonyPageInner />
+    </FeatureGate>
   );
 }

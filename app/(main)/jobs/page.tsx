@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -9,7 +10,7 @@ import { Briefcase, Plus, Phone, MapPin } from "lucide-react";
 
 interface Job { id: string; title: string; description?: string; location?: string; contact_phone?: string; salary_range?: string; created_at: string; }
 
-export default function JobsPage() {
+function JobsPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -82,5 +83,13 @@ export default function JobsPage() {
         ))}
       </div>
     </div>
+  );
+}
+
+export default function JobsPage() {
+  return (
+    <FeatureGate moduleKey="jobs">
+      <JobsPageInner />
+    </FeatureGate>
   );
 }

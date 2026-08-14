@@ -1,4 +1,5 @@
 "use client";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -28,7 +29,7 @@ const CATEGORIES = [
   { value: "other", label: "Other" },
 ];
 
-export default function VyaparPage() {
+function VyaparPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [list, setList] = useState<Business[]>([]);
@@ -186,5 +187,13 @@ export default function VyaparPage() {
         ))
       )}
     </div>
+  );
+}
+
+export default function VyaparPage() {
+  return (
+    <FeatureGate moduleKey="vyapar">
+      <VyaparPageInner />
+    </FeatureGate>
   );
 }
