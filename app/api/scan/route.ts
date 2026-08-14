@@ -11,28 +11,53 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // Support full URL containing /u/MATANG-xxx
   let code = q;
-  const urlMatch = q.match(/\/u\/([A-Z0-9\-]+)/i);
+  const urlMatch = q.match(/\/u\/([A-Za-z0-9\-]+)/i);
   if (urlMatch) code = urlMatch[1];
 
-  let query = supabase
-    .from("users")
-    .select("id, full_name, phone, native_village, verification_status, role, qr_code_id, photo_url, cities(name)")
-    .limit(1);
+  const phone = code.replace(/\D/g, "").slice(-10);
+  const upper = code.toUpperCase();
 
-  if (code.toUpperCase().startsWith("MATANG")) {
-    query = query.eq("qr_code_id", code.toUpperCase());
-  } else if (/^\d{10}$/.test(code.replace(/\D/g, ""))) {
-    const phone = code.replace(/\D/g, "").slice(-10);
-    query = query.eq("phone", phone);
+  // Try qr_code_id exact (case variants)
+  let member: any = null;
+  let error: any = null;
+
+  const select =
+    "id, full_name, phone, native_village, verification_status, role, qr_code_id, photo_url, cities(name)";
+
+  if (/^\d{10}$/.test(phone) && phone.length === 10 && !/[A-Za-z]/.test(code)) {
+    const res = await supabase.from("users").select(select).eq("phone", phone).maybeSingle();
+    member = res.data;
+    error = res.error;
   } else {
-    query = query.or(`qr_code_id.eq.${code},phone.eq.${code}`);
+    let res = await supabase.from("users").select(select).eq("qr_code_id", upper).maybeSingle();
+    if (!res.data && upper !== code) {
+      res = await supabase.from("users").select(select).eq("qr_code_id", code).maybeSingle();
+    }
+    // ilike fallback
+    if (!res.data) {
+      res = await supabase.from("users").select(select).ilike("qr_code_id", code).maybeSingle();
+    }
+    member = res.data;
+    error = res.error;
   }
 
-  const { data, error } = await query.maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ error: "Member not found" }, { status: 404 });
+  if (!member) return NextResponse.json({ error: "Member not found" }, { status: 404 });
 
-  return NextResponse.json({ member: data });
+  // Merge profile extras if any
+  try {
+    const { data: extraRow } = await supabase
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", `profile_extra:${member.id}`)
+      .maybeSingle();
+    if (extraRow?.setting_value && typeof extraRow.setting_value === "object") {
+      member = { ...member, ...extraRow.setting_value };
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return NextResponse.json({ member });
 }
