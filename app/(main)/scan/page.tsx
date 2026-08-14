@@ -314,7 +314,12 @@ function ScanPageInner() {
       </Card>
 
       {result && (
-        <Card className="border-2 border-matang-gold/40 overflow-hidden">
+        <button
+          type="button"
+          className="w-full text-left"
+          onClick={() => router.push(`/admin/directory?user=${result.id}`)}
+        >
+        <Card className="border-2 border-matang-gold/40 overflow-hidden active:scale-[0.99] transition-transform">
           <div className="bg-gradient-to-r from-matang-navy to-blue-900 p-4 text-white">
             <div className="flex items-center gap-3">
               <div className="w-14 h-14 rounded-full bg-white/15 flex items-center justify-center text-xl font-bold overflow-hidden shrink-0">
@@ -353,8 +358,10 @@ function ScanPageInner() {
                 <User size={14} /> {result.qr_code_id}
               </p>
             )}
+            <p className="text-xs text-matang-gold font-medium pt-1">Tap to open full profile →</p>
           </CardContent>
         </Card>
+        </button>
       )}
     </div>
   );

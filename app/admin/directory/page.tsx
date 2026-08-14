@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
@@ -22,6 +23,8 @@ export default function AdminDirectoryPage() {
   const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useCurrentUser();
+  const searchParams = useSearchParams();
+  const userParam = searchParams.get("user");
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -34,10 +37,24 @@ export default function AdminDirectoryPage() {
   useEffect(() => {
     fetch("/api/admin/directory")
       .then((res) => (res.ok ? res.json() : Promise.reject()))
-      .then((data) => setUsers(data.users || []))
+      .then((data) => {
+        const list = data.users || [];
+        setUsers(list);
+        if (userParam) {
+          const found = list.find((u: DirectoryUser) => u.id === userParam);
+          if (found) {
+            setSelected(found);
+            setDetailLoading(true);
+            fetch(`/api/admin/member-flags?userId=${found.id}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .then((d) => d && setMemberDetail(d))
+              .finally(() => setDetailLoading(false));
+          }
+        }
+      })
       .catch(() => toast(t("common.error"), "error"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [userParam]);
 
   const villages = Array.from(new Set(users.map((u) => u.native_village).filter(Boolean))).sort();
   const filtered = users.filter((u) => {
