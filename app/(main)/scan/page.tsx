@@ -6,7 +6,20 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
-import { QrCode, Search, User, MapPin, Phone, Shield, Camera, X } from "lucide-react";
+import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import {
+  QrCode,
+  Search,
+  User,
+  MapPin,
+  Phone,
+  Shield,
+  Camera,
+  X,
+  ImagePlus,
+  Lock,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface MemberResult {
   id: string;
@@ -20,28 +33,62 @@ interface MemberResult {
   photo_url?: string;
 }
 
+const STAFF = ["volunteer", "core_committee", "super_admin"];
+
 function extractCode(raw: string): string {
   const s = raw.trim();
   const urlMatch = s.match(/\/u\/([A-Za-z0-9\-]+)/);
   if (urlMatch) return urlMatch[1];
-  // Matang QR ids
   const m = s.match(/(MATANG-[A-Za-z0-9\-]+|MC-DEMO-\d+)/i);
   if (m) return m[1];
   return s;
 }
 
+async function decodeQrFromImageBitmap(bitmap: ImageBitmap): Promise<string | null> {
+  const Detector = (typeof window !== "undefined" && (window as any).BarcodeDetector) || null;
+  if (!Detector) return null;
+  try {
+    const detector = new Detector({ formats: ["qr_code"] });
+    const codes = await detector.detect(bitmap);
+    if (codes?.length) return String(codes[0].rawValue || "") || null;
+  } catch {
+    try {
+      const detector = new Detector();
+      const codes = await detector.detect(bitmap);
+      if (codes?.length) return String(codes[0].rawValue || "") || null;
+    } catch {
+      /* ignore */
+    }
+  }
+  return null;
+}
+
 function ScanPageInner() {
   const { t } = useI18n();
   const { toast } = useToast();
+  const router = useRouter();
+  const { user, loading: userLoading } = useCurrentUser();
+  const isStaff = STAFF.includes(user?.role || "");
+
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<MemberResult | null>(null);
   const [cameraOn, setCameraOn] = useState(false);
   const [camError, setCamError] = useState("");
+  const [fileBusy, setFileBusy] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanningRef = useRef(false);
   const lastCodeRef = useRef("");
+
+  const stopCamera = useCallback(() => {
+    scanningRef.current = false;
+    streamRef.current?.getTracks().forEach((tr) => tr.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setCameraOn(false);
+  }, []);
 
   const lookup = useCallback(
     async (raw: string) => {
@@ -61,7 +108,6 @@ function ScanPageInner() {
         }
         setResult(data.member);
         setCode(q);
-        // stop camera after successful scan
         stopCamera();
         toast("Member found", "success");
       } catch {
@@ -70,23 +116,15 @@ function ScanPageInner() {
         setLoading(false);
       }
     },
-    [t, toast]
+    [t, toast, stopCamera]
   );
-
-  const stopCamera = () => {
-    scanningRef.current = false;
-    streamRef.current?.getTracks().forEach((tr) => tr.stop());
-    streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-    setCameraOn(false);
-  };
 
   const startCamera = async () => {
     setCamError("");
     setResult(null);
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
-        setCamError("Camera not supported on this browser");
+        setCamError("Camera not supported — use file upload or type code");
         return;
       }
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -99,7 +137,6 @@ function ScanPageInner() {
       });
       streamRef.current = stream;
       setCameraOn(true);
-      // wait for video element
       requestAnimationFrame(() => {
         const v = videoRef.current;
         if (v) {
@@ -111,17 +148,14 @@ function ScanPageInner() {
       scanningRef.current = true;
       runScanLoop();
     } catch (e: any) {
-      setCamError(e?.message || "Camera permission denied");
+      setCamError(e?.message || "Camera permission denied — try file upload");
       setCameraOn(false);
     }
   };
 
   const runScanLoop = async () => {
     const Detector = (window as any).BarcodeDetector;
-    if (!Detector) {
-      // Polling message — manual still works
-      return;
-    }
+    if (!Detector) return;
     let detector: any;
     try {
       detector = new Detector({ formats: ["qr_code"] });
@@ -132,7 +166,6 @@ function ScanPageInner() {
         return;
       }
     }
-
     const tick = async () => {
       if (!scanningRef.current) return;
       const v = videoRef.current;
@@ -148,7 +181,7 @@ function ScanPageInner() {
             }
           }
         } catch {
-          /* frame skip */
+          /* skip frame */
         }
       }
       if (scanningRef.current) {
@@ -158,9 +191,57 @@ function ScanPageInner() {
     tick();
   };
 
-  useEffect(() => {
-    return () => stopCamera();
-  }, []);
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    setFileBusy(true);
+    setResult(null);
+    try {
+      const bitmap = await createImageBitmap(f);
+      const decoded = await decodeQrFromImageBitmap(bitmap);
+      bitmap.close?.();
+      if (decoded) {
+        await lookup(decoded);
+      } else {
+        toast(
+          "Could not read QR from image. Use Chrome/Edge, or type QR ID / phone.",
+          "error"
+        );
+      }
+    } catch {
+      toast("Could not open image", "error");
+    } finally {
+      setFileBusy(false);
+    }
+  };
+
+  useEffect(() => () => stopCamera(), [stopCamera]);
+
+  if (userLoading) {
+    return <div className="p-8 text-center text-sm text-gray-400">Loading…</div>;
+  }
+
+  if (!isStaff) {
+    return (
+      <div className="p-8 max-w-sm mx-auto text-center space-y-3">
+        <div className="w-14 h-14 mx-auto rounded-2xl bg-gray-100 flex items-center justify-center">
+          <Lock className="text-gray-400" size={28} />
+        </div>
+        <h2 className="text-lg font-bold text-matang-navy">Scan for staff only</h2>
+        <p className="text-sm text-gray-500">
+          QR scan is available to Volunteer, Core Committee and Super Admin — not normal members.
+        </p>
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard")}
+          className="text-sm font-semibold text-matang-gold"
+        >
+          ← Back to Home
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-4 pb-24">
@@ -174,17 +255,27 @@ function ScanPageInner() {
           {!cameraOn ? (
             <>
               <p className="text-sm text-gray-600">
-                Open camera to scan member QR, or type QR ID / phone below.
+                Open camera, upload a QR photo, or type QR ID / phone.
               </p>
               <Button className="w-full" onClick={startCamera}>
                 <Camera size={16} /> Open camera & scan
               </Button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={onFile}
+              />
+              <Button
+                variant="outline"
+                className="w-full"
+                isLoading={fileBusy}
+                onClick={() => fileRef.current?.click()}
+              >
+                <ImagePlus size={16} /> Upload QR image from gallery
+              </Button>
               {camError && <p className="text-xs text-red-600">{camError}</p>}
-              {typeof window !== "undefined" && !(window as any).BarcodeDetector && (
-                <p className="text-[11px] text-gray-400">
-                  Live QR decode works best in Chrome / Edge. You can still enter code manually.
-                </p>
-              )}
             </>
           ) : (
             <div className="space-y-2">
