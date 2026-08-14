@@ -242,8 +242,8 @@ export default function SOSPage() {
 
   const respond = async (status: string) => {
     if (!selected?.id) return;
-    const res = await fetch("/api/sos", {
-      method: "PATCH",
+    const res = await fetch("/api/sos/respond", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ alertId: selected.id, status }),
     });
@@ -252,8 +252,8 @@ export default function SOSPage() {
       toast(d.error || d.hint || "Response failed", "error");
       return;
     }
-    toast("Status updated: " + status, "success");
-    openDetail(selected);
+    toast("Status updated: " + status.replace("_", " "), "success");
+    await openDetail(selected);
     loadAlerts();
   };
 

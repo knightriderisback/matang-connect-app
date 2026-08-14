@@ -32,20 +32,42 @@ export async function GET(request: NextRequest) {
         .maybeSingle();
       raiser = u;
     }
-    const { data: responses } = await supabase
+    let responsesWithNames: any[] = [];
+    const { data: responses, error: respErr } = await supabase
       .from("sos_responses")
       .select("*")
       .eq("alert_id", id)
       .order("created_at", { ascending: false });
-    // attach responder names
-    const responsesWithNames = [];
-    for (const r of responses || []) {
-      const { data: u } = await supabase
-        .from("users")
-        .select("full_name, phone, role")
-        .eq("id", r.responder_id)
+    if (!respErr && responses?.length) {
+      for (const r of responses) {
+        const { data: u } = await supabase
+          .from("users")
+          .select("full_name, phone, role")
+          .eq("id", r.responder_id)
+          .maybeSingle();
+        responsesWithNames.push({ ...r, responder: u });
+      }
+    } else {
+      // Fallback list from app_settings
+      const { data: fb } = await supabase
+        .from("app_settings")
+        .select("setting_value")
+        .eq("setting_key", `sos_responses:${id}`)
         .maybeSingle();
-      responsesWithNames.push({ ...r, responder: u });
+      const raw = fb?.setting_value;
+      const list = Array.isArray(raw) ? raw : [];
+      responsesWithNames = list.map((r: any) => ({
+        id: r.responder_id + r.updated_at,
+        alert_id: id,
+        responder_id: r.responder_id,
+        status: r.status,
+        created_at: r.updated_at,
+        responder: {
+          full_name: r.full_name,
+          phone: r.phone,
+          role: r.role,
+        },
+      }));
     }
     return NextResponse.json({ alert, raiser, responses: responsesWithNames });
   }
