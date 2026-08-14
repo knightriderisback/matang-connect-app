@@ -1,6 +1,6 @@
 "use client";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, UserCircle, AlertTriangle, Shield } from "lucide-react";
+import { Home, Users, UserCircle, Shield } from "lucide-react";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { cn } from "@/lib/utils";
@@ -19,10 +19,10 @@ export function BottomNav() {
 
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
 
+  // SOS removed from footer → header red button
   const items: { icon: typeof Home; label: string; href: string }[] = [
     { icon: Home, label: t("nav.home") || "Home", href: "/dashboard" },
     { icon: Users, label: t("nav.census") || "Census", href: "/census" },
-    { icon: AlertTriangle, label: t("nav.sos") || "SOS", href: "/sos" },
     { icon: UserCircle, label: t("nav.profile") || "Profile", href: "/profile" },
   ];
 
