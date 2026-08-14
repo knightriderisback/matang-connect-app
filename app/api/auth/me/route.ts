@@ -41,6 +41,7 @@ export async function GET() {
       .maybeSingle());
   }
 
+
   if (!user) {
     // Session valid but DB row missing — still return session-based stub so UI works
     return NextResponse.json({
@@ -58,6 +59,20 @@ export async function GET() {
       },
       warning: "profile_row_missing",
     });
+  }
+
+  // Merge profile_extra from app_settings (optional fields not on users table)
+  try {
+    const { data: extraRow } = await supabase
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", `profile_extra:${session.userId}`)
+      .maybeSingle();
+    if (extraRow?.setting_value && typeof extraRow.setting_value === "object") {
+      user = { ...user, ...(extraRow.setting_value as object) };
+    }
+  } catch {
+    /* ignore */
   }
 
   return NextResponse.json({ user });

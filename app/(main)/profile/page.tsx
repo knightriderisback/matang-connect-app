@@ -60,7 +60,7 @@ export default function ProfilePage() {
   const { t } = useI18n();
   const router = useRouter();
   const { toast } = useToast();
-  const { user, loading } = useCurrentUser();
+  const { user, loading, refresh } = useCurrentUser();
   const fileRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -145,8 +145,8 @@ export default function ProfilePage() {
       }
       toast("Profile updated", "success");
       setEditing(false);
-      // Soft refresh so saved fields reappear from server
-      window.location.href = "/profile";
+      if (typeof refresh === "function") await refresh();
+      else window.location.href = "/profile";
     } catch {
       toast(t("common.error"), "error");
     } finally {
