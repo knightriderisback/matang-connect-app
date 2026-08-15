@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -67,6 +67,7 @@ export default function ProfilePage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [displayPhoto, setDisplayPhoto] = useState<string>("");
   const [showMpin, setShowMpin] = useState(false);
   const [mpinSaving, setMpinSaving] = useState(false);
   const [mpinForm, setMpinForm] = useState({ current: "", next: "", confirm: "" });
@@ -81,6 +82,11 @@ export default function ProfilePage() {
     about: "",
     address: "",
   });
+
+  useEffect(() => {
+    const u = user as any;
+    if (u?.photo_url) setDisplayPhoto(u.photo_url);
+  }, [user]);
 
   const startEdit = () => {
     const u = user as any;
@@ -125,7 +131,9 @@ export default function ProfilePage() {
         canvas.width = w;
         canvas.height = h;
         canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-        setForm((prev) => ({ ...prev, photo: canvas.toDataURL("image/jpeg", 0.75) }));
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+        setForm((prev) => ({ ...prev, photo: dataUrl }));
+        setDisplayPhoto(dataUrl);
       };
       img.src = reader.result as string;
     };
@@ -151,6 +159,11 @@ export default function ProfilePage() {
       }
       toast("Profile updated", "success");
       setEditing(false);
+      const savedPhoto =
+        data?.user?.photo_url ||
+        (form.photo && form.photo.startsWith("data:") ? form.photo : "") ||
+        displayPhoto;
+      if (savedPhoto) setDisplayPhoto(savedPhoto);
       if (typeof refresh === "function") await refresh();
       else window.location.href = "/profile";
     } catch {
@@ -216,7 +229,7 @@ export default function ProfilePage() {
     );
   }
   const style = ROLE_STYLE[user?.role || "normal"] || ROLE_STYLE.normal;
-  const photo = form.photo || user?.photo_url;
+  const photo = (editing && form.photo) || displayPhoto || form.photo || (user as any)?.photo_url || "";
   const u = user as any;
 
   return (

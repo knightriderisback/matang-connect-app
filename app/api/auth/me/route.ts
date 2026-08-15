@@ -61,7 +61,7 @@ export async function GET() {
     });
   }
 
-  // Merge profile_extra from app_settings (optional fields not on users table)
+  // Merge profile_extra (includes photo_url if column absent on users)
   try {
     const { data: extraRow } = await supabase
       .from("app_settings")
@@ -69,10 +69,27 @@ export async function GET() {
       .eq("setting_key", `profile_extra:${session.userId}`)
       .maybeSingle();
     if (extraRow?.setting_value && typeof extraRow.setting_value === "object") {
-      user = { ...user, ...(extraRow.setting_value as object) };
+      const extra = extraRow.setting_value as Record<string, unknown>;
+      user = { ...user, ...extra };
+      // Prefer non-empty photo
+      if (!user.photo_url && extra.photo_url) user.photo_url = extra.photo_url;
     }
   } catch {
     /* ignore */
+  }
+
+  // Last try: photo_url column only
+  if (user && !user.photo_url) {
+    try {
+      const { data: ph } = await supabase
+        .from("users")
+        .select("photo_url")
+        .eq("id", session.userId)
+        .maybeSingle();
+      if (ph?.photo_url) user.photo_url = ph.photo_url;
+    } catch {
+      /* ignore */
+    }
   }
 
   return NextResponse.json({ user });

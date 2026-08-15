@@ -72,6 +72,11 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Always mirror photo into profile_extra so Profile card can load it even if users.photo_url missing
+  if (extras.photo_url) {
+    leftover.photo_url = extras.photo_url;
+  }
+
   // Persist leftover extras in app_settings
   if (Object.keys(leftover).length > 0) {
     const key = `profile_extra:${userId}`;
