@@ -94,12 +94,12 @@ export function AppHeader() {
 
   return (
     <>
-    <style>{\`
+    <style>{`
       @keyframes matangGoldShine {
         0% { background-position: 100% 0; }
         100% { background-position: -100% 0; }
       }
-    \`}</style>
+    `}</style>
     <header
       className={cn(
         "sticky top-0 z-50 transition-all duration-300",
