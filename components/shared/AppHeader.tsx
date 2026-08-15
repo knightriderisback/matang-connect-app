@@ -80,6 +80,18 @@ export function AppHeader() {
 
   const showSos = can("sos");
 
+  const ROLE_LABEL: Record<string, string> = {
+    super_admin: "Super Admin",
+    core_committee: "Core Committee",
+    volunteer: "Volunteer",
+    normal: "Member",
+  };
+  const roleLabel =
+    (user as any)?.title ||
+    ROLE_LABEL[user?.role || ""] ||
+    user?.role ||
+    "Member";
+
   return (
     <header
       className={cn(
@@ -112,17 +124,30 @@ export function AppHeader() {
           </button>
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-matang-gold font-bold text-sm leading-tight tracking-wide truncate">
+          <p
+            className="font-extrabold text-[15px] leading-tight tracking-wide truncate"
+            style={{
+              fontFamily: "Georgia, 'Times New Roman', serif",
+              background:
+                "linear-gradient(180deg, #fff6d0 0%, #f5d76e 28%, #d4a017 55%, #b8860b 78%, #fff1a8 100%)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              color: "transparent",
+              textShadow:
+                "0 1px 0 #8b6914, 0 2px 0 #6b5010, 0 3px 4px rgba(0,0,0,0.45), 0 0 12px rgba(212,175,55,0.55)",
+              filter: "drop-shadow(0 0 6px rgba(255, 215, 0, 0.35))",
+            }}
+          >
             Matang Connect
           </p>
-          <p className="text-white/80 text-[11px] truncate">
+          <p className="text-white/85 text-[11px] truncate mt-0.5">
             {user?.full_name ? (
               <>
                 <span className="text-white font-medium">{user.full_name}</span>
-                <span className="text-white/45"> · Post</span>
+                <span className="text-matang-gold/90"> · {roleLabel}</span>
               </>
             ) : (
-              <span className="text-white/45">Post</span>
+              <span className="text-matang-gold/80">{roleLabel}</span>
             )}
           </p>
         </div>
