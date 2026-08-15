@@ -26,6 +26,7 @@ interface Notice {
   poster_name?: string | null;
   poster_role?: string | null;
   poster_qr?: string | null;
+  image_url?: string | null;
 }
 
 function timeAgo(iso: string) {
@@ -123,9 +124,49 @@ export default function DashboardPage() {
     loadFeed();
   };
 
-  const shareWA = (n: Notice) => {
+  const shareWA = async (n: Notice) => {
     const text = n.body || n.content || "";
-    const msg = `📢 *${n.title}*\n\n${text}\n\n— Matang Connect`;
+    const img = n.image_url || "";
+    const msg =
+      `📢 *${n.title}*\n\n${text}` +
+      (img ? `\n\n🖼 ${img}` : "") +
+      `\n\n— Matang Connect`;
+
+    // Mobile: share image file + text via system sheet (WhatsApp can pick image)
+    if (img && typeof navigator !== "undefined" && navigator.share) {
+      try {
+        let file: File | null = null;
+        if (img.startsWith("data:")) {
+          const res = await fetch(img);
+          const blob = await res.blob();
+          file = new File([blob], "matang-feed.jpg", { type: blob.type || "image/jpeg" });
+        } else if (img.startsWith("http")) {
+          try {
+            const res = await fetch(img, { mode: "cors" });
+            if (res.ok) {
+              const blob = await res.blob();
+              file = new File([blob], "matang-feed.jpg", { type: blob.type || "image/jpeg" });
+            }
+          } catch {
+            /* CORS — text+url fallback */
+          }
+        }
+        if (file && navigator.canShare?.({ files: [file] })) {
+          await navigator.share({
+            title: n.title,
+            text: msg,
+            files: [file],
+          });
+          return;
+        }
+        await navigator.share({ title: n.title, text: msg });
+        return;
+      } catch (e: any) {
+        if (e?.name === "AbortError") return;
+        /* fall through to wa.me */
+      }
+    }
+
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
