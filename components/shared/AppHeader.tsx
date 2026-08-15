@@ -102,12 +102,12 @@ export function AppHeader() {
       )}
     >
       <div className="h-0.5 bg-gradient-to-r from-transparent via-matang-gold to-transparent opacity-80" />
-      <div className="px-2 py-2.5 flex items-center gap-1.5">
+      <div className="px-2 py-1.5 flex items-center gap-1.5">
         {!isHome ? (
           <button
             type="button"
             onClick={goBack}
-            className="shrink-0 flex items-center justify-center w-9 h-9 rounded-xl text-white/90 active:bg-white/10"
+            className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl text-white/90 active:bg-white/10"
             aria-label="Back"
           >
             <ChevronLeft size={24} />
@@ -119,17 +119,17 @@ export function AppHeader() {
             className="shrink-0 relative group ml-1"
             title="Matang Samaj History"
           >
-            <Logo className="w-9 h-9 rounded-lg shadow-md ring-1 ring-matang-gold/40 group-active:scale-95 transition-transform" />
+            <Logo className="w-8 h-8 rounded-lg shadow-md ring-1 ring-matang-gold/40 group-active:scale-95 transition-transform" />
             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-matang-gold rounded-full border border-matang-navy" />
           </button>
         )}
         <div className="flex-1 min-w-0">
           <p
-            className="matang-gold-title relative inline-block max-w-full truncate text-[17px] sm:text-[19px] font-black tracking-[0.1em] uppercase leading-tight"
+            className="matang-gold-title relative inline-block max-w-full truncate text-[15px] sm:text-[16px] font-black tracking-[0.1em] uppercase leading-none"
           >
             MATANG CONNECT
           </p>
-          <p className="text-white/85 text-[11px] truncate mt-0.5">
+          <p className="text-white/85 text-[10px] truncate leading-none mt-0">
             {user?.full_name ? (
               <>
                 <span className="text-white font-medium">{user.full_name}</span>
@@ -146,7 +146,7 @@ export function AppHeader() {
             onClick={() => router.push("/sos")}
             title="Emergency SOS"
             aria-label="Emergency SOS"
-            className="shrink-0 relative flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-b from-red-400 to-red-700 text-white shadow-[0_3px_0_0_#7f1d1d,0_4px_8px_rgba(0,0,0,0.35)] active:shadow-[0_1px_0_0_#7f1d1d] active:translate-y-0.5 transition-all ring-1 ring-red-300/40"
+            className="shrink-0 relative flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-b from-red-400 to-red-700 text-white shadow-[0_3px_0_0_#7f1d1d,0_4px_8px_rgba(0,0,0,0.35)] active:shadow-[0_1px_0_0_#7f1d1d] active:translate-y-0.5 transition-all ring-1 ring-red-300/40"
           >
             <HeartPulse size={18} strokeWidth={2.5} />
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-300 animate-pulse" />
