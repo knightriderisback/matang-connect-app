@@ -376,7 +376,9 @@ export async function POST() {
   }
 
   try {
-    const { data, error } = await supabase
+    let pollErr: any = null;
+    let pollData: any = null;
+    ({ data: pollData, error: pollErr } = await supabase
       .from("polls")
       .insert({
         question: "Next big community event?",
@@ -386,9 +388,20 @@ export async function POST() {
         is_active: true,
         is_global: true,
       })
-      .select("id");
-    results.polls = data?.length || 0;
-    if (error) results.polls_error = error.message;
+      .select("id"));
+    if (pollErr) {
+      ({ data: pollData, error: pollErr } = await supabase
+        .from("polls")
+        .insert({
+          question: "Next big community event?",
+          options: ["Sports day", "Rojgar mela", "Cultural night", "Blood camp"],
+          created_by: poster,
+          city_id: cityId,
+        })
+        .select("id"));
+    }
+    results.polls = pollData?.length || 0;
+    if (pollErr) results.polls_error = pollErr.message;
   } catch (e: any) {
     results.polls_error = e?.message || "skip";
   }
