@@ -93,13 +93,6 @@ export function AppHeader() {
     "Member";
 
   return (
-    <>
-    <style>{`
-      @keyframes matangGoldShine {
-        0% { background-position: 100% 0; }
-        100% { background-position: -100% 0; }
-      }
-    `}</style>
     <header
       className={cn(
         "sticky top-0 z-50 transition-all duration-300",
@@ -133,19 +126,6 @@ export function AppHeader() {
         <div className="flex-1 min-w-0">
           <p
             className="matang-gold-title relative inline-block max-w-full truncate text-[16px] sm:text-[18px] font-black tracking-[0.14em] uppercase leading-none"
-            style={{
-              fontFamily: "Georgia, 'Palatino Linotype', Palatino, 'Times New Roman', serif",
-              backgroundImage:
-                "linear-gradient(105deg, #5c3b0a 0%, #a67c00 12%, #f0d060 22%, #fff8dc 32%, #e8c547 42%, #b8860b 55%, #ffe9a0 68%, #d4af37 80%, #8b6914 92%, #f5e6a3 100%)",
-              backgroundSize: "200% 100%",
-              WebkitBackgroundClip: "text",
-              backgroundClip: "text",
-              color: "transparent",
-              WebkitTextFillColor: "transparent",
-              filter:
-                "drop-shadow(0 1px 0 #3d2a0a) drop-shadow(0 2px 1px rgba(0,0,0,0.55)) drop-shadow(0 0 8px rgba(212,175,55,0.65))",
-              animation: "matangGoldShine 3.2s linear infinite",
-            }}
           >
             MATANG CONNECT
           </p>
@@ -175,6 +155,5 @@ export function AppHeader() {
         <LanguageToggle />
       </div>
     </header>
-    </>
   );
 }
