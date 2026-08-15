@@ -37,32 +37,24 @@ body {
 }
 
 
-/* Soft light pulse on solid gold (no background-clip = sharp edges) */
-@keyframes matangGoldShine {
-  0%, 100% { color: #e8c547; }
-  50% { color: #fff1a0; }
+/* Maximum sharpness — no clip, no multi-shadow, no filter */
+.matang-gold-title {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+  color: #f0d060;
+  -webkit-text-fill-color: #f0d060;
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  animation: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  transform: translateZ(0);
 }
 
-.matang-gold-title {
-  font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  line-height: 1;
-  color: #e8c547;
-  -webkit-text-fill-color: #e8c547;
-  background: none;
-  -webkit-background-clip: border-box;
-  background-clip: border-box;
-  animation: matangGoldShine 8s ease-in-out infinite;
-  /* Hard pixel emboss only — blur radius always 0 */
-  text-shadow:
-    0 1px 0 #f5e6a3,
-    0 2px 0 #c9a227,
-    0 3px 0 #a67c00,
-    0 4px 0 #8b6914,
-    0 5px 0 #5c3b0a;
-  filter: none;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: geometricPrecision;
-}
 
