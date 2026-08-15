@@ -112,10 +112,21 @@ export function AppHeader() {
           </button>
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-white font-semibold text-sm leading-tight truncate">{title}</p>
-          {user?.full_name && (
-            <p className="text-white/50 text-[10px] truncate">{user.full_name}</p>
-          )}
+          <p className="text-matang-gold font-bold text-sm leading-tight tracking-wide truncate">
+            Matang Connect
+          </p>
+          <p className="text-white/80 text-[11px] truncate">
+            {user?.full_name ? (
+              <>
+                <span className="text-white font-medium">{user.full_name}</span>
+                {!isHome && title ? (
+                  <span className="text-white/45"> · {title}</span>
+                ) : null}
+              </>
+            ) : (
+              !isHome && title ? title : " "
+            )}
+          </p>
         </div>
         {showSos ? (
           <button
