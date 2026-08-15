@@ -50,13 +50,14 @@ body {
   line-height: 1;
   background-image: linear-gradient(
     100deg,
-    #a67c00 0%,
-    #c9a227 25%,
-    #e8c547 45%,
-    #f5e6a3 50%,
-    #e8c547 55%,
-    #c9a227 75%,
-    #a67c00 100%
+    #c9a227 0%,
+    #e0b83a 18%,
+    #f0d060 35%,
+    #fff4b8 48%,
+    #ffe566 52%,
+    #f0d060 65%,
+    #e0b83a 82%,
+    #c9a227 100%
   );
   background-size: 200% 100%;
   -webkit-background-clip: text;
@@ -66,9 +67,9 @@ body {
   animation: matangGoldShine 12s ease-in-out infinite alternate;
   /* Sharp emboss — no soft blur layers */
   text-shadow:
-    0 1px 0 #6b5010,
-    0 2px 0 #4a3808,
-    0 2px 3px rgba(0, 0, 0, 0.35);
+    0 1px 0 #b89620,
+    0 2px 0 #8a6a12,
+    0 2px 3px rgba(0, 0, 0, 0.28);
   filter: none;
   -webkit-font-smoothing: antialiased;
 }
