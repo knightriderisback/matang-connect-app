@@ -132,7 +132,7 @@ export function AppHeader() {
         )}
         <div className="flex-1 min-w-0">
           <p
-            className="matang-gold-title relative inline-block max-w-full truncate text-[13px] sm:text-[14px] font-black tracking-[0.12em] uppercase leading-none"
+            className="matang-gold-title relative inline-block max-w-full truncate text-[16px] sm:text-[18px] font-black tracking-[0.14em] uppercase leading-none"
             style={{
               fontFamily: "Georgia, 'Palatino Linotype', Palatino, 'Times New Roman', serif",
               backgroundImage:
