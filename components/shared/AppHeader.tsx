@@ -125,11 +125,11 @@ export function AppHeader() {
         )}
         <div className="flex-1 min-w-0">
           <p
-            className="matang-gold-title relative inline-block max-w-full truncate text-[15px] sm:text-[16px] font-black tracking-[0.1em] uppercase leading-none"
+            className="matang-gold-title relative inline-block max-w-full truncate text-[17px] sm:text-[19px] font-black tracking-[0.1em] uppercase leading-none"
           >
             MATANG CONNECT
           </p>
-          <p className="text-white/85 text-[10px] truncate leading-none mt-0">
+          <p className="text-white/85 text-[10px] truncate leading-none -mt-0.5">
             {user?.full_name ? (
               <>
                 <span className="text-white font-medium">{user.full_name}</span>
