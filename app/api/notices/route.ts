@@ -14,7 +14,7 @@ function parseImage(content: string): { text: string; image: string | null } {
   if (end < 0) return { text: content, image: null };
   const image = content.slice(start, end);
   const text = (content.slice(0, i) + content.slice(end + IMG_END.length)).trim();
-  return { text, image: image.startsWith("data:") ? image : null };
+  return { text, image: image.startsWith("data:") || image.startsWith("https://") ? image : null };
 }
 
 export async function GET() {

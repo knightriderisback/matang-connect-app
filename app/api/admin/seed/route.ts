@@ -102,6 +102,69 @@ export async function POST() {
     if (nErr) results.notices_error = nErr.message;
   }
 
+  // Dummy image feed posts (public placeholder images)
+  {
+    const IMG = "\n\n[[MC_IMG:";
+    const END = "]]";
+    const imagePosts = [
+      {
+        title: "Samaj Bhavan — Sunday meeting",
+        content:
+          "Sabhi sadasya welcome. Hall ready." +
+          IMG +
+          "https://picsum.photos/seed/matang1/800/500" +
+          END,
+        type: "meeting",
+      },
+      {
+        title: "Yuva Rojgar Mela highlights",
+        content:
+          "Last mela se kuch moments — is baar aur bada plan." +
+          IMG +
+          "https://picsum.photos/seed/matang2/800/500" +
+          END,
+        type: "announcement",
+      },
+      {
+        title: "Blood donation camp",
+        content:
+          "Camp successful — thank you donors." +
+          IMG +
+          "https://picsum.photos/seed/matang3/800/500" +
+          END,
+        type: "announcement",
+      },
+      {
+        title: "Community sports day",
+        content:
+          "Kabaddi winners — Gaurav points issued." +
+          IMG +
+          "https://picsum.photos/seed/matang4/800/500" +
+          END,
+        type: "general",
+      },
+      {
+        title: "Mahila skill training",
+        content:
+          "Tailoring batch photos from last workshop." +
+          IMG +
+          "https://picsum.photos/seed/matang5/800/500" +
+          END,
+        type: "meeting",
+      },
+    ].map((n, i) => ({
+      ...n,
+      posted_by: pick(i + 3),
+      city_id: cityId,
+    }));
+    const { data: imgNotices, error: imgErr } = await supabase
+      .from("notices")
+      .insert(imagePosts)
+      .select("id");
+    results.image_posts = imgNotices?.length || 0;
+    if (imgErr) results.image_posts_error = imgErr.message;
+  }
+
   // Jobs
   const jobs = [
     { title: "Shop helper — market", description: "Full time 10–12k. Age 18–30. Bilaspur market." },
