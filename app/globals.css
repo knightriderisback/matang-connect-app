@@ -42,34 +42,34 @@ body {
   100% { background-position: 100% 50%; }
 }
 
-/* Clear sharp gold letters, slight raise, soft slow light */
 .matang-gold-title {
   font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   font-weight: 900;
   letter-spacing: 0.08em;
   line-height: 1;
   background-image: linear-gradient(
-    100deg,
-    #c9a227 0%,
-    #e0b83a 18%,
-    #f0d060 35%,
-    #fff4b8 48%,
+    105deg,
+    #8b6914 0%,
+    #b8860b 14%,
+    #d4af37 28%,
+    #f5e6a3 40%,
+    #ffffff 46%,
     #ffe566 52%,
-    #f0d060 65%,
-    #e0b83a 82%,
-    #c9a227 100%
+    #e8c547 62%,
+    #c9a227 76%,
+    #a67c00 88%,
+    #d4af37 100%
   );
-  background-size: 200% 100%;
+  background-size: 220% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  animation: matangGoldShine 12s ease-in-out infinite alternate;
-  /* Sharp emboss — no soft blur layers */
+  animation: matangGoldShine 11s ease-in-out infinite alternate;
   text-shadow:
-    0 1px 0 #b89620,
-    0 2px 0 #8a6a12,
-    0 2px 3px rgba(0, 0, 0, 0.28);
+    0 1px 0 #c9a227,
+    0 2px 0 #7a5f10,
+    0 3px 4px rgba(0, 0, 0, 0.4);
   filter: none;
   -webkit-font-smoothing: antialiased;
 }
