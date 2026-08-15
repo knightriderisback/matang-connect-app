@@ -37,33 +37,25 @@ body {
 }
 
 
-/* Clear solid gold + light hard emboss (blur radius always 0) */
-@keyframes matangGoldShine {
-  0%, 100% { color: #e8c547; -webkit-text-fill-color: #e8c547; }
-  50% { color: #ffe566; -webkit-text-fill-color: #ffe566; }
-}
-
+/* Locked clear baseline — no 3D/shadow/animation (avoids mobile blur) */
 .matang-gold-title {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-weight: 800;
   letter-spacing: 0.06em;
   line-height: 1.15;
-  color: #e8c547;
-  -webkit-text-fill-color: #e8c547;
+  color: #f0d060;
+  -webkit-text-fill-color: #f0d060;
   background: none !important;
   -webkit-background-clip: unset !important;
   background-clip: unset !important;
-  animation: matangGoldShine 10s ease-in-out infinite;
-  /* Hard steps only — no soft blur */
-  text-shadow:
-    0 1px 0 #f5e6a3,
-    0 2px 0 #b89620,
-    0 3px 0 #7a5f10;
+  animation: none !important;
+  text-shadow: none !important;
   filter: none !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: geometricPrecision;
+  text-rendering: optimizeLegibility;
 }
+
 
 
 
