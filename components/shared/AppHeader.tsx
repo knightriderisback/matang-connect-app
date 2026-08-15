@@ -119,12 +119,10 @@ export function AppHeader() {
             {user?.full_name ? (
               <>
                 <span className="text-white font-medium">{user.full_name}</span>
-                {!isHome && title ? (
-                  <span className="text-white/45"> · {title}</span>
-                ) : null}
+                <span className="text-white/45"> · Post</span>
               </>
             ) : (
-              !isHome && title ? title : " "
+              <span className="text-white/45">Post</span>
             )}
           </p>
         </div>
