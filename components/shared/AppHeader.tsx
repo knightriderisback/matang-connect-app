@@ -125,7 +125,7 @@ export function AppHeader() {
         )}
         <div className="flex-1 min-w-0">
           <p
-            className="matang-gold-title relative inline-block max-w-full truncate text-[16px] sm:text-[18px] font-black tracking-[0.14em] uppercase leading-none"
+            className="matang-gold-title relative inline-block max-w-full truncate text-[17px] sm:text-[19px] font-black tracking-[0.1em] uppercase leading-tight"
           >
             MATANG CONNECT
           </p>

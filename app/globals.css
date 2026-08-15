@@ -37,32 +37,22 @@ body {
 }
 
 
-@keyframes matangGoldShine {
-  0% { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
-}
-
 .matang-gold-title {
-  font-family: Georgia, "Palatino Linotype", Palatino, "Times New Roman", serif;
-  background-image: linear-gradient(
-    105deg,
-    #5c3b0a 0%,
-    #a67c00 12%,
-    #f0d060 22%,
-    #fff8dc 32%,
-    #e8c547 42%,
-    #b8860b 55%,
-    #ffe9a0 68%,
-    #d4af37 80%,
-    #8b6914 92%,
-    #f5e6a3 100%
-  );
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 1px 0 #3d2a0a) drop-shadow(0 2px 1px rgba(0, 0, 0, 0.55))
-    drop-shadow(0 0 8px rgba(212, 175, 55, 0.65));
-  animation: matangGoldShine 3.2s linear infinite;
+  font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #f0d060 !important;
+  -webkit-text-fill-color: #f0d060 !important;
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  animation: none !important;
+  text-shadow:
+    0 1px 0 #8b6914,
+    0 2px 0 #6b5010,
+    0 3px 0 #4a3508,
+    0 4px 2px rgba(0, 0, 0, 0.45),
+    0 6px 10px rgba(0, 0, 0, 0.35),
+    0 0 1px rgba(255, 248, 220, 0.9);
+  filter: none;
 }
