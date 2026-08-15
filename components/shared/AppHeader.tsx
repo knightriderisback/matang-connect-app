@@ -93,6 +93,13 @@ export function AppHeader() {
     "Member";
 
   return (
+    <>
+    <style>{\`
+      @keyframes matangGoldShine {
+        0% { background-position: 100% 0; }
+        100% { background-position: -100% 0; }
+      }
+    \`}</style>
     <header
       className={cn(
         "sticky top-0 z-50 transition-all duration-300",
@@ -125,20 +132,22 @@ export function AppHeader() {
         )}
         <div className="flex-1 min-w-0">
           <p
-            className="font-extrabold text-[15px] leading-tight tracking-wide truncate"
+            className="matang-gold-title relative inline-block max-w-full truncate text-[13px] sm:text-[14px] font-black tracking-[0.12em] uppercase leading-none"
             style={{
-              fontFamily: "Georgia, 'Times New Roman', serif",
-              background:
-                "linear-gradient(180deg, #fff6d0 0%, #f5d76e 28%, #d4a017 55%, #b8860b 78%, #fff1a8 100%)",
+              fontFamily: "Georgia, 'Palatino Linotype', Palatino, 'Times New Roman', serif",
+              backgroundImage:
+                "linear-gradient(105deg, #5c3b0a 0%, #a67c00 12%, #f0d060 22%, #fff8dc 32%, #e8c547 42%, #b8860b 55%, #ffe9a0 68%, #d4af37 80%, #8b6914 92%, #f5e6a3 100%)",
+              backgroundSize: "200% 100%",
               WebkitBackgroundClip: "text",
               backgroundClip: "text",
               color: "transparent",
-              textShadow:
-                "0 1px 0 #8b6914, 0 2px 0 #6b5010, 0 3px 4px rgba(0,0,0,0.45), 0 0 12px rgba(212,175,55,0.55)",
-              filter: "drop-shadow(0 0 6px rgba(255, 215, 0, 0.35))",
+              WebkitTextFillColor: "transparent",
+              filter:
+                "drop-shadow(0 1px 0 #3d2a0a) drop-shadow(0 2px 1px rgba(0,0,0,0.55)) drop-shadow(0 0 8px rgba(212,175,55,0.65))",
+              animation: "matangGoldShine 3.2s linear infinite",
             }}
           >
-            Matang Connect
+            MATANG CONNECT
           </p>
           <p className="text-white/85 text-[11px] truncate mt-0.5">
             {user?.full_name ? (
@@ -166,5 +175,6 @@ export function AppHeader() {
         <LanguageToggle />
       </div>
     </header>
+    </>
   );
 }
