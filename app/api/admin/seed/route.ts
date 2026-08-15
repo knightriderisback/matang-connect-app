@@ -72,8 +72,9 @@ export async function POST() {
   results.users = usersOk;
 
   const poster = userIds[userIds.length - 1] || session.userId;
+  const pick = (i: number) => userIds[i % Math.max(userIds.length, 1)] || poster;
 
-  // Notices
+  // Notices (multiple posters)
   const noticeRows = [
     { title: "Samaj Meeting — Sunday 10 AM", content: "Sabhi sadasya Sunday 10 baje Samaj Bhavan upasthit rahein.\nAgenda: Census, Kosh, youth plans.", type: "meeting" },
     { title: "Urgent: Blood needed (B+)", content: "Apollo Bilaspur — B+ blood turant.\nContact demo: 9000000001", type: "urgent" },
@@ -87,27 +88,36 @@ export async function POST() {
     { title: "Sports day registration", content: "Kabaddi + cricket. Gaurav points linked.", type: "announcement" },
     { title: "New Matrimony profiles", content: "5 naye biodata add hue — verified families.", type: "general" },
     { title: "Urgent: School fees support", content: "2 students ke liye sahyog. Care/Kosh se help karein.", type: "urgent" },
-  ].map((n) => ({
+    { title: "Blood donation camp", content: "Next Sunday 9 AM at Samaj Bhavan. All groups welcome.", type: "announcement" },
+    { title: "Youth skill workshop", content: "Free computer basics — register with city volunteer.", type: "meeting" },
+    { title: "Kosh monthly audit complete", content: "Books matched. Report available with Core Committee.", type: "general" },
+  ].map((n, i) => ({
     ...n,
-    posted_by: poster,
+    posted_by: pick(i),
     city_id: cityId,
   }));
-  const { data: notices, error: nErr } = await supabase.from("notices").insert(noticeRows).select("id");
-  results.notices = notices?.length || 0;
-  if (nErr) results.notices_error = nErr.message;
+  {
+    const { data: notices, error: nErr } = await supabase.from("notices").insert(noticeRows).select("id");
+    results.notices = notices?.length || 0;
+    if (nErr) results.notices_error = nErr.message;
+  }
 
   // Jobs
   const jobs = [
-    { title: "Shop helper — market", description: "Full time 10–12k. Age 18–30." },
-    { title: "Data entry WFH", description: "Part time census support." },
-    { title: "Driver LMV", description: "Local trips, license required." },
+    { title: "Shop helper — market", description: "Full time 10–12k. Age 18–30. Bilaspur market." },
+    { title: "Data entry WFH", description: "Part time census support. Laptop required." },
+    { title: "Driver LMV", description: "Local trips, license required. Fuel paid." },
     { title: "Tailoring instructor", description: "Women preferred, evening batch." },
-    { title: "Warehouse packing", description: "Day shift + overtime." },
+    { title: "Warehouse packing", description: "Day shift + overtime near Sipat." },
     { title: "Tuition Maths 9–10", description: "2 hrs daily near Takhatpur." },
-  ].map((j) => ({ ...j, posted_by: poster, city_id: cityId, status: "active" }));
-  const { data: jobData, error: jErr } = await supabase.from("jobs").insert(jobs).select("id");
-  results.jobs = jobData?.length || 0;
-  if (jErr) results.jobs_error = jErr.message;
+    { title: "Mobile repair assistant", description: "Trainee ok. Stipend 6k." },
+    { title: "Cook for community events", description: "Part time, festivals & meetings." },
+  ].map((j, i) => ({ ...j, posted_by: pick(i + 2), city_id: cityId, status: "active" }));
+  {
+    const { data: jobData, error: jErr } = await supabase.from("jobs").insert(jobs).select("id");
+    results.jobs = jobData?.length || 0;
+    if (jErr) results.jobs_error = jErr.message;
+  }
 
   // Care
   const care = [
@@ -117,10 +127,12 @@ export async function POST() {
     { care_type: "financial", description: "School admission fees one-time", urgency: "emergency", status: "open", notes: "Fees" },
     { care_type: "educational", description: "Class 12 science books", urgency: "low", status: "open", notes: "Books" },
     { care_type: "other", description: "House shifting help Bilaspur", urgency: "normal", status: "completed", notes: "Shift" },
-  ].map((c) => ({ ...c, requester_id: poster }));
-  const { data: careData, error: cErr } = await supabase.from("care_requests").insert(care).select("id");
-  results.care = careData?.length || 0;
-  if (cErr) results.care_error = cErr.message;
+  ].map((c, i) => ({ ...c, requester_id: pick(i + 5) }));
+  {
+    const { data: careData, error: cErr } = await supabase.from("care_requests").insert(care).select("id");
+    results.care = careData?.length || 0;
+    if (cErr) results.care_error = cErr.message;
+  }
 
   // Kosh
   const txs = [
@@ -130,19 +142,90 @@ export async function POST() {
     { amount: 2500, category: "expense", description: "Hall rent" },
     { amount: 12000, category: "income", description: "Fundraising" },
     { amount: 3000, category: "expense", description: "Sports kit" },
-  ].map((t) => ({ ...t, recorded_by: poster }));
-  const { data: txData, error: tErr } = await supabase.from("kosh_transactions").insert(txs).select("id");
-  results.kosh_tx = txData?.length || 0;
-  if (tErr) results.kosh_error = tErr.message;
+  ].map((tx, i) => ({ ...tx, recorded_by: pick(i) }));
+  {
+    const { data: txData, error: tErr } = await supabase.from("kosh_transactions").insert(txs).select("id");
+    results.kosh_tx = txData?.length || 0;
+    if (tErr) results.kosh_error = tErr.message;
+  }
+  {
+    const contribs = userIds.slice(0, 20).map((id, idx) => ({
+      contributor_id: id,
+      amount: 500 + idx * 100,
+      purpose: "Sahyog contribution",
+    }));
+    const { data: contribData } = await supabase.from("sahyog_kosh_contributions").insert(contribs).select("id");
+    results.contributions = contribData?.length || 0;
+  }
 
-  const contribs = userIds.slice(0, 15).map((id, idx) => ({
-    contributor_id: id,
-    amount: 500 + idx * 100,
-    purpose: "Sahyog contribution",
-  }));
-  const { data: contribData } = await supabase.from("sahyog_kosh_contributions").insert(contribs).select("id");
-  results.contributions = contribData?.length || 0;
+  // SOS demo alerts
+  {
+    const sosRows = [
+      { type: "medical", status: "active", message: JSON.stringify({ note: "Demo emergency — help needed near Kota", name: NAMES[0] }) },
+      { type: "blood", status: "active", message: JSON.stringify({ group: "B+", units: "2", location: "Apollo Bilaspur", contact: "9000000001" }) },
+      { type: "medicine", status: "resolved", message: JSON.stringify({ medicine: "Insulin", location: "Takhatpur", contact: "9000000002" }) },
+    ].map((s, i) => ({ ...s, raised_by: pick(i + 1), city_id: cityId }));
+    const { data: sosData, error: sErr } = await supabase.from("sos_alerts").insert(sosRows).select("id");
+    results.sos = sosData?.length || 0;
+    if (sErr) results.sos_error = sErr.message;
+  }
 
-  results.note = "Demo M-PIN for 90000xxxxx users: 1234";
+  // Polls (best-effort)
+  try {
+    const { data: poll, error: pErr } = await supabase
+      .from("polls")
+      .insert({
+        question: "Next community event preference?",
+        options: ["Sports day", "Rojgar mela", "Cultural night", "Blood camp"],
+        created_by: poster,
+        city_id: cityId,
+        is_active: true,
+      })
+      .select("id")
+      .maybeSingle();
+    if (!pErr && poll?.id) {
+      results.polls = 1;
+      // alternate schema
+    } else if (pErr) {
+      const { data: poll2, error: p2 } = await supabase
+        .from("polls")
+        .insert({
+          title: "Next community event preference?",
+          description: "Vote for next big event",
+          created_by: poster,
+          city_id: cityId,
+          status: "open",
+        })
+        .select("id")
+        .maybeSingle();
+      results.polls = poll2 ? 1 : 0;
+      if (p2) results.polls_error = p2.message;
+      else if (pErr) results.polls_error = pErr.message;
+    }
+  } catch (e: any) {
+    results.polls_error = e?.message || "polls skipped";
+  }
+
+  // Vyapar / businesses best-effort
+  try {
+    const biz = [
+      { name: "Matang Kirana Store", category: "Grocery", description: "Daily needs — Pendri road", phone: "9000000010" },
+      { name: "Shakti Tailors", category: "Tailoring", description: "Ladies & gents, Bilaspur", phone: "9000000011" },
+      { name: "Yuva Mobile Care", category: "Electronics", description: "Screen & battery", phone: "9000000012" },
+    ].map((b, i) => ({
+      ...b,
+      owner_id: pick(i + 8),
+      city_id: cityId,
+      is_active: true,
+    }));
+    const { data: bData, error: bErr } = await supabase.from("businesses").insert(biz).select("id");
+    results.businesses = bData?.length || 0;
+    if (bErr) results.businesses_error = bErr.message;
+  } catch (e: any) {
+    results.businesses_error = e?.message || "skip";
+  }
+
+  results.note =
+    "Demo logins: phone 9000000001 … 9000000050 · M-PIN 1234. Pending every 5th user. Re-run adds more rows (users upsert by phone).";
   return NextResponse.json({ success: true, results });
 }
