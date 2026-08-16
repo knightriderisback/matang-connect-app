@@ -16,7 +16,7 @@ export function FloatingLogo() {
     <button
       type="button"
       onClick={() => router.push("/history")}
-      className="fixed bottom-16 right-3 md:bottom-20 md:right-6 z-30 w-14 h-14 bg-transparent border-0 p-0 active:scale-90 transition-transform"
+      className="fixed bottom-16 right-3 md:bottom-20 md:right-6 z-30 w-14 h-14 bg-transparent border-0 p-0 active:scale-90 transition-transform opacity-50 hover:opacity-90"
       title="Matang Samaj History"
       aria-label="Matang Samaj History"
     >
