@@ -64,6 +64,8 @@ function AdminDirectoryPageInner() {
   const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "village" | "role" | "city">("name_asc");
   const [showFilters, setShowFilters] = useState(false);
   const [openSection, setOpenSection] = useState<string>("village");
+  /** fieldKey -> selected values (auto-discovered columns) */
+  const [dynamicFilters, setDynamicFilters] = useState<Record<string, string[]>>({});
   const [resetPin, setResetPin] = useState("");
   const [resetting, setResetting] = useState(false);
   const [memberDetail, setMemberDetail] = useState<any>(null);
@@ -110,10 +112,70 @@ function AdminDirectoryPageInner() {
     new Set(users.map((u) => u.occupation).filter(Boolean) as string[])
   ).sort();
 
+  // Auto-detect extra scalar fields on user rows for future-proof filters
+  const SKIP_AUTO = new Set([
+    "id",
+    "full_name",
+    "phone",
+    "photo_url",
+    "qr_code_id",
+    "city_id",
+    "cities",
+    "families",
+    "native_village",
+    "role",
+    "verification_status",
+    "gender",
+    "blood_group",
+    "education_level",
+    "occupation",
+    "about",
+    "address",
+    "m_pin_hash",
+    "created_at",
+    "updated_at",
+  ]);
+
+  const autoFilterFields = (() => {
+    const map: Record<string, Set<string>> = {};
+    for (const u of users) {
+      const row = u as Record<string, unknown>;
+      for (const [k, v] of Object.entries(row)) {
+        if (SKIP_AUTO.has(k)) continue;
+        if (v == null || v === "") continue;
+        if (typeof v === "object") continue;
+        const s = String(v).trim();
+        if (!s || s.length > 40) continue;
+        if (!map[k]) map[k] = new Set();
+        map[k].add(s);
+      }
+    }
+    return Object.entries(map)
+      .filter(([, set]) => set.size >= 1 && set.size <= 40)
+      .map(([key, set]) => ({
+        key,
+        title: key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        values: Array.from(set).sort(),
+      }))
+      .sort((a, b) => a.title.localeCompare(b.title));
+  })();
+
+  const toggleDynamic = (field: string, value: string) => {
+    setDynamicFilters((prev) => {
+      const cur = prev[field] || [];
+      const next = cur.includes(value) ? cur.filter((x) => x !== value) : [...cur, value];
+      const copy = { ...prev };
+      if (!next.length) delete copy[field];
+      else copy[field] = next;
+      return copy;
+    });
+  };
+
   const toggleMulti = (arr: string[], v: string, set: (x: string[]) => void) => {
     set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
   };
 
+  const dynamicCount = Object.values(dynamicFilters).reduce((n, arr) => n + arr.length, 0);
   const activeFilterCount =
     filterVillage.length +
     filterCity.length +
@@ -124,6 +186,7 @@ function AdminDirectoryPageInner() {
     filterBlood.length +
     filterEducation.length +
     filterOccupation.length +
+    dynamicCount +
     (filterHasFamily !== "any" ? 1 : 0) +
     (filterHasPhoto !== "any" ? 1 : 0) +
     (ageMin || ageMax ? 1 : 0);
@@ -142,6 +205,7 @@ function AdminDirectoryPageInner() {
     setFilterHasPhoto("any");
     setAgeMin("");
     setAgeMax("");
+    setDynamicFilters({});
   };
 
   const memberAges = (u: DirectoryUser) =>
@@ -202,6 +266,16 @@ function AdminDirectoryPageInner() {
       }
     }
 
+    let matchDynamic = true;
+    for (const [field, selected] of Object.entries(dynamicFilters)) {
+      if (!selected.length) continue;
+      const val = String((u as any)[field] ?? "").trim();
+      if (!selected.includes(val)) {
+        matchDynamic = false;
+        break;
+      }
+    }
+
     return (
       matchSearch &&
       matchVillage &&
@@ -215,7 +289,8 @@ function AdminDirectoryPageInner() {
       matchOcc &&
       matchFam &&
       matchPhoto &&
-      matchAge
+      matchAge &&
+      matchDynamic
     );
   });
 
@@ -451,9 +526,9 @@ function AdminDirectoryPageInner() {
       </div>
 
       {showFilters && (
-        <Card className="border-matang-gold/40 shadow-sm overflow-hidden">
+        <Card className="border-amber-300/60 shadow-md overflow-hidden bg-gradient-to-b from-amber-50 via-[#fff8e7] to-orange-50">
           <CardContent className="p-0">
-            <div className="flex items-center justify-between px-3 py-2 bg-matang-navy/5 border-b">
+            <div className="flex items-center justify-between px-3 py-2 bg-amber-100/80 border-b border-amber-200/80">
               <p className="text-xs font-bold text-matang-navy uppercase tracking-wide">Refine results</p>
               <button type="button" className="text-[11px] font-semibold text-matang-gold" onClick={clearAllFilters}>
                 Clear all
@@ -741,6 +816,28 @@ function AdminDirectoryPageInner() {
                     </div>
                   ),
                 },
+                ...autoFilterFields.map((f) => ({
+                  key: `auto_${f.key}`,
+                  title: `${f.title} · auto`,
+                  body: (
+                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                      {f.values.map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => toggleDynamic(f.key, v)}
+                          className={`text-[11px] px-2.5 py-1 rounded-full border ${
+                            (dynamicFilters[f.key] || []).includes(v)
+                              ? "bg-matang-navy text-white border-matang-navy"
+                              : "bg-white text-gray-700 border-gray-200"
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  ),
+                })),
               ].map((sec) => (
                 <div key={sec.key}>
                   <button
