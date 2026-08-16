@@ -90,13 +90,19 @@ export default function DashboardPage() {
         const canvas = document.createElement("canvas");
         const max = 1000;
         let w = img.width, h = img.height;
+        const max = 960;
+        if (w > max || h > max) {
+          const r = Math.min(max / w, max / h);
+          w = Math.round(w * r);
+          h = Math.round(h * r);
+        }
         if (w > max || h > max) {
           if (w > h) { h = Math.round((h * max) / w); w = max; }
           else { w = Math.round((w * max) / h); h = max; }
         }
         canvas.width = w; canvas.height = h;
         canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-        setForm((prev) => ({ ...prev, image: canvas.toDataURL("image/jpeg", 0.72) }));
+        setForm((prev) => ({ ...prev, image: canvas.toDataURL("image/jpeg", 0.62) }));
       };
       img.src = reader.result as string;
     };

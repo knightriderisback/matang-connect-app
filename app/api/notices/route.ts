@@ -17,6 +17,53 @@ function parseImage(content: string): { text: string; image: string | null } {
   return { text, image: image.startsWith("data:") || image.startsWith("https://") ? image : null };
 }
 
+
+async function uploadFeedImage(
+  supabase: ReturnType<typeof createAdminClient>,
+  dataUrl: string,
+  userId: string
+): Promise<string | null> {
+  try {
+    const m = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)$/);
+    if (!m) return null;
+    const mime = m[1];
+    const b64 = m[2].replace(/\s/g, "");
+    const buf = Buffer.from(b64, "base64");
+    if (buf.length < 32 || buf.length > 2_500_000) return null;
+    const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+    const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const bucket = "feed-images";
+
+    let up = await supabase.storage.from(bucket).upload(path, buf, {
+      contentType: mime,
+      upsert: false,
+      cacheControl: "31536000",
+    });
+    if (up.error) {
+      // Bucket may not exist yet — create public bucket once
+      await supabase.storage.createBucket(bucket, {
+        public: true,
+        fileSizeLimit: 3_000_000,
+        allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"],
+      });
+      up = await supabase.storage.from(bucket).upload(path, buf, {
+        contentType: mime,
+        upsert: false,
+        cacheControl: "31536000",
+      });
+      if (up.error) {
+        console.error("feed image upload failed", up.error.message);
+        return null;
+      }
+    }
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+    return data?.publicUrl || null;
+  } catch (e) {
+    console.error("feed image upload exception", e);
+    return null;
+  }
+}
+
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -121,12 +168,24 @@ export async function POST(request: NextRequest) {
     /* ignore */
   }
 
-  if (body.image && typeof body.image === "string" && body.image.startsWith("data:")) {
+  if (body.image && typeof body.image === "string") {
     if (!imagesAllowed) {
       return NextResponse.json({ error: "Feed images are disabled" }, { status: 403 });
     }
-    const img = body.image.slice(0, 400000);
-    content = content + IMG_MARK + img + IMG_END;
+    const supabaseImg = createAdminClient();
+    let publicUrl: string | null = null;
+    if (body.image.startsWith("data:")) {
+      publicUrl = await uploadFeedImage(supabaseImg, body.image, session.userId);
+    } else if (body.image.startsWith("https://")) {
+      publicUrl = body.image.slice(0, 500);
+    }
+    if (publicUrl) {
+      content = content + IMG_MARK + publicUrl + IMG_END;
+    } else if (body.image.startsWith("data:")) {
+      // Last-resort tiny embed only if storage unavailable (still cap size)
+      const img = body.image.slice(0, 80_000);
+      content = content + IMG_MARK + img + IMG_END;
+    }
   }
 
   let type = body.type || body.category || "general";
