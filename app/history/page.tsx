@@ -117,12 +117,23 @@ export default function HistoryPage() {
       {/* ===== BANNER — full hero image ===== */}
       <div className="relative w-full overflow-hidden bg-[#0a1628]">
         <div className="relative w-full min-h-[38vh] max-h-[48vh] md:min-h-[280px] md:max-h-[360px] overflow-hidden bg-[#0a1628] flex items-center justify-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/history-banner.png"
-            alt="Matang"
-            className="history-banner-logo h-full w-full max-h-[48vh] md:max-h-[360px] object-contain object-center p-3 md:p-6"
-          />
+          {/* Layered depth: darker offset plate under main logo */}
+          <div className="relative h-full w-full max-h-[48vh] md:max-h-[360px] p-3 md:p-6">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/history-banner.png"
+              alt=""
+              aria-hidden
+              className="pointer-events-none absolute inset-0 m-auto h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] max-h-[inherit] object-contain object-center opacity-40 brightness-0 md:h-[calc(100%-3rem)] md:w-[calc(100%-3rem)]"
+              style={{ transform: "translate(6px, 8px)" }}
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/history-banner.png"
+              alt="Matang"
+              className="relative z-[1] mx-auto h-full w-full object-contain object-center"
+            />
+          </div>
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0a1628] via-transparent to-[#0a1628]/20" />
         </div>
 
