@@ -19,7 +19,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-matang-cream flex flex-col">
       <div className="p-4 flex justify-end"><LanguageToggleLight /></div>
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
-        <Logo className="w-24 h-24 rounded-3xl shadow-xl mb-6" />
+        <Logo className="w-24 h-24 object-contain bg-transparent mb-6 drop-shadow-lg" />
         <h1 className="text-3xl font-bold text-matang-navy mb-2 text-center">{t("app.name")}</h1>
         <p className="text-gray-500 text-center mb-8 max-w-xs">{t("app.tagline")}</p>
         <div className="grid grid-cols-2 gap-3 w-full max-w-sm mb-8">

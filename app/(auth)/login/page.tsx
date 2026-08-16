@@ -47,7 +47,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-matang-cream flex flex-col">
       <div className="p-4 flex justify-end"><LanguageToggleLight /></div>
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
-        <Logo className="w-20 h-20 rounded-2xl shadow-lg mb-5" />
+        <Logo className="w-20 h-20 object-contain bg-transparent mb-5 drop-shadow-md" />
         <h1 className="text-2xl font-bold text-matang-navy mb-1">{t("app.name")}</h1>
         <p className="text-gray-500 mb-8">{t("app.tagline")}</p>
         <form onSubmit={handleLogin} className="w-full max-w-sm space-y-4">
