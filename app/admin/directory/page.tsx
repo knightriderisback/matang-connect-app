@@ -15,6 +15,8 @@ interface DirectoryUser {
   native_village: string;
   role?: string;
   qr_code_id?: string;
+  verification_status?: string;
+  photo_url?: string;
   cities: { name: string } | null;
   families: { education_summary: string; employment_status: string; address?: string; needs?: string[]; family_members: { name: string; relation: string; age?: number; blood_group?: string; occupation?: string }[] }[];
 }
@@ -28,8 +30,14 @@ function AdminDirectoryPageInner() {
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filterVillage, setFilterVillage] = useState("");
-  const [filterEmployment, setFilterEmployment] = useState("");
+  const [filterVillage, setFilterVillage] = useState<string[]>([]);
+  const [filterEmployment, setFilterEmployment] = useState<string[]>([]);
+  const [filterRole, setFilterRole] = useState<string[]>([]);
+  const [filterVerify, setFilterVerify] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "village" | "role">("name_asc");
+  const [showFilters, setShowFilters] = useState(false);
+  const [resetPin, setResetPin] = useState("");
+  const [resetting, setResetting] = useState(false);
   const [memberDetail, setMemberDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [selected, setSelected] = useState<DirectoryUser | null>(null);
@@ -57,17 +65,34 @@ function AdminDirectoryPageInner() {
   }, [userParam]);
 
   const villages = Array.from(new Set(users.map((u) => u.native_village).filter(Boolean))).sort();
-  const filtered = users.filter((u) => {
+  const roles = Array.from(new Set(users.map((u) => u.role).filter(Boolean))).sort() as string[];
+
+  const toggleMulti = (arr: string[], v: string, set: (x: string[]) => void) => {
+    set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+  };
+
+  let filtered = users.filter((u) => {
     const q = search.toLowerCase();
     const matchSearch =
       !q ||
       u.full_name?.toLowerCase().includes(q) ||
       u.native_village?.toLowerCase().includes(q) ||
-      u.phone?.includes(search);
-    const matchVillage = !filterVillage || u.native_village === filterVillage;
+      u.phone?.includes(search) ||
+      (u.qr_code_id || "").toLowerCase().includes(q);
+    const matchVillage = !filterVillage.length || filterVillage.includes(u.native_village);
     const emp = u.families?.[0]?.employment_status || "";
-    const matchEmp = !filterEmployment || emp === filterEmployment;
-    return matchSearch && matchVillage && matchEmp;
+    const matchEmp = !filterEmployment.length || filterEmployment.includes(emp);
+    const matchRole = !filterRole.length || filterRole.includes(u.role || "normal");
+    const matchVerify =
+      !filterVerify.length || filterVerify.includes(u.verification_status || "pending");
+    return matchSearch && matchVillage && matchEmp && matchRole && matchVerify;
+  });
+
+  filtered = [...filtered].sort((a, b) => {
+    if (sortBy === "name_desc") return (b.full_name || "").localeCompare(a.full_name || "");
+    if (sortBy === "village") return (a.native_village || "").localeCompare(b.native_village || "");
+    if (sortBy === "role") return (a.role || "").localeCompare(b.role || "");
+    return (a.full_name || "").localeCompare(b.full_name || "");
   });
 
 
@@ -206,6 +231,50 @@ function AdminDirectoryPageInner() {
           </Card>
         )}
 
+        <Card className="border-matang-gold/30">
+          <CardContent className="p-3 space-y-2">
+            <p className="text-sm font-semibold text-matang-navy">Reset M-PIN</p>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="New 4-digit M-PIN"
+              value={resetPin}
+              onChange={(e) => setResetPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              className="w-full px-3 py-2 rounded-xl border text-sm"
+            />
+            <Button
+              className="w-full"
+              isLoading={resetting}
+              onClick={async () => {
+                if (!/^\d{4}$/.test(resetPin)) {
+                  toast("Enter 4-digit M-PIN", "error");
+                  return;
+                }
+                setResetting(true);
+                try {
+                  const res = await fetch("/api/admin/reset-mpin", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ userId: selected.id, newMpin: resetPin }),
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (!res.ok) {
+                    toast(data.error || "Reset failed", "error");
+                    return;
+                  }
+                  toast("M-PIN reset", "success");
+                  setResetPin("");
+                } finally {
+                  setResetting(false);
+                }
+              }}
+            >
+              Reset this member&apos;s M-PIN
+            </Button>
+          </CardContent>
+        </Card>
+
         <Button variant="outline" className="w-full" onClick={() => window.open(`tel:${detail.phone}`)}>
           <Phone size={16} /> Call {detail.phone}
         </Button>
@@ -226,21 +295,112 @@ function AdminDirectoryPageInner() {
       </div>
       {loading && <p className="text-gray-400 text-center py-8">Loading...</p>}
       
-      <div className="grid grid-cols-2 gap-2">
-        <select className="px-3 py-2 rounded-xl border text-sm" value={filterVillage} onChange={(e) => setFilterVillage(e.target.value)}>
-          <option value="">All villages</option>
-          {villages.map((v) => <option key={v} value={v}>{v}</option>)}
+      <div className="flex gap-2 items-center">
+        <select
+          className="flex-1 px-3 py-2 rounded-xl border text-sm"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as any)}
+        >
+          <option value="name_asc">Sort: Name A–Z</option>
+          <option value="name_desc">Sort: Name Z–A</option>
+          <option value="village">Sort: Village</option>
+          <option value="role">Sort: Role</option>
         </select>
-        <select className="px-3 py-2 rounded-xl border text-sm" value={filterEmployment} onChange={(e) => setFilterEmployment(e.target.value)}>
-          <option value="">All employment</option>
-          <option value="employed">Employed</option>
-          <option value="unemployed">Unemployed</option>
-          <option value="self_employed">Self Employed</option>
-          <option value="student">Student</option>
-          <option value="retired">Retired</option>
-        </select>
+        <button
+          type="button"
+          onClick={() => setShowFilters((v) => !v)}
+          className="px-3 py-2 rounded-xl border text-sm font-semibold text-matang-navy bg-white"
+        >
+          Filters{filterVillage.length + filterEmployment.length + filterRole.length + filterVerify.length ? ` (${filterVillage.length + filterEmployment.length + filterRole.length + filterVerify.length})` : ""}
+        </button>
       </div>
-      <p className="text-[10px] text-gray-400">CRM filters — village & employment (DPR city CRM)</p>
+      {showFilters && (
+        <Card className="border-matang-gold/30">
+          <CardContent className="p-3 space-y-3 text-sm">
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-1">Village (multi)</p>
+              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                {villages.map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => toggleMulti(filterVillage, v, setFilterVillage)}
+                    className={`text-[11px] px-2 py-1 rounded-full border ${
+                      filterVillage.includes(v) ? "bg-matang-gold text-matang-navy border-matang-gold" : "bg-white text-gray-600"
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-1">Employment (multi)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {["employed", "unemployed", "self_employed", "student", "retired"].map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => toggleMulti(filterEmployment, v, setFilterEmployment)}
+                    className={`text-[11px] px-2 py-1 rounded-full border ${
+                      filterEmployment.includes(v) ? "bg-matang-gold text-matang-navy border-matang-gold" : "bg-white text-gray-600"
+                    }`}
+                  >
+                    {v.replace(/_/g, " ")}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-1">Role (multi)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(roles.length ? roles : ["normal", "volunteer", "core_committee", "super_admin"]).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => toggleMulti(filterRole, v, setFilterRole)}
+                    className={`text-[11px] px-2 py-1 rounded-full border ${
+                      filterRole.includes(v) ? "bg-matang-gold text-matang-navy border-matang-gold" : "bg-white text-gray-600"
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-1">Verification (multi)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {["verified", "pending", "rejected"].map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => toggleMulti(filterVerify, v, setFilterVerify)}
+                    className={`text-[11px] px-2 py-1 rounded-full border ${
+                      filterVerify.includes(v) ? "bg-matang-gold text-matang-navy border-matang-gold" : "bg-white text-gray-600"
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="text-xs text-matang-gold font-semibold"
+              onClick={() => {
+                setFilterVillage([]);
+                setFilterEmployment([]);
+                setFilterRole([]);
+                setFilterVerify([]);
+              }}
+            >
+              Clear all filters
+            </button>
+          </CardContent>
+        </Card>
+      )}
+      <p className="text-[10px] text-gray-400">{filtered.length} members · multi-filter + sort</p>
 {!loading && filtered.length === 0 && <p className="text-gray-400 text-center py-8">No members found</p>}
       <div className="space-y-2">
         {filtered.map((u) => (
@@ -267,14 +427,7 @@ function AdminDirectoryPageInner() {
           </button>
         ))}
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="outline" className="w-full text-sm" onClick={() => { window.location.href = "/admin/verify"; }}>
-          Verify Users →
-        </Button>
-        <Button variant="outline" className="w-full text-sm" onClick={() => { window.location.href = "/admin/reset-mpin"; }}>
-          Reset M-PIN →
-        </Button>
-      </div>
+
     </div>
   );
 }
