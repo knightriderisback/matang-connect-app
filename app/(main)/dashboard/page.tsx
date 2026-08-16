@@ -286,7 +286,7 @@ export default function DashboardPage() {
               tag === "urgent" || n.priority === "high" || n.priority === "urgent";
             return (
               <article
-                key={n.id}
+                key={n.id} style={{ contentVisibility: "auto", containIntrinsicSize: "0 280px" }}
                 className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${
                   isShok
                     ? "border-gray-300"
@@ -342,7 +342,7 @@ export default function DashboardPage() {
                 )}
                 {(n as any).image_url && (
                   <div className="px-4 pb-2">
-                    <img src={(n as any).image_url} alt="" className="w-full max-h-72 object-cover rounded-xl" />
+                    <img src={(n as any).image_url} alt="" loading="lazy" decoding="async" className="w-full max-h-56 object-cover rounded-xl bg-gray-100" />
                   </div>
                 )}
                 <div className="px-4 py-2 border-t border-gray-50 flex justify-end">

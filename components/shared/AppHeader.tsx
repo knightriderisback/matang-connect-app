@@ -48,11 +48,22 @@ export function AppHeader() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const main = document.querySelector("[data-scroll-root]");
-    const target = main || window;
+    const main = document.querySelector("[data-scroll-root]") as HTMLElement | null;
+    const target: any = main || window;
+    let last = false;
+    let ticking = false;
     const onScroll = () => {
-      const y = main ? (main as HTMLElement).scrollTop : window.scrollY;
-      setScrolled(y > 12);
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = main ? main.scrollTop : window.scrollY;
+        const next = y > 12;
+        if (next !== last) {
+          last = next;
+          setScrolled(next);
+        }
+        ticking = false;
+      });
     };
     target.addEventListener("scroll", onScroll, { passive: true });
     return () => target.removeEventListener("scroll", onScroll);

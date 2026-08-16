@@ -25,7 +25,7 @@ export async function GET() {
     .from("notices")
     .select("*")
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(30);
   if (session.role !== "super_admin" && session.cityId) {
     q = q.or(`city_id.eq.${session.cityId},city_id.is.null`);
   }

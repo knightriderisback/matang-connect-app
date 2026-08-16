@@ -37,7 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <AppHeader />
                 <main
                   data-scroll-root
-                  className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y pb-14"
+                  className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y pb-14 [transform:translateZ(0)]"
                 >
                   <div className="md:px-6 md:py-4">{children}</div>
                 </main>
