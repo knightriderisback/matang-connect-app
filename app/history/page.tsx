@@ -116,16 +116,14 @@ export default function HistoryPage() {
     <div className="min-h-full bg-matang-cream pb-8">
       {/* ===== BANNER — full hero image ===== */}
       <div className="relative w-full overflow-hidden bg-[#0a1628]">
-        <div className="relative mx-auto w-full max-w-lg md:max-w-3xl px-4 pt-2 pb-1">
-          <div className="relative w-full overflow-hidden rounded-2xl bg-[#0a1628] ring-1 ring-matang-gold/25">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/history-banner.png"
-              alt="Matang"
-              className="mx-auto h-auto w-full max-h-[28vh] md:max-h-[240px] object-contain object-center"
-            />
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0a1628]/80 via-transparent to-transparent" />
-          </div>
+        <div className="relative w-full aspect-[3/2] max-h-[42vh] md:aspect-[21/9] md:max-h-[320px] overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/history-banner.png"
+            alt="Matang"
+            className="absolute inset-0 h-full w-full object-cover object-[center_70%]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0a1628] via-[#0a1628]/35 to-transparent" />
         </div>
 
         {/* top bar over image */}
@@ -142,7 +140,7 @@ export default function HistoryPage() {
         </div>
 
         {/* title over bottom of banner */}
-        <div className="relative z-10 px-4 pb-5 pt-3 text-center md:pb-6">
+        <div className="relative z-10 -mt-14 px-4 pb-6 text-center md:-mt-16 md:pb-8">
           <h1 className="text-2xl font-bold tracking-tight text-matang-gold drop-shadow md:text-4xl">
             {c.title}
           </h1>
