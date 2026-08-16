@@ -109,6 +109,7 @@ export function AppHeader() {
         "sticky top-0 z-50 transition-all duration-300",
         "bg-matang-navy border-b border-white/10"
       )}
+      style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
     >
       <div className="h-0.5 bg-gradient-to-r from-transparent via-matang-gold to-transparent opacity-80" />
       <div className="px-2 h-11 flex items-center gap-1.5">

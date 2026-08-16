@@ -119,8 +119,8 @@ export function MatangAI() {
   };
 
   const fabClass = isSuper
-    ? "fixed bottom-16 left-3 md:bottom-20 md:left-6 z-30 flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-purple-700/50 to-indigo-900/50 text-amber-300 shadow-lg shadow-purple-900/30 ring-1 ring-purple-400/40 backdrop-blur-sm opacity-50 hover:opacity-90"
-    : "fixed bottom-16 left-3 md:bottom-20 md:left-6 z-30 flex items-center justify-center w-14 h-14 rounded-full bg-matang-navy/50 text-matang-gold shadow-lg ring-1 ring-matang-gold/40 backdrop-blur-sm opacity-50 hover:opacity-90";
+    ? "fixed bottom-20 left-3 md:bottom-24 md:left-6 z-30 flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-purple-700/50 to-indigo-900/50 text-amber-300 shadow-lg shadow-purple-900/30 ring-1 ring-purple-400/40 backdrop-blur-sm opacity-50 hover:opacity-90"
+    : "fixed bottom-20 left-3 md:bottom-24 md:left-6 z-30 flex items-center justify-center w-14 h-14 rounded-full bg-matang-navy/50 text-matang-gold shadow-lg ring-1 ring-matang-gold/40 backdrop-blur-sm opacity-50 hover:opacity-90";
 
   const panelClass = isSuper
     ? "fixed bottom-32 left-3 right-3 md:left-6 md:right-auto md:w-[380px] z-50 rounded-2xl overflow-hidden border border-purple-400/40 shadow-2xl bg-gradient-to-b from-[#1a1033]/95 to-[#0d0820]/98 backdrop-blur-xl"
