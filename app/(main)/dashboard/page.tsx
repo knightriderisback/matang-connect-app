@@ -88,19 +88,16 @@ export default function DashboardPage() {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        const max = 1000;
-        let w = img.width, h = img.height;
         const max = 960;
+        let w = img.width;
+        let h = img.height;
         if (w > max || h > max) {
           const r = Math.min(max / w, max / h);
           w = Math.round(w * r);
           h = Math.round(h * r);
         }
-        if (w > max || h > max) {
-          if (w > h) { h = Math.round((h * max) / w); w = max; }
-          else { w = Math.round((w * max) / h); h = max; }
-        }
-        canvas.width = w; canvas.height = h;
+        canvas.width = w;
+        canvas.height = h;
         canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
         setForm((prev) => ({ ...prev, image: canvas.toDataURL("image/jpeg", 0.62) }));
       };
