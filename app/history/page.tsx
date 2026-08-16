@@ -121,7 +121,7 @@ export default function HistoryPage() {
           <img
             src="/history-banner.png"
             alt="Matang"
-            className="h-full w-full max-h-[48vh] md:max-h-[360px] object-contain object-center p-3 md:p-6"
+            className="history-banner-logo h-full w-full max-h-[48vh] md:max-h-[360px] object-contain object-center p-3 md:p-6"
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0a1628] via-transparent to-[#0a1628]/20" />
         </div>

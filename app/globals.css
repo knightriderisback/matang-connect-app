@@ -79,3 +79,14 @@ html, body {
   padding: 0;
   overscroll-behavior: none;
 }
+
+
+/* History banner logo — soft 3D lift */
+.history-banner-logo {
+  filter:
+    drop-shadow(0 2px 0 rgba(255, 220, 120, 0.35))
+    drop-shadow(0 6px 0 rgba(90, 60, 10, 0.35))
+    drop-shadow(0 12px 18px rgba(0, 0, 0, 0.55))
+    drop-shadow(0 0 24px rgba(201, 162, 39, 0.25));
+  transform: translateZ(0);
+}
