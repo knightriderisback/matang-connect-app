@@ -17,8 +17,26 @@ interface DirectoryUser {
   qr_code_id?: string;
   verification_status?: string;
   photo_url?: string;
+  gender?: string;
+  blood_group?: string;
+  education_level?: string;
+  occupation?: string;
+  about?: string;
+  address?: string;
   cities: { name: string } | null;
-  families: { education_summary: string; employment_status: string; address?: string; needs?: string[]; family_members: { name: string; relation: string; age?: number; blood_group?: string; occupation?: string }[] }[];
+  families: {
+    education_summary: string;
+    employment_status: string;
+    address?: string;
+    needs?: string[];
+    family_members: {
+      name: string;
+      relation: string;
+      age?: number;
+      blood_group?: string;
+      occupation?: string;
+    }[];
+  }[];
 }
 
 function AdminDirectoryPageInner() {
@@ -31,11 +49,21 @@ function AdminDirectoryPageInner() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterVillage, setFilterVillage] = useState<string[]>([]);
+  const [filterCity, setFilterCity] = useState<string[]>([]);
   const [filterEmployment, setFilterEmployment] = useState<string[]>([]);
   const [filterRole, setFilterRole] = useState<string[]>([]);
   const [filterVerify, setFilterVerify] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "village" | "role">("name_asc");
+  const [filterGender, setFilterGender] = useState<string[]>([]);
+  const [filterBlood, setFilterBlood] = useState<string[]>([]);
+  const [filterEducation, setFilterEducation] = useState<string[]>([]);
+  const [filterOccupation, setFilterOccupation] = useState<string[]>([]);
+  const [filterHasFamily, setFilterHasFamily] = useState<"any" | "yes" | "no">("any");
+  const [filterHasPhoto, setFilterHasPhoto] = useState<"any" | "yes" | "no">("any");
+  const [ageMin, setAgeMin] = useState("");
+  const [ageMax, setAgeMax] = useState("");
+  const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "village" | "role" | "city">("name_asc");
   const [showFilters, setShowFilters] = useState(false);
+  const [openSection, setOpenSection] = useState<string>("village");
   const [resetPin, setResetPin] = useState("");
   const [resetting, setResetting] = useState(false);
   const [memberDetail, setMemberDetail] = useState<any>(null);
@@ -65,11 +93,59 @@ function AdminDirectoryPageInner() {
   }, [userParam]);
 
   const villages = Array.from(new Set(users.map((u) => u.native_village).filter(Boolean))).sort();
-  const roles = Array.from(new Set(users.map((u) => u.role).filter(Boolean))).sort() as string[];
+  const cities = Array.from(new Set(users.map((u) => u.cities?.name).filter(Boolean) as string[])).sort();
+  const roles = Array.from(new Set(users.map((u) => u.role || "normal").filter(Boolean))).sort();
+  const genders = Array.from(
+    new Set(users.map((u) => (u.gender || "").toLowerCase()).filter(Boolean))
+  ).sort();
+  const bloods = Array.from(new Set(users.map((u) => u.blood_group).filter(Boolean) as string[])).sort();
+  const educations = Array.from(
+    new Set(
+      users
+        .flatMap((u) => [u.education_level, u.families?.[0]?.education_summary])
+        .filter(Boolean) as string[]
+    )
+  ).sort();
+  const occupations = Array.from(
+    new Set(users.map((u) => u.occupation).filter(Boolean) as string[])
+  ).sort();
 
   const toggleMulti = (arr: string[], v: string, set: (x: string[]) => void) => {
     set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
   };
+
+  const activeFilterCount =
+    filterVillage.length +
+    filterCity.length +
+    filterEmployment.length +
+    filterRole.length +
+    filterVerify.length +
+    filterGender.length +
+    filterBlood.length +
+    filterEducation.length +
+    filterOccupation.length +
+    (filterHasFamily !== "any" ? 1 : 0) +
+    (filterHasPhoto !== "any" ? 1 : 0) +
+    (ageMin || ageMax ? 1 : 0);
+
+  const clearAllFilters = () => {
+    setFilterVillage([]);
+    setFilterCity([]);
+    setFilterEmployment([]);
+    setFilterRole([]);
+    setFilterVerify([]);
+    setFilterGender([]);
+    setFilterBlood([]);
+    setFilterEducation([]);
+    setFilterOccupation([]);
+    setFilterHasFamily("any");
+    setFilterHasPhoto("any");
+    setAgeMin("");
+    setAgeMax("");
+  };
+
+  const memberAges = (u: DirectoryUser) =>
+    (u.families?.[0]?.family_members || []).map((m) => m.age).filter((a): a is number => typeof a === "number");
 
   let filtered = users.filter((u) => {
     const q = search.toLowerCase();
@@ -78,20 +154,76 @@ function AdminDirectoryPageInner() {
       u.full_name?.toLowerCase().includes(q) ||
       u.native_village?.toLowerCase().includes(q) ||
       u.phone?.includes(search) ||
-      (u.qr_code_id || "").toLowerCase().includes(q);
+      (u.qr_code_id || "").toLowerCase().includes(q) ||
+      (u.occupation || "").toLowerCase().includes(q) ||
+      (u.education_level || "").toLowerCase().includes(q);
+
     const matchVillage = !filterVillage.length || filterVillage.includes(u.native_village);
+    const matchCity = !filterCity.length || filterCity.includes(u.cities?.name || "");
     const emp = u.families?.[0]?.employment_status || "";
     const matchEmp = !filterEmployment.length || filterEmployment.includes(emp);
     const matchRole = !filterRole.length || filterRole.includes(u.role || "normal");
     const matchVerify =
       !filterVerify.length || filterVerify.includes(u.verification_status || "pending");
-    return matchSearch && matchVillage && matchEmp && matchRole && matchVerify;
+    const g = (u.gender || "").toLowerCase();
+    const matchGender =
+      !filterGender.length ||
+      filterGender.some((fg) => g === fg || g.startsWith(fg) || (fg === "male" && g === "m") || (fg === "female" && g === "f"));
+    const matchBlood = !filterBlood.length || filterBlood.includes(u.blood_group || "");
+    const edu = u.education_level || u.families?.[0]?.education_summary || "";
+    const matchEdu =
+      !filterEducation.length || filterEducation.some((e) => edu.toLowerCase().includes(e.toLowerCase()));
+    const matchOcc =
+      !filterOccupation.length ||
+      filterOccupation.some((o) => (u.occupation || "").toLowerCase().includes(o.toLowerCase()));
+    const hasFam = (u.families?.[0]?.family_members || []).length > 0 || !!u.families?.[0];
+    const matchFam =
+      filterHasFamily === "any" ||
+      (filterHasFamily === "yes" && hasFam) ||
+      (filterHasFamily === "no" && !hasFam);
+    const hasPhoto = !!(u.photo_url && String(u.photo_url).length > 8);
+    const matchPhoto =
+      filterHasPhoto === "any" ||
+      (filterHasPhoto === "yes" && hasPhoto) ||
+      (filterHasPhoto === "no" && !hasPhoto);
+
+    let matchAge = true;
+    const amin = ageMin ? parseInt(ageMin, 10) : null;
+    const amax = ageMax ? parseInt(ageMax, 10) : null;
+    if (amin != null || amax != null) {
+      const ages = memberAges(u);
+      if (!ages.length) matchAge = false;
+      else {
+        matchAge = ages.some((a) => {
+          if (amin != null && a < amin) return false;
+          if (amax != null && a > amax) return false;
+          return true;
+        });
+      }
+    }
+
+    return (
+      matchSearch &&
+      matchVillage &&
+      matchCity &&
+      matchEmp &&
+      matchRole &&
+      matchVerify &&
+      matchGender &&
+      matchBlood &&
+      matchEdu &&
+      matchOcc &&
+      matchFam &&
+      matchPhoto &&
+      matchAge
+    );
   });
 
   filtered = [...filtered].sort((a, b) => {
     if (sortBy === "name_desc") return (b.full_name || "").localeCompare(a.full_name || "");
     if (sortBy === "village") return (a.native_village || "").localeCompare(b.native_village || "");
     if (sortBy === "role") return (a.role || "").localeCompare(b.role || "");
+    if (sortBy === "city") return (a.cities?.name || "").localeCompare(b.cities?.name || "");
     return (a.full_name || "").localeCompare(b.full_name || "");
   });
 
@@ -297,106 +429,332 @@ function AdminDirectoryPageInner() {
       
       <div className="flex gap-2 items-center">
         <select
-          className="flex-1 px-3 py-2 rounded-xl border text-sm"
+          className="flex-1 px-3 py-2 rounded-xl border text-sm bg-white"
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as any)}
         >
           <option value="name_asc">Sort: Name A–Z</option>
           <option value="name_desc">Sort: Name Z–A</option>
           <option value="village">Sort: Village</option>
+          <option value="city">Sort: City</option>
           <option value="role">Sort: Role</option>
         </select>
         <button
           type="button"
           onClick={() => setShowFilters((v) => !v)}
-          className="px-3 py-2 rounded-xl border text-sm font-semibold text-matang-navy bg-white"
+          className={`px-3 py-2 rounded-xl border text-sm font-semibold shrink-0 ${
+            activeFilterCount ? "bg-matang-gold text-matang-navy border-matang-gold" : "bg-white text-matang-navy"
+          }`}
         >
-          Filters{filterVillage.length + filterEmployment.length + filterRole.length + filterVerify.length ? ` (${filterVillage.length + filterEmployment.length + filterRole.length + filterVerify.length})` : ""}
+          Filters{activeFilterCount ? ` · ${activeFilterCount}` : ""}
         </button>
       </div>
+
       {showFilters && (
-        <Card className="border-matang-gold/30">
-          <CardContent className="p-3 space-y-3 text-sm">
-            <div>
-              <p className="text-xs font-semibold text-gray-500 mb-1">Village (multi)</p>
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                {villages.map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => toggleMulti(filterVillage, v, setFilterVillage)}
-                    className={`text-[11px] px-2 py-1 rounded-full border ${
-                      filterVillage.includes(v) ? "bg-matang-gold text-matang-navy border-matang-gold" : "bg-white text-gray-600"
-                    }`}
-                  >
-                    {v}
+        <Card className="border-matang-gold/40 shadow-sm overflow-hidden">
+          <CardContent className="p-0">
+            <div className="flex items-center justify-between px-3 py-2 bg-matang-navy/5 border-b">
+              <p className="text-xs font-bold text-matang-navy uppercase tracking-wide">Refine results</p>
+              <button type="button" className="text-[11px] font-semibold text-matang-gold" onClick={clearAllFilters}>
+                Clear all
+              </button>
+            </div>
+
+            {/* Active chips */}
+            {activeFilterCount > 0 && (
+              <div className="px-3 py-2 flex flex-wrap gap-1 border-b bg-white">
+                {filterVillage.map((v) => (
+                  <button key={`v-${v}`} type="button" onClick={() => toggleMulti(filterVillage, v, setFilterVillage)} className="text-[10px] px-2 py-0.5 rounded-full bg-matang-gold/20 text-matang-navy">
+                    {v} ×
                   </button>
                 ))}
-              </div>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500 mb-1">Employment (multi)</p>
-              <div className="flex flex-wrap gap-1.5">
-                {["employed", "unemployed", "self_employed", "student", "retired"].map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => toggleMulti(filterEmployment, v, setFilterEmployment)}
-                    className={`text-[11px] px-2 py-1 rounded-full border ${
-                      filterEmployment.includes(v) ? "bg-matang-gold text-matang-navy border-matang-gold" : "bg-white text-gray-600"
-                    }`}
-                  >
-                    {v.replace(/_/g, " ")}
+                {filterCity.map((v) => (
+                  <button key={`c-${v}`} type="button" onClick={() => toggleMulti(filterCity, v, setFilterCity)} className="text-[10px] px-2 py-0.5 rounded-full bg-matang-gold/20 text-matang-navy">
+                    {v} ×
                   </button>
                 ))}
-              </div>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500 mb-1">Role (multi)</p>
-              <div className="flex flex-wrap gap-1.5">
-                {(roles.length ? roles : ["normal", "volunteer", "core_committee", "super_admin"]).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => toggleMulti(filterRole, v, setFilterRole)}
-                    className={`text-[11px] px-2 py-1 rounded-full border ${
-                      filterRole.includes(v) ? "bg-matang-gold text-matang-navy border-matang-gold" : "bg-white text-gray-600"
-                    }`}
-                  >
-                    {v}
+                {filterGender.map((v) => (
+                  <button key={`g-${v}`} type="button" onClick={() => toggleMulti(filterGender, v, setFilterGender)} className="text-[10px] px-2 py-0.5 rounded-full bg-matang-gold/20 text-matang-navy">
+                    {v} ×
                   </button>
                 ))}
-              </div>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500 mb-1">Verification (multi)</p>
-              <div className="flex flex-wrap gap-1.5">
-                {["verified", "pending", "rejected"].map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => toggleMulti(filterVerify, v, setFilterVerify)}
-                    className={`text-[11px] px-2 py-1 rounded-full border ${
-                      filterVerify.includes(v) ? "bg-matang-gold text-matang-navy border-matang-gold" : "bg-white text-gray-600"
-                    }`}
-                  >
-                    {v}
+                {filterRole.map((v) => (
+                  <button key={`r-${v}`} type="button" onClick={() => toggleMulti(filterRole, v, setFilterRole)} className="text-[10px] px-2 py-0.5 rounded-full bg-matang-gold/20 text-matang-navy">
+                    {v} ×
                   </button>
                 ))}
+                {(ageMin || ageMax) && (
+                  <button type="button" onClick={() => { setAgeMin(""); setAgeMax(""); }} className="text-[10px] px-2 py-0.5 rounded-full bg-matang-gold/20 text-matang-navy">
+                    Age {ageMin || "0"}–{ageMax || "∞"} ×
+                  </button>
+                )}
               </div>
+            )}
+
+            <div className="max-h-[55vh] overflow-y-auto divide-y">
+              {[
+                {
+                  key: "gender",
+                  title: "Gender",
+                  body: (
+                    <div className="flex flex-wrap gap-1.5">
+                      {["male", "female", "other", ...genders.filter((g) => !["male", "female", "other"].includes(g))].map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => toggleMulti(filterGender, v, setFilterGender)}
+                          className={`text-[11px] px-2.5 py-1 rounded-full border ${
+                            filterGender.includes(v) ? "bg-matang-navy text-white border-matang-navy" : "bg-white text-gray-700 border-gray-200"
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  ),
+                },
+                {
+                  key: "age",
+                  title: "Age (family members)",
+                  body: (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="Min"
+                        value={ageMin}
+                        onChange={(e) => setAgeMin(e.target.value.replace(/\\D/g, "").slice(0, 3))}
+                        className="w-20 px-2 py-1.5 rounded-lg border text-sm"
+                      />
+                      <span className="text-gray-400 text-xs">to</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="Max"
+                        value={ageMax}
+                        onChange={(e) => setAgeMax(e.target.value.replace(/\\D/g, "").slice(0, 3))}
+                        className="w-20 px-2 py-1.5 rounded-lg border text-sm"
+                      />
+                    </div>
+                  ),
+                },
+                {
+                  key: "village",
+                  title: `Village (${villages.length})`,
+                  body: (
+                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                      {villages.map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => toggleMulti(filterVillage, v, setFilterVillage)}
+                          className={`text-[11px] px-2.5 py-1 rounded-full border ${
+                            filterVillage.includes(v) ? "bg-matang-navy text-white border-matang-navy" : "bg-white text-gray-700 border-gray-200"
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                      {!villages.length && <p className="text-[11px] text-gray-400">No villages in data</p>}
+                    </div>
+                  ),
+                },
+                {
+                  key: "city",
+                  title: `City (${cities.length})`,
+                  body: (
+                    <div className="flex flex-wrap gap-1.5">
+                      {cities.map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => toggleMulti(filterCity, v, setFilterCity)}
+                          className={`text-[11px] px-2.5 py-1 rounded-full border ${
+                            filterCity.includes(v) ? "bg-matang-navy text-white border-matang-navy" : "bg-white text-gray-700 border-gray-200"
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                      {!cities.length && <p className="text-[11px] text-gray-400">No cities</p>}
+                    </div>
+                  ),
+                },
+                {
+                  key: "education",
+                  title: "Education",
+                  body: (
+                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                      {(educations.length
+                        ? educations
+                        : ["Illiterate", "Primary", "High School", "Graduate", "Post Graduate", "Diploma"]
+                      ).map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => toggleMulti(filterEducation, v, setFilterEducation)}
+                          className={`text-[11px] px-2.5 py-1 rounded-full border ${
+                            filterEducation.includes(v) ? "bg-matang-navy text-white border-matang-navy" : "bg-white text-gray-700 border-gray-200"
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  ),
+                },
+                {
+                  key: "occupation",
+                  title: "Occupation",
+                  body: (
+                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                      {(occupations.length ? occupations : ["Farmer", "Teacher", "Driver", "Business", "Student"]).map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => toggleMulti(filterOccupation, v, setFilterOccupation)}
+                          className={`text-[11px] px-2.5 py-1 rounded-full border ${
+                            filterOccupation.includes(v) ? "bg-matang-navy text-white border-matang-navy" : "bg-white text-gray-700 border-gray-200"
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  ),
+                },
+                {
+                  key: "blood",
+                  title: "Blood group",
+                  body: (
+                    <div className="flex flex-wrap gap-1.5">
+                      {["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-", ...bloods.filter((b) => !["A+","A-","B+","B-","O+","O-","AB+","AB-"].includes(b))].map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => toggleMulti(filterBlood, v, setFilterBlood)}
+                          className={`text-[11px] px-2.5 py-1 rounded-full border ${
+                            filterBlood.includes(v) ? "bg-matang-navy text-white border-matang-navy" : "bg-white text-gray-700 border-gray-200"
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  ),
+                },
+                {
+                  key: "employment",
+                  title: "Employment",
+                  body: (
+                    <div className="flex flex-wrap gap-1.5">
+                      {["employed", "unemployed", "self_employed", "student", "retired"].map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => toggleMulti(filterEmployment, v, setFilterEmployment)}
+                          className={`text-[11px] px-2.5 py-1 rounded-full border ${
+                            filterEmployment.includes(v) ? "bg-matang-navy text-white border-matang-navy" : "bg-white text-gray-700 border-gray-200"
+                          }`}
+                        >
+                          {v.replace(/_/g, " ")}
+                        </button>
+                      ))}
+                    </div>
+                  ),
+                },
+                {
+                  key: "role",
+                  title: "Role",
+                  body: (
+                    <div className="flex flex-wrap gap-1.5">
+                      {(roles.length ? roles : ["normal", "volunteer", "core_committee", "super_admin"]).map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => toggleMulti(filterRole, v, setFilterRole)}
+                          className={`text-[11px] px-2.5 py-1 rounded-full border ${
+                            filterRole.includes(v) ? "bg-matang-navy text-white border-matang-navy" : "bg-white text-gray-700 border-gray-200"
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  ),
+                },
+                {
+                  key: "verify",
+                  title: "Verification",
+                  body: (
+                    <div className="flex flex-wrap gap-1.5">
+                      {["verified", "pending", "rejected"].map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => toggleMulti(filterVerify, v, setFilterVerify)}
+                          className={`text-[11px] px-2.5 py-1 rounded-full border ${
+                            filterVerify.includes(v) ? "bg-matang-navy text-white border-matang-navy" : "bg-white text-gray-700 border-gray-200"
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  ),
+                },
+                {
+                  key: "more",
+                  title: "More",
+                  body: (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-1.5 items-center">
+                        <span className="text-[11px] text-gray-500 w-16">Family</span>
+                        {(["any", "yes", "no"] as const).map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => setFilterHasFamily(v)}
+                            className={`text-[11px] px-2.5 py-1 rounded-full border ${
+                              filterHasFamily === v ? "bg-matang-navy text-white border-matang-navy" : "bg-white text-gray-700 border-gray-200"
+                            }`}
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 items-center">
+                        <span className="text-[11px] text-gray-500 w-16">Photo</span>
+                        {(["any", "yes", "no"] as const).map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => setFilterHasPhoto(v)}
+                            className={`text-[11px] px-2.5 py-1 rounded-full border ${
+                              filterHasPhoto === v ? "bg-matang-navy text-white border-matang-navy" : "bg-white text-gray-700 border-gray-200"
+                            }`}
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ),
+                },
+              ].map((sec) => (
+                <div key={sec.key}>
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-gray-50"
+                    onClick={() => setOpenSection(openSection === sec.key ? "" : sec.key)}
+                  >
+                    <span className="text-sm font-semibold text-matang-navy">{sec.title}</span>
+                    <span className="text-gray-400 text-xs">{openSection === sec.key ? "▲" : "▼"}</span>
+                  </button>
+                  {openSection === sec.key && <div className="px-3 pb-3">{sec.body}</div>}
+                </div>
+              ))}
             </div>
-            <button
-              type="button"
-              className="text-xs text-matang-gold font-semibold"
-              onClick={() => {
-                setFilterVillage([]);
-                setFilterEmployment([]);
-                setFilterRole([]);
-                setFilterVerify([]);
-              }}
-            >
-              Clear all filters
-            </button>
           </CardContent>
         </Card>
       )}
