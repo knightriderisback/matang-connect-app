@@ -139,7 +139,7 @@ function AdminDirectoryPageInner() {
   const autoFilterFields = (() => {
     const map: Record<string, Set<string>> = {};
     for (const u of users) {
-      const row = u as Record<string, unknown>;
+      const row = u as unknown as Record<string, unknown>;
       for (const [k, v] of Object.entries(row)) {
         if (SKIP_AUTO.has(k)) continue;
         if (v == null || v === "") continue;
