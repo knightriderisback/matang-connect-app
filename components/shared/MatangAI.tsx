@@ -107,18 +107,32 @@ export function MatangAI() {
   };
 
   const fabClass = isSuper
-    ? "fixed bottom-20 left-3 md:bottom-24 md:left-6 z-50 flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-purple-700 to-indigo-900 text-amber-300 shadow-lg shadow-purple-900/40 ring-2 ring-purple-400/50"
-    : "fixed bottom-20 left-3 md:bottom-24 md:left-6 z-50 flex items-center justify-center w-14 h-14 rounded-full bg-matang-navy text-matang-gold shadow-lg ring-2 ring-matang-gold/40";
+    ? "fixed bottom-16 left-3 md:bottom-20 md:left-6 z-30 flex items-center justify-center w-14 h-14 rounded-full bg-transparent text-amber-300 border-0 p-0"
+    : "fixed bottom-16 left-3 md:bottom-20 md:left-6 z-30 flex items-center justify-center w-14 h-14 rounded-full bg-transparent text-matang-gold border-0 p-0";
 
   const panelClass = isSuper
-    ? "fixed bottom-36 left-3 right-3 md:left-6 md:right-auto md:w-[380px] z-50 rounded-2xl overflow-hidden border border-purple-400/40 shadow-2xl bg-gradient-to-b from-[#1a1033]/95 to-[#0d0820]/98 backdrop-blur-xl"
-    : "fixed bottom-36 left-3 right-3 md:left-6 md:right-auto md:w-[380px] z-50 rounded-2xl overflow-hidden border border-matang-gold/30 shadow-2xl bg-white";
+    ? "fixed bottom-32 left-3 right-3 md:left-6 md:right-auto md:w-[380px] z-50 rounded-2xl overflow-hidden border border-purple-400/40 shadow-2xl bg-gradient-to-b from-[#1a1033]/95 to-[#0d0820]/98 backdrop-blur-xl"
+    : "fixed bottom-32 left-3 right-3 md:left-6 md:right-auto md:w-[380px] z-50 rounded-2xl overflow-hidden border border-matang-gold/30 shadow-2xl bg-white";
 
   return (
     <>
       {!open && (
-        <button type="button" onClick={() => setOpen(true)} className={fabClass} title="Matang AI" aria-label="Open Matang AI">
-          {isSuper ? <Shield size={24} /> : <Sparkles size={24} />}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={fabClass}
+          title="Matang AI"
+          aria-label="Open Matang AI"
+          style={{
+            filter:
+              "drop-shadow(0 2px 0 rgba(0,0,0,0.35)) drop-shadow(0 6px 10px rgba(0,0,0,0.35)) drop-shadow(0 0 8px rgba(201,162,39,0.35))",
+          }}
+        >
+          {isSuper ? (
+            <Shield size={28} strokeWidth={2.25} className="text-amber-300" />
+          ) : (
+            <Sparkles size={28} strokeWidth={2.25} className="text-matang-gold" />
+          )}
         </button>
       )}
 
