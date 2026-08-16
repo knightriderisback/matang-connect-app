@@ -35,7 +35,7 @@ export function BottomNav() {
       className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      <div className="mx-auto w-full max-w-lg md:max-w-5xl lg:max-w-6xl flex justify-around items-center h-14 px-1">
+      <div className="mx-auto w-full max-w-lg md:max-w-5xl lg:max-w-6xl flex justify-around items-center h-11 px-1">
         {items.map((item) => {
           const active =
             pathname === item.href ||
@@ -47,12 +47,12 @@ export function BottomNav() {
               type="button"
               onClick={() => router.push(item.href)}
               className={cn(
-                "flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors",
+                "flex flex-col items-center justify-center gap-0 flex-1 h-full transition-colors",
                 active ? "text-matang-gold" : "text-gray-500"
               )}
             >
-              <item.icon size={22} strokeWidth={active ? 2.5 : 2} />
-              <span className="text-[10px] font-medium">{item.label}</span>
+              <item.icon size={18} strokeWidth={active ? 2.5 : 2} />
+              <span className="text-[9px] font-medium leading-none">{item.label}</span>
             </button>
           );
         })}
