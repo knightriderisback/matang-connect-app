@@ -2,7 +2,6 @@
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Logo } from "@/components/shared/Logo";
 import { LanguageToggleLight } from "@/components/shared/LanguageToggleLight";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { ArrowLeft, BookOpen, Heart, Target } from "lucide-react";
@@ -115,18 +114,24 @@ export default function HistoryPage() {
 
   return (
     <div className="min-h-full bg-matang-cream pb-8">
-      {/* ===== BANNER ===== */}
-      <div className="relative w-full overflow-hidden bg-gradient-to-br from-[#050d18] via-[#0a1628] to-[#132a4a]">
-        {/* soft gold glow */}
-        <div className="pointer-events-none absolute -top-20 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-matang-gold/15 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-0 right-0 h-40 w-40 rounded-full bg-blue-500/10 blur-2xl" />
+      {/* ===== BANNER — full hero image ===== */}
+      <div className="relative w-full overflow-hidden bg-[#0a1628]">
+        <div className="relative w-full aspect-[3/2] max-h-[42vh] md:aspect-[21/9] md:max-h-[320px]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/history-banner.png"
+            alt="Matang"
+            className="absolute inset-0 h-full w-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0a1628] via-[#0a1628]/35 to-transparent" />
+        </div>
 
-        {/* top bar */}
-        <div className="relative z-10 flex items-center justify-between px-3 pt-3 md:px-8 md:pt-5">
+        {/* top bar over image */}
+        <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between px-3 pt-3 md:px-8 md:pt-5">
           <button
             type="button"
             onClick={() => router.back()}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm ring-1 ring-white/15 active:scale-95"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-black/35 text-white ring-1 ring-white/20 active:scale-95"
             aria-label="Back"
           >
             <ArrowLeft size={18} />
@@ -134,18 +139,13 @@ export default function HistoryPage() {
           <LanguageToggleLight />
         </div>
 
-        {/* logo + title block — clean vertical stack */}
-        <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center px-4 pb-8 pt-4 text-center md:pb-12 md:pt-6">
-          <div className="mb-4 flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl bg-matang-navy shadow-xl ring-2 ring-matang-gold/50 md:mb-5 md:h-32 md:w-32 md:rounded-3xl">
-            <Logo className="h-full w-full object-contain" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-matang-gold md:text-4xl">
+        {/* title over bottom of banner */}
+        <div className="relative z-10 -mt-16 px-4 pb-6 text-center md:-mt-20 md:pb-8">
+          <h1 className="text-2xl font-bold tracking-tight text-matang-gold drop-shadow md:text-4xl">
             {c.title}
           </h1>
-          <p className="mt-1.5 max-w-md text-xs text-white/65 md:text-sm">
-            {c.subtitle}
-          </p>
-          <div className="mt-4 h-0.5 w-16 rounded-full bg-gradient-to-r from-transparent via-matang-gold to-transparent md:w-24" />
+          <p className="mt-1.5 text-xs text-white/80 md:text-sm">{c.subtitle}</p>
+          <div className="mx-auto mt-3 h-0.5 w-16 rounded-full bg-gradient-to-r from-transparent via-matang-gold to-transparent md:w-24" />
         </div>
       </div>
 
