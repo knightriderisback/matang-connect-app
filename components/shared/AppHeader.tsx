@@ -120,14 +120,7 @@ export function AppHeader() {
             title="Matang Samaj History"
           >
             <Logo
-              className="w-10 h-10 object-contain bg-transparent group-active:scale-95 transition-transform"
-            />
-            {/* soft 3D lift, no plate */}
-            <span
-              className="pointer-events-none absolute inset-0 rounded-full"
-              style={{
-                boxShadow: "0 4px 10px rgba(0,0,0,0.4), 0 1px 3px rgba(201,162,39,0.35)",
-              }}
+              className="w-10 h-10 object-contain bg-transparent group-active:scale-95 transition-transform drop-shadow-md"
             />
           </button>
         )}
