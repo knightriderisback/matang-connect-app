@@ -32,16 +32,28 @@ const GOD_SUGGESTIONS_HI = [
   "List pending",
 ];
 
+function peekIsSuperAdmin() {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = localStorage.getItem("matang_me_cache") || sessionStorage.getItem("matang_me_cache");
+    if (!raw) return false;
+    const u = JSON.parse(raw)?.user;
+    return u?.role === "super_admin";
+  } catch {
+    return false;
+  }
+}
+
 export function MatangAI() {
   const pathname = usePathname();
   const { lang } = useI18n();
   const { user } = useCurrentUser();
-  const isSuper = user?.role === "super_admin";
+  const isSuper = user?.role === "super_admin" || (!user && peekIsSuperAdmin());
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
-  const [godMode, setGodMode] = useState(false);
+  const [godMode, setGodMode] = useState(() => peekIsSuperAdmin());
   const endRef = useRef<HTMLDivElement>(null);
   const hi = lang === "hi" || lang === "cg";
 

@@ -7,6 +7,18 @@ import { cn } from "@/lib/utils";
 
 const HIDE_ON = ["/", "/login", "/register", "/history"];
 
+function peekIsStaff() {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = localStorage.getItem("matang_me_cache") || sessionStorage.getItem("matang_me_cache");
+    if (!raw) return false;
+    const role = JSON.parse(raw)?.user?.role;
+    return ["volunteer", "core_committee", "super_admin"].includes(role || "");
+  } catch {
+    return false;
+  }
+}
+
 export function BottomNav() {
   const pathname = usePathname() || "";
   const router = useRouter();
@@ -17,7 +29,9 @@ export function BottomNav() {
     return null;
   }
 
-  const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
+  const isStaff =
+    ["volunteer", "core_committee", "super_admin"].includes(user?.role || "") ||
+    (!user && peekIsStaff());
 
   // SOS removed from footer → header red button
   const items: { icon: typeof Home; label: string; href: string }[] = [

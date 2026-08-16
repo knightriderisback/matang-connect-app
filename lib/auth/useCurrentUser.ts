@@ -22,9 +22,43 @@ export interface CurrentUser {
   cities: { name: string } | null;
 }
 
+const CACHE_KEY = "matang_me_cache";
+/** Keep role long enough so Admin / God Mode appear instantly after refresh */
+const CACHE_MS = 24 * 60 * 60 * 1000;
+
+function readCachedUser(): CurrentUser | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(CACHE_KEY) || sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.user) return null;
+    if (Date.now() - (parsed.ts || 0) > CACHE_MS) return null;
+    return parsed.user as CurrentUser;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedUser(user: CurrentUser | null) {
+  try {
+    if (!user) {
+      localStorage.removeItem(CACHE_KEY);
+      sessionStorage.removeItem(CACHE_KEY);
+      return;
+    }
+    const payload = JSON.stringify({ user, ts: Date.now() });
+    localStorage.setItem(CACHE_KEY, payload);
+    sessionStorage.setItem(CACHE_KEY, payload);
+  } catch {
+    /* ignore quota */
+  }
+}
+
 export function useCurrentUser() {
-  const [user, setUser] = useState<CurrentUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Synchronous hydrate → Admin tab + Matang AI visible on first paint after refresh
+  const [user, setUser] = useState<CurrentUser | null>(() => readCachedUser());
+  const [loading, setLoading] = useState(() => !readCachedUser());
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
@@ -34,6 +68,7 @@ export function useCurrentUser() {
       .then(async (res) => {
         if (res.status === 401) {
           setUser(null);
+          writeCachedUser(null);
           setError("not_authenticated");
           return;
         }
@@ -44,6 +79,7 @@ export function useCurrentUser() {
           return;
         }
         setUser(data.user);
+        writeCachedUser(data.user);
       })
       .catch(() => {
         setUser(null);
@@ -54,30 +90,13 @@ export function useCurrentUser() {
 
   useEffect(() => {
     let cancelled = false;
-    // Instant paint from short-lived session cache
-    try {
-      const cached = sessionStorage.getItem("matang_me_cache");
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed?.user && Date.now() - (parsed.ts || 0) < 60_000) {
-          setUser(parsed.user);
-          setLoading(false);
-        }
-      }
-    } catch {
-      /* ignore */
-    }
     fetch("/api/auth/me", { credentials: "include", cache: "no-store" })
       .then(async (res) => {
         if (cancelled) return;
         if (res.status === 401) {
           setUser(null);
+          writeCachedUser(null);
           setError("not_authenticated");
-          try {
-            sessionStorage.removeItem("matang_me_cache");
-          } catch {
-            /* ignore */
-          }
           return;
         }
         const data = await res.json().catch(() => ({}));
@@ -87,20 +106,10 @@ export function useCurrentUser() {
           return;
         }
         setUser(data.user);
-        try {
-          sessionStorage.setItem(
-            "matang_me_cache",
-            JSON.stringify({ user: data.user, ts: Date.now() })
-          );
-        } catch {
-          /* ignore quota */
-        }
+        writeCachedUser(data.user);
       })
       .catch(() => {
-        if (!cancelled) {
-          setUser(null);
-          setError("network");
-        }
+        if (!cancelled) setError("network");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
