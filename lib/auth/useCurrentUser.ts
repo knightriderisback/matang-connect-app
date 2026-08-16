@@ -54,12 +54,30 @@ export function useCurrentUser() {
 
   useEffect(() => {
     let cancelled = false;
+    // Instant paint from short-lived session cache
+    try {
+      const cached = sessionStorage.getItem("matang_me_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.user && Date.now() - (parsed.ts || 0) < 60_000) {
+          setUser(parsed.user);
+          setLoading(false);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
     fetch("/api/auth/me", { credentials: "include", cache: "no-store" })
       .then(async (res) => {
         if (cancelled) return;
         if (res.status === 401) {
           setUser(null);
           setError("not_authenticated");
+          try {
+            sessionStorage.removeItem("matang_me_cache");
+          } catch {
+            /* ignore */
+          }
           return;
         }
         const data = await res.json().catch(() => ({}));
@@ -69,6 +87,14 @@ export function useCurrentUser() {
           return;
         }
         setUser(data.user);
+        try {
+          sessionStorage.setItem(
+            "matang_me_cache",
+            JSON.stringify({ user: data.user, ts: Date.now() })
+          );
+        } catch {
+          /* ignore quota */
+        }
       })
       .catch(() => {
         if (!cancelled) {

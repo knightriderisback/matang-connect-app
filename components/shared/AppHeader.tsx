@@ -107,9 +107,7 @@ export function AppHeader() {
     <header
       className={cn(
         "sticky top-0 z-50 transition-all duration-300",
-        scrolled
-          ? "bg-matang-navy/80 backdrop-blur-xl border-b border-white/10 shadow-lg shadow-matang-navy/20"
-          : "bg-gradient-to-r from-matang-navy via-[#0d1f3c] to-matang-navy"
+        "bg-matang-navy border-b border-white/10"
       )}
     >
       <div className="h-0.5 bg-gradient-to-r from-transparent via-matang-gold to-transparent opacity-80" />
@@ -131,7 +129,7 @@ export function AppHeader() {
             title="Matang Samaj History"
           >
             <Logo
-              className="w-11 h-11 object-contain bg-transparent group-active:scale-95 transition-transform -my-1 header-logo-3d"
+              className="w-11 h-11 object-contain bg-transparent group-active:scale-95 transition-transform -my-1"
             />
           </button>
         )}

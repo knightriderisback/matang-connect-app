@@ -47,11 +47,16 @@ export async function GET() {
   const notices = (data || []).map((n: any) => {
     const poster = n.posted_by ? posterMap[n.posted_by] : null;
     const { text, image } = parseImage(String(n.content || ""));
+    // Huge inline base64 freezes low-end phones during scroll
+    let image_url = image;
+    if (image_url && image_url.startsWith("data:") && image_url.length > 100000) {
+      image_url = null;
+    }
     return {
       ...n,
       content: text,
       body: text,
-      image_url: image,
+      image_url,
       priority: n.type === "urgent" || n.type === "shok_sandesh" ? "high" : "normal",
       category: n.type || "general",
       poster_name: poster?.full_name || null,

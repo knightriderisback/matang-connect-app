@@ -286,7 +286,7 @@ export default function DashboardPage() {
               tag === "urgent" || n.priority === "high" || n.priority === "urgent";
             return (
               <article
-                key={n.id} style={{ contentVisibility: "auto", containIntrinsicSize: "0 280px" }}
+                key={n.id}
                 className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${
                   isShok
                     ? "border-gray-300"
