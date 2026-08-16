@@ -102,7 +102,7 @@ export function AppHeader() {
       )}
     >
       <div className="h-0.5 bg-gradient-to-r from-transparent via-matang-gold to-transparent opacity-80" />
-      <div className="px-2 py-1.5 flex items-center gap-1.5">
+      <div className="px-2 h-11 flex items-center gap-1.5">
         {!isHome ? (
           <button
             type="button"
@@ -120,7 +120,7 @@ export function AppHeader() {
             title="Matang Samaj History"
           >
             <Logo
-              className="w-12 h-12 object-contain bg-transparent group-active:scale-95 transition-transform drop-shadow-md"
+              className="w-11 h-11 object-contain bg-transparent group-active:scale-95 transition-transform drop-shadow-md -my-1"
             />
           </button>
         )}
