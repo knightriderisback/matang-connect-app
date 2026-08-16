@@ -116,11 +116,19 @@ export function AppHeader() {
           <button
             type="button"
             onClick={() => router.push("/history")}
-            className="shrink-0 relative group ml-1"
+            className="shrink-0 relative group ml-1 bg-transparent border-0 p-0"
             title="Matang Samaj History"
           >
-            <Logo className="w-9 h-9 object-contain bg-transparent group-active:scale-95 transition-transform" />
-            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-matang-gold rounded-full border border-matang-navy" />
+            <Logo
+              className="w-10 h-10 object-contain bg-transparent group-active:scale-95 transition-transform"
+            />
+            {/* soft 3D lift, no plate */}
+            <span
+              className="pointer-events-none absolute inset-0 rounded-full"
+              style={{
+                boxShadow: "0 4px 10px rgba(0,0,0,0.4), 0 1px 3px rgba(201,162,39,0.35)",
+              }}
+            />
           </button>
         )}
         <div className="flex-1 min-w-0">
