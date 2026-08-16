@@ -116,14 +116,14 @@ export default function HistoryPage() {
     <div className="min-h-full bg-matang-cream pb-8">
       {/* ===== BANNER — full hero image ===== */}
       <div className="relative w-full overflow-hidden bg-[#0a1628]">
-        <div className="relative w-full aspect-[3/2] max-h-[42vh] md:aspect-[21/9] md:max-h-[320px] overflow-hidden">
+        <div className="relative w-full min-h-[38vh] max-h-[48vh] md:min-h-[280px] md:max-h-[360px] overflow-hidden bg-[#0a1628] flex items-center justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/history-banner.png"
             alt="Matang"
-            className="absolute inset-0 h-full w-full object-cover object-[center_70%]"
+            className="h-full w-full max-h-[48vh] md:max-h-[360px] object-contain object-center p-3 md:p-6"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0a1628] via-[#0a1628]/35 to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0a1628] via-transparent to-[#0a1628]/20" />
         </div>
 
         {/* top bar over image */}
