@@ -106,11 +106,15 @@ export function AppHeader() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 transition-all duration-300",
+        "sticky top-0 z-50 w-full transition-all duration-300",
         "bg-matang-navy border-b border-white/10"
       )}
-      style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+      style={{
+        paddingTop: "max(env(safe-area-inset-top, 0px), 0px)",
+        marginTop: 0,
+      }}
     >
+      {/* fills notch/status — same navy, content sits below inset */}
       <div className="h-0.5 bg-gradient-to-r from-transparent via-matang-gold to-transparent opacity-80" />
       <div className="px-2 h-11 flex items-center gap-1.5">
         {!isHome ? (

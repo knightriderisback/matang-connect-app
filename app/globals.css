@@ -8,8 +8,14 @@
   --matang-cream: #faf8f3;
 }
 
+html {
+  height: 100%;
+  height: 100dvh;
+  background-color: #0a1628;
+}
+
 body {
-  background-color: var(--matang-cream);
+  background-color: #0a1628;
   color: var(--matang-navy);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-tap-highlight-color: transparent;
@@ -64,4 +70,12 @@ body {
 /* Header logo 3d disabled for mobile perf */
 .header-logo-3d {
   filter: none;
+}
+
+
+/* edge-to-edge PWA — no gap above header */
+html, body {
+  margin: 0;
+  padding: 0;
+  overscroll-behavior: none;
 }

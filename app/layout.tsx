@@ -29,16 +29,16 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
-      <body className="h-full overflow-hidden bg-matang-cream antialiased">
+      <body className="h-full overflow-hidden bg-matang-navy antialiased">
         <LanguageProvider>
           <ToastProvider>
             {/* Fixed viewport height so main scrolls and footer stays visible */}
-            <div className="h-[100dvh] flex justify-center bg-gradient-to-br from-gray-100 via-gray-50 to-gray-200 md:from-slate-200 md:via-slate-100 md:to-slate-200">
-              <div className="w-full max-w-lg md:max-w-5xl lg:max-w-6xl h-full flex flex-col bg-matang-cream shadow-xl md:shadow-2xl md:border-x md:border-gray-200 relative overflow-hidden">
+            <div className="h-[100dvh] h-[100vh] flex justify-center bg-matang-navy md:bg-gradient-to-br md:from-slate-200 md:via-slate-100 md:to-slate-200">
+              <div className="w-full max-w-lg md:max-w-5xl lg:max-w-6xl h-full flex flex-col bg-matang-navy md:bg-matang-cream shadow-xl md:shadow-2xl md:border-x md:border-gray-200 relative overflow-hidden">
                 <AppHeader />
                 <main
                   data-scroll-root
-                  className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain pb-28"
+                  className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain pb-28 bg-matang-cream"
                 >
                   <div className="md:px-6 md:py-4">{children}</div>
                 </main>
