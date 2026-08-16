@@ -119,7 +119,7 @@ export function AppHeader() {
             className="shrink-0 relative group ml-1"
             title="Matang Samaj History"
           >
-            <Logo className="w-8 h-8 object-contain bg-transparent group-active:scale-95 transition-transform" />
+            <Logo className="w-9 h-9 object-contain bg-transparent group-active:scale-95 transition-transform" />
             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-matang-gold rounded-full border border-matang-navy" />
           </button>
         )}

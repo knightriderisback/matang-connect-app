@@ -4,7 +4,6 @@ import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import { ToastProvider } from "@/components/ui/Toaster";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { AppHeader } from "@/components/shared/AppHeader";
-import { FloatingLogo } from "@/components/shared/FloatingLogo";
 import { MatangAI } from "@/components/shared/MatangAI";
 import { PWARegister } from "@/components/shared/PWARegister";
 import { InstallPrompt } from "@/components/shared/InstallPrompt";
@@ -42,7 +41,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <div className="md:px-6 md:py-4">{children}</div>
                 </main>
                 <BottomNav />
-                <FloatingLogo />
                 <MatangAI />
                 <PWARegister />
                 <InstallPrompt />
