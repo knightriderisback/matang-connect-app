@@ -120,7 +120,7 @@ export function AppHeader() {
             title="Matang Samaj History"
           >
             <Logo
-              className="w-11 h-11 object-contain bg-transparent group-active:scale-95 transition-transform drop-shadow-md -my-1"
+              className="w-11 h-11 object-contain bg-transparent group-active:scale-95 transition-transform -my-1 header-logo-3d"
             />
           </button>
         )}
