@@ -47,7 +47,7 @@ export function WelcomeAnimation({ onComplete }: { onComplete: () => void }) {
         <img
           src="/logo-splash.png"
           alt="Matang Connect"
-          className="welcome-logo-3d mx-auto mb-6 w-48 h-48 sm:w-56 sm:h-56 object-contain bg-transparent"
+          className="welcome-logo-3d mx-auto mb-5 w-[min(78vw,22rem)] h-[min(78vw,22rem)] max-w-[90vw] max-h-[45vh] object-contain bg-transparent"
           draggable={false}
         />
         <h1 className="text-3xl font-bold text-matang-gold mb-2">{t("common.welcome")}</h1>
