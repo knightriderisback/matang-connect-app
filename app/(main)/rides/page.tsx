@@ -1,6 +1,7 @@
 "use client";
 import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -8,11 +9,12 @@ import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { Car, Plus, Phone, MapPin } from "lucide-react";
 
-interface Ride { id: string; ride_type: string; from_place: string; to_place: string; ride_date?: string; ride_time?: string; seats?: number; contact_phone?: string; notes?: string; }
+interface Ride { id: string; ride_type: string; from_place: string; to_place: string; ride_date?: string; ride_time?: string; seats?: number; contact_phone?: string; notes?: string; poster_id?: string | null; poster_name?: string | null; }
 
 function RidesPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
+  const router = useRouter();
   const [rides, setRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -71,6 +73,17 @@ function RidesPageInner() {
                 <p className="font-semibold text-matang-navy flex items-center gap-1"><MapPin size={14} />{r.from_place} → {r.to_place}</p>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full ${r.ride_type === "offer" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"}`}>{r.ride_type === "offer" ? "Offer" : "Need"}</span>
               </div>
+              {r.poster_name && r.poster_id ? (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/member/${r.poster_id}`)}
+                  className="text-[11px] font-semibold text-matang-navy hover:underline"
+                >
+                  Posted by {r.poster_name}
+                </button>
+              ) : r.poster_name ? (
+                <p className="text-[11px] text-gray-500">Posted by {r.poster_name}</p>
+              ) : null}
               <p className="text-xs text-gray-500">{[r.ride_date, r.ride_time, r.seats ? `${r.seats} seat(s)` : ""].filter(Boolean).join(" · ")}</p>
               {r.notes && <p className="text-sm text-gray-600">{r.notes}</p>}
               {r.contact_phone && <a href={`tel:${r.contact_phone}`} className="text-sm text-matang-gold font-medium flex items-center gap-1"><Phone size={12} />{r.contact_phone}</a>}

@@ -1,3 +1,4 @@
+/** LOCKED A3 — instant Admin / God Mode role peek. Do not remove without request. */
 /** Synchronous role peek for instant Admin / Matang AI chrome (no network). */
 
 export type CachedRole = "normal" | "volunteer" | "core_committee" | "super_admin" | string;
