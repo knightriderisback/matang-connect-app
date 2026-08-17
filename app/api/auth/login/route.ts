@@ -20,17 +20,32 @@ export async function POST(request: NextRequest) {
 
     const admin = createAdminClient();
 
-    // Select only core columns (avoid missing optional columns in schema cache)
-    let { data: row, error } = await admin
-      .from("users")
-      .select("id, full_name, role, city_id, qr_code_id, verification_status, m_pin_hash")
-      .eq("phone", cleanPhone)
-      .maybeSingle();
-
-    if (error) {
-      console.error("login select:", error.message);
-      return NextResponse.json({ error: "Login failed", detail: error.message }, { status: 500 });
+    // Prefer full row; fall back to core columns if schema is thin
+    let row: any = null;
+    {
+      const full = await admin
+        .from("users")
+        .select(
+          "id, full_name, phone, role, city_id, native_village, qr_code_id, verification_status, m_pin_hash, created_at, title"
+        )
+        .eq("phone", cleanPhone)
+        .maybeSingle();
+      if (full.error) {
+        const core = await admin
+          .from("users")
+          .select("id, full_name, phone, role, city_id, qr_code_id, verification_status, m_pin_hash")
+          .eq("phone", cleanPhone)
+          .maybeSingle();
+        if (core.error) {
+          console.error("login select:", core.error.message);
+          return NextResponse.json({ error: "Login failed", detail: core.error.message }, { status: 500 });
+        }
+        row = core.data;
+      } else {
+        row = full.data;
+      }
     }
+
     if (!row) {
       return NextResponse.json({ error: "Invalid phone number or M-PIN" }, { status: 401 });
     }
@@ -64,17 +79,17 @@ export async function POST(request: NextRequest) {
         id: row.id,
         full_name: row.full_name,
         fullName: row.full_name,
-        phone: row.phone,
+        phone: row.phone || cleanPhone,
         role: row.role,
         city_id: row.city_id,
-        native_village: row.native_village,
+        native_village: row.native_village || null,
         verification_status: row.verification_status,
         verificationStatus: row.verification_status,
         qr_code_id: row.qr_code_id,
         qrCodeId: row.qr_code_id,
-        title: (row as any).title || null,
+        title: row.title || null,
         cities: null,
-        created_at: row.created_at,
+        created_at: row.created_at || null,
       },
       pendingVerification: row.verification_status !== "verified",
     });
