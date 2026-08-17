@@ -105,3 +105,24 @@ html, body {
   animation: splashLogoFloat 3.2s ease-in-out infinite;
   filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.2));
 }
+
+
+@keyframes welcomeRing {
+  0% { transform: translate(-50%, -50%) scale(0.92); opacity: 0.5; }
+  100% { transform: translate(-50%, -50%) scale(1.08); opacity: 0; }
+}
+.welcome-ring {
+  animation: welcomeRing 2.4s ease-out infinite;
+}
+.welcome-ring-slow {
+  animation: welcomeRing 3.2s ease-out 0.4s infinite;
+}
+
+@keyframes welcomeProgress {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+.welcome-progress {
+  width: 0%;
+  animation: welcomeProgress 2.6s ease-in-out forwards;
+}
