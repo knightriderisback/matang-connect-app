@@ -23,7 +23,7 @@ export default function LandingPage() {
         <img
           src="/logo-splash.png"
           alt="Matang Connect"
-          className="w-40 h-40 sm:w-48 sm:h-48 object-contain bg-transparent mb-6 drop-shadow-xl"
+          className="splash-logo-float w-40 h-40 sm:w-48 sm:h-48 object-contain bg-transparent mb-6"
           draggable={false}
         />
         <h1 className="text-3xl font-bold text-matang-navy mb-2 text-center">{t("app.name")}</h1>

@@ -81,3 +81,27 @@ html, body {
 }
 
 
+
+
+@keyframes welcomeLogoIn {
+  0% { opacity: 0; transform: scale(0.82) translateY(12px); }
+  60% { opacity: 1; transform: scale(1.04) translateY(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.welcome-logo-3d {
+  animation: welcomeLogoIn 0.9s ease-out both;
+  filter:
+    drop-shadow(0 2px 0 rgba(255, 220, 120, 0.35))
+    drop-shadow(0 8px 16px rgba(0, 0, 0, 0.45));
+}
+
+@keyframes splashLogoFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.splash-logo-float {
+  animation: splashLogoFloat 3.2s ease-in-out infinite;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.2));
+}
