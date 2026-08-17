@@ -69,7 +69,18 @@ export default function LoginPage() {
         <p className="text-gray-500 mb-8">{t("app.tagline")}</p>
         <form onSubmit={handleLogin} className="w-full max-w-sm space-y-4">
           <Input label={t("auth.phone")} type="tel" placeholder="9876543210" value={phone} onChange={(e) => setPhone(e.target.value)} required />
-          <Input label={t("auth.mpin")} type="password" placeholder="****" maxLength={4} value={mpin} onChange={(e) => setMpin(e.target.value)} required />
+          <Input
+            label={t("auth.mpin")}
+            type="password"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="one-time-code"
+            placeholder="****"
+            maxLength={4}
+            value={mpin}
+            onChange={(e) => setMpin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            required
+          />
           <Button type="submit" className="w-full" isLoading={loading}>{t("auth.login")}</Button>
         </form>
 
