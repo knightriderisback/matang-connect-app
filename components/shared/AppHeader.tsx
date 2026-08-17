@@ -110,8 +110,8 @@ export function AppHeader() {
         "bg-matang-navy border-b border-white/10"
       )}
       style={{
-        paddingTop: "max(env(safe-area-inset-top, 0px), 0px)",
-        marginTop: 0,
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        minHeight: "calc(2.75rem + env(safe-area-inset-top, 0px))",
       }}
     >
       {/* fills notch/status — same navy, content sits below inset */}

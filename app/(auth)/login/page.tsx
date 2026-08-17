@@ -32,9 +32,26 @@ export default function LoginPage() {
         return;
       }
       localStorage.setItem("matang-welcome", "true");
+      // Instant header / Admin / Matang AI after login
+      try {
+        const u = result.user;
+        if (u) {
+          const normalized = {
+            ...u,
+            full_name: u.full_name || u.fullName || "",
+            verification_status: u.verification_status || u.verificationStatus || "pending",
+            qr_code_id: u.qr_code_id || u.qrCodeId || null,
+          };
+          const payload = JSON.stringify({ user: normalized, ts: Date.now() });
+          localStorage.setItem("matang_me_cache", payload);
+          sessionStorage.setItem("matang_me_cache", payload);
+        }
+      } catch {
+        /* ignore */
+      }
       toast("Login successful!", "success");
-      router.push("/dashboard");
-      router.refresh();
+      // Full navigation so AppHeader/BottomNav remount with cache
+      window.location.href = "/dashboard";
     } catch {
       toast(t("common.error"), "error");
     } finally {

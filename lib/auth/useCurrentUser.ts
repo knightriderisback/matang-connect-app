@@ -26,6 +26,22 @@ const CACHE_KEY = "matang_me_cache";
 /** Keep role long enough so Admin / God Mode appear instantly after refresh */
 const CACHE_MS = 24 * 60 * 60 * 1000;
 
+function normalizeUser(u: any): CurrentUser | null {
+  if (!u || !u.id) return null;
+  return {
+    ...u,
+    full_name: u.full_name || u.fullName || "",
+    verification_status: u.verification_status || u.verificationStatus || "pending",
+    qr_code_id: u.qr_code_id ?? u.qrCodeId ?? null,
+    role: u.role || "normal",
+    city_id: u.city_id ?? null,
+    native_village: u.native_village || "",
+    phone: u.phone || "",
+    created_at: u.created_at || "",
+    cities: u.cities ?? null,
+  } as CurrentUser;
+}
+
 function readCachedUser(): CurrentUser | null {
   if (typeof window === "undefined") return null;
   try {
@@ -34,7 +50,7 @@ function readCachedUser(): CurrentUser | null {
     const parsed = JSON.parse(raw);
     if (!parsed?.user) return null;
     if (Date.now() - (parsed.ts || 0) > CACHE_MS) return null;
-    return parsed.user as CurrentUser;
+    return normalizeUser(parsed.user);
   } catch {
     return null;
   }
@@ -78,8 +94,8 @@ export function useCurrentUser() {
           setError(data.error || "load_failed");
           return;
         }
-        setUser(data.user);
-        writeCachedUser(data.user);
+        setUser(normalizeUser(data.user));
+        writeCachedUser(normalizeUser(data.user));
       })
       .catch(() => {
         setUser(null);
@@ -105,8 +121,8 @@ export function useCurrentUser() {
           setError(data.error || "load_failed");
           return;
         }
-        setUser(data.user);
-        writeCachedUser(data.user);
+        setUser(normalizeUser(data.user));
+        writeCachedUser(normalizeUser(data.user));
       })
       .catch(() => {
         if (!cancelled) setError("network");
