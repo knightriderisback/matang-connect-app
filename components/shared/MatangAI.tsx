@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { MessageCircle, X, Send, Sparkles, Shield } from "lucide-react";
+import { effectiveRole, peekIsSuperAdmin } from "@/lib/auth/roleCache";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -32,23 +33,11 @@ const GOD_SUGGESTIONS_HI = [
   "List pending",
 ];
 
-function peekIsSuperAdmin() {
-  if (typeof window === "undefined") return false;
-  try {
-    const raw = localStorage.getItem("matang_me_cache") || sessionStorage.getItem("matang_me_cache");
-    if (!raw) return false;
-    const u = JSON.parse(raw)?.user;
-    return u?.role === "super_admin";
-  } catch {
-    return false;
-  }
-}
-
 export function MatangAI() {
   const pathname = usePathname();
   const { lang } = useI18n();
   const { user } = useCurrentUser();
-  const isSuper = user?.role === "super_admin" || (!user && peekIsSuperAdmin());
+  const isSuper = effectiveRole(user?.role) === "super_admin";
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);

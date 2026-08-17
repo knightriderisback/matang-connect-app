@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 
 /**
+ * LOCKED — do not change welcome design without explicit request.
  * High-tech, minimal welcome — no confetti / particle rain.
  */
 export function WelcomeAnimation({ onComplete }: { onComplete: () => void }) {

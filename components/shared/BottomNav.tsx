@@ -4,20 +4,9 @@ import { Home, Users, UserCircle, Shield } from "lucide-react";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { cn } from "@/lib/utils";
+import { effectiveRole } from "@/lib/auth/roleCache";
 
 const HIDE_ON = ["/", "/login", "/register", "/history"];
-
-function peekIsStaff() {
-  if (typeof window === "undefined") return false;
-  try {
-    const raw = localStorage.getItem("matang_me_cache") || sessionStorage.getItem("matang_me_cache");
-    if (!raw) return false;
-    const role = JSON.parse(raw)?.user?.role;
-    return ["volunteer", "core_committee", "super_admin"].includes(role || "");
-  } catch {
-    return false;
-  }
-}
 
 export function BottomNav() {
   const pathname = usePathname() || "";
@@ -29,9 +18,8 @@ export function BottomNav() {
     return null;
   }
 
-  const isStaff =
-    ["volunteer", "core_committee", "super_admin"].includes(user?.role || "") ||
-    (!user && peekIsStaff());
+  const role = effectiveRole(user?.role);
+  const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
 
   // SOS removed from footer → header red button
   const items: { icon: typeof Home; label: string; href: string }[] = [
