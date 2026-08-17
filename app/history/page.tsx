@@ -118,7 +118,7 @@ export default function HistoryPage() {
       <div className="relative w-full overflow-hidden bg-[#0a1628]">
         <div className="relative w-full min-h-[38vh] max-h-[48vh] md:min-h-[280px] md:max-h-[360px] overflow-hidden bg-[#0a1628] flex items-center justify-center">
           {/* Layered depth: darker offset plate under main logo */}
-          <div className="relative h-full w-full max-h-[48vh] md:max-h-[360px] p-3 md:p-6">
+          <div className="relative h-full w-full max-h-[48vh] md:max-h-[360px] p-3 md:p-6 -translate-y-3 md:-translate-y-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/history-banner.png"
