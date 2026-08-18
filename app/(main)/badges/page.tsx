@@ -130,6 +130,20 @@ function BadgesPageInner() {
         <h1 className="text-lg font-bold text-matang-navy">Volunteer Credits</h1>
       </div>
 
+      <Card className="bg-gradient-to-br from-matang-navy to-blue-900 text-white">
+        <CardContent className="p-4">
+          <p className="text-white/70 text-xs">Your points</p>
+          <p className="text-3xl font-bold text-matang-gold">{me.points || 0}</p>
+          <div className="flex flex-wrap gap-1 mt-2">
+            {(me.badges || []).map((b: string) => (
+              <span key={b} className="text-[10px] px-2 py-0.5 rounded-full bg-white/15">
+                {b}
+              </span>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {isStaff && (
         <Card className="border-matang-gold/40 shadow-sm">
           <CardContent className="p-4 space-y-3">
@@ -194,20 +208,6 @@ function BadgesPageInner() {
           </CardContent>
         </Card>
       )}
-
-      <Card className="bg-gradient-to-br from-matang-navy to-blue-900 text-white">
-        <CardContent className="p-4">
-          <p className="text-white/70 text-xs">Your points</p>
-          <p className="text-3xl font-bold text-matang-gold">{me.points || 0}</p>
-          <div className="flex flex-wrap gap-1 mt-2">
-            {(me.badges || []).map((b: string) => (
-              <span key={b} className="text-[10px] px-2 py-0.5 rounded-full bg-white/15">
-                {b}
-              </span>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
       <div>
         <h2 className="text-sm font-bold text-matang-navy mb-2">Leaderboard</h2>
