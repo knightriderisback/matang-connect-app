@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession, STAFF_ROLES } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+const CHANGE_REQ_KEY = "poll_vote_change_requests";
+
 async function loadPollsResilient(supabase: any, session: any) {
-  // Try full schema, then minimal
   const attempts = [
     () =>
       supabase
@@ -19,26 +20,18 @@ async function loadPollsResilient(supabase: any, session: any) {
         .order("created_at", { ascending: false })
         .limit(20),
     () =>
-      supabase
-        .from("polls")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(20),
+      supabase.from("polls").select("*").order("created_at", { ascending: false }).limit(20),
   ];
 
   let polls: any[] = [];
-  let lastErr = "";
   for (const run of attempts) {
     const { data, error } = await run();
     if (!error) {
       polls = data || [];
-      lastErr = "";
       break;
     }
-    lastErr = error.message;
   }
 
-  // app_settings fallback store
   if (!polls.length) {
     const { data: sett } = await supabase
       .from("app_settings")
@@ -51,9 +44,7 @@ async function loadPollsResilient(supabase: any, session: any) {
   }
 
   if (session.role !== "super_admin" && session.cityId) {
-    polls = polls.filter(
-      (p) => p.is_global || !p.city_id || p.city_id === session.cityId
-    );
+    polls = polls.filter((p) => p.is_global || !p.city_id || p.city_id === session.cityId);
   }
 
   const result = [];
@@ -72,7 +63,6 @@ async function loadPollsResilient(supabase: any, session: any) {
       });
       total = (votes || []).length;
     } else if (p.votes && typeof p.votes === "object") {
-      // settings-store votes: { userId: optionIndex }
       Object.entries(p.votes).forEach(([uid, idx]) => {
         const i = Number(idx);
         if (i >= 0 && i < counts.length) counts[i]++;
@@ -86,17 +76,66 @@ async function loadPollsResilient(supabase: any, session: any) {
       vote_counts: counts,
       total_votes: total,
       my_vote: myVote,
+      vote_locked: myVote != null,
     });
   }
-  return { polls: result, error: lastErr || undefined };
+  return result;
 }
 
-export async function GET() {
+async function getChangeRequests(supabase: any) {
+  const { data } = await supabase
+    .from("app_settings")
+    .select("setting_value")
+    .eq("setting_key", CHANGE_REQ_KEY)
+    .maybeSingle();
+  return Array.isArray(data?.setting_value) ? data.setting_value : [];
+}
+
+async function saveChangeRequests(supabase: any, list: any[]) {
+  await supabase.from("app_settings").upsert(
+    { setting_key: CHANGE_REQ_KEY, setting_value: list.slice(0, 80) },
+    { onConflict: "setting_key" }
+  );
+}
+
+export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const supabase = createAdminClient();
-  const { polls, error } = await loadPollsResilient(supabase, session);
-  return NextResponse.json({ polls, error });
+  const polls = await loadPollsResilient(supabase, session);
+
+  let change_requests: any[] = [];
+  if (["core_committee", "super_admin"].includes(session.role)) {
+    const raw = await getChangeRequests(supabase);
+    change_requests = raw.filter((r) => r.status === "pending");
+    // attach names
+    const ids = Array.from(
+      new Set(change_requests.flatMap((r) => [r.user_id, r.poll_id]).filter(Boolean))
+    );
+    const userIds = change_requests.map((r) => r.user_id).filter(Boolean);
+    if (userIds.length) {
+      const { data: users } = await supabase
+        .from("users")
+        .select("id, full_name")
+        .in("id", userIds);
+      const map: Record<string, string> = {};
+      (users || []).forEach((u) => {
+        map[u.id] = u.full_name;
+      });
+      change_requests = change_requests.map((r) => ({
+        ...r,
+        user_name: map[r.user_id] || "Member",
+      }));
+    }
+  }
+
+  // user's pending requests
+  const allReq = await getChangeRequests(supabase);
+  const my_requests = allReq.filter(
+    (r) => r.user_id === session.userId && r.status === "pending"
+  );
+
+  return NextResponse.json({ polls, change_requests, my_requests });
 }
 
 export async function POST(request: NextRequest) {
@@ -105,12 +144,108 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const supabase = createAdminClient();
 
-  // Vote
+  // --- request vote change ---
+  if (body.action === "request_change") {
+    if (body.poll_id == null || body.option_index == null) {
+      return NextResponse.json({ error: "poll_id and new option_index required" }, { status: 400 });
+    }
+    const list = await getChangeRequests(supabase);
+    const exists = list.find(
+      (r) =>
+        r.user_id === session.userId &&
+        r.poll_id === body.poll_id &&
+        r.status === "pending"
+    );
+    if (exists) {
+      return NextResponse.json({ error: "Change request already pending" }, { status: 400 });
+    }
+    list.unshift({
+      id: `pcr_${Date.now()}`,
+      poll_id: body.poll_id,
+      user_id: session.userId,
+      from_index: body.from_index ?? null,
+      option_index: body.option_index,
+      reason: String(body.reason || "").slice(0, 200),
+      status: "pending",
+      created_at: new Date().toISOString(),
+    });
+    await saveChangeRequests(supabase, list);
+    return NextResponse.json({
+      success: true,
+      message: "Request sent to Core Committee / Super Admin",
+    });
+  }
+
+  // --- resolve change (core / super only) ---
+  if (body.action === "resolve_change") {
+    if (!["core_committee", "super_admin"].includes(session.role)) {
+      return NextResponse.json({ error: "Core Committee or Super Admin only" }, { status: 403 });
+    }
+    const list = await getChangeRequests(supabase);
+    const idx = list.findIndex((r) => r.id === body.request_id);
+    if (idx < 0) return NextResponse.json({ error: "Request not found" }, { status: 404 });
+    const req = list[idx];
+    if (req.status !== "pending") {
+      return NextResponse.json({ error: "Already resolved" }, { status: 400 });
+    }
+
+    if (body.decision === "accept") {
+      // apply new vote
+      if (String(req.poll_id).startsWith("local_")) {
+        const { data: sett } = await supabase
+          .from("app_settings")
+          .select("setting_value")
+          .eq("setting_key", "polls_store")
+          .maybeSingle();
+        const polls = Array.isArray(sett?.setting_value) ? [...sett.setting_value] : [];
+        const pi = polls.findIndex((p: any) => p.id === req.poll_id);
+        if (pi >= 0) {
+          polls[pi] = {
+            ...polls[pi],
+            votes: { ...(polls[pi].votes || {}), [req.user_id]: req.option_index },
+          };
+          await supabase
+            .from("app_settings")
+            .upsert(
+              { setting_key: "polls_store", setting_value: polls },
+              { onConflict: "setting_key" }
+            );
+        }
+      } else {
+        await supabase.from("poll_votes").upsert(
+          {
+            poll_id: req.poll_id,
+            user_id: req.user_id,
+            option_index: req.option_index,
+          },
+          { onConflict: "poll_id,user_id" }
+        );
+      }
+      list[idx] = {
+        ...req,
+        status: "accepted",
+        resolved_by: session.userId,
+        resolved_at: new Date().toISOString(),
+      };
+    } else {
+      list[idx] = {
+        ...req,
+        status: "rejected",
+        resolved_by: session.userId,
+        resolved_at: new Date().toISOString(),
+      };
+    }
+    await saveChangeRequests(supabase, list);
+    return NextResponse.json({ success: true, status: list[idx].status });
+  }
+
+  // --- vote (locked after first) ---
   if (body.action === "vote") {
     if (body.poll_id == null || body.option_index == null) {
       return NextResponse.json({ error: "poll_id and option_index required" }, { status: 400 });
     }
-    // Settings-store poll
+
+    // local store
     if (String(body.poll_id).startsWith("local_")) {
       const { data: sett } = await supabase
         .from("app_settings")
@@ -120,45 +255,58 @@ export async function POST(request: NextRequest) {
       const list = Array.isArray(sett?.setting_value) ? [...sett.setting_value] : [];
       const idx = list.findIndex((p: any) => p.id === body.poll_id);
       if (idx < 0) return NextResponse.json({ error: "Poll not found" }, { status: 404 });
-      const poll = { ...list[idx] };
-      poll.votes = { ...(poll.votes || {}), [session.userId]: body.option_index };
+      const poll = { ...list[idx], votes: { ...(list[idx].votes || {}) } };
+      if (poll.votes[session.userId] != null) {
+        return NextResponse.json(
+          {
+            error: "Vote locked. Raise a change request.",
+            code: "VOTE_LOCKED",
+            current_vote: poll.votes[session.userId],
+          },
+          { status: 409 }
+        );
+      }
+      poll.votes[session.userId] = body.option_index;
       list[idx] = poll;
       await supabase
         .from("app_settings")
         .upsert({ setting_key: "polls_store", setting_value: list }, { onConflict: "setting_key" });
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, locked: true });
+    }
+
+    const { data: existing } = await supabase
+      .from("poll_votes")
+      .select("option_index")
+      .eq("poll_id", body.poll_id)
+      .eq("user_id", session.userId)
+      .maybeSingle();
+    if (existing) {
+      return NextResponse.json(
+        {
+          error: "Vote locked. Raise a change request for Core/Super Admin approval.",
+          code: "VOTE_LOCKED",
+          current_vote: existing.option_index,
+        },
+        { status: 409 }
+      );
     }
 
     const { data: poll } = await supabase.from("polls").select("*").eq("id", body.poll_id).maybeSingle();
     if (!poll) return NextResponse.json({ error: "Poll not found" }, { status: 404 });
-    if (poll.is_active === false) {
-      return NextResponse.json({ error: "Poll not active" }, { status: 400 });
-    }
     const opts = Array.isArray(poll.options) ? poll.options : [];
     if (body.option_index < 0 || body.option_index >= opts.length) {
       return NextResponse.json({ error: "Invalid option" }, { status: 400 });
     }
-    const { error } = await supabase.from("poll_votes").upsert(
-      {
-        poll_id: body.poll_id,
-        user_id: session.userId,
-        option_index: body.option_index,
-      },
-      { onConflict: "poll_id,user_id" }
-    );
-    if (error) {
-      // try plain insert
-      const ins = await supabase.from("poll_votes").insert({
-        poll_id: body.poll_id,
-        user_id: session.userId,
-        option_index: body.option_index,
-      });
-      if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 500 });
-    }
-    return NextResponse.json({ success: true });
+    const { error } = await supabase.from("poll_votes").insert({
+      poll_id: body.poll_id,
+      user_id: session.userId,
+      option_index: body.option_index,
+    });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true, locked: true });
   }
 
-  // Create
+  // --- create (staff) LOCKED feature path still works ---
   if (!STAFF_ROLES.includes(session.role as any)) {
     return NextResponse.json({ error: "Staff only" }, { status: 403 });
   }
@@ -173,13 +321,11 @@ export async function POST(request: NextRequest) {
     created_by: session.userId,
     city_id: session.cityId || null,
   };
-
   const tries = [
-    { ...base, is_active: true, is_global: !!body.is_global && session.role === "super_admin", ends_at: body.ends_at || null },
+    { ...base, is_active: true, is_global: false, ends_at: null },
     { ...base, is_active: true },
     { ...base },
   ];
-
   let data: any = null;
   let lastError = "";
   for (const row of tries) {
@@ -190,14 +336,11 @@ export async function POST(request: NextRequest) {
     }
     lastError = r.error.message;
   }
-
   if (!data) {
-    // Ultimate fallback: app_settings store
     const local = {
       id: `local_${Date.now()}`,
       ...base,
       is_active: true,
-      is_global: false,
       created_at: new Date().toISOString(),
       votes: {},
     };
@@ -210,25 +353,14 @@ export async function POST(request: NextRequest) {
     list.unshift(local);
     const up = await supabase
       .from("app_settings")
-      .upsert({ setting_key: "polls_store", setting_value: list.slice(0, 40) }, { onConflict: "setting_key" });
-    if (up.error) {
-      return NextResponse.json(
-        { error: lastError || up.error.message, hint: "Create polls table (stage3_tables.sql)" },
-        { status: 500 }
+      .upsert(
+        { setting_key: "polls_store", setting_value: list.slice(0, 40) },
+        { onConflict: "setting_key" }
       );
+    if (up.error) {
+      return NextResponse.json({ error: lastError || up.error.message }, { status: 500 });
     }
     return NextResponse.json({ success: true, poll: local, stored: "app_settings" });
   }
-
-  try {
-    await supabase.from("audit_logs").insert({
-      actor_id: session.userId,
-      action: "poll_create",
-      target_id: data.id,
-    });
-  } catch {
-    /* ignore */
-  }
-
   return NextResponse.json({ success: true, poll: data });
 }

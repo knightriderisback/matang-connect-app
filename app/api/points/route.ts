@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
     .from("volunteer_points")
     .select("user_id, points, badges")
     .order("points", { ascending: false })
-    .limit(10);
+    .limit(3);
 
   if (!leadErr && leadersRaw?.length) {
     const ids = leadersRaw.map((l) => l.user_id);
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
       })
       .filter((x: any) => x.points > 0)
       .sort((a: any, b: any) => b.points - a.points)
-      .slice(0, 15);
+      .slice(0, 3);
     if (list.length) {
       const ids = list.map((l: any) => l.user_id);
       const { data: names } = await supabase.from("users").select("id, full_name").in("id", ids);
