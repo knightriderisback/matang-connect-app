@@ -1,6 +1,7 @@
 "use client";
 import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -10,6 +11,7 @@ import { Heart, Plus, User } from "lucide-react";
 
 interface Profile {
   id: string;
+  user_id?: string;
   gender: string;
   age?: number;
   height_cm?: number;
@@ -20,11 +22,13 @@ interface Profile {
   looking_for?: string;
   photo_url?: string;
   contact_visible?: boolean;
+  user_name?: string;
 }
 
 function MatrimonyPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
+  const router = useRouter();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -178,19 +182,31 @@ function MatrimonyPageInner() {
         </Card>
       ) : (
         profiles.map((p) => (
-          <Card key={p.id}>
+          <Card key={p.id || p.user_id}>
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-matang-navy/10 flex items-center justify-center">
                   <User size={22} className="text-matang-navy" />
                 </div>
-                <div>
-                  <p className="font-semibold text-matang-navy capitalize">
+                <div className="min-w-0">
+                  {p.user_name && p.user_id ? (
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/member/${p.user_id}`)}
+                      className="font-semibold text-matang-navy hover:underline text-left"
+                    >
+                      {p.user_name}
+                      {p.user_id === user?.id ? " (You)" : ""}
+                    </button>
+                  ) : (
+                    <p className="font-semibold text-matang-navy">Member</p>
+                  )}
+                  <p className="text-xs text-gray-500 capitalize">
                     {p.gender}
                     {p.age ? `, ${p.age} yrs` : ""}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {[p.education, p.occupation].filter(Boolean).join(" · ") || "—"}
+                    {[p.education, p.occupation].filter(Boolean).length
+                      ? " · " + [p.education, p.occupation].filter(Boolean).join(" · ")
+                      : ""}
                   </p>
                 </div>
               </div>
