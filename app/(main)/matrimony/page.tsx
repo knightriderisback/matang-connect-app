@@ -254,30 +254,48 @@ function MatrimonyPageInner() {
     return id ? `${base}/member/${id}` : `${base}/matrimony`;
   };
 
+  const buildWhatsAppMessage = (p: Profile) => {
+    const link = profileLink(p.user_id);
+    const lines = [
+      "🌳 *MATANG CONNECT*",
+      "_Digital ecosystem for Matang Samaj_",
+      "",
+      "💍 *Matrimony Profile*",
+      "━━━━━━━━━━━━━━",
+      p.user_name ? `👤 *Name:* ${p.user_name}` : null,
+      p.gender ? `⚧ *Gender:* ${String(p.gender).charAt(0).toUpperCase()}${String(p.gender).slice(1)}` : null,
+      p.age ? `🎂 *Age:* ${p.age} years` : null,
+      p.height_cm ? `📏 *Height:* ${p.height_cm} cm` : null,
+      p.education ? `🎓 *Education:* ${p.education}` : null,
+      p.occupation ? `💼 *Occupation:* ${p.occupation}` : null,
+      p.native_village ? `🏡 *Village:* ${p.native_village}` : null,
+      p.about ? `📝 *About:* ${p.about}` : null,
+      p.looking_for ? `💫 *Looking for:* ${p.looking_for}` : null,
+      "━━━━━━━━━━━━━━",
+      link ? `🔗 *Profile link:*\n${link}` : null,
+      "",
+      "_Shared via Matang Connect · Bilaspur pilot_",
+    ];
+    return lines.filter((x) => x != null && x !== "").join("\n");
+  };
+
   const shareProfile = async (p: Profile) => {
     const link = profileLink(p.user_id);
-    const text = [
-      "Matang Matrimony profile",
-      p.user_name ? `Name: ${p.user_name}` : "",
-      p.gender ? `Gender: ${p.gender}` : "",
-      p.age ? `Age: ${p.age}` : "",
-      p.education ? `Education: ${p.education}` : "",
-      p.occupation ? `Occupation: ${p.occupation}` : "",
-      link ? `Link: ${link}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    const text = buildWhatsAppMessage(p);
 
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({ title: "Matang Matrimony", text, url: link });
-        return;
-      } catch {
-        /* fall through */
-      }
-    }
+    // Prefer WhatsApp with proper markdown formatting
     const wa = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(wa, "_blank");
+
+    // Also try system share as secondary (non-blocking)
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        // don't await — WA already opened
+        void navigator.share({ title: "Matang Connect · Matrimony", text, url: link });
+      } catch {
+        /* ignore */
+      }
+    }
   };
 
   const copyLink = async (p: Profile) => {
