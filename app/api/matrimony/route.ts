@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
     user_id: session.userId,
     city_id: session.cityId || null,
     gender: body.gender,
+    dob: body.dob || null,
     age: body.age ? Number(body.age) : null,
     height_cm: body.height_cm ? Number(body.height_cm) : null,
     education: body.education || null,
