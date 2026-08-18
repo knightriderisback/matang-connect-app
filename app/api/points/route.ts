@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
     .from("volunteer_points")
     .select("user_id, points, badges")
     .order("points", { ascending: false })
-    .limit(15);
+    .limit(10);
 
   if (!leadErr && leadersRaw?.length) {
     const ids = leadersRaw.map((l) => l.user_id);
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
       .from("app_settings")
       .select("setting_key, setting_value")
       .like("setting_key", "volunteer_points:%")
-      .limit(50);
+      .limit(20);
     const list = (rows || [])
       .map((r: any) => {
         const uid = String(r.setting_key || "").replace("volunteer_points:", "");
@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
       .from("volunteer_point_log")
       .select("id, user_id, points, reason, awarded_by, created_at")
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(20);
     if (logRows?.length) logs = logRows;
   }
   if (!logs.length) {
@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
       .select("setting_value")
       .eq("setting_key", "volunteer_award_logs")
       .maybeSingle();
-    if (Array.isArray(sett?.setting_value)) logs = sett.setting_value.slice(0, 50);
+    if (Array.isArray(sett?.setting_value)) logs = sett.setting_value.slice(0, 20);
   }
   if (logs.length) {
     const ids = Array.from(
