@@ -1,3 +1,4 @@
+/** LOCKED — All Requests inbox */
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
