@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { effectiveRole } from "@/lib/auth/roleCache";
 import { Trophy, Award } from "lucide-react";
 
 function BadgesPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
-  const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
+  const role = effectiveRole(user?.role);
+  const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
   const [me, setMe] = useState<any>({ points: 0, badges: [] });
   const [leaders, setLeaders] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -133,7 +135,7 @@ function BadgesPageInner() {
             </select>
             {!users.length && (
               <p className="text-[11px] text-amber-700">
-                No users loaded. Run Admin → Load demo data, or check Directory.
+                Member list empty — open Directory once, or seed demo users. Volunteers can still award after list loads.
               </p>
             )}
             <Input

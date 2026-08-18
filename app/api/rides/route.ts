@@ -1,3 +1,4 @@
+/** LOCKED B1 — ride poster profile join. */
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
