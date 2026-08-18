@@ -1,3 +1,4 @@
+/** LOCKED — Matrimony module UI/share */
 "use client";
 import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useMemo, useState } from "react";
