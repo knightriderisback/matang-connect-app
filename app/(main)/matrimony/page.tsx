@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { Heart, Plus, User } from "lucide-react";
+import { Heart, Plus, User, Share2, Link2 } from "lucide-react";
 
 const GENDER_OPTS = ["male", "female", "other"];
 const EDUCATION_BASE = [
@@ -245,6 +245,48 @@ function MatrimonyPageInner() {
     if (res.ok) {
       toast("Profile deactivated", "success");
       load();
+    }
+  };
+
+  const profileLink = (id?: string) => {
+    if (typeof window === "undefined") return "";
+    const base = window.location.origin;
+    return id ? `${base}/member/${id}` : `${base}/matrimony`;
+  };
+
+  const shareProfile = async (p: Profile) => {
+    const link = profileLink(p.user_id);
+    const text = [
+      "Matang Matrimony profile",
+      p.user_name ? `Name: ${p.user_name}` : "",
+      p.gender ? `Gender: ${p.gender}` : "",
+      p.age ? `Age: ${p.age}` : "",
+      p.education ? `Education: ${p.education}` : "",
+      p.occupation ? `Occupation: ${p.occupation}` : "",
+      link ? `Link: ${link}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title: "Matang Matrimony", text, url: link });
+        return;
+      } catch {
+        /* fall through */
+      }
+    }
+    const wa = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(wa, "_blank");
+  };
+
+  const copyLink = async (p: Profile) => {
+    const link = profileLink(p.user_id);
+    try {
+      await navigator.clipboard.writeText(link);
+      toast("Link copied", "success");
+    } catch {
+      toast(link || "No link", "error");
     }
   };
 
@@ -522,6 +564,22 @@ function MatrimonyPageInner() {
                   <span className="font-medium">Looking for:</span> {p.looking_for}
                 </p>
               )}
+              <div className="flex gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => shareProfile(p)}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 rounded-xl py-2 active:scale-[0.98]"
+                >
+                  <Share2 size={14} /> Share
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyLink(p)}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-matang-navy bg-gray-50 rounded-xl py-2 active:scale-[0.98]"
+                >
+                  <Link2 size={14} /> Copy link
+                </button>
+              </div>
             </CardContent>
           </Card>
         ))
