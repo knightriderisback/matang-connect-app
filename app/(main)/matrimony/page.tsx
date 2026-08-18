@@ -280,22 +280,9 @@ function MatrimonyPageInner() {
   };
 
   const shareProfile = async (p: Profile) => {
-    const link = profileLink(p.user_id);
     const text = buildWhatsAppMessage(p);
-
-    // Prefer WhatsApp with proper markdown formatting
     const wa = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(wa, "_blank");
-
-    // Also try system share as secondary (non-blocking)
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        // don't await — WA already opened
-        void navigator.share({ title: "Matang Connect · Matrimony", text, url: link });
-      } catch {
-        /* ignore */
-      }
-    }
   };
 
   const copyLink = async (p: Profile) => {
