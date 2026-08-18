@@ -82,7 +82,7 @@ async function loadPollsResilient(supabase: any, session: any) {
   return result;
 }
 
-async function getChangeRequests(supabase: any) {
+async function getChangeRequests(supabase: any): Promise<any[]> {
   const { data } = await supabase
     .from("app_settings")
     .select("setting_value")
@@ -107,12 +107,12 @@ export async function GET(request: NextRequest) {
   let change_requests: any[] = [];
   if (["core_committee", "super_admin"].includes(session.role)) {
     const raw = await getChangeRequests(supabase);
-    change_requests = raw.filter((r) => r.status === "pending");
+    change_requests = raw.filter((r: any) => r.status === "pending");
     // attach names
     const ids = Array.from(
-      new Set(change_requests.flatMap((r) => [r.user_id, r.poll_id]).filter(Boolean))
+      new Set(change_requests.flatMap((r: any) => [r.user_id, r.poll_id]).filter(Boolean))
     );
-    const userIds = change_requests.map((r) => r.user_id).filter(Boolean);
+    const userIds = change_requests.map((r: any) => r.user_id).filter(Boolean);
     if (userIds.length) {
       const { data: users } = await supabase
         .from("users")
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
       (users || []).forEach((u) => {
         map[u.id] = u.full_name;
       });
-      change_requests = change_requests.map((r) => ({
+      change_requests = change_requests.map((r: any) => ({
         ...r,
         user_name: map[r.user_id] || "Member",
       }));
@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
   // user's pending requests
   const allReq = await getChangeRequests(supabase);
   const my_requests = allReq.filter(
-    (r) => r.user_id === session.userId && r.status === "pending"
+    (r: any) => r.user_id === session.userId && r.status === "pending"
   );
 
   return NextResponse.json({ polls, change_requests, my_requests });
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
     }
     const list = await getChangeRequests(supabase);
     const exists = list.find(
-      (r) =>
+      (r: any) =>
         r.user_id === session.userId &&
         r.poll_id === body.poll_id &&
         r.status === "pending"
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Core Committee or Super Admin only" }, { status: 403 });
     }
     const list = await getChangeRequests(supabase);
-    const idx = list.findIndex((r) => r.id === body.request_id);
+    const idx = list.findIndex((r: any) => r.id === body.request_id);
     if (idx < 0) return NextResponse.json({ error: "Request not found" }, { status: 404 });
     const req = list[idx];
     if (req.status !== "pending") {
