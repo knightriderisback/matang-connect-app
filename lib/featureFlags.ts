@@ -26,6 +26,7 @@ export interface FeatureFlags {
   ai_god_mode_enabled: boolean;
   feed_images_enabled: boolean;
   feed_member_post_enabled: boolean;
+  admin_requests_enabled: boolean;
 }
 
 export const DEFAULTS: FeatureFlags = {
@@ -53,6 +54,7 @@ export const DEFAULTS: FeatureFlags = {
   ai_god_mode_enabled: true,
   feed_images_enabled: true,
   feed_member_post_enabled: false,
+  admin_requests_enabled: true,
 };
 
 export const MODULE_STAGE: Record<string, 1 | 2 | 3> = {
@@ -76,6 +78,7 @@ export const MODULE_STAGE: Record<string, 1 | 2 | 3> = {
   rides: 3,
   gaurav: 3,
   gamification: 3,
+  admin_requests: 1,
 };
 
 function coerceBool(v: unknown): boolean {
@@ -148,6 +151,7 @@ export function isModuleVisible(
     polls: "polls_enabled",
     arthik: "arthik_enabled",
     scan: "scan_enabled",
+    admin_requests: "admin_requests_enabled",
     rides: "rides_enabled",
     gaurav: "gaurav_enabled",
     gamification: "gamification_enabled",

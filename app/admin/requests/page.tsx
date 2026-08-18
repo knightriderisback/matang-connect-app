@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { effectiveRole } from "@/lib/auth/roleCache";
+import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import { Inbox } from "lucide-react";
 
 export default function AdminRequestsPage() {
@@ -15,6 +16,8 @@ export default function AdminRequestsPage() {
   const role = effectiveRole(user?.role);
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
   const isApprover = ["core_committee", "super_admin"].includes(role || "");
+  const { can, flags } = useFeatureFlags(role);
+  const allowed = can("admin_requests") && flags.admin_requests_enabled !== false;
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"pending" | "all">("pending");
@@ -49,7 +52,10 @@ export default function AdminRequestsPage() {
 
   if (userLoading) return <div className="p-8 text-center text-gray-500">Loading…</div>;
   if (!isStaff) {
-    return <div className="p-8 text-center text-sm text-gray-500">Staff access only</div>;
+    return <div className="p-8 text-center text-sm text-gray-500">Staff access only — Volunteer / Core / Super Admin</div>;
+  }
+  if (!allowed) {
+    return <div className="p-8 text-center text-sm text-gray-500">All Requests is turned off for your account</div>;
   }
 
   const shown = filter === "pending" ? items.filter((i) => i.status === "pending") : items;

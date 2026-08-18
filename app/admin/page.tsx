@@ -125,7 +125,7 @@ export default function AdminHubPage() {
       <div>
         <h2 className="text-sm font-bold text-matang-navy mb-2">Admin Tools</h2>
         <div className="grid grid-cols-2 gap-2">
-          {ADMIN_LINKS.map((l) => (
+          {ADMIN_LINKS.filter((l) => l.href !== "/admin/requests" || can("admin_requests")).map((l) => (
             <button
               key={l.href}
               type="button"

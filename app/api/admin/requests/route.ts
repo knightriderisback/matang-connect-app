@@ -9,10 +9,36 @@ export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (!["volunteer", "core_committee", "super_admin"].includes(session.role)) {
-    return NextResponse.json({ error: "Staff only" }, { status: 403 });
+    return NextResponse.json({ error: "Staff only — Volunteer / Core / Super Admin" }, { status: 403 });
   }
 
   const supabase = createAdminClient();
+
+  // Feature flag (global + personal override)
+  if (session.role !== "super_admin") {
+    const { data: globalRow } = await supabase
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", "admin_requests_enabled")
+      .maybeSingle();
+    let enabled = true;
+    if (globalRow && globalRow.setting_value !== undefined && globalRow.setting_value !== null) {
+      const v = globalRow.setting_value;
+      enabled = v === true || v === "true" || v === 1;
+    }
+    const { data: mem } = await supabase
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", `member_flags:${session.userId}`)
+      .maybeSingle();
+    const ov = mem?.setting_value;
+    if (ov && typeof ov === "object" && "admin_requests_enabled" in ov) {
+      enabled = Boolean((ov as any).admin_requests_enabled);
+    }
+    if (!enabled) {
+      return NextResponse.json({ error: "All Requests disabled", requests: [], pending: [] }, { status: 403 });
+    }
+  }
   const requests: any[] = [];
 
   // 1) Poll vote-change requests

@@ -324,6 +324,7 @@ function AdminDirectoryPageInner() {
       ["arthik_enabled", "Arthik"],
       ["rides_enabled", "Rides"],
       ["gaurav_enabled", "Gaurav"],
+      ["admin_requests_enabled", "All Requests"],
       ["gamification_enabled", "Credits"],
       ["scan_enabled", "Scan"],
     ] as const;
