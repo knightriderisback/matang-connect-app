@@ -6,7 +6,7 @@ import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import {
   Users, AlertTriangle, Briefcase, Bell, Heart, BookOpen, Shield, HeartHandshake,
   Store, Landmark, Calendar, Flower2, BarChart3, TrendingUp, QrCode,
-  Car, Award, Trophy, Settings, UserCheck, KeyRound, ScrollText,
+  Car, Award, Trophy, Settings, UserCheck, KeyRound, ScrollText, Inbox,
 } from "lucide-react";
 
 const ALL_ACTIONS = [
@@ -33,6 +33,7 @@ const ALL_ACTIONS = [
 ];
 
 const ADMIN_LINKS = [
+  { href: "/admin/requests", label: "All Requests", icon: Inbox },
   { href: "/admin/verify", label: "Verify Users", icon: UserCheck },
   { href: "/admin/reset-mpin", label: "Reset M-PIN", icon: KeyRound },
   { href: "/admin/titles", label: "City Titles", icon: Award },
