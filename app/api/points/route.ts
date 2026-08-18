@@ -41,6 +41,46 @@ async function writePointsFallback(
   );
 }
 
+async function appendAwardLog(
+  supabase: any,
+  entry: {
+    user_id: string;
+    awarded_by: string;
+    points: number;
+    reason: string;
+  }
+) {
+  const row = {
+    ...entry,
+    id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    created_at: new Date().toISOString(),
+  };
+  try {
+    await supabase.from("volunteer_point_log").insert({
+      user_id: entry.user_id,
+      points: entry.points,
+      reason: entry.reason,
+      awarded_by: entry.awarded_by,
+    });
+  } catch {
+    /* table may not exist */
+  }
+  // Always keep a rolling log in app_settings
+  const key = "volunteer_award_logs";
+  const { data } = await supabase
+    .from("app_settings")
+    .select("setting_value")
+    .eq("setting_key", key)
+    .maybeSingle();
+  const prev = Array.isArray(data?.setting_value) ? data.setting_value : [];
+  const next = [row, ...prev].slice(0, 100);
+  await supabase.from("app_settings").upsert(
+    { setting_key: key, setting_value: next },
+    { onConflict: "setting_key" }
+  );
+  return row;
+}
+
 export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -130,9 +170,44 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Award logs (individual)
+  let logs: any[] = [];
+  {
+    const { data: logRows } = await supabase
+      .from("volunteer_point_log")
+      .select("id, user_id, points, reason, awarded_by, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (logRows?.length) logs = logRows;
+  }
+  if (!logs.length) {
+    const { data: sett } = await supabase
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", "volunteer_award_logs")
+      .maybeSingle();
+    if (Array.isArray(sett?.setting_value)) logs = sett.setting_value.slice(0, 50);
+  }
+  if (logs.length) {
+    const ids = Array.from(
+      new Set(logs.flatMap((l) => [l.user_id, l.awarded_by]).filter(Boolean))
+    ) as string[];
+    const { data: names } = await supabase.from("users").select("id, full_name").in("id", ids);
+    const map: Record<string, string> = {};
+    (names || []).forEach((u) => {
+      map[u.id] = u.full_name;
+    });
+    logs = logs.map((l) => ({
+      ...l,
+      recipient_name: map[l.user_id] || "Member",
+      awarder_name: map[l.awarded_by] || "Staff",
+    }));
+  }
+
   return NextResponse.json({
     me: me || { points: 0, badges: [] },
     leaders,
+    logs,
   });
 }
 
@@ -222,14 +297,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await supabase.from("volunteer_point_log").insert({
+    await appendAwardLog(supabase, {
       user_id,
+      awarded_by: session.userId,
       points: pts,
       reason: String(reason).slice(0, 200),
-      awarded_by: session.userId,
     });
   } catch {
-    /* optional log table */
+    /* log best-effort */
   }
 
   try {
