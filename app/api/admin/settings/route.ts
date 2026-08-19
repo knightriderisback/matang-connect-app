@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/getSession";
-import { getFeatureFlagsAdmin, writeFeatureFlag, type FeatureFlags } from "@/lib/featureFlags";
+import { getFeatureFlagsAdmin, writeFeatureFlag, writeAllFlags, DEFAULTS, type FeatureFlags } from "@/lib/featureFlags";
 import { writeAuditLog } from "@/lib/audit";
 
 export async function GET() {
@@ -18,6 +18,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Super Admin only" }, { status: 403 });
   }
   const body = await request.json().catch(() => ({}));
+
+  if (body.action === "unlock_all") {
+    const allOn = { ...DEFAULTS } as FeatureFlags;
+    (Object.keys(allOn) as (keyof FeatureFlags)[]).forEach((k) => {
+      (allOn as any)[k] = true;
+    });
+    const result = await writeAllFlags(allOn);
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error || "Failed" }, { status: 500 });
+    }
+    return NextResponse.json({ success: true, flags: result.flags });
+  }
+
   const key = body.key as string;
   const value = body.value;
   if (!key || typeof value !== "boolean") {

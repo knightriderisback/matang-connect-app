@@ -43,7 +43,14 @@ export async function GET() {
   }
 
   return NextResponse.json(
-    { flags },
+    {
+      flags,
+      stages: {
+        s1: flags.stage_1_enabled,
+        s2: flags.stage_2_enabled,
+        s3: flags.stage_3_enabled,
+      },
+    },
     { headers: { "Cache-Control": "no-store, max-age=0" } }
   );
 }

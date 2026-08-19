@@ -91,6 +91,32 @@ export default function SettingsPage() {
         Lock a stage to hide those modules from normal users until the pilot is ready.
       </p>
 
+      <button
+        type="button"
+        onClick={async () => {
+          try {
+            const res = await fetch("/api/admin/settings", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "unlock_all" }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              toast(data.error || "Failed", "error");
+              return;
+            }
+            if (data.flags) setFlags(data.flags);
+            toast("All stages & modules unlocked for members", "success");
+          } catch {
+            toast("Network error", "error");
+          }
+        }}
+        className="w-full py-2.5 rounded-xl bg-matang-navy text-matang-gold text-sm font-semibold"
+      >
+        Unlock ALL stages + modules for members
+      </button>
+
+
       {loading && <p className="text-center text-gray-400">Loading...</p>}
 
       <div>

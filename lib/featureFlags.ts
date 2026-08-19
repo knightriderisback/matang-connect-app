@@ -1,4 +1,3 @@
-import { createClient } from "./supabase/client";
 import { createAdminClient } from "./supabase/admin";
 
 export interface FeatureFlags {
@@ -29,11 +28,14 @@ export interface FeatureFlags {
   admin_requests_enabled: boolean;
 }
 
-/** Fail-closed for expansion: stages 2/3 OFF until Super Admin unlocks */
+/**
+ * Defaults: stages ON so members see modules when DB/bundle missing.
+ * Super Admin OFF toggles persist via feature_flags_bundle only.
+ */
 export const DEFAULTS: FeatureFlags = {
   stage_1_enabled: true,
-  stage_2_enabled: false,
-  stage_3_enabled: false,
+  stage_2_enabled: true,
+  stage_3_enabled: true,
   kosh_transparency_mode: true,
   sos_enabled: true,
   jobs_enabled: true,
@@ -82,15 +84,15 @@ export const MODULE_STAGE: Record<string, 1 | 2 | 3> = {
   admin_requests: 1,
 };
 
-const BUNDLE_KEY = "feature_flags_bundle";
+export const BUNDLE_KEY = "feature_flags_bundle";
 
 export function coerceBool(v: unknown): boolean | undefined {
   if (typeof v === "boolean") return v;
   if (typeof v === "number") return v !== 0;
   if (typeof v === "string") {
     const s = v.trim().toLowerCase();
-    if (s === "true" || s === "1" || s === "yes" || s === "on") return true;
-    if (s === "false" || s === "0" || s === "no" || s === "off") return false;
+    if (["true", "1", "yes", "on"].includes(s)) return true;
+    if (["false", "0", "no", "off"].includes(s)) return false;
     try {
       return coerceBool(JSON.parse(v));
     } catch {
@@ -105,40 +107,43 @@ export function coerceBool(v: unknown): boolean | undefined {
   return undefined;
 }
 
-function parseFlags(data: any[]): FeatureFlags {
+function applyObj(flags: FeatureFlags, obj: Record<string, unknown>) {
+  (Object.keys(DEFAULTS) as (keyof FeatureFlags)[]).forEach((k) => {
+    if (k in obj) {
+      const v = coerceBool(obj[k]);
+      if (v !== undefined) flags[k] = v;
+    }
+  });
+}
+
+export function parseFlags(data: any[]): FeatureFlags {
   const flags = { ...DEFAULTS };
 
-  // 1) Apply individual keys first (legacy)
-  data.forEach((row: any) => {
-    const key = row.setting_key as keyof FeatureFlags;
-    if (key in DEFAULTS) {
+  // ONLY the bundle controls runtime (ignore stale individual keys)
+  const bundleRow = (data || []).find((r) => r?.setting_key === BUNDLE_KEY);
+  if (bundleRow) {
+    let raw = bundleRow.setting_value;
+    if (typeof raw === "string") {
+      try {
+        raw = JSON.parse(raw);
+      } catch {
+        raw = null;
+      }
+    }
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      applyObj(flags, raw as Record<string, unknown>);
+      return flags;
+    }
+  }
+
+  // No bundle yet — fall back to individual keys (first-time / migration)
+  (data || []).forEach((row: any) => {
+    const key = row?.setting_key as keyof FeatureFlags;
+    if (key && key in DEFAULTS) {
       const b = coerceBool(row.setting_value);
       if (b !== undefined) flags[key] = b;
     }
   });
-
-  // 2) Bundle ALWAYS wins when present (authoritative — stops stale rows overriding)
-  const bundleRow = data.find((r) => r.setting_key === BUNDLE_KEY);
-  const rawBundle = bundleRow?.setting_value;
-  let bundleObj: Record<string, unknown> | null = null;
-  if (rawBundle && typeof rawBundle === "object" && !Array.isArray(rawBundle)) {
-    bundleObj = rawBundle as Record<string, unknown>;
-  } else if (typeof rawBundle === "string") {
-    try {
-      const p = JSON.parse(rawBundle);
-      if (p && typeof p === "object") bundleObj = p;
-    } catch {
-      /* ignore */
-    }
-  }
-  if (bundleObj) {
-    (Object.keys(DEFAULTS) as (keyof FeatureFlags)[]).forEach((k) => {
-      if (k in bundleObj!) {
-        const v = coerceBool(bundleObj![k]);
-        if (v !== undefined) flags[k] = v;
-      }
-    });
-  }
   return flags;
 }
 
@@ -148,9 +153,13 @@ export async function getFeatureFlagsAdmin(): Promise<FeatureFlags> {
     const { data, error } = await supabase
       .from("app_settings")
       .select("setting_key, setting_value");
-    if (error || !data?.length) return { ...DEFAULTS };
-    return parseFlags(data);
-  } catch {
+    if (error) {
+      console.error("getFeatureFlagsAdmin:", error.message);
+      return { ...DEFAULTS };
+    }
+    return parseFlags(data || []);
+  } catch (e: any) {
+    console.error("getFeatureFlagsAdmin exception:", e?.message);
     return { ...DEFAULTS };
   }
 }
@@ -159,29 +168,29 @@ export async function getFeatureFlags(): Promise<FeatureFlags> {
   return getFeatureFlagsAdmin();
 }
 
-/** Persist one flag + full bundle so members always read consistent state */
 export async function writeFeatureFlag(
-  key: keyof FeatureFlags | string,
+  key: string,
   value: boolean,
-  userId?: string
+  _userId?: string
 ): Promise<{ ok: boolean; flags: FeatureFlags; error?: string }> {
+  if (!(key in DEFAULTS)) {
+    return { ok: false, flags: await getFeatureFlagsAdmin(), error: `Unknown key: ${key}` };
+  }
+
   const supabase = createAdminClient();
   const current = await getFeatureFlagsAdmin();
-  if (!(key in DEFAULTS)) {
-    return { ok: false, flags: current, error: "Unknown flag key" };
-  }
-  const next: FeatureFlags = { ...current, [key]: value };
+  const next: FeatureFlags = { ...current, [key as keyof FeatureFlags]: value };
 
-  // 1) Bundle (authoritative for app)
+  // Delete + insert bundle (most reliable across schemas)
   await supabase.from("app_settings").delete().eq("setting_key", BUNDLE_KEY);
-  const bundleIns = await supabase.from("app_settings").insert({
+  const ins = await supabase.from("app_settings").insert({
     setting_key: BUNDLE_KEY,
-    setting_value: next,
+    setting_value: next as any,
   });
-  if (bundleIns.error) {
-    // try upsert without delete
+
+  if (ins.error) {
     const up = await supabase.from("app_settings").upsert(
-      { setting_key: BUNDLE_KEY, setting_value: next },
+      { setting_key: BUNDLE_KEY, setting_value: next as any },
       { onConflict: "setting_key" }
     );
     if (up.error) {
@@ -189,43 +198,42 @@ export async function writeFeatureFlag(
     }
   }
 
-  // 2) Individual key (settings UI / legacy)
+  // Also write the single key (for admin UI compatibility)
   await supabase.from("app_settings").delete().eq("setting_key", key);
-  const row: Record<string, unknown> = {
+  await supabase.from("app_settings").insert({
     setting_key: key,
-    setting_value: value,
-  };
-  if (userId) {
-    row.updated_by = userId;
-    row.updated_at = new Date().toISOString();
-  }
-  let { error } = await supabase.from("app_settings").insert(row);
-  if (error) {
-    // minimal columns only
-    ({ error } = await supabase.from("app_settings").insert({
-      setting_key: key,
-      setting_value: value,
-    }));
-  }
-  if (error) {
-    console.error("individual flag write:", error.message);
-  }
-
-  // Sync ALL individual keys from bundle so nothing stays stale false
-  for (const k of Object.keys(DEFAULTS) as (keyof FeatureFlags)[]) {
-    try {
-      await supabase.from("app_settings").delete().eq("setting_key", k);
-      await supabase.from("app_settings").insert({
-        setting_key: k,
-        setting_value: next[k],
-      });
-    } catch {
-      /* best effort */
-    }
-  }
+    setting_value: value as any,
+  });
 
   const verified = await getFeatureFlagsAdmin();
+  // Ensure written value stuck
+  if ((verified as any)[key] !== value) {
+    return {
+      ok: false,
+      flags: verified,
+      error: `Write did not stick for ${key} (got ${(verified as any)[key]})`,
+    };
+  }
   return { ok: true, flags: verified };
+}
+
+/** One-shot: unlock all stages + modules (writes full bundle) */
+export async function writeAllFlags(flags: FeatureFlags): Promise<{ ok: boolean; flags: FeatureFlags; error?: string }> {
+  const supabase = createAdminClient();
+  const next = { ...DEFAULTS, ...flags };
+  await supabase.from("app_settings").delete().eq("setting_key", BUNDLE_KEY);
+  const ins = await supabase.from("app_settings").insert({
+    setting_key: BUNDLE_KEY,
+    setting_value: next as any,
+  });
+  if (ins.error) {
+    const up = await supabase.from("app_settings").upsert(
+      { setting_key: BUNDLE_KEY, setting_value: next as any },
+      { onConflict: "setting_key" }
+    );
+    if (up.error) return { ok: false, flags: await getFeatureFlagsAdmin(), error: up.error.message };
+  }
+  return { ok: true, flags: await getFeatureFlagsAdmin() };
 }
 
 export function isModuleVisible(
@@ -233,13 +241,12 @@ export function isModuleVisible(
   flags: FeatureFlags,
   role?: string | null
 ): boolean {
-  // Only super_admin bypasses — everyone else respects stages/flags
   if (role === "super_admin") return true;
 
   const stage = MODULE_STAGE[moduleKey] ?? 1;
-  if (stage === 1 && !flags.stage_1_enabled) return false;
-  if (stage === 2 && !flags.stage_2_enabled) return false;
-  if (stage === 3 && !flags.stage_3_enabled) return false;
+  if (stage === 1 && flags.stage_1_enabled === false) return false;
+  if (stage === 2 && flags.stage_2_enabled === false) return false;
+  if (stage === 3 && flags.stage_3_enabled === false) return false;
 
   const flagMap: Partial<Record<string, keyof FeatureFlags>> = {
     sos: "sos_enabled",
