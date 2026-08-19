@@ -1,6 +1,6 @@
 "use client";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, UserCircle, Shield } from "lucide-react";
+import { Home, Users, UserCircle, Shield, Grid3X3 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,10 @@ import { effectiveRole } from "@/lib/auth/roleCache";
 
 const HIDE_ON = ["/", "/login", "/register", "/history"];
 
+/**
+ * Staff / Super Admin footer unchanged (Home · Census · Profile · Admin).
+ * Normal members only: + Services tab (stage/feature gated page).
+ */
 export function BottomNav() {
   const pathname = usePathname() || "";
   const router = useRouter();
@@ -20,6 +24,7 @@ export function BottomNav() {
 
   const role = effectiveRole(user?.role);
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
+  const isNormal = !isStaff;
 
   const items: { icon: typeof Home; label: string; href: string }[] = [
     { icon: Home, label: t("nav.home") || "Home", href: "/dashboard" },
@@ -29,6 +34,11 @@ export function BottomNav() {
 
   if (isStaff) {
     items.push({ icon: Shield, label: "Admin", href: "/admin" });
+  }
+
+  // ONLY normal members get Services in footer
+  if (isNormal) {
+    items.push({ icon: Grid3X3, label: "Services", href: "/services" });
   }
 
   return (

@@ -2,11 +2,13 @@
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useFeatureFlags } from "@/lib/useFeatureFlags";
+import { effectiveRole } from "@/lib/auth/roleCache";
 import {
   Users, AlertTriangle, HeartHandshake, Briefcase, Heart, Store, Car,
   BarChart3, Calendar, Landmark, Flower2, TrendingUp, Award, Trophy, QrCode, Grid3X3,
 } from "lucide-react";
 
+/** Same visual style as Admin → All modules */
 const MEMBER_SERVICES = [
   { key: "census", label: "Census", href: "/census", icon: Users, color: "bg-blue-100 text-blue-600" },
   { key: "sos", label: "SOS", href: "/sos", icon: AlertTriangle, color: "bg-red-100 text-red-600" },
@@ -29,11 +31,29 @@ const MEMBER_SERVICES = [
 export default function ServicesPage() {
   const router = useRouter();
   const { user, loading } = useCurrentUser();
+  const role = effectiveRole(user?.role);
+  const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
   const { can } = useFeatureFlags(user?.role);
   const visible = MEMBER_SERVICES.filter((s) => can(s.key));
 
   if (loading) {
     return <div className="p-8 text-center text-gray-400">Loading…</div>;
+  }
+
+  // Staff already have Admin hub — optional redirect
+  if (isStaff) {
+    return (
+      <div className="p-8 text-center space-y-3">
+        <p className="text-sm text-gray-500">Staff use Admin panel for all modules.</p>
+        <button
+          type="button"
+          className="text-sm font-semibold text-matang-gold"
+          onClick={() => router.push("/admin")}
+        >
+          Open Admin →
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -43,11 +63,11 @@ export default function ServicesPage() {
         <h1 className="text-lg font-bold text-matang-navy">Services</h1>
       </div>
       <p className="text-[11px] text-gray-500">
-        Modules unlocked for your account (stage & feature flags).
+        Available modules for members. Super Admin unlocks stages from Admin → Stage Lock.
       </p>
       {visible.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-12">
-          No modules unlocked yet. Super Admin can open stages from Admin → Stage Lock.
+          No services unlocked yet.
         </p>
       ) : (
         <div className="grid grid-cols-3 gap-2.5">
