@@ -1,6 +1,6 @@
 "use client";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, UserCircle, Shield, Grid3X3 } from "lucide-react";
+import { Home, UserCircle, Shield, Grid3X3 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { cn } from "@/lib/utils";
@@ -29,11 +29,6 @@ export function BottomNav() {
   const items: { icon: typeof Home; label: string; href: string }[] = [
     { icon: Home, label: t("nav.home") || "Home", href: "/dashboard" },
   ];
-
-  // Census only for staff (normal members open via Services when unlocked)
-  if (isStaff) {
-    items.push({ icon: Users, label: t("nav.census") || "Census", href: "/census" });
-  }
 
   items.push({ icon: UserCircle, label: t("nav.profile") || "Profile", href: "/profile" });
 
