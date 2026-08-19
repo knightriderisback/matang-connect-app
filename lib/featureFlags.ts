@@ -28,10 +28,6 @@ export interface FeatureFlags {
   admin_requests_enabled: boolean;
 }
 
-/**
- * Defaults: stages ON so members see modules when DB/bundle missing.
- * Super Admin OFF toggles persist via feature_flags_bundle only.
- */
 export const DEFAULTS: FeatureFlags = {
   stage_1_enabled: true,
   stage_2_enabled: true,
@@ -60,6 +56,56 @@ export const DEFAULTS: FeatureFlags = {
   admin_requests_enabled: true,
 };
 
+/** moduleKey → flag key (visibility for members) */
+export const MODULE_FLAG: Record<string, keyof FeatureFlags> = {
+  census: "stage_1_enabled", // census follows stage 1
+  profile: "stage_1_enabled",
+  directory: "stage_1_enabled",
+  scan: "scan_enabled",
+  sos: "sos_enabled",
+  jobs: "jobs_enabled",
+  notices: "notices_enabled",
+  care: "care_enabled",
+  kosh: "kosh_transparency_mode",
+  titles: "titles_enabled",
+  vyapar: "vyapar_enabled",
+  matrimony: "matrimony_enabled",
+  dharohar: "dharohar_enabled",
+  panchang: "panchang_enabled",
+  mahila: "mahila_enabled",
+  polls: "polls_enabled",
+  arthik: "arthik_enabled",
+  rides: "rides_enabled",
+  gaurav: "gaurav_enabled",
+  gamification: "gamification_enabled",
+  admin_requests: "admin_requests_enabled",
+};
+
+export const STAGE_MODULES: Record<string, (keyof FeatureFlags)[]> = {
+  stage_1_enabled: ["scan_enabled"],
+  stage_2_enabled: [
+    "sos_enabled",
+    "jobs_enabled",
+    "notices_enabled",
+    "care_enabled",
+    "kosh_transparency_mode",
+    "titles_enabled",
+  ],
+  stage_3_enabled: [
+    "vyapar_enabled",
+    "matrimony_enabled",
+    "dharohar_enabled",
+    "panchang_enabled",
+    "mahila_enabled",
+    "polls_enabled",
+    "arthik_enabled",
+    "rides_enabled",
+    "gaurav_enabled",
+    "gamification_enabled",
+  ],
+};
+
+// keep for any legacy imports
 export const MODULE_STAGE: Record<string, 1 | 2 | 3> = {
   census: 1,
   profile: 1,
@@ -99,29 +145,13 @@ export function coerceBool(v: unknown): boolean | undefined {
       return undefined;
     }
   }
-  if (v && typeof v === "object" && !Array.isArray(v)) {
-    const o = v as Record<string, unknown>;
-    if ("value" in o) return coerceBool(o.value);
-    if ("enabled" in o) return coerceBool(o.enabled);
-  }
   return undefined;
-}
-
-function applyObj(flags: FeatureFlags, obj: Record<string, unknown>) {
-  (Object.keys(DEFAULTS) as (keyof FeatureFlags)[]).forEach((k) => {
-    if (k in obj) {
-      const v = coerceBool(obj[k]);
-      if (v !== undefined) flags[k] = v;
-    }
-  });
 }
 
 export function parseFlags(data: any[]): FeatureFlags {
   const flags = { ...DEFAULTS };
-
-  // ONLY the bundle controls runtime (ignore stale individual keys)
   const bundleRow = (data || []).find((r) => r?.setting_key === BUNDLE_KEY);
-  if (bundleRow) {
+  if (bundleRow?.setting_value != null) {
     let raw = bundleRow.setting_value;
     if (typeof raw === "string") {
       try {
@@ -131,41 +161,74 @@ export function parseFlags(data: any[]): FeatureFlags {
       }
     }
     if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-      applyObj(flags, raw as Record<string, unknown>);
+      for (const k of Object.keys(DEFAULTS) as (keyof FeatureFlags)[]) {
+        if (k in raw) {
+          const v = coerceBool((raw as any)[k]);
+          if (v !== undefined) flags[k] = v;
+        }
+      }
       return flags;
     }
   }
-
-  // No bundle yet — fall back to individual keys (first-time / migration)
-  (data || []).forEach((row: any) => {
+  for (const row of data || []) {
     const key = row?.setting_key as keyof FeatureFlags;
     if (key && key in DEFAULTS) {
-      const b = coerceBool(row.setting_value);
-      if (b !== undefined) flags[key] = b;
+      const v = coerceBool(row.setting_value);
+      if (v !== undefined) flags[key] = v;
     }
-  });
+  }
   return flags;
 }
 
 export async function getFeatureFlagsAdmin(): Promise<FeatureFlags> {
   try {
     const supabase = createAdminClient();
-    const { data, error } = await supabase
-      .from("app_settings")
-      .select("setting_key, setting_value");
+    const { data, error } = await supabase.from("app_settings").select("setting_key, setting_value");
     if (error) {
-      console.error("getFeatureFlagsAdmin:", error.message);
+      console.error("[flags] select error", error.message);
       return { ...DEFAULTS };
     }
     return parseFlags(data || []);
   } catch (e: any) {
-    console.error("getFeatureFlagsAdmin exception:", e?.message);
+    console.error("[flags] exception", e?.message);
     return { ...DEFAULTS };
   }
 }
 
-export async function getFeatureFlags(): Promise<FeatureFlags> {
-  return getFeatureFlagsAdmin();
+async function persistBundle(next: FeatureFlags): Promise<{ ok: boolean; error?: string }> {
+  const supabase = createAdminClient();
+  // Store as plain JSON object
+  const payload = JSON.parse(JSON.stringify(next));
+
+  // Try update first
+  const { data: existing } = await supabase
+    .from("app_settings")
+    .select("setting_key")
+    .eq("setting_key", BUNDLE_KEY)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from("app_settings")
+      .update({ setting_value: payload })
+      .eq("setting_key", BUNDLE_KEY);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  }
+
+  const { error } = await supabase.from("app_settings").insert({
+    setting_key: BUNDLE_KEY,
+    setting_value: payload,
+  });
+  if (error) {
+    // upsert fallback
+    const up = await supabase.from("app_settings").upsert(
+      { setting_key: BUNDLE_KEY, setting_value: payload },
+      { onConflict: "setting_key" }
+    );
+    if (up.error) return { ok: false, error: up.error.message };
+  }
+  return { ok: true };
 }
 
 export async function writeFeatureFlag(
@@ -174,101 +237,51 @@ export async function writeFeatureFlag(
   _userId?: string
 ): Promise<{ ok: boolean; flags: FeatureFlags; error?: string }> {
   if (!(key in DEFAULTS)) {
-    return { ok: false, flags: await getFeatureFlagsAdmin(), error: `Unknown key: ${key}` };
+    return { ok: false, flags: await getFeatureFlagsAdmin(), error: "Unknown key" };
   }
 
-  const supabase = createAdminClient();
   const current = await getFeatureFlagsAdmin();
-  const next: FeatureFlags = { ...current, [key as keyof FeatureFlags]: value };
+  const next: FeatureFlags = { ...current, [key]: value };
 
-  // Delete + insert bundle (most reliable across schemas)
-  await supabase.from("app_settings").delete().eq("setting_key", BUNDLE_KEY);
-  const ins = await supabase.from("app_settings").insert({
-    setting_key: BUNDLE_KEY,
-    setting_value: next as any,
-  });
-
-  if (ins.error) {
-    const up = await supabase.from("app_settings").upsert(
-      { setting_key: BUNDLE_KEY, setting_value: next as any },
-      { onConflict: "setting_key" }
-    );
-    if (up.error) {
-      return { ok: false, flags: current, error: up.error.message };
+  // Stage toggle → bulk set that stage's modules
+  if (key in STAGE_MODULES) {
+    for (const mk of STAGE_MODULES[key]) {
+      (next as any)[mk] = value;
     }
   }
 
-  // Also write the single key (for admin UI compatibility)
-  await supabase.from("app_settings").delete().eq("setting_key", key);
-  await supabase.from("app_settings").insert({
-    setting_key: key,
-    setting_value: value as any,
-  });
-
-  const verified = await getFeatureFlagsAdmin();
-  // Ensure written value stuck
-  if ((verified as any)[key] !== value) {
-    return {
-      ok: false,
-      flags: verified,
-      error: `Write did not stick for ${key} (got ${(verified as any)[key]})`,
-    };
+  const saved = await persistBundle(next);
+  if (!saved.ok) {
+    return { ok: false, flags: current, error: saved.error };
   }
+
+  // Verify
+  const verified = await getFeatureFlagsAdmin();
   return { ok: true, flags: verified };
 }
 
-/** One-shot: unlock all stages + modules (writes full bundle) */
-export async function writeAllFlags(flags: FeatureFlags): Promise<{ ok: boolean; flags: FeatureFlags; error?: string }> {
-  const supabase = createAdminClient();
+export async function writeAllFlags(
+  flags: FeatureFlags
+): Promise<{ ok: boolean; flags: FeatureFlags; error?: string }> {
   const next = { ...DEFAULTS, ...flags };
-  await supabase.from("app_settings").delete().eq("setting_key", BUNDLE_KEY);
-  const ins = await supabase.from("app_settings").insert({
-    setting_key: BUNDLE_KEY,
-    setting_value: next as any,
-  });
-  if (ins.error) {
-    const up = await supabase.from("app_settings").upsert(
-      { setting_key: BUNDLE_KEY, setting_value: next as any },
-      { onConflict: "setting_key" }
-    );
-    if (up.error) return { ok: false, flags: await getFeatureFlagsAdmin(), error: up.error.message };
-  }
+  // force every known key true if unlock
+  const saved = await persistBundle(next);
+  if (!saved.ok) return { ok: false, flags: await getFeatureFlagsAdmin(), error: saved.error };
   return { ok: true, flags: await getFeatureFlagsAdmin() };
 }
 
+/**
+ * Members: visible only if module flag is true.
+ * Super Admin: always true.
+ * Stages no longer independently hide modules — stage toggle updates module flags in writeFeatureFlag.
+ */
 export function isModuleVisible(
   moduleKey: string,
   flags: FeatureFlags,
   role?: string | null
 ): boolean {
   if (role === "super_admin") return true;
-
-  const stage = MODULE_STAGE[moduleKey] ?? 1;
-  if (stage === 1 && flags.stage_1_enabled === false) return false;
-  if (stage === 2 && flags.stage_2_enabled === false) return false;
-  if (stage === 3 && flags.stage_3_enabled === false) return false;
-
-  const flagMap: Partial<Record<string, keyof FeatureFlags>> = {
-    sos: "sos_enabled",
-    jobs: "jobs_enabled",
-    notices: "notices_enabled",
-    care: "care_enabled",
-    titles: "titles_enabled",
-    vyapar: "vyapar_enabled",
-    matrimony: "matrimony_enabled",
-    dharohar: "dharohar_enabled",
-    panchang: "panchang_enabled",
-    mahila: "mahila_enabled",
-    polls: "polls_enabled",
-    arthik: "arthik_enabled",
-    scan: "scan_enabled",
-    admin_requests: "admin_requests_enabled",
-    rides: "rides_enabled",
-    gaurav: "gaurav_enabled",
-    gamification: "gamification_enabled",
-    kosh: "kosh_transparency_mode",
-  };
-  const fk = flagMap[moduleKey];
-  if (fk && flags[fk] === false) return false;
-  return true;
+  const fk = MODULE_FLAG[moduleKey];
+  if (!fk) return true; // unknown modules allowed
+  return flags[fk] !== false;
 }

@@ -33,7 +33,7 @@ export default function ServicesPage() {
   const { user, loading } = useCurrentUser();
   const role = effectiveRole(user?.role);
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
-  const { can, loading: flagsLoading } = useFeatureFlags(user?.role);
+  const { can, flags, loading: flagsLoading, refresh } = useFeatureFlags(user?.role);
   const visible = MEMBER_SERVICES.filter((s) => can(s.key));
 
   if (loading || flagsLoading) {
@@ -65,6 +65,13 @@ export default function ServicesPage() {
       <p className="text-[11px] text-gray-500">
         Available modules for members. Super Admin unlocks stages from Admin → Stage Lock.
       </p>
+      <button
+        type="button"
+        onClick={() => refresh?.()}
+        className="text-[10px] text-matang-gold underline"
+      >
+        Refresh list
+      </button>
       {visible.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-12">
           No services unlocked yet.
