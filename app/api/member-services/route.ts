@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/getSession";
 import {
   getMemberAllowlist,
   setMemberAllowlist,
+  getEffectiveModulesForUser,
   ALL_MEMBER_MODULE_KEYS,
 } from "@/lib/memberServices";
 
@@ -11,9 +12,20 @@ export async function GET() {
   if (!session) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
-  const keys = await getMemberAllowlist();
+
+  // Super admin sees full global list for settings UI
+  if (session.role === "super_admin") {
+    const keys = await getMemberAllowlist();
+    return NextResponse.json(
+      { keys, all: ALL_MEMBER_MODULE_KEYS, scope: "global" },
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
+  }
+
+  // Members: global ∩ personal overrides
+  const keys = await getEffectiveModulesForUser(session.userId);
   return NextResponse.json(
-    { keys, all: ALL_MEMBER_MODULE_KEYS },
+    { keys, all: ALL_MEMBER_MODULE_KEYS, scope: "effective" },
     { headers: { "Cache-Control": "no-store, max-age=0" } }
   );
 }
@@ -30,7 +42,7 @@ export async function POST(request: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ error: result.error || "Save failed" }, { status: 500 });
     }
-    return NextResponse.json({ success: true, keys: result.keys });
+    return NextResponse.json({ success: true, keys: result.keys, synced_personal: true });
   }
 
   if (body.action === "toggle" && typeof body.key === "string") {
@@ -45,7 +57,7 @@ export async function POST(request: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ error: result.error || "Save failed" }, { status: 500 });
     }
-    return NextResponse.json({ success: true, keys: result.keys });
+    return NextResponse.json({ success: true, keys: result.keys, synced_personal: true });
   }
 
   if (body.action === "enable_all") {
@@ -53,7 +65,7 @@ export async function POST(request: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ error: result.error || "Failed" }, { status: 500 });
     }
-    return NextResponse.json({ success: true, keys: result.keys });
+    return NextResponse.json({ success: true, keys: result.keys, synced_personal: true });
   }
 
   if (body.action === "disable_all") {
@@ -61,7 +73,7 @@ export async function POST(request: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ error: result.error || "Failed" }, { status: 500 });
     }
-    return NextResponse.json({ success: true, keys: result.keys });
+    return NextResponse.json({ success: true, keys: result.keys, synced_personal: true });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

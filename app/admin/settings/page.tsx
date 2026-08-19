@@ -129,7 +129,7 @@ export default function SettingsPage() {
       <div className="p-4 rounded-2xl border-2 border-matang-gold/40 bg-white space-y-3">
         <h2 className="text-sm font-bold text-matang-navy">Member Services (show / hide)</h2>
         <p className="text-[11px] text-gray-500">
-          Simple list for normal members&apos; Services tab. ON = icon dikhe, OFF = hide. Super Admin panel unchanged.
+          Global list for members&apos; Services. ON/OFF also syncs every member&apos;s personal flags. After that, Directory → person pe personal override alag se.
         </p>
         <div className="flex gap-2">
           <button
