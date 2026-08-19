@@ -42,5 +42,8 @@ export async function GET() {
     /* ignore member override errors */
   }
 
-  return NextResponse.json({ flags });
+  return NextResponse.json(
+    { flags },
+    { headers: { "Cache-Control": "no-store, max-age=0" } }
+  );
 }

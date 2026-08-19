@@ -27,23 +27,25 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // JSONB boolean — explicit true/false
+  // Always replace rows for this key (handles missing UNIQUE + jsonb/text)
+  await supabase.from("app_settings").delete().eq("setting_key", key);
+
   const payload = {
     setting_key: key,
-    setting_value: value, // json boolean
+    setting_value: value, // boolean true/false in jsonb
     updated_by: session.userId,
     updated_at: new Date().toISOString(),
   };
 
-  // Prefer upsert on setting_key (works when setting_key is UNIQUE/PK)
-  let { error } = await supabase.from("app_settings").upsert(payload, {
-    onConflict: "setting_key",
-  });
+  let { error } = await supabase.from("app_settings").insert(payload);
 
-  // Fallback: delete + insert (older schemas / duplicate rows)
+  // text-column schemas sometimes need stringified json
   if (error) {
-    await supabase.from("app_settings").delete().eq("setting_key", key);
-    ({ error } = await supabase.from("app_settings").insert(payload));
+    const payload2 = {
+      ...payload,
+      setting_value: value ? "true" : "false",
+    };
+    ({ error } = await supabase.from("app_settings").insert(payload2 as any));
   }
 
   if (error) {

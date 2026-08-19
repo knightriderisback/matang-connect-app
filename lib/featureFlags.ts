@@ -81,24 +81,37 @@ export const MODULE_STAGE: Record<string, 1 | 2 | 3> = {
   admin_requests: 1,
 };
 
-function coerceBool(v: unknown): boolean {
+function coerceBool(v: unknown): boolean | undefined {
   if (typeof v === "boolean") return v;
   if (typeof v === "number") return v !== 0;
   if (typeof v === "string") {
     const s = v.trim().toLowerCase();
     if (s === "true" || s === "1" || s === "yes" || s === "on") return true;
     if (s === "false" || s === "0" || s === "no" || s === "off") return false;
+    // JSON string payload
+    try {
+      const parsed = JSON.parse(s);
+      return coerceBool(parsed);
+    } catch {
+      return undefined;
+    }
   }
-  // jsonb sometimes arrives already parsed; null/undefined keep default via caller
-  return Boolean(v);
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    const o = v as Record<string, unknown>;
+    if ("value" in o) return coerceBool(o.value);
+    if ("enabled" in o) return coerceBool(o.enabled);
+  }
+  // null/undefined → keep default (caller skips)
+  return undefined;
 }
 
 function parseFlags(data: any[]): FeatureFlags {
   const flags = { ...DEFAULTS };
   data.forEach((row: any) => {
     const key = row.setting_key as keyof FeatureFlags;
-    if (key in flags) {
-      flags[key] = coerceBool(row.setting_value);
+    if (key in DEFAULTS) {
+      const b = coerceBool(row.setting_value);
+      if (b !== undefined) flags[key] = b;
     }
   });
   return flags;
