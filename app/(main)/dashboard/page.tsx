@@ -41,24 +41,6 @@ function timeAgo(iso: string) {
 
 
 
-const MEMBER_SERVICES = [
-  { key: "census", label: "Census", href: "/census" },
-  { key: "sos", label: "SOS", href: "/sos" },
-  { key: "care", label: "Care", href: "/care" },
-  { key: "jobs", label: "Jobs", href: "/jobs" },
-  { key: "kosh", label: "Sahyog", href: "/kosh" },
-  { key: "matrimony", label: "Matrimony", href: "/matrimony" },
-  { key: "vyapar", label: "Vyapar", href: "/vyapar" },
-  { key: "rides", label: "Rides", href: "/rides" },
-  { key: "polls", label: "Polls", href: "/polls" },
-  { key: "panchang", label: "Panchang", href: "/panchang" },
-  { key: "dharohar", label: "Dharohar", href: "/dharohar" },
-  { key: "mahila", label: "Mahila", href: "/mahila" },
-  { key: "arthik", label: "Arthik", href: "/arthik" },
-  { key: "gaurav", label: "Gaurav", href: "/gaurav" },
-  { key: "gamification", label: "Credits", href: "/badges" },
-  { key: "scan", label: "Scan", href: "/scan" },
-];
 
 export default function DashboardPage() {
   const { t } = useI18n();
@@ -218,27 +200,6 @@ export default function DashboardPage() {
             <Sparkles size={12} /> Matang AI — left bottom
           </p>
         </div>
-        {/* Staff / Super Admin home modules (normal members: footer → Services only) */}
-        {user?.role && user.role !== "normal" && (
-          <div className="px-4">
-            <h2 className="text-sm font-bold text-matang-navy mb-2">Services</h2>
-            <div className="grid grid-cols-4 gap-2">
-              {MEMBER_SERVICES.filter((s) => can(s.key)).map((s) => (
-                <button
-                  key={s.key}
-                  type="button"
-                  onClick={() => router.push(s.href)}
-                  className="flex flex-col items-center gap-1 p-2 bg-white rounded-xl border border-gray-100 shadow-sm active:scale-95"
-                >
-                  <span className="text-[10px] font-semibold text-matang-navy text-center leading-tight">
-                    {s.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         <div className="px-4 flex items-center justify-between">
           <h2 className="text-base font-bold text-matang-navy flex items-center gap-2">
             <Bell size={18} className="text-matang-gold" /> Community Feed
