@@ -21,14 +21,23 @@ export async function POST(request: NextRequest) {
 
   if (body.action === "unlock_all") {
     const allOn = { ...DEFAULTS } as FeatureFlags;
-    (Object.keys(allOn) as (keyof FeatureFlags)[]).forEach((k) => {
+    (Object.keys(DEFAULTS) as (keyof FeatureFlags)[]).forEach((k) => {
       (allOn as any)[k] = true;
     });
     const result = await writeAllFlags(allOn);
     if (!result.ok) {
-      return NextResponse.json({ error: result.error || "Failed" }, { status: 500 });
+      return NextResponse.json({ error: result.error || "Failed", flags: result.flags }, { status: 500 });
     }
-    return NextResponse.json({ success: true, flags: result.flags });
+    // verify modules members care about
+    const f = result.flags;
+    const sample = {
+      stage_2: f.stage_2_enabled,
+      stage_3: f.stage_3_enabled,
+      sos: f.sos_enabled,
+      matrimony: f.matrimony_enabled,
+      jobs: f.jobs_enabled,
+    };
+    return NextResponse.json({ success: true, flags: result.flags, sample });
   }
 
   const key = body.key as string;
