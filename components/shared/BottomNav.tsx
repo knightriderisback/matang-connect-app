@@ -1,6 +1,6 @@
 "use client";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, UserCircle, Shield } from "lucide-react";
+import { Home, UserCircle, Shield, Grid3X3 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { cn } from "@/lib/utils";
@@ -21,16 +21,17 @@ export function BottomNav() {
   const role = effectiveRole(user?.role);
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
 
-  // SOS removed from footer → header red button
+  // Order: Home → Profile → (Admin if staff) → Services last
   const items: { icon: typeof Home; label: string; href: string }[] = [
     { icon: Home, label: t("nav.home") || "Home", href: "/dashboard" },
-    { icon: Users, label: t("nav.census") || "Census", href: "/census" },
     { icon: UserCircle, label: t("nav.profile") || "Profile", href: "/profile" },
   ];
 
   if (isStaff) {
     items.push({ icon: Shield, label: "Admin", href: "/admin" });
   }
+
+  items.push({ icon: Grid3X3, label: "Services", href: "/services" });
 
   return (
     <nav
@@ -42,7 +43,8 @@ export function BottomNav() {
           const active =
             pathname === item.href ||
             pathname.startsWith(item.href + "/") ||
-            (item.href === "/admin" && pathname.startsWith("/admin"));
+            (item.href === "/admin" && pathname.startsWith("/admin")) ||
+            (item.href === "/services" && pathname === "/services");
           return (
             <button
               key={item.href}
