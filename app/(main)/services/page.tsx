@@ -33,10 +33,10 @@ export default function ServicesPage() {
   const { user, loading } = useCurrentUser();
   const role = effectiveRole(user?.role);
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
-  const { can } = useFeatureFlags(user?.role);
+  const { can, loading: flagsLoading } = useFeatureFlags(user?.role);
   const visible = MEMBER_SERVICES.filter((s) => can(s.key));
 
-  if (loading) {
+  if (loading || flagsLoading) {
     return <div className="p-8 text-center text-gray-400">Loading…</div>;
   }
 
