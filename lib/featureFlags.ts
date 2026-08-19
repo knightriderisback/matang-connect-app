@@ -108,18 +108,7 @@ export function coerceBool(v: unknown): boolean | undefined {
 function parseFlags(data: any[]): FeatureFlags {
   const flags = { ...DEFAULTS };
 
-  // Prefer atomic bundle if present
-  const bundleRow = data.find((r) => r.setting_key === BUNDLE_KEY);
-  if (bundleRow?.setting_value && typeof bundleRow.setting_value === "object") {
-    const b = bundleRow.setting_value as Record<string, unknown>;
-    (Object.keys(DEFAULTS) as (keyof FeatureFlags)[]).forEach((k) => {
-      if (k in b) {
-        const v = coerceBool(b[k]);
-        if (v !== undefined) flags[k] = v;
-      }
-    });
-  }
-
+  // 1) Apply individual keys first (legacy)
   data.forEach((row: any) => {
     const key = row.setting_key as keyof FeatureFlags;
     if (key in DEFAULTS) {
@@ -127,6 +116,29 @@ function parseFlags(data: any[]): FeatureFlags {
       if (b !== undefined) flags[key] = b;
     }
   });
+
+  // 2) Bundle ALWAYS wins when present (authoritative — stops stale rows overriding)
+  const bundleRow = data.find((r) => r.setting_key === BUNDLE_KEY);
+  const rawBundle = bundleRow?.setting_value;
+  let bundleObj: Record<string, unknown> | null = null;
+  if (rawBundle && typeof rawBundle === "object" && !Array.isArray(rawBundle)) {
+    bundleObj = rawBundle as Record<string, unknown>;
+  } else if (typeof rawBundle === "string") {
+    try {
+      const p = JSON.parse(rawBundle);
+      if (p && typeof p === "object") bundleObj = p;
+    } catch {
+      /* ignore */
+    }
+  }
+  if (bundleObj) {
+    (Object.keys(DEFAULTS) as (keyof FeatureFlags)[]).forEach((k) => {
+      if (k in bundleObj!) {
+        const v = coerceBool(bundleObj![k]);
+        if (v !== undefined) flags[k] = v;
+      }
+    });
+  }
   return flags;
 }
 
@@ -196,8 +208,20 @@ export async function writeFeatureFlag(
     }));
   }
   if (error) {
-    // still ok if bundle saved
     console.error("individual flag write:", error.message);
+  }
+
+  // Sync ALL individual keys from bundle so nothing stays stale false
+  for (const k of Object.keys(DEFAULTS) as (keyof FeatureFlags)[]) {
+    try {
+      await supabase.from("app_settings").delete().eq("setting_key", k);
+      await supabase.from("app_settings").insert({
+        setting_key: k,
+        setting_value: next[k],
+      });
+    } catch {
+      /* best effort */
+    }
   }
 
   const verified = await getFeatureFlagsAdmin();
