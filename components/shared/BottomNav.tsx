@@ -28,9 +28,14 @@ export function BottomNav() {
 
   const items: { icon: typeof Home; label: string; href: string }[] = [
     { icon: Home, label: t("nav.home") || "Home", href: "/dashboard" },
-    { icon: Users, label: t("nav.census") || "Census", href: "/census" },
-    { icon: UserCircle, label: t("nav.profile") || "Profile", href: "/profile" },
   ];
+
+  // Census only for staff (normal members open via Services when unlocked)
+  if (isStaff) {
+    items.push({ icon: Users, label: t("nav.census") || "Census", href: "/census" });
+  }
+
+  items.push({ icon: UserCircle, label: t("nav.profile") || "Profile", href: "/profile" });
 
   if (isStaff) {
     items.push({ icon: Shield, label: "Admin", href: "/admin" });
