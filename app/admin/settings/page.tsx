@@ -43,6 +43,9 @@ export default function SettingsPage() {
   const { user } = useCurrentUser();
   const [flags, setFlags] = useState<Flags>({});
   const [loading, setLoading] = useState(true);
+  const [memberKeys, setMemberKeys] = useState<string[]>([]);
+  const [allMemberKeys, setAllMemberKeys] = useState<string[]>([]);
+
 
   useEffect(() => {
     fetch("/api/admin/settings")
@@ -50,6 +53,13 @@ export default function SettingsPage() {
       .then((d) => setFlags(d.flags || {}))
       .catch(() => toast("Failed to load settings", "error"))
       .finally(() => setLoading(false));
+    fetch("/api/member-services", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        setMemberKeys(Array.isArray(d.keys) ? d.keys : []);
+        setAllMemberKeys(Array.isArray(d.all) ? d.all : []);
+      })
+      .catch(() => {});
   }, []);
 
   const toggle = async (key: string, value: boolean) => {
@@ -115,6 +125,79 @@ export default function SettingsPage() {
       >
         Unlock ALL stages + modules for members
       </button>
+
+      <div className="p-4 rounded-2xl border-2 border-matang-gold/40 bg-white space-y-3">
+        <h2 className="text-sm font-bold text-matang-navy">Member Services (show / hide)</h2>
+        <p className="text-[11px] text-gray-500">
+          Simple list for normal members&apos; Services tab. ON = icon dikhe, OFF = hide. Super Admin panel unchanged.
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className="flex-1 py-2 rounded-xl bg-matang-navy text-matang-gold text-xs font-semibold"
+            onClick={async () => {
+              const res = await fetch("/api/member-services", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "enable_all" }),
+              });
+              const d = await res.json();
+              if (!res.ok) return toast(d.error || "Failed", "error");
+              setMemberKeys(d.keys || []);
+              toast("All services ON for members", "success");
+            }}
+          >
+            Enable all
+          </button>
+          <button
+            type="button"
+            className="flex-1 py-2 rounded-xl border text-xs font-semibold text-matang-navy"
+            onClick={async () => {
+              const res = await fetch("/api/member-services", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "disable_all" }),
+              });
+              const d = await res.json();
+              if (!res.ok) return toast(d.error || "Failed", "error");
+              setMemberKeys(d.keys || []);
+              toast("All services OFF for members", "success");
+            }}
+          >
+            Disable all
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {(allMemberKeys.length ? allMemberKeys : [
+            "census","sos","care","jobs","kosh","matrimony","vyapar","rides","polls","panchang","dharohar","mahila","arthik","gaurav","gamification","scan"
+          ]).map((key) => {
+            const on = memberKeys.includes(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={async () => {
+                  const res = await fetch("/api/member-services", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "toggle", key, value: !on }),
+                  });
+                  const d = await res.json();
+                  if (!res.ok) return toast(d.error || "Failed", "error");
+                  setMemberKeys(d.keys || []);
+                  toast(`${key}: ${!on ? "ON" : "OFF"}`, "success");
+                }}
+                className={`text-left px-3 py-2 rounded-xl border text-xs font-medium ${
+                  on ? "bg-matang-gold/20 border-matang-gold text-matang-navy" : "bg-gray-50 border-gray-200 text-gray-400"
+                }`}
+              >
+                {on ? "✓ " : "○ "}{key}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
 
 
       {loading && <p className="text-center text-gray-400">Loading...</p>}

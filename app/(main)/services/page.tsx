@@ -1,14 +1,13 @@
 "use client";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import { effectiveRole } from "@/lib/auth/roleCache";
 import {
   Users, AlertTriangle, HeartHandshake, Briefcase, Heart, Store, Car,
   BarChart3, Calendar, Landmark, Flower2, TrendingUp, Award, Trophy, QrCode, Grid3X3,
 } from "lucide-react";
 
-/** Same visual style as Admin → All modules */
 const MEMBER_SERVICES = [
   { key: "census", label: "Census", href: "/census", icon: Users, color: "bg-blue-100 text-blue-600" },
   { key: "sos", label: "SOS", href: "/sos", icon: AlertTriangle, color: "bg-red-100 text-red-600" },
@@ -33,14 +32,23 @@ export default function ServicesPage() {
   const { user, loading } = useCurrentUser();
   const role = effectiveRole(user?.role);
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
-  const { can, flags, loading: flagsLoading, refresh } = useFeatureFlags(user?.role);
-  const visible = MEMBER_SERVICES.filter((s) => can(s.key));
+  const [allowed, setAllowed] = useState<string[] | null>(null);
 
-  if (loading || flagsLoading) {
+  const load = () => {
+    fetch("/api/member-services", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setAllowed(Array.isArray(d.keys) ? d.keys : []))
+      .catch(() => setAllowed([]));
+  };
+
+  useEffect(() => {
+    if (!loading && !isStaff) load();
+  }, [loading, isStaff]);
+
+  if (loading) {
     return <div className="p-8 text-center text-gray-400">Loading…</div>;
   }
 
-  // Staff already have Admin hub — optional redirect
   if (isStaff) {
     return (
       <div className="p-8 text-center space-y-3">
@@ -56,26 +64,26 @@ export default function ServicesPage() {
     );
   }
 
+  if (allowed === null) {
+    return <div className="p-8 text-center text-gray-400">Loading services…</div>;
+  }
+
+  const visible = MEMBER_SERVICES.filter((s) => allowed.includes(s.key));
+
   return (
     <div className="p-4 space-y-4 pb-24">
-      <div className="flex items-center gap-2">
-        <Grid3X3 className="text-matang-gold" size={22} />
-        <h1 className="text-lg font-bold text-matang-navy">Services</h1>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Grid3X3 className="text-matang-gold" size={22} />
+          <h1 className="text-lg font-bold text-matang-navy">Services</h1>
+        </div>
+        <button type="button" onClick={load} className="text-[10px] text-matang-gold underline">
+          Refresh
+        </button>
       </div>
-      <p className="text-[11px] text-gray-500">
-        Available modules for members. Super Admin unlocks stages from Admin → Stage Lock.
-      </p>
-      <button
-        type="button"
-        onClick={() => refresh?.()}
-        className="text-[10px] text-matang-gold underline"
-      >
-        Refresh list
-      </button>
+      <p className="text-[11px] text-gray-500">Modules enabled for members by Super Admin.</p>
       {visible.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-12">
-          No services unlocked yet.
-        </p>
+        <p className="text-sm text-gray-400 text-center py-12">No services enabled yet.</p>
       ) : (
         <div className="grid grid-cols-3 gap-2.5">
           {visible.map((s) => (
