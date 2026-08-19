@@ -4,6 +4,7 @@ import {
   getMemberAllowlist,
   setMemberAllowlist,
   getEffectiveModulesForUser,
+  resetAllPersonalModuleOverrides,
   ALL_MEMBER_MODULE_KEYS,
 } from "@/lib/memberServices";
 
@@ -12,8 +13,6 @@ export async function GET() {
   if (!session) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
-
-  // Super admin sees full global list for settings UI
   if (session.role === "super_admin") {
     const keys = await getMemberAllowlist();
     return NextResponse.json(
@@ -21,8 +20,6 @@ export async function GET() {
       { headers: { "Cache-Control": "no-store, max-age=0" } }
     );
   }
-
-  // Members: global ∩ personal overrides
   const keys = await getEffectiveModulesForUser(session.userId);
   return NextResponse.json(
     { keys, all: ALL_MEMBER_MODULE_KEYS, scope: "effective" },
@@ -37,43 +34,43 @@ export async function POST(request: NextRequest) {
   }
   const body = await request.json().catch(() => ({}));
 
+  if (body.action === "reset_personal") {
+    const result = await resetAllPersonalModuleOverrides();
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
+    return NextResponse.json({
+      success: true,
+      cleared: result.cleared,
+      message: "Personal overrides cleared — members follow global",
+    });
+  }
+
   if (body.action === "set" && Array.isArray(body.keys)) {
     const result = await setMemberAllowlist(body.keys);
-    if (!result.ok) {
-      return NextResponse.json({ error: result.error || "Save failed" }, { status: 500 });
-    }
-    return NextResponse.json({ success: true, keys: result.keys, synced_personal: true });
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
+    return NextResponse.json({ success: true, keys: result.keys });
   }
 
   if (body.action === "toggle" && typeof body.key === "string") {
     const current = await getMemberAllowlist();
     const on = body.value === true;
     const next = on
-      ? current.includes(body.key)
-        ? current
-        : [...current, body.key]
+      ? current.includes(body.key) ? current : [...current, body.key]
       : current.filter((k) => k !== body.key);
     const result = await setMemberAllowlist(next);
-    if (!result.ok) {
-      return NextResponse.json({ error: result.error || "Save failed" }, { status: 500 });
-    }
-    return NextResponse.json({ success: true, keys: result.keys, synced_personal: true });
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
+    return NextResponse.json({ success: true, keys: result.keys });
   }
 
   if (body.action === "enable_all") {
     const result = await setMemberAllowlist([...ALL_MEMBER_MODULE_KEYS]);
-    if (!result.ok) {
-      return NextResponse.json({ error: result.error || "Failed" }, { status: 500 });
-    }
-    return NextResponse.json({ success: true, keys: result.keys, synced_personal: true });
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
+    return NextResponse.json({ success: true, keys: result.keys });
   }
 
   if (body.action === "disable_all") {
     const result = await setMemberAllowlist([]);
-    if (!result.ok) {
-      return NextResponse.json({ error: result.error || "Failed" }, { status: 500 });
-    }
-    return NextResponse.json({ success: true, keys: result.keys, synced_personal: true });
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
+    return NextResponse.json({ success: true, keys: result.keys });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

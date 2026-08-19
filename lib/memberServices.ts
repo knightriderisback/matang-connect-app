@@ -1,33 +1,21 @@
 /**
- * Global allowlist for normal members' Services + sync to personal member_flags.
- * Personal overrides (Directory → member) apply only after explicit per-user toggle.
+ * WORKING MODEL:
+ * 1) GLOBAL allowlist = default for all members
+ * 2) PERSONAL = only if Super Admin set override for that person
+ *    - no override → follow global
+ *    - override true/false → that person only
+ * 3) Global ON/OFF does NOT rewrite personal rows
+ * 4) "Reset personal overrides" clears overrides so everyone follows global
  */
 import { createAdminClient } from "./supabase/admin";
 
 export const ALL_MEMBER_MODULE_KEYS = [
-  "census",
-  "sos",
-  "care",
-  "jobs",
-  "kosh",
-  "matrimony",
-  "vyapar",
-  "rides",
-  "polls",
-  "panchang",
-  "dharohar",
-  "mahila",
-  "arthik",
-  "gaurav",
-  "gamification",
-  "scan",
+  "census", "sos", "care", "jobs", "kosh", "matrimony", "vyapar", "rides",
+  "polls", "panchang", "dharohar", "mahila", "arthik", "gaurav", "gamification", "scan",
 ] as const;
-
-export type MemberModuleKey = (typeof ALL_MEMBER_MODULE_KEYS)[number];
 
 export const ALLOWLIST_KEY = "member_services_allowlist";
 
-/** module key → feature flag key stored in member_flags:{userId} */
 export const MODULE_TO_FLAG: Record<string, string> = {
   census: "stage_1_enabled",
   sos: "sos_enabled",
@@ -64,46 +52,11 @@ export async function getMemberAllowlist(): Promise<string[]> {
       try {
         const p = JSON.parse(v);
         if (Array.isArray(p)) return p.map(String);
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
     }
     return [...DEFAULT_ALLOWLIST];
   } catch {
     return [...DEFAULT_ALLOWLIST];
-  }
-}
-
-/** Push global module on/off into every personal member_flags row */
-async function syncPersonalFlagsToGlobal(keys: string[]) {
-  const supabase = createAdminClient();
-  const allowed = new Set(keys);
-
-  // Build flag map for all known modules
-  const flagValues: Record<string, boolean> = {};
-  for (const mod of ALL_MEMBER_MODULE_KEYS) {
-    const fk = MODULE_TO_FLAG[mod];
-    if (fk) flagValues[fk] = allowed.has(mod);
-  }
-
-  const { data: rows } = await supabase
-    .from("app_settings")
-    .select("setting_key, setting_value")
-    .like("setting_key", "member_flags:%");
-
-  for (const row of rows || []) {
-    const prev =
-      row.setting_value && typeof row.setting_value === "object" && !Array.isArray(row.setting_value)
-        ? { ...(row.setting_value as Record<string, unknown>) }
-        : {};
-    // Overwrite module-related flags to match global (personal sync)
-    for (const [fk, val] of Object.entries(flagValues)) {
-      prev[fk] = val;
-    }
-    await supabase
-      .from("app_settings")
-      .update({ setting_value: prev })
-      .eq("setting_key", row.setting_key);
   }
 }
 
@@ -114,7 +67,6 @@ export async function setMemberAllowlist(
     (ALL_MEMBER_MODULE_KEYS as readonly string[]).includes(k)
   );
   const supabase = createAdminClient();
-
   const { data: existing } = await supabase
     .from("app_settings")
     .select("setting_key")
@@ -140,23 +92,9 @@ export async function setMemberAllowlist(
       if (up.error) return { ok: false, keys: cleaned, error: up.error.message };
     }
   }
-
-  // Sync all personal member_flags to match this global list
-  try {
-    await syncPersonalFlagsToGlobal(cleaned);
-  } catch (e: any) {
-    console.error("personal sync", e?.message);
-  }
-
-  const read = await getMemberAllowlist();
-  return { ok: true, keys: read };
+  return { ok: true, keys: await getMemberAllowlist() };
 }
 
-/**
- * Effective visibility for one user:
- * 1) Start from global allowlist
- * 2) If personal member_flags has explicit module flag, that wins
- */
 export async function getEffectiveModulesForUser(userId: string): Promise<string[]> {
   const global = await getMemberAllowlist();
   const supabase = createAdminClient();
@@ -167,23 +105,60 @@ export async function getEffectiveModulesForUser(userId: string): Promise<string
     .maybeSingle();
 
   const personal =
-    data?.setting_value && typeof data.setting_value === "object" && !Array.isArray(data.setting_value)
+    data?.setting_value &&
+    typeof data.setting_value === "object" &&
+    !Array.isArray(data.setting_value)
       ? (data.setting_value as Record<string, unknown>)
       : null;
 
-  if (!personal) return global;
+  if (!personal || Object.keys(personal).length === 0) return global;
 
   const result: string[] = [];
   for (const mod of ALL_MEMBER_MODULE_KEYS) {
     const fk = MODULE_TO_FLAG[mod];
     if (!fk) continue;
-    if (fk in personal) {
+    if (Object.prototype.hasOwnProperty.call(personal, fk)) {
       const v = personal[fk];
-      const on = v === true || v === "true" || v === 1;
+      const on = v === true || v === "true" || v === 1 || v === "1";
       if (on) result.push(mod);
     } else if (global.includes(mod)) {
       result.push(mod);
     }
   }
   return result;
+}
+
+export async function resetAllPersonalModuleOverrides(): Promise<{
+  ok: boolean;
+  cleared: number;
+  error?: string;
+}> {
+  const supabase = createAdminClient();
+  const { data: rows, error } = await supabase
+    .from("app_settings")
+    .select("setting_key, setting_value")
+    .like("setting_key", "member_flags:%");
+  if (error) return { ok: false, cleared: 0, error: error.message };
+
+  const flagKeys = new Set(Object.values(MODULE_TO_FLAG));
+  let cleared = 0;
+  for (const row of rows || []) {
+    if (!row.setting_value || typeof row.setting_value !== "object") continue;
+    const prev = { ...(row.setting_value as Record<string, unknown>) };
+    let changed = false;
+    for (const fk of flagKeys) {
+      if (fk in prev) {
+        delete prev[fk];
+        changed = true;
+      }
+    }
+    if (changed) {
+      await supabase
+        .from("app_settings")
+        .update({ setting_value: prev })
+        .eq("setting_key", row.setting_key);
+      cleared++;
+    }
+  }
+  return { ok: true, cleared };
 }

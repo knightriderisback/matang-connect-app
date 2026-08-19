@@ -129,7 +129,7 @@ export default function SettingsPage() {
       <div className="p-4 rounded-2xl border-2 border-matang-gold/40 bg-white space-y-3">
         <h2 className="text-sm font-bold text-matang-navy">Member Services (show / hide)</h2>
         <p className="text-[11px] text-gray-500">
-          Global list for members&apos; Services. ON/OFF also syncs every member&apos;s personal flags. After that, Directory → person pe personal override alag se.
+          Global = default for everyone. Personal only if you set Directory override. Use Reset personal if old OFF blocks global ON.
         </p>
         <div className="flex gap-2">
           <button
@@ -165,6 +165,22 @@ export default function SettingsPage() {
             }}
           >
             Disable all
+          </button>
+          <button
+            type="button"
+            className="w-full py-2 rounded-xl bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-300"
+            onClick={async () => {
+              const res = await fetch("/api/member-services", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "reset_personal" }),
+              });
+              const d = await res.json();
+              if (!res.ok) return toast(d.error || "Failed", "error");
+              toast(`Personal overrides cleared (${d.cleared || 0} users)`, "success");
+            }}
+          >
+            Reset personal overrides (everyone follows global)
           </button>
         </div>
         <div className="grid grid-cols-2 gap-2">
