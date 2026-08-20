@@ -6,7 +6,7 @@ import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import {
   Users, AlertTriangle, Briefcase, Bell, Heart, BookOpen, Shield, HeartHandshake,
   Store, Landmark, Calendar, Flower2, BarChart3, TrendingUp, QrCode,
-  Car, Award, Trophy, Settings, UserCheck, KeyRound, ScrollText, Inbox,
+  Car, Award, Trophy, Settings, UserCheck, KeyRound, ScrollText, Inbox, ClipboardCheck,
 } from "lucide-react";
 
 const ALL_ACTIONS = [
@@ -40,6 +40,7 @@ const ADMIN_LINKS = [
   { href: "/admin/directory", label: "Directory", icon: BookOpen },
   { href: "/admin/audit", label: "Audit Log", icon: ScrollText },
   { href: "/admin/settings", label: "Stage Lock / Feature Flags", icon: Settings },
+  { href: "/admin/qa-checklist", label: "QA Checklist", icon: ClipboardCheck, superOnly: true },
 ];
 
 export default function AdminHubPage() {
@@ -125,7 +126,11 @@ export default function AdminHubPage() {
       <div>
         <h2 className="text-sm font-bold text-matang-navy mb-2">Admin Tools</h2>
         <div className="grid grid-cols-2 gap-2">
-          {ADMIN_LINKS.filter((l) => l.href !== "/admin/requests" || can("admin_requests")).map((l) => (
+          {ADMIN_LINKS.filter((l: any) => {
+            if ((l as any).superOnly && user?.role !== "super_admin") return false;
+            if (l.href === "/admin/requests" && !can("admin_requests")) return false;
+            return true;
+          }).map((l) => (
             <button
               key={l.href}
               type="button"
@@ -133,7 +138,9 @@ export default function AdminHubPage() {
               className={`p-3 rounded-xl border text-sm font-medium text-left flex items-center gap-2 ${
                 l.href === "/admin/settings"
                   ? "bg-matang-navy text-matang-gold col-span-2"
-                  : "bg-white text-matang-navy"
+                  : l.href === "/admin/qa-checklist"
+                    ? "bg-emerald-50 text-emerald-800 border-emerald-200 col-span-2"
+                    : "bg-white text-matang-navy"
               }`}
             >
               <l.icon size={16} />
