@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { Calendar, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { festivalsForYear } from "@/lib/hinduFestivals2026";
 
 interface Festival {
   id: string;
@@ -21,32 +22,6 @@ const MONTHS_HI = [
   "जनवरी", "फरवरी", "मार्च", "अप्रैल", "मई", "जून",
   "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर",
 ];
-
-/** Built-in community / Hindu observances (approx civil dates — pilot) */
-function builtInForYear(year: number): Festival[] {
-  const y = String(year);
-  return [
-    { id: "bi_makar", title: "मकर संक्रांति", festival_date: `${y}-01-14`, description: "सूर्य मकर राशि में · तिल-गुड़" },
-    { id: "bi_vasant", title: "वसंत पंचमी", festival_date: `${y}-02-02`, description: "सरस्वती पूजा (अनुमानित तिथि — स्थानीय पंचांग से मिलान करें)" },
-    { id: "bi_maha", title: "महाशिवरात्रि", festival_date: `${y}-02-26`, description: "शिव उपासना" },
-    { id: "bi_holi", title: "होली / धुलेंडी", festival_date: `${y}-03-14`, description: "रंगों का त्योहार · समाज मिलन" },
-    { id: "bi_ugadi", title: "चैत्र शुक्ल प्रतिपदा / नव वर्ष", festival_date: `${y}-03-30`, description: "हिंदू नव वर्ष (क्षेत्रानुसार)" },
-    { id: "bi_ram", title: "राम नवमी", festival_date: `${y}-04-06`, description: "भगवान राम जन्मोत्सव" },
-    { id: "bi_hanuman", title: "हनुमान जयंती", festival_date: `${y}-04-12`, description: "हनुमान जयंती" },
-    { id: "bi_akshaya", title: "अक्षय तृतीया", festival_date: `${y}-04-30`, description: "शुभ मुहूर्त" },
-    { id: "bi_snan", title: "गंगा दशहरा", festival_date: `${y}-06-05`, description: "पवित्र स्नान" },
-    { id: "bi_rath", title: "रथ यात्रा", festival_date: `${y}-07-06`, description: "जगन्नाथ रथ यात्रा" },
-    { id: "bi_rakhi", title: "रक्षाबंधन", festival_date: `${y}-08-09`, description: "भाई-बहन का त्योहार" },
-    { id: "bi_janmashtami", title: "जन्माष्टमी", festival_date: `${y}-08-15`, description: "श्रीकृष्ण जन्मोत्सव" },
-    { id: "bi_ganesh", title: "गणेश चतुर्थी", festival_date: `${y}-08-27`, description: "गणपति स्थापना" },
-    { id: "bi_navratri", title: "शारदीय नवरात्रि प्रारंभ", festival_date: `${y}-09-22`, description: "दुर्गा उपासना" },
-    { id: "bi_dussehra", title: "दशहरा / विजयदशमी", festival_date: `${y}-10-02`, description: "बुराई पर अच्छाई की विजय" },
-    { id: "bi_diwali", title: "दीपावली", festival_date: `${y}-10-20`, description: "प्रकाश पर्व · समाज मिलन" },
-    { id: "bi_bhai", title: "भाई दूज", festival_date: `${y}-10-22`, description: "भाई-बहन स्नेह" },
-    { id: "bi_chhath", title: "छठ पूजा", festival_date: `${y}-11-05`, description: "सूर्य उपासना · क्षेत्रीय महत्व" },
-    { id: "bi_kartik", title: "कार्तिक पूर्णिमा", festival_date: `${y}-11-15`, description: "दीपदान · स्नान" },
-  ];
-}
 
 function daysInMonth(year: number, month0: number) {
   return new Date(year, month0 + 1, 0).getDate();
@@ -96,7 +71,14 @@ function PanchangPageInner() {
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(f);
     };
-    builtInForYear(year).forEach(add);
+    festivalsForYear(year).forEach((e) =>
+      add({
+        id: e.id,
+        title: e.titleHi || e.title,
+        description: [e.tithi, e.note].filter(Boolean).join(" · "),
+        festival_date: e.date,
+      })
+    );
     list.forEach(add);
     return map;
   }, [list, year]);
@@ -205,7 +187,7 @@ function PanchangPageInner() {
           <p className="text-sm font-bold">
             {MONTHS_HI[month0]} {year}
           </p>
-          <p className="text-[10px] text-matang-gold/70">Hindu calendar view</p>
+          <p className="text-[10px] text-matang-gold/70">2026 · Drik Panchang (Delhi)</p>
         </div>
         <button type="button" onClick={nextMonth} className="p-1.5 rounded-lg active:bg-white/10">
           <ChevronRight size={20} />
@@ -287,8 +269,8 @@ function PanchangPageInner() {
                 {WEEK[selectedDateObj.getDay()]}
               </p>
               <p className="text-[10px] text-gray-500">
-                सटीक तिथि / नक्षत्र / योग स्थानीय पंचांग या पुरोहित से मिलान करें। यहाँ समाज त्योहार +
-                प्रमुख अनुमानित तिथियाँ दिखती हैं।
+                त्योहार तिथियाँ: Drik Panchang (Delhi, 2026) से सत्यापित। शहर / मुहूर्त के अनुसार ±1 दिन अंतर हो सकता है।
+                नक्षत्र–योग के लिए स्थानीय पंचांग देखें।
               </p>
             </div>
 
