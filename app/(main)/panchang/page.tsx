@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { Calendar, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Plus, X, RefreshCw } from "lucide-react";
 import { festivalsForYear, hasVerifiedYear, drikPanchangUrl, VERIFIED_YEARS } from "@/lib/hinduFestivals2026";
 
 interface Festival {
@@ -39,6 +39,8 @@ function PanchangPageInner() {
   const [month0, setMonth0] = useState(now.getMonth());
   const [list, setList] = useState<Festival[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -53,9 +55,40 @@ function PanchangPageInner() {
     setLoading(true);
     fetch(`/api/panchang?year=${year}&month=${month0 + 1}`, { cache: "no-store" })
       .then((r) => r.json())
-      .then((d) => setList(d.festivals || []))
+      .then((d) => {
+        setList(d.festivals || []);
+        if (d.verifiedMeta?.lastSyncAt) setLastSyncAt(d.verifiedMeta.lastSyncAt);
+      })
       .catch(() => setList([]))
       .finally(() => setLoading(false));
+  };
+
+  const syncVerified = async () => {
+    if (!hasVerifiedYear(year)) {
+      toast(`${year} verified list mein nahi — Drik kholo`, "error");
+      window.open(drikPanchangUrl(year), "_blank");
+      return;
+    }
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/panchang", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync_verified", year }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Sync fail", "error");
+        return;
+      }
+      setLastSyncAt(data.lastSyncAt || new Date().toISOString());
+      toast(`${year}: ${data.count} tyohar sync · staff data safe`, "success");
+      load();
+    } catch {
+      toast("Network error", "error");
+    } finally {
+      setSyncing(false);
+    }
   };
 
   useEffect(() => {
@@ -192,6 +225,26 @@ function PanchangPageInner() {
         <button type="button" onClick={nextMonth} className="p-1.5 rounded-lg active:bg-white/10">
           <ChevronRight size={20} />
         </button>
+      </div>
+
+      
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          className="text-xs gap-1.5"
+          disabled={syncing}
+          onClick={syncVerified}
+        >
+          <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
+          {syncing ? "Updating…" : "Update / Sync"}
+        </Button>
+        {lastSyncAt && (
+          <span className="text-[10px] text-gray-500">
+            Last sync: {new Date(lastSyncAt).toLocaleString("en-IN")}
+          </span>
+        )}
+        <span className="text-[10px] text-gray-400">Staff tyohar change nahi hote</span>
       </div>
 
       {!hasVerifiedYear(year) && (
