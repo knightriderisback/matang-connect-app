@@ -37,9 +37,6 @@ export default function SettingsPage() {
   const { user } = useCurrentUser();
   const [flags, setFlags] = useState<Flags>({});
   const [loading, setLoading] = useState(true);
-  const [memberKeys, setMemberKeys] = useState<string[]>([]);
-  const [allMemberKeys, setAllMemberKeys] = useState<string[]>([]);
-
 
   useEffect(() => {
     fetch("/api/admin/settings")
@@ -47,14 +44,7 @@ export default function SettingsPage() {
       .then((d) => setFlags(d.flags || {}))
       .catch(() => toast("Failed to load settings", "error"))
       .finally(() => setLoading(false));
-    fetch("/api/member-services", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => {
-        setMemberKeys(Array.isArray(d.keys) ? d.keys : []);
-        setAllMemberKeys(Array.isArray(d.all) ? d.all : []);
-      })
-      .catch(() => {});
-  }, []);
+  }, [toast]);
 
   const toggle = async (key: string, value: boolean) => {
     setFlags((prev) => ({ ...prev, [key]: value }));
@@ -73,7 +63,7 @@ export default function SettingsPage() {
       if (data.flags && typeof data.flags === "object") {
         setFlags((prev) => ({ ...prev, ...data.flags }));
       }
-      toast(`${key}: ${value ? "UNLOCKED / ON" : "LOCKED / OFF"}`, "success");
+      toast(`${MODULE_LABELS[key] || key}: ${value ? "ON" : "OFF"}`, "success");
     } catch {
       toast("Network error", "error");
       setFlags((prev) => ({ ...prev, [key]: !value }));
@@ -85,145 +75,31 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-4 space-y-5 max-w-2xl mx-auto">
+    <div className="p-4 space-y-5 max-w-2xl mx-auto pb-24">
       <div className="flex items-center gap-2">
         <Settings className="text-matang-gold" size={22} />
         <h1 className="text-lg font-bold text-matang-navy">Feature Control</h1>
       </div>
       <p className="text-xs text-gray-500">
-        Fine-grained modules only. Super Admin always has full access.
-        Toggle each module for members. Stage 1/2/3 bulk locks removed.
+        Har module alag ON/OFF. Super Admin ko hamesha full access. Members pe yahi toggles apply.
       </p>
 
-      <button
-        type="button"
-        onClick={async () => {
-          try {
-            const res = await fetch("/api/admin/settings", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "unlock_all" }),
-            });
-            const data = await res.json();
-            if (!res.ok) {
-              toast(data.error || "Failed", "error");
-              return;
-            }
-            if (data.flags) setFlags(data.flags);
-            toast("All modules unlocked for members", "success");
-          } catch {
-            toast("Network error", "error");
-          }
-        }}
-        className="w-full py-2.5 rounded-xl bg-matang-navy text-matang-gold text-sm font-semibold"
-      >
-        Unlock ALL modules for members
-      </button>
-
-      <div className="p-4 rounded-2xl border-2 border-matang-gold/40 bg-white space-y-3">
-        <h2 className="text-sm font-bold text-matang-navy">Member Services (show / hide)</h2>
-        <p className="text-[11px] text-gray-500">
-          Global = default for everyone. Personal only if you set Directory override. Use Reset personal if old OFF blocks global ON.
-        </p>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className="flex-1 py-2 rounded-xl bg-matang-navy text-matang-gold text-xs font-semibold"
-            onClick={async () => {
-              const res = await fetch("/api/member-services", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "enable_all" }),
-              });
-              const d = await res.json();
-              if (!res.ok) return toast(d.error || "Failed", "error");
-              setMemberKeys(d.keys || []);
-              toast("All services ON for members", "success");
-            }}
-          >
-            Enable all
-          </button>
-          <button
-            type="button"
-            className="flex-1 py-2 rounded-xl border text-xs font-semibold text-matang-navy"
-            onClick={async () => {
-              const res = await fetch("/api/member-services", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "disable_all" }),
-              });
-              const d = await res.json();
-              if (!res.ok) return toast(d.error || "Failed", "error");
-              setMemberKeys(d.keys || []);
-              toast("All services OFF for members", "success");
-            }}
-          >
-            Disable all
-          </button>
-          <button
-            type="button"
-            className="w-full py-2 rounded-xl bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-300"
-            onClick={async () => {
-              const res = await fetch("/api/member-services", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "reset_personal" }),
-              });
-              const d = await res.json();
-              if (!res.ok) return toast(d.error || "Failed", "error");
-              toast(`Personal overrides cleared (${d.cleared || 0} users)`, "success");
-            }}
-          >
-            Reset personal overrides (everyone follows global)
-          </button>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {(allMemberKeys.length ? allMemberKeys : [
-            "census","sos","care","jobs","kosh","matrimony","vyapar","rides","polls","panchang","dharohar","mahila","arthik","gaurav","gamification","scan"
-          ]).map((key) => {
-            const on = memberKeys.includes(key);
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={async () => {
-                  const res = await fetch("/api/member-services", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ action: "toggle", key, value: !on }),
-                  });
-                  const d = await res.json();
-                  if (!res.ok) return toast(d.error || "Failed", "error");
-                  setMemberKeys(d.keys || []);
-                  toast(`${key}: ${!on ? "ON" : "OFF"}`, "success");
-                }}
-                className={`text-left px-3 py-2 rounded-xl border text-xs font-medium ${
-                  on ? "bg-matang-gold/20 border-matang-gold text-matang-navy" : "bg-gray-50 border-gray-200 text-gray-400"
-                }`}
-              >
-                {on ? "✓ " : "○ "}{key}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-
-
-      {loading && <p className="text-center text-gray-400">Loading...</p>}
+      {loading && <p className="text-center text-gray-400 text-sm">Loading…</p>}
 
       <div>
-        <h2 className="text-sm font-bold text-matang-navy mb-2">Fine-grained modules</h2>
+        <h2 className="text-sm font-bold text-matang-navy mb-2">Modules</h2>
         <div className="space-y-2">
           {Object.keys(MODULE_LABELS).map((key) => (
             <Card key={key}>
-              <CardContent className="p-3 flex items-center justify-between">
+              <CardContent className="p-3 flex items-center justify-between gap-3">
                 <span className="text-sm font-medium text-matang-navy">{MODULE_LABELS[key]}</span>
                 <button
+                  type="button"
                   onClick={() => toggle(key, !flags[key])}
-                  className={`relative w-12 h-7 rounded-full transition-colors ${
+                  className={`relative w-12 h-7 rounded-full transition-colors shrink-0 ${
                     flags[key] ? "bg-matang-gold" : "bg-gray-300"
                   }`}
+                  aria-label={MODULE_LABELS[key]}
                 >
                   <span
                     className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
