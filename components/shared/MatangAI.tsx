@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { MessageCircle, X, Send, Sparkles, Shield } from "lucide-react";
 import { effectiveRole, peekIsSuperAdmin } from "@/lib/auth/roleCache";
+import { useFeatureFlags } from "@/lib/useFeatureFlags";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -37,7 +38,9 @@ export function MatangAI() {
   const pathname = usePathname();
   const { lang } = useI18n();
   const { user } = useCurrentUser();
-  const isSuper = effectiveRole(user?.role) === "super_admin";
+  const role = effectiveRole(user?.role);
+  const isSuper = role === "super_admin";
+  const { can, loading: flagsLoading } = useFeatureFlags(role);
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -56,6 +59,15 @@ export function MatangAI() {
 
   if (["/", "/login", "/register"].includes(pathname || "") || pathname?.startsWith("/u/")) {
     return null;
+  }
+
+  // Feature Control: hide Matang AI float when Member/role View is off
+  if (!flagsLoading) {
+    if (isSuper) {
+      if (!can("ai_god_mode_enabled") && !can("ai_member_enabled")) return null;
+    } else if (!can("ai_member_enabled")) {
+      return null;
+    }
   }
 
   const suggestions = isSuper

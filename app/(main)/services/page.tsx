@@ -31,10 +31,10 @@ export default function ServicesPage() {
   const router = useRouter();
   const { user, loading } = useCurrentUser();
   const role = effectiveRole(user?.role);
-  const { can, loading: flagsLoading, matrix, refresh } = useFeatureFlags(role);
+  const { can, loading: flagsLoading, matrix, memberModules, refresh } = useFeatureFlags(role);
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
 
-  if (loading || flagsLoading || matrix == null) {
+  if (loading || flagsLoading || matrix == null || memberModules == null) {
     return <div className="p-8 text-center text-gray-400">Loading…</div>;
   }
 
@@ -53,7 +53,8 @@ export default function ServicesPage() {
     );
   }
 
-  const visible = MEMBER_SERVICES.filter((s) => can(s.key));
+  // Hard allowlist: only modules SA set View for Member
+  const visible = MEMBER_SERVICES.filter((s) => memberModules.includes(s.key) && can(s.key));
 
   return (
     <div className="p-4 space-y-4 pb-24">
@@ -67,7 +68,7 @@ export default function ServicesPage() {
         </button>
       </div>
       <p className="text-[11px] text-gray-500">
-        Super Admin ne jinke liye <b>View</b> rakha hai (Feature Control → Member).
+        Sirf woh modules jo Super Admin ne Member → View rakhe hain.
       </p>
       {visible.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-12">No services enabled yet.</p>

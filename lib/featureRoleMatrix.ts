@@ -248,30 +248,83 @@ export async function getFeatureRoleMatrix(): Promise<FeatureRoleMatrix> {
   }
 }
 
-export async function setFeatureRoleMatrix(
-  matrix: FeatureRoleMatrix
-): Promise<{ ok: boolean; error?: string }> {
+/** Module keys (census, sos, …) visible to normal members — derived from matrix */
+export const MEMBER_ALLOWLIST_KEY = "member_visible_modules";
+
+export function memberModulesFromMatrix(matrix: FeatureRoleMatrix): string[] {
+  const mods: string[] = [];
+  for (const [mod, fk] of Object.entries(MODULE_FLAG)) {
+    const cell = matrix[fk as string];
+    if (!cell || cell.member !== false) mods.push(mod);
+  }
+  // extras not in MODULE_FLAG but in services
+  for (const extra of ["scan", "gaurav", "gamification"] as const) {
+    if (!mods.includes(extra)) {
+      const fk = MODULE_FLAG[extra];
+      if (fk && matrix[fk]?.member !== false) mods.push(extra);
+    }
+  }
+  return Array.from(new Set(mods));
+}
+
+async function upsertSetting(key: string, value: unknown): Promise<{ ok: boolean; error?: string }> {
   const supabase = createAdminClient();
-  const cleaned = normalizeMatrix(matrix);
   const { data: existing } = await supabase
     .from("app_settings")
     .select("setting_key")
-    .eq("setting_key", MATRIX_KEY)
+    .eq("setting_key", key)
     .maybeSingle();
   if (existing) {
     const { error } = await supabase
       .from("app_settings")
-      .update({ setting_value: cleaned })
-      .eq("setting_key", MATRIX_KEY);
+      .update({ setting_value: value as any })
+      .eq("setting_key", key);
     if (error) return { ok: false, error: error.message };
   } else {
     const { error } = await supabase.from("app_settings").insert({
-      setting_key: MATRIX_KEY,
-      setting_value: cleaned,
+      setting_key: key,
+      setting_value: value as any,
     });
     if (error) return { ok: false, error: error.message };
   }
   return { ok: true };
+}
+
+export async function setFeatureRoleMatrix(
+  matrix: FeatureRoleMatrix
+): Promise<{ ok: boolean; error?: string }> {
+  const cleaned = normalizeMatrix(matrix);
+  const saved = await upsertSetting(MATRIX_KEY, cleaned);
+  if (!saved.ok) return saved;
+  // Dual-write member module allowlist for Services grid (reliable)
+  const mods = memberModulesFromMatrix(cleaned);
+  const al = await upsertSetting(MEMBER_ALLOWLIST_KEY, mods);
+  if (!al.ok) return { ok: false, error: al.error || "allowlist save failed" };
+  return { ok: true };
+}
+
+export async function getMemberVisibleModules(): Promise<string[]> {
+  try {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", MEMBER_ALLOWLIST_KEY)
+      .maybeSingle();
+    let raw = data?.setting_value;
+    if (typeof raw === "string") {
+      try {
+        raw = JSON.parse(raw);
+      } catch {
+        raw = null;
+      }
+    }
+    if (Array.isArray(raw)) return raw.map(String); // empty [] = all hidden
+    // derive from matrix
+    return memberModulesFromMatrix(await getFeatureRoleMatrix());
+  } catch {
+    return memberModulesFromMatrix(defaultMatrix());
+  }
 }
 
 export async function setMatrixCell(

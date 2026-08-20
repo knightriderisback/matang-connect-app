@@ -7,6 +7,7 @@ import {
   setMatrixCell,
   setFeatureRoleMatrix,
   defaultMatrix,
+  getMemberVisibleModules,
   type RoleCol,
 } from "@/lib/featureRoleMatrix";
 
@@ -17,7 +18,10 @@ export async function GET() {
   }
   const flags = await getFeatureFlagsAdmin();
   const matrix = await getFeatureRoleMatrix();
-  return NextResponse.json({ flags, matrix });
+  // ensure allowlist exists
+  await setFeatureRoleMatrix(matrix);
+  const memberModules = await getMemberVisibleModules();
+  return NextResponse.json({ flags, matrix, memberModules });
 }
 
 export async function POST(request: NextRequest) {

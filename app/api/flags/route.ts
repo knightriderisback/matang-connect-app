@@ -7,6 +7,8 @@ import {
   matrixToLegacyFlags,
   roleToCol,
   MATRIX_FLAG_KEYS,
+  getMemberVisibleModules,
+  memberModulesFromMatrix,
   type RoleCol,
   type FeatureRoleMatrix,
 } from "@/lib/featureRoleMatrix";
@@ -25,6 +27,7 @@ export async function GET() {
   let flags: FeatureFlags = await getFeatureFlagsAdmin();
   let matrix = await getFeatureRoleMatrix();
   flags = matrixToLegacyFlags(matrix, flags);
+  let memberModules = await getMemberVisibleModules();
 
   try {
     const session = await getSession();
@@ -65,10 +68,21 @@ export async function GET() {
     /* ignore */
   }
 
+  // For normal members apply personal overrides onto memberModules list
+  try {
+    const session = await getSession();
+    if (session?.role === "normal" || (session && !["volunteer", "core_committee", "super_admin"].includes(session.role))) {
+      memberModules = memberModulesFromMatrix(matrix);
+    }
+  } catch {
+    /* ignore */
+  }
+
   return NextResponse.json(
     {
       flags,
       matrix,
+      memberModules,
       stages: {
         s1: flags.stage_1_enabled,
         s2: flags.stage_2_enabled,
@@ -78,3 +92,4 @@ export async function GET() {
     { headers: { "Cache-Control": "no-store, max-age=0" } }
   );
 }
+
