@@ -30,8 +30,8 @@ export function FeatureGate({
         </div>
         <h2 className="text-lg font-bold text-matang-navy">Module locked</h2>
         <p className="text-sm text-gray-500">
-          This feature is turned off by stage / feature flags for your account.
-          Super Admin can unlock it from Admin → Stage Lock.
+          Yeh feature aapke role / account ke liye Hide hai (Feature Control).
+          Super Admin Admin → Feature Control se View kar sakte hain.
         </p>
         <button
           type="button"

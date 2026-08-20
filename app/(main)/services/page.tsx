@@ -31,10 +31,10 @@ export default function ServicesPage() {
   const router = useRouter();
   const { user, loading } = useCurrentUser();
   const role = effectiveRole(user?.role);
-  const { can, loading: flagsLoading, refresh } = useFeatureFlags(role);
+  const { can, loading: flagsLoading, matrix, refresh } = useFeatureFlags(role);
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
 
-  if (loading || flagsLoading) {
+  if (loading || flagsLoading || matrix == null) {
     return <div className="p-8 text-center text-gray-400">Loading…</div>;
   }
 

@@ -366,20 +366,28 @@ export function isModuleVisible(
   matrix?: Record<string, { member?: boolean; volunteer?: boolean; core?: boolean }> | null
 ): boolean {
   if (role === "super_admin") return true;
+
+  const col: "member" | "volunteer" | "core" =
+    role === "core_committee" ? "core" : role === "volunteer" ? "volunteer" : "member";
+
+  // Resolve flag key (module name → flag, or raw flag key)
   const fk = (MODULE_FLAG[moduleKey] || moduleKey) as string;
 
-  if (matrix) {
+  // Prefer role matrix whenever present
+  if (matrix && typeof matrix === "object") {
     const cell = matrix[fk] || matrix[moduleKey];
-    if (cell) {
-      const col =
-        role === "core_committee" ? "core" : role === "volunteer" ? "volunteer" : "member";
-      if (cell[col as "member" | "volunteer" | "core"] === false) return false;
-      if (cell[col as "member" | "volunteer" | "core"] === true) return true;
+    if (cell && typeof cell === "object") {
+      // Explicit false/true only — missing role key treated as true for safety on partial data
+      if (cell[col] === false) return false;
+      if (cell[col] === true) return true;
+      // undefined on cell: fall through
     }
   }
 
-  if (!(fk in flags) && !(moduleKey in MODULE_FLAG)) return true;
+  // Legacy boolean flags
   const flagKey = MODULE_FLAG[moduleKey];
-  if (!flagKey) return true;
-  return flags[flagKey] !== false;
+  if (flagKey) return flags[flagKey] !== false;
+  if (fk in flags) return (flags as any)[fk] !== false;
+  // Unknown module keys: allow (unless matrix said false above)
+  return true;
 }

@@ -234,7 +234,15 @@ export async function getFeatureRoleMatrix(): Promise<FeatureRoleMatrix> {
       .select("setting_value")
       .eq("setting_key", MATRIX_KEY)
       .maybeSingle();
-    return normalizeMatrix(data?.setting_value);
+    let raw = data?.setting_value;
+    if (typeof raw === "string") {
+      try {
+        raw = JSON.parse(raw);
+      } catch {
+        raw = null;
+      }
+    }
+    return normalizeMatrix(raw);
   } catch {
     return defaultMatrix();
   }
@@ -321,12 +329,11 @@ export function isVisibleForRole(
 export function matrixToLegacyFlags(matrix: FeatureRoleMatrix, base: FeatureFlags): FeatureFlags {
   const next = { ...base };
   for (const key of MATRIX_FLAG_KEYS) {
-    if (key in DEFAULTS || key in next) {
+    if (key in DEFAULTS || (key as string) in (next as any)) {
       const cell = matrix[key];
       if (cell) {
-        // ON if any role can view — keeps old code from total-off accidentally
-        // Prefer: flag true if member OR volunteer OR core
-        (next as any)[key] = !!(cell.member || cell.volunteer || cell.core);
+        // Keep true if any role has View (legacy single-bool). Role matrix still authoritative in isModuleVisible.
+        (next as any)[key] = cell.member === true || cell.volunteer === true || cell.core === true;
       }
     }
   }

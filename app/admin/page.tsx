@@ -46,12 +46,12 @@ const ADMIN_LINKS = [
 export default function AdminHubPage() {
   const router = useRouter();
   const { user, loading } = useCurrentUser();
-  const { can } = useFeatureFlags(user?.role);
+  const { can, matrix, loading: flagsLoading } = useFeatureFlags(user?.role);
   const [seeding, setSeeding] = useState(false);
   const [seedMsg, setSeedMsg] = useState("");
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
 
-  if (loading) {
+  if (loading || flagsLoading) {
     return <div className="p-8 text-center text-gray-500">Loading…</div>;
   }
   if (!isStaff) {

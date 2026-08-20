@@ -58,7 +58,14 @@ export async function POST(request: NextRequest) {
         .like("setting_key", "member_flags:%");
       if (rows?.length) {
         for (const row of rows) {
-          const raw = row.setting_value;
+          let raw: any = row.setting_value;
+          if (typeof raw === "string") {
+            try {
+              raw = JSON.parse(raw);
+            } catch {
+              continue;
+            }
+          }
           if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
           const o = { ...(raw as Record<string, unknown>) };
           if (key in o) {
