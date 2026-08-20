@@ -39,7 +39,7 @@ const ADMIN_LINKS = [
   { href: "/admin/titles", label: "City Titles", icon: Award },
   { href: "/admin/directory", label: "Directory", icon: BookOpen },
   { href: "/admin/audit", label: "Audit Log", icon: ScrollText },
-  { href: "/admin/settings", label: "Stage Lock / Feature Flags", icon: Settings },
+  { href: "/admin/settings", label: "Feature Control", icon: Settings },
   { href: "/admin/qa-checklist", label: "QA Checklist", icon: ClipboardCheck, superOnly: true },
 ];
 

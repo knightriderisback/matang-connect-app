@@ -3,15 +3,9 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { Settings, Lock, Unlock } from "lucide-react";
+import { Settings } from "lucide-react";
 
 type Flags = Record<string, boolean>;
-
-const STAGE_KEYS = [
-  { key: "stage_1_enabled", label: "Stage 1 — Foundation", desc: "Census, Digital ID, Directory, Profile, QR Scan (staff)" },
-  { key: "stage_2_enabled", label: "Stage 2 — Support System", desc: "SOS, Jobs, Notices, Care, Kosh" },
-  { key: "stage_3_enabled", label: "Stage 3 — Expansion", desc: "Vyapar, Matrimony, Dharohar, Rides, Gaurav, Gamification…" },
-];
 
 const MODULE_LABELS: Record<string, string> = {
   sos_enabled: "SOS / Emergency",
@@ -94,11 +88,11 @@ export default function SettingsPage() {
     <div className="p-4 space-y-5 max-w-2xl mx-auto">
       <div className="flex items-center gap-2">
         <Settings className="text-matang-gold" size={22} />
-        <h1 className="text-lg font-bold text-matang-navy">Stage & Feature Control</h1>
+        <h1 className="text-lg font-bold text-matang-navy">Feature Control</h1>
       </div>
       <p className="text-xs text-gray-500">
-        Stages control what <strong>members</strong> see. Super Admin always has full access.
-        Lock a stage to hide those modules from normal users until the pilot is ready.
+        Fine-grained modules only. Super Admin always has full access.
+        Toggle each module for members. Stage 1/2/3 bulk locks removed.
       </p>
 
       <button
@@ -116,14 +110,14 @@ export default function SettingsPage() {
               return;
             }
             if (data.flags) setFlags(data.flags);
-            toast("All stages & modules unlocked for members", "success");
+            toast("All modules unlocked for members", "success");
           } catch {
             toast("Network error", "error");
           }
         }}
         className="w-full py-2.5 rounded-xl bg-matang-navy text-matang-gold text-sm font-semibold"
       >
-        Unlock ALL stages + modules for members
+        Unlock ALL modules for members
       </button>
 
       <div className="p-4 rounded-2xl border-2 border-matang-gold/40 bg-white space-y-3">
@@ -217,35 +211,6 @@ export default function SettingsPage() {
 
 
       {loading && <p className="text-center text-gray-400">Loading...</p>}
-
-      <div>
-        <h2 className="text-sm font-bold text-matang-navy mb-2 flex items-center gap-1">
-          <Lock size={14} /> Stage rollout (members)
-        </h2>
-        <div className="space-y-2">
-          {STAGE_KEYS.map((s) => (
-            <Card key={s.key} className="border-matang-gold/30">
-              <CardContent className="p-3 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-matang-navy">{s.label}</p>
-                  <p className="text-[11px] text-gray-500">{s.desc}</p>
-                </div>
-                <button
-                  onClick={() => toggle(s.key, !flags[s.key])}
-                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${
-                    flags[s.key]
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                  }`}
-                >
-                  {flags[s.key] ? <Unlock size={12} /> : <Lock size={12} />}
-                  {flags[s.key] ? "Unlocked" : "Locked"}
-                </button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
 
       <div>
         <h2 className="text-sm font-bold text-matang-navy mb-2">Fine-grained modules</h2>
