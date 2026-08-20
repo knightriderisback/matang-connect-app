@@ -78,13 +78,47 @@ export async function GET(request: NextRequest) {
 
   if (!error && data) festivals = data;
   else {
-    const store = await readStore(supabase);
-    festivals = store.filter((f) => f.festival_date >= fromS && f.festival_date <= toS);
+    festivals = [];
+  }
+  // Always merge app_settings staff store — include recurring so client can expand
+  const store = await readStore(supabase);
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31`;
+  const fromStore = store.filter((f: any) => {
+    const d = (f.festival_date || "").slice(0, 10);
+    const rec = f.recurrence || (f.is_recurring === false ? "none" : "yearly");
+    if (rec === "monthly" || rec === "yearly") return true; // client expands for viewed year
+    return d >= fromS && d <= toS;
+  });
+  const ids = new Set(festivals.map((f: any) => f.id));
+  for (const f of fromStore) {
+    if (!ids.has(f.id)) festivals.push(f);
+  }
+  // Table rows outside month but recurring: fetch year for is_recurring if possible
+  if (!error) {
+    const { data: recRows } = await supabase
+      .from("festivals")
+      .select("id, title, description, festival_date, is_recurring, city_id, created_at")
+      .eq("is_recurring", true)
+      .limit(80);
+    if (recRows) {
+      for (const f of recRows) {
+        if (!ids.has(f.id)) {
+          festivals.push(f);
+          ids.add(f.id);
+        }
+      }
+    }
   }
 
   if (session.role !== "super_admin" && session.cityId) {
-    festivals = festivals.filter((f) => !f.city_id || f.city_id === session.cityId);
+    festivals = festivals.filter((f: any) => !f.city_id || f.city_id === session.cityId);
   }
+  festivals = festivals.map((f: any) => ({
+    ...f,
+    source: f.source || "staff",
+    recurrence: f.recurrence || (f.is_recurring === false ? "none" : "yearly"),
+  }));
 
   // Verified layer (optional cache after sync) — does not replace staff list
   const cache = await readVerifiedCache(supabase);
@@ -159,13 +193,20 @@ export async function POST(request: NextRequest) {
   if (!body.title || !body.festival_date) {
     return NextResponse.json({ error: "Title and date required" }, { status: 400 });
   }
+  const recurrence = ["none", "monthly", "yearly"].includes(body.recurrence)
+    ? body.recurrence
+    : body.is_recurring === false
+      ? "none"
+      : "yearly";
   const row = {
     title: body.title,
     description: body.description || null,
     festival_date: body.festival_date,
-    is_recurring: body.is_recurring !== false,
+    is_recurring: recurrence !== "none",
+    recurrence,
     city_id: body.is_global ? null : session.cityId || null,
     created_by: session.userId,
+    source: "staff",
   };
 
   const { data, error } = await supabase.from("festivals").insert(row).select().single();

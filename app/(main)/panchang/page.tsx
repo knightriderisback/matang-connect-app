@@ -15,6 +15,8 @@ interface Festival {
   description?: string;
   festival_date: string;
   is_recurring?: boolean;
+  recurrence?: "none" | "monthly" | "yearly";
+  source?: "staff" | "verified" | string;
 }
 
 const WEEK = ["रवि", "सोम", "मंगल", "बुध", "गुरु", "शुक्र", "शनि"];
@@ -47,7 +49,7 @@ function PanchangPageInner() {
     title: "",
     description: "",
     festival_date: "",
-    is_recurring: true,
+    recurrence: "yearly" as "none" | "monthly" | "yearly",
   });
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
 
@@ -110,9 +112,38 @@ function PanchangPageInner() {
         title: e.titleHi || e.title,
         description: [e.tithi, e.note].filter(Boolean).join(" · "),
         festival_date: e.date,
+        source: "verified",
       })
     );
-    list.forEach(add);
+    // Staff events — expand recurrence into visible year months
+    for (const raw of list) {
+      const src: Festival = {
+        ...raw,
+        source: raw.source || "staff",
+        recurrence: raw.recurrence || (raw.is_recurring === false ? "none" : "yearly"),
+      };
+      const base = (src.festival_date || "").slice(0, 10);
+      if (!base || base.length < 10) continue;
+      const mm = base.slice(5, 7);
+      const dd = base.slice(8, 10);
+      const rec = src.recurrence || "none";
+      if (rec === "none") {
+        add(src);
+        continue;
+      }
+      if (rec === "yearly") {
+        add({ ...src, id: `${src.id}_${year}`, festival_date: `${year}-${mm}-${dd}` });
+        continue;
+      }
+      if (rec === "monthly") {
+        for (let m = 1; m <= 12; m++) {
+          const dim = new Date(year, m, 0).getDate();
+          const day = Math.min(Number(dd), dim);
+          const ds = `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          add({ ...src, id: `${src.id}_${year}_${m}`, festival_date: ds });
+        }
+      }
+    }
     return map;
   }, [list, year]);
 
@@ -148,7 +179,7 @@ function PanchangPageInner() {
     }
     toast("Festival added", "success");
     setShowForm(false);
-    setForm({ title: "", description: "", festival_date: "", is_recurring: true });
+    setForm({ title: "", description: "", festival_date: "", recurrence: "yearly" });
     load();
   };
 
@@ -188,11 +219,31 @@ function PanchangPageInner() {
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
             <Input
-              label="Date"
+              label="Date (pehli / base tithi)"
               type="date"
               value={form.festival_date}
               onChange={(e) => setForm({ ...form, festival_date: e.target.value })}
             />
+            <div>
+              <label className="block text-sm font-medium text-matang-navy mb-1">Repeat</label>
+              <select
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm bg-white"
+                value={form.recurrence}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    recurrence: e.target.value as "none" | "monthly" | "yearly",
+                  })
+                }
+              >
+                <option value="none">Sirf ek baar (no repeat)</option>
+                <option value="monthly">Har mahina (same date)</option>
+                <option value="yearly">Har saal (same date)</option>
+              </select>
+              <p className="text-[10px] text-gray-500 mt-1">
+                Monthly = har month usi date · Yearly = har year MM-DD
+              </p>
+            </div>
             <label className="block text-sm font-medium text-matang-navy">Description</label>
             <textarea
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm min-h-[70px]"
@@ -286,6 +337,8 @@ function PanchangPageInner() {
                 const events = allEvents.get(dateStr) || [];
                 const isToday = dateStr === todayStr;
                 const isSel = selected === dateStr;
+                const hasStaff = events.some((e) => e.source === "staff");
+                const hasVerified = events.some((e) => e.source === "verified");
                 const hasEvent = events.length > 0;
                 return (
                   <button
@@ -294,17 +347,23 @@ function PanchangPageInner() {
                     onClick={() => setSelected(dateStr)}
                     className={`aspect-square rounded-xl flex flex-col items-center justify-center text-xs relative transition
                       ${isSel ? "bg-matang-navy text-matang-gold ring-2 ring-matang-gold" : ""}
-                      ${!isSel && isToday ? "bg-matang-gold/25 text-matang-navy font-bold" : ""}
+                      ${!isSel && isToday ? "bg-emerald-500 text-white font-bold ring-2 ring-emerald-600 shadow-md scale-[1.02]" : ""}
                       ${!isSel && !isToday ? "hover:bg-gray-50 text-gray-800" : ""}
                     `}
                   >
                     <span className="leading-none">{d}</span>
+                    {isToday && !isSel && (
+                      <span className="text-[8px] leading-none font-bold opacity-90">आज</span>
+                    )}
                     {hasEvent && (
-                      <span
-                        className={`mt-0.5 w-1.5 h-1.5 rounded-full ${
-                          isSel ? "bg-matang-gold" : "bg-amber-500"
-                        }`}
-                      />
+                      <span className="mt-0.5 flex gap-0.5">
+                        {hasVerified && (
+                          <span className={`w-1.5 h-1.5 rounded-full ${isSel ? "bg-matang-gold" : "bg-amber-500"}`} />
+                        )}
+                        {hasStaff && (
+                          <span className={`w-1.5 h-1.5 rounded-full ${isSel ? "bg-green-300" : "bg-green-500"}`} />
+                        )}
+                      </span>
                     )}
                   </button>
                 );
@@ -313,6 +372,11 @@ function PanchangPageInner() {
           )}
         </CardContent>
       </Card>
+      <div className="flex flex-wrap gap-3 text-[10px] text-gray-600 px-1">
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-500" /> आज</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> Verified tyohar</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> Staff add</span>
+      </div>
 
       {/* Day detail panel */}
       {selected && selectedDateObj && (
@@ -350,17 +414,38 @@ function PanchangPageInner() {
               <p className="text-sm text-gray-400 text-center py-4">इस दिन कोई दर्ज त्योहार नहीं</p>
             ) : (
               <div className="space-y-2">
-                {selectedEvents.map((ev) => (
+                {selectedEvents.map((ev) => {
+                  const staff = ev.source === "staff";
+                  return (
                   <div
                     key={ev.id}
-                    className="rounded-xl border border-matang-gold/30 bg-white p-3 space-y-1"
+                    className={`rounded-xl border p-3 space-y-1 ${
+                      staff
+                        ? "border-green-400 bg-green-50"
+                        : "border-matang-gold/30 bg-white"
+                    }`}
                   >
-                    <p className="text-sm font-semibold text-matang-navy">{ev.title}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className={`text-sm font-semibold ${staff ? "text-green-900" : "text-matang-navy"}`}>
+                        {ev.title}
+                      </p>
+                      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                        staff ? "bg-green-200 text-green-800" : "bg-amber-100 text-amber-800"
+                      }`}>
+                        {staff ? "Staff" : "Verified"}
+                      </span>
+                    </div>
                     {ev.description && (
                       <p className="text-xs text-gray-600">{ev.description}</p>
                     )}
+                    {staff && ev.recurrence && ev.recurrence !== "none" && (
+                      <p className="text-[10px] text-green-700">
+                        Repeat: {ev.recurrence === "monthly" ? "Har mahina" : "Har saal"}
+                      </p>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -395,7 +480,9 @@ function PanchangPageInner() {
             >
               <p className="text-[10px] text-matang-gold font-semibold">{date}</p>
               {evs.map((e) => (
-                <p key={e.id} className="text-sm text-matang-navy font-medium">
+                <p key={e.id} className={`text-sm font-medium ${
+                  e.source === "staff" ? "text-green-700" : "text-matang-navy"
+                }`}>
                   {e.title}
                 </p>
               ))}
