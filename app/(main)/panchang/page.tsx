@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { Calendar, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
-import { festivalsForYear } from "@/lib/hinduFestivals2026";
+import { festivalsForYear, hasVerifiedYear, drikPanchangUrl, VERIFIED_YEARS } from "@/lib/hinduFestivals2026";
 
 interface Festival {
   id: string;
@@ -187,12 +187,31 @@ function PanchangPageInner() {
           <p className="text-sm font-bold">
             {MONTHS_HI[month0]} {year}
           </p>
-          <p className="text-[10px] text-matang-gold/70">2026 · Drik Panchang (Delhi)</p>
+          <p className="text-[10px] text-matang-gold/70">Drik Panchang (Delhi) · verified years: 2025–2027</p>
         </div>
         <button type="button" onClick={nextMonth} className="p-1.5 rounded-lg active:bg-white/10">
           <ChevronRight size={20} />
         </button>
       </div>
+
+      {!hasVerifiedYear(year) && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-3 text-xs text-amber-900 space-y-2">
+            <p>
+              <strong>{year}</strong> ke built-in tyohar abhi app mein verify karke store nahi hain (sirf{" "}
+              {VERIFIED_YEARS.join(", ")}). Hum dates invent nahi karte.
+            </p>
+            <a
+              href={drikPanchangUrl(year)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block font-semibold text-matang-navy underline"
+            >
+              Drik Panchang {year} calendar kholo →
+            </a>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Calendar grid */}
       <Card>

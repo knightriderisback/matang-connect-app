@@ -1,65 +1,108 @@
 /**
- * 2026 Hindu festival dates — verified from Drik Panchang
- * Location baseline: Delhi, NCT, India
- * Source: https://www.drikpanchang.com/calendars/hindu/hinducalendar.html?year=2026&geoname-id=1273294
+ * Verified Hindu festival dates (Delhi / India) from Drik Panchang.
+ * Sources:
+ * - https://www.drikpanchang.com/calendars/hindu/hinducalendar.html?year=YYYY&geoname-id=1273294
+ * - Festival pages (Diwali, Dussehra, Maha Shivaratri) on drikpanchang.com
  *
- * Note: Tithi-based festivals can shift ±1 day by city / muhurat.
- * We do NOT invent dates. Only entries with published Drik (or matching multi-source) dates.
+ * No invented dates. Years without data return [] + UI links to Drik for that year.
  */
 
 export type HinduEvent = {
   id: string;
   title: string;
   titleHi: string;
-  date: string; // YYYY-MM-DD
+  date: string;
   tithi?: string;
   note?: string;
 };
 
-/** Primary 2026 observances (Delhi / India) */
-export const HINDU_FESTIVALS_2026: HinduEvent[] = [
-  { id: "2026-pausha-purnima", title: "Pausha Purnima", titleHi: "पौष पूर्णिमा", date: "2026-01-03", tithi: "Pausha, Shukla Purnima" },
-  { id: "2026-makar", title: "Makara Sankranti / Pongal", titleHi: "मकर संक्रांति / पोंगल", date: "2026-01-14", tithi: "Dhanu → Makara (Sun)", note: "Solar sankranti — fixed for most of India" },
-  { id: "2026-mauni", title: "Mauni Amavasya", titleHi: "मौनी अमावस्या", date: "2026-01-18", tithi: "Magha, Krishna Amavasya" },
-  { id: "2026-vasant", title: "Vasant Panchami", titleHi: "वसंत पंचमी (सरस्वती पूजा)", date: "2026-01-23", tithi: "Magha, Shukla Panchami" },
-  { id: "2026-ratha", title: "Ratha Saptami", titleHi: "रथ सप्तमी", date: "2026-01-25", tithi: "Magha, Shukla Saptami" },
-  { id: "2026-maha-shiv", title: "Maha Shivaratri", titleHi: "महाशिवरात्रि", date: "2026-02-15", tithi: "Phalguna, Krishna Chaturdashi" },
-  { id: "2026-holika", title: "Holika Dahan / Chhoti Holi", titleHi: "होलिका दहन / छोटी होली", date: "2026-03-03", tithi: "Phalguna, Shukla Purnima" },
-  { id: "2026-holi", title: "Holi", titleHi: "होली (धुलेंडी)", date: "2026-03-04", tithi: "Chaitra, Krishna Pratipada" },
-  { id: "2026-ugadi", title: "Ugadi / Gudi Padwa / Hindu New Year", titleHi: "उगादी / गुड़ी पड़वा / नववर्ष", date: "2026-03-19", tithi: "Chaitra, Shukla Pratipada" },
-  { id: "2026-ram-navami", title: "Rama Navami (Smarta)", titleHi: "राम नवमी", date: "2026-03-26", tithi: "Chaitra, Shukla Navami" },
-  { id: "2026-hanuman", title: "Hanuman Jayanti", titleHi: "हनुमान जयंती", date: "2026-04-02", tithi: "Chaitra, Shukla Purnima" },
-  { id: "2026-akshaya", title: "Akshaya Tritiya", titleHi: "अक्षय तृतीया", date: "2026-04-19", tithi: "Vaishakha, Shukla Tritiya" },
-  { id: "2026-narasimha", title: "Narasimha Jayanti", titleHi: "नरसिंह जयंती", date: "2026-04-30", tithi: "Vaishakha, Shukla Chaturdashi" },
-  { id: "2026-buddha", title: "Buddha Purnima", titleHi: "बुद्ध पूर्णिमा", date: "2026-05-01", tithi: "Vaishakha, Shukla Purnima" },
-  { id: "2026-ganga-dussehra", title: "Ganga Dussehra", titleHi: "गंगा दशहरा", date: "2026-05-25", tithi: "Jyeshtha, Shukla Dashami" },
-  { id: "2026-nirjala", title: "Nirjala Ekadashi", titleHi: "निर्जला एकादशी", date: "2026-06-25", tithi: "Jyeshtha, Shukla Ekadashi" },
-  { id: "2026-rath-yatra", title: "Jagannath Rath Yatra", titleHi: "जगन्नाथ रथ यात्रा", date: "2026-07-16", tithi: "Ashadha, Shukla Dwitiya" },
-  { id: "2026-guru-purnima", title: "Guru Purnima", titleHi: "गुरु पूर्णिमा", date: "2026-07-29", tithi: "Ashadha, Shukla Purnima" },
-  { id: "2026-hariyali-teej", title: "Hariyali Teej", titleHi: "हरियाली तीज", date: "2026-08-15", tithi: "Shravana, Shukla Tritiya" },
-  { id: "2026-nag-panchami", title: "Nag Panchami", titleHi: "नाग पंचमी", date: "2026-08-17", tithi: "Shravana, Shukla Panchami" },
-  { id: "2026-rakhi", title: "Raksha Bandhan", titleHi: "रक्षाबंधन", date: "2026-08-28", tithi: "Shravana, Shukla Purnima" },
-  { id: "2026-janmashtami", title: "Krishna Janmashtami", titleHi: "कृष्ण जन्माष्टमी", date: "2026-09-04", tithi: "Bhadrapada, Krishna Ashtami" },
-  { id: "2026-ganesh", title: "Ganesh Chaturthi", titleHi: "गणेश चतुर्थी", date: "2026-09-14", tithi: "Bhadrapada, Shukla Chaturthi" },
-  { id: "2026-visarjan", title: "Ganesh Visarjan / Anant Chaturdashi", titleHi: "गणेश विसर्जन / अनंत चतुर्दशी", date: "2026-09-25", tithi: "Bhadrapada, Shukla Chaturdashi" },
-  { id: "2026-pitru-start", title: "Pitru Paksha Begins", titleHi: "पितृ पक्ष आरंभ", date: "2026-09-27", tithi: "Ashwina, Krishna Pratipada" },
-  { id: "2026-sarva-pitru", title: "Sarva Pitru Amavasya", titleHi: "सर्व पितृ अमावस्या", date: "2026-10-10", tithi: "Ashwina, Krishna Amavasya" },
-  { id: "2026-navratri", title: "Sharadiya Navratri Begins", titleHi: "शारदीय नवरात्रि आरंभ", date: "2026-10-11", tithi: "Ashwina, Shukla Pratipada" },
-  { id: "2026-durga-ashtami", title: "Durga Ashtami / Maha Navami", titleHi: "दुर्गाष्टमी / महा नवमी", date: "2026-10-19", tithi: "Ashwina, Shukla Ashtami / Navami" },
-  { id: "2026-dussehra", title: "Vijayadashami / Dussehra", titleHi: "विजयदशमी / दशहरा", date: "2026-10-20", tithi: "Ashwina, Shukla Dashami" },
-  { id: "2026-sharad-purnima", title: "Sharad Purnima", titleHi: "शरद पूर्णिमा", date: "2026-10-25", tithi: "Ashwina, Shukla Purnima" },
-  { id: "2026-karwa", title: "Karwa Chauth", titleHi: "करवा चौथ", date: "2026-10-29", tithi: "Kartika, Krishna Chaturthi" },
-  { id: "2026-dhanteras", title: "Dhanteras", titleHi: "धनतेरस", date: "2026-11-06", tithi: "Kartika, Krishna Trayodashi" },
-  { id: "2026-diwali", title: "Diwali / Lakshmi Puja", titleHi: "दीपावली / लक्ष्मी पूजा", date: "2026-11-08", tithi: "Kartika, Krishna Amavasya" },
-  { id: "2026-govardhan", title: "Govardhan Puja", titleHi: "गोवर्धन पूजा", date: "2026-11-10", tithi: "Kartika, Shukla Pratipada" },
-  { id: "2026-bhai-dooj", title: "Bhaiya Dooj", titleHi: "भाई दूज", date: "2026-11-11", tithi: "Kartika, Shukla Dwitiya" },
-  { id: "2026-chhath", title: "Chhath Puja (Sandhya Arghya)", titleHi: "छठ पूजा", date: "2026-11-15", tithi: "Kartika, Shukla Shashthi" },
-  { id: "2026-kartika-purnima", title: "Kartika Purnima", titleHi: "कार्तिक पूर्णिमा", date: "2026-11-24", tithi: "Kartika, Shukla Purnima" },
-  { id: "2026-gita", title: "Gita Jayanti / Mokshada Ekadashi", titleHi: "गीता जयंती / मोक्षदा एकादशी", date: "2026-12-20", tithi: "Margashirsha, Shukla Ekadashi" },
+const Y2025: HinduEvent[] = [
+  { id: "2025-makar", title: "Makara Sankranti / Pongal", titleHi: "मकर संक्रांति / पोंगल", date: "2025-01-14", tithi: "Dhanu → Makara" },
+  { id: "2025-vasant", title: "Vasant Panchami", titleHi: "वसंत पंचमी", date: "2025-02-02", tithi: "Magha, Shukla Panchami" },
+  { id: "2025-maha-shiv", title: "Maha Shivaratri", titleHi: "महाशिवरात्रि", date: "2025-02-26", tithi: "Phalguna, Krishna Chaturdashi" },
+  { id: "2025-holika", title: "Holika Dahan", titleHi: "होलिका दहन", date: "2025-03-13", tithi: "Phalguna, Shukla Purnima" },
+  { id: "2025-holi", title: "Holi", titleHi: "होली", date: "2025-03-14", tithi: "Chaitra, Krishna Pratipada" },
+  { id: "2025-ugadi", title: "Ugadi / Gudi Padwa", titleHi: "उगादी / गुड़ी पड़वा", date: "2025-03-30", tithi: "Chaitra, Shukla Pratipada" },
+  { id: "2025-ram", title: "Rama Navami", titleHi: "राम नवमी", date: "2025-04-06", tithi: "Chaitra, Shukla Navami" },
+  { id: "2025-hanuman", title: "Hanuman Jayanti", titleHi: "हनुमान जयंती", date: "2025-04-12", tithi: "Chaitra, Shukla Purnima" },
+  { id: "2025-akshaya", title: "Akshaya Tritiya", titleHi: "अक्षय तृतीया", date: "2025-04-30", tithi: "Vaishakha, Shukla Tritiya" },
+  { id: "2025-buddha", title: "Buddha Purnima", titleHi: "बुद्ध पूर्णिमा", date: "2025-05-12", tithi: "Vaishakha, Shukla Purnima" },
+  { id: "2025-ganga", title: "Ganga Dussehra", titleHi: "गंगा दशहरा", date: "2025-06-05", tithi: "Jyeshtha, Shukla Dashami" },
+  { id: "2025-guru", title: "Guru Purnima", titleHi: "गुरु पूर्णिमा", date: "2025-07-10", tithi: "Ashadha, Shukla Purnima" },
+  { id: "2025-rakhi", title: "Raksha Bandhan", titleHi: "रक्षाबंधन", date: "2025-08-09", tithi: "Shravana, Shukla Purnima" },
+  { id: "2025-janmashtami", title: "Krishna Janmashtami", titleHi: "जन्माष्टमी", date: "2025-08-15", tithi: "Bhadrapada, Krishna Ashtami" },
+  { id: "2025-ganesh", title: "Ganesh Chaturthi", titleHi: "गणेश चतुर्थी", date: "2025-08-27", tithi: "Bhadrapada, Shukla Chaturthi" },
+  { id: "2025-visarjan", title: "Ganesh Visarjan / Anant Chaturdashi", titleHi: "गणेश विसर्जन", date: "2025-09-06", tithi: "Bhadrapada, Shukla Chaturdashi" },
+  { id: "2025-navratri", title: "Navratri Begins", titleHi: "नवरात्रि आरंभ", date: "2025-09-22", tithi: "Ashwina, Shukla Pratipada" },
+  { id: "2025-dussehra", title: "Dussehra / Vijayadashami", titleHi: "दशहरा", date: "2025-10-02", tithi: "Ashwina, Shukla Dashami" },
+  { id: "2025-diwali", title: "Diwali / Lakshmi Puja", titleHi: "दीपावली", date: "2025-10-20", tithi: "Kartika, Krishna Amavasya" },
 ];
 
+const Y2026: HinduEvent[] = [
+  { id: "2026-makar", title: "Makara Sankranti / Pongal", titleHi: "मकर संक्रांति / पोंगल", date: "2026-01-14", tithi: "Dhanu → Makara" },
+  { id: "2026-vasant", title: "Vasant Panchami", titleHi: "वसंत पंचमी", date: "2026-01-23", tithi: "Magha, Shukla Panchami" },
+  { id: "2026-maha-shiv", title: "Maha Shivaratri", titleHi: "महाशिवरात्रि", date: "2026-02-15", tithi: "Phalguna, Krishna Chaturdashi" },
+  { id: "2026-holika", title: "Holika Dahan", titleHi: "होलिका दहन", date: "2026-03-03", tithi: "Phalguna, Shukla Purnima" },
+  { id: "2026-holi", title: "Holi", titleHi: "होली", date: "2026-03-04", tithi: "Chaitra, Krishna Pratipada" },
+  { id: "2026-ugadi", title: "Ugadi / Gudi Padwa", titleHi: "उगादी / गुड़ी पड़वा", date: "2026-03-19", tithi: "Chaitra, Shukla Pratipada" },
+  { id: "2026-ram", title: "Rama Navami (Smarta)", titleHi: "राम नवमी", date: "2026-03-26", tithi: "Chaitra, Shukla Navami" },
+  { id: "2026-hanuman", title: "Hanuman Jayanti", titleHi: "हनुमान जयंती", date: "2026-04-02", tithi: "Chaitra, Shukla Purnima" },
+  { id: "2026-akshaya", title: "Akshaya Tritiya", titleHi: "अक्षय तृतीया", date: "2026-04-19", tithi: "Vaishakha, Shukla Tritiya" },
+  { id: "2026-buddha", title: "Buddha Purnima", titleHi: "बुद्ध पूर्णिमा", date: "2026-05-01", tithi: "Vaishakha, Shukla Purnima" },
+  { id: "2026-ganga", title: "Ganga Dussehra", titleHi: "गंगा दशहरा", date: "2026-05-25", tithi: "Jyeshtha, Shukla Dashami" },
+  { id: "2026-rath", title: "Jagannath Rath Yatra", titleHi: "रथ यात्रा", date: "2026-07-16", tithi: "Ashadha, Shukla Dwitiya" },
+  { id: "2026-guru", title: "Guru Purnima", titleHi: "गुरु पूर्णिमा", date: "2026-07-29", tithi: "Ashadha, Shukla Purnima" },
+  { id: "2026-rakhi", title: "Raksha Bandhan", titleHi: "रक्षाबंधन", date: "2026-08-28", tithi: "Shravana, Shukla Purnima" },
+  { id: "2026-janmashtami", title: "Krishna Janmashtami", titleHi: "जन्माष्टमी", date: "2026-09-04", tithi: "Bhadrapada, Krishna Ashtami" },
+  { id: "2026-ganesh", title: "Ganesh Chaturthi", titleHi: "गणेश चतुर्थी", date: "2026-09-14", tithi: "Bhadrapada, Shukla Chaturthi" },
+  { id: "2026-visarjan", title: "Ganesh Visarjan", titleHi: "गणेश विसर्जन", date: "2026-09-25", tithi: "Bhadrapada, Shukla Chaturdashi" },
+  { id: "2026-navratri", title: "Navratri Begins", titleHi: "नवरात्रि आरंभ", date: "2026-10-11", tithi: "Ashwina, Shukla Pratipada" },
+  { id: "2026-dussehra", title: "Dussehra", titleHi: "दशहरा", date: "2026-10-20", tithi: "Ashwina, Shukla Dashami" },
+  { id: "2026-diwali", title: "Diwali / Lakshmi Puja", titleHi: "दीपावली", date: "2026-11-08", tithi: "Kartika, Krishna Amavasya" },
+  { id: "2026-chhath", title: "Chhath Puja", titleHi: "छठ पूजा", date: "2026-11-15", tithi: "Kartika, Shukla Shashthi" },
+  { id: "2026-kartika-p", title: "Kartika Purnima", titleHi: "कार्तिक पूर्णिमा", date: "2026-11-24", tithi: "Kartika, Shukla Purnima" },
+];
+
+const Y2027: HinduEvent[] = [
+  { id: "2027-makar", title: "Makara Sankranti / Pongal", titleHi: "मकर संक्रांति / पोंगल", date: "2027-01-15", tithi: "Dhanu → Makara" },
+  { id: "2027-vasant", title: "Vasant Panchami", titleHi: "वसंत पंचमी", date: "2027-02-11", tithi: "Magha, Shukla Panchami" },
+  { id: "2027-maha-shiv", title: "Maha Shivaratri", titleHi: "महाशिवरात्रि", date: "2027-03-06", tithi: "Phalguna, Krishna Chaturdashi" },
+  { id: "2027-holika", title: "Holika Dahan", titleHi: "होलिका दहन", date: "2027-03-21", tithi: "Phalguna, Shukla Purnima" },
+  { id: "2027-holi", title: "Holi", titleHi: "होली", date: "2027-03-22", tithi: "Chaitra, Krishna Pratipada" },
+  { id: "2027-ugadi", title: "Ugadi / Gudi Padwa", titleHi: "उगादी / गुड़ी पड़वा", date: "2027-04-07", tithi: "Chaitra, Shukla Pratipada" },
+  { id: "2027-ram", title: "Rama Navami", titleHi: "राम नवमी", date: "2027-04-15", tithi: "Chaitra, Shukla Navami" },
+  { id: "2027-hanuman", title: "Hanuman Jayanti", titleHi: "हनुमान जयंती", date: "2027-04-20", tithi: "Chaitra, Shukla Purnima" },
+  { id: "2027-akshaya", title: "Akshaya Tritiya", titleHi: "अक्षय तृतीया", date: "2027-05-09", tithi: "Vaishakha, Shukla Tritiya" },
+  { id: "2027-buddha", title: "Buddha Purnima", titleHi: "बुद्ध पूर्णिमा", date: "2027-05-20", tithi: "Vaishakha, Shukla Purnima" },
+  { id: "2027-rath", title: "Jagannath Rath Yatra", titleHi: "रथ यात्रा", date: "2027-07-05", tithi: "Ashadha, Shukla Dwitiya" },
+  { id: "2027-guru", title: "Guru Purnima", titleHi: "गुरु पूर्णिमा", date: "2027-07-18", tithi: "Ashadha, Shukla Purnima" },
+  { id: "2027-rakhi", title: "Raksha Bandhan", titleHi: "रक्षाबंधन", date: "2027-08-17", tithi: "Shravana, Shukla Purnima" },
+  { id: "2027-janmashtami", title: "Krishna Janmashtami", titleHi: "जन्माष्टमी", date: "2027-08-25", tithi: "Bhadrapada, Krishna Ashtami" },
+  { id: "2027-ganesh", title: "Ganesh Chaturthi", titleHi: "गणेश चतुर्थी", date: "2027-09-04", tithi: "Bhadrapada, Shukla Chaturthi" },
+  { id: "2027-visarjan", title: "Ganesh Visarjan", titleHi: "गणेश विसर्जन", date: "2027-09-14", tithi: "Bhadrapada, Shukla Chaturdashi" },
+  { id: "2027-navratri", title: "Navratri Begins", titleHi: "नवरात्रि आरंभ", date: "2027-09-30", tithi: "Ashwina, Shukla Pratipada" },
+  { id: "2027-dussehra", title: "Dussehra", titleHi: "दशहरा", date: "2027-10-09", tithi: "Ashwina, Shukla Dashami" },
+  { id: "2027-diwali", title: "Diwali / Lakshmi Puja", titleHi: "दीपावली", date: "2027-10-29", tithi: "Kartika, Krishna Amavasya" },
+  { id: "2027-chhath", title: "Chhath Puja", titleHi: "छठ पूजा", date: "2027-11-04", tithi: "Kartika, Shukla Shashthi" },
+];
+
+const BY_YEAR: Record<number, HinduEvent[]> = {
+  2025: Y2025,
+  2026: Y2026,
+  2027: Y2027,
+};
+
 export function festivalsForYear(year: number): HinduEvent[] {
-  if (year === 2026) return HINDU_FESTIVALS_2026;
-  // Other years: empty — do not invent dates
-  return [];
+  return BY_YEAR[year] || [];
 }
+
+export function hasVerifiedYear(year: number): boolean {
+  return year in BY_YEAR;
+}
+
+/** Open official Drik calendar for any year (auto “sync” via source site) */
+export function drikPanchangUrl(year: number): string {
+  return `https://www.drikpanchang.com/calendars/hindu/hinducalendar.html?year=${year}&geoname-id=1273294`;
+}
+
+export const VERIFIED_YEARS = [2025, 2026, 2027] as const;
