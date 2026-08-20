@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession, STAFF_ROLES } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULTS, type FeatureFlags } from "@/lib/featureFlags";
+import {
+  getFeatureRoleMatrix,
+  roleToCol,
+  MATRIX_FLAG_KEYS,
+  type FeatureRoleMatrix,
+  type RoleCol,
+} from "@/lib/featureRoleMatrix";
 
 function memberKey(userId: string) {
   return `member_flags:${userId}`;
@@ -15,6 +22,39 @@ function coerceBool(v: unknown): boolean | undefined {
     if (s === "false" || s === "0") return false;
   }
   return undefined;
+}
+
+function parseOverrides(raw: unknown): Record<string, boolean> {
+  const overrides: Record<string, boolean> = {};
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    Object.entries(raw as Record<string, unknown>).forEach(([k, v]) => {
+      const b = coerceBool(v);
+      if (b !== undefined) overrides[k] = b;
+    });
+  }
+  return overrides;
+}
+
+function effectiveForUser(
+  matrix: FeatureRoleMatrix,
+  overrides: Record<string, boolean>,
+  role: string | null | undefined
+): Record<string, boolean> {
+  const col = roleToCol(role);
+  const out: Record<string, boolean> = {};
+  for (const key of MATRIX_FLAG_KEYS) {
+    if (col === "super_admin") {
+      out[key] = true;
+      continue;
+    }
+    if (key in overrides) {
+      out[key] = overrides[key];
+      continue;
+    }
+    const cell = matrix[key];
+    out[key] = cell ? cell[col as RoleCol] !== false : true;
+  }
+  return out;
 }
 
 export async function GET(request: NextRequest) {
@@ -36,7 +76,9 @@ export async function GET(request: NextRequest) {
 
   const { data: fam } = await supabase
     .from("families")
-    .select("id, address, education_summary, employment_status, needs, family_members(name, relation, age, gender, occupation, education_level, blood_group)")
+    .select(
+      "id, address, education_summary, employment_status, needs, family_members(name, relation, age, gender, occupation, education_level, blood_group)"
+    )
     .eq("head_of_family", userId)
     .limit(1);
 
@@ -46,19 +88,24 @@ export async function GET(request: NextRequest) {
     .eq("setting_key", memberKey(userId))
     .maybeSingle();
 
-  let overrides: Record<string, boolean> = {};
-  const raw = row?.setting_value;
-  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-    Object.entries(raw as Record<string, unknown>).forEach(([k, v]) => {
-      const b = coerceBool(v);
-      if (b !== undefined) overrides[k] = b;
-    });
-  }
+  const overrides = parseOverrides(row?.setting_value);
+  const matrix = await getFeatureRoleMatrix();
+  const effective = effectiveForUser(matrix, overrides, user?.role);
 
   return NextResponse.json({
     user,
     family: fam?.[0] || null,
     overrides,
+    effective,
+    matrix,
+    roleCol:
+      user?.role === "core_committee"
+        ? "core"
+        : user?.role === "volunteer"
+          ? "volunteer"
+          : user?.role === "super_admin"
+            ? "super_admin"
+            : "member",
     defaults: DEFAULTS,
   });
 }
@@ -68,41 +115,45 @@ export async function POST(request: NextRequest) {
   if (!session || !["core_committee", "super_admin"].includes(session.role)) {
     return NextResponse.json({ error: "Committee / Super Admin only" }, { status: 403 });
   }
-  const { userId, key, value } = await request.json();
+  const body = await request.json().catch(() => ({}));
+  const userId = body.userId as string;
+  const key = body.key as string;
+  const value = body.value;
+
   if (!userId || !key || typeof value !== "boolean") {
-    return NextResponse.json({ error: "userId, key, boolean value required" }, { status: 400 });
-  }
-  if (!(key in DEFAULTS)) {
-    return NextResponse.json({ error: "Unknown flag key" }, { status: 400 });
+    return NextResponse.json({ error: "userId, key, value required" }, { status: 400 });
   }
 
   const supabase = createAdminClient();
-  const sk = memberKey(userId);
-  const { data: existing } = await supabase
+  const { data: target } = await supabase.from("users").select("id, role").eq("id", userId).maybeSingle();
+  if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+  const { data: row } = await supabase
     .from("app_settings")
     .select("setting_value")
-    .eq("setting_key", sk)
+    .eq("setting_key", memberKey(userId))
     .maybeSingle();
 
-  const current: Record<string, boolean> =
-    existing?.setting_value && typeof existing.setting_value === "object"
-      ? { ...(existing.setting_value as Record<string, boolean>) }
-      : {};
-  current[key] = value;
+  const overrides = parseOverrides(row?.setting_value);
+  // Always store explicit personal override
+  overrides[key] = value;
 
-  const payload = {
-    setting_key: sk,
-    setting_value: current,
-    updated_by: session.userId,
-    updated_at: new Date().toISOString(),
-  };
-
-  let { error } = await supabase.from("app_settings").upsert(payload, { onConflict: "setting_key" });
-  if (error) {
-    await supabase.from("app_settings").delete().eq("setting_key", sk);
-    ({ error } = await supabase.from("app_settings").insert(payload));
+  if (row) {
+    const { error } = await supabase
+      .from("app_settings")
+      .update({ setting_value: overrides })
+      .eq("setting_key", memberKey(userId));
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  } else {
+    const { error } = await supabase.from("app_settings").insert({
+      setting_key: memberKey(userId),
+      setting_value: overrides,
+    });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ success: true, overrides: current });
+  const matrix = await getFeatureRoleMatrix();
+  const effective = effectiveForUser(matrix, overrides, target.role);
+
+  return NextResponse.json({ success: true, overrides, effective });
 }

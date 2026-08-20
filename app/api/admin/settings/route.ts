@@ -48,6 +48,32 @@ export async function POST(request: NextRequest) {
     } catch {
       /* ignore */
     }
+
+    // Sync: clear personal overrides for this flag so everyone follows global again
+    try {
+      const supabase = (await import("@/lib/supabase/admin")).createAdminClient();
+      const { data: rows } = await supabase
+        .from("app_settings")
+        .select("setting_key, setting_value")
+        .like("setting_key", "member_flags:%");
+      if (rows?.length) {
+        for (const row of rows) {
+          const raw = row.setting_value;
+          if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+          const o = { ...(raw as Record<string, unknown>) };
+          if (key in o) {
+            delete o[key];
+            await supabase
+              .from("app_settings")
+              .update({ setting_value: o })
+              .eq("setting_key", row.setting_key);
+          }
+        }
+      }
+    } catch {
+      /* non-fatal */
+    }
+
     // Also mirror to legacy boolean for this flag (any role view => true)
     const cell = result.matrix[key];
     if (cell && key in DEFAULTS) {
