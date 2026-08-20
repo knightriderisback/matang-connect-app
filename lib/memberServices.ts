@@ -17,11 +17,11 @@ export const ALL_MEMBER_MODULE_KEYS = [
 export const ALLOWLIST_KEY = "member_services_allowlist";
 
 export const MODULE_TO_FLAG: Record<string, string> = {
-  census: "stage_1_enabled",
+  census: "census_enabled",
   sos: "sos_enabled",
   care: "care_enabled",
   jobs: "jobs_enabled",
-  kosh: "kosh_transparency_mode",
+  kosh: "kosh_enabled",
   matrimony: "matrimony_enabled",
   vyapar: "vyapar_enabled",
   rides: "rides_enabled",

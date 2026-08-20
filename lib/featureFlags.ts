@@ -4,69 +4,151 @@ export interface FeatureFlags {
   stage_1_enabled: boolean;
   stage_2_enabled: boolean;
   stage_3_enabled: boolean;
-  kosh_transparency_mode: boolean;
-  sos_enabled: boolean;
-  jobs_enabled: boolean;
-  notices_enabled: boolean;
-  care_enabled: boolean;
-  titles_enabled: boolean;
-  vyapar_enabled: boolean;
-  matrimony_enabled: boolean;
-  dharohar_enabled: boolean;
-  panchang_enabled: boolean;
-  mahila_enabled: boolean;
-  polls_enabled: boolean;
-  arthik_enabled: boolean;
+  // 1. Core identity & access
+  registration_enabled: boolean;
+  login_enabled: boolean;
+  profile_edit_enabled: boolean;
+  profile_photo_enabled: boolean;
+  mpin_change_self: boolean;
+  directory_enabled: boolean;
+  directory_filters_enabled: boolean;
   scan_enabled: boolean;
-  rides_enabled: boolean;
-  gaurav_enabled: boolean;
-  gamification_enabled: boolean;
-  ai_member_enabled: boolean;
-  ai_god_mode_enabled: boolean;
+  scan_file_upload: boolean;
+  public_qr_profile: boolean;
+  // 2. Feed / home
+  feed_enabled: boolean;
   feed_images_enabled: boolean;
   feed_member_post_enabled: boolean;
+  feed_staff_post_only: boolean;
+  feed_whatsapp_share: boolean;
+  notices_enabled: boolean;
+  // 3. Emergency & care
+  sos_enabled: boolean;
+  sos_header_button: boolean;
+  sos_volunteer_respond: boolean;
+  sos_location_share: boolean;
+  care_enabled: boolean;
+  care_close_staff: boolean;
+  // 4. Livelihood & money
+  jobs_enabled: boolean;
+  jobs_post_enabled: boolean;
+  kosh_enabled: boolean;
+  kosh_transparency_mode: boolean;
+  arthik_enabled: boolean;
+  vyapar_enabled: boolean;
+  // 5. Community life
+  matrimony_enabled: boolean;
+  matrimony_share: boolean;
+  polls_enabled: boolean;
+  polls_create: boolean;
+  polls_vote_change_request: boolean;
+  rides_enabled: boolean;
+  panchang_enabled: boolean;
+  panchang_staff_add: boolean;
+  dharohar_enabled: boolean;
+  mahila_enabled: boolean;
+  gaurav_enabled: boolean;
+  history_page_enabled: boolean;
+  // 6. Census
+  census_enabled: boolean;
+  census_edit_others: boolean;
+  // 7. Recognition
+  gamification_enabled: boolean;
+  awards_create: boolean;
+  leaderboard_enabled: boolean;
+  titles_enabled: boolean;
+  // 8. Admin tools
   admin_requests_enabled: boolean;
+  admin_verify_enabled: boolean;
+  admin_directory_enabled: boolean;
+  admin_audit_enabled: boolean;
+  admin_reset_mpin: boolean;
+  admin_seed_demo: boolean;
+  // 9. AI & PWA
+  ai_member_enabled: boolean;
+  ai_god_mode_enabled: boolean;
+  pwa_install_prompt: boolean;
+  // 10. Cross-cutting
+  whatsapp_share_global: boolean;
+  language_toggle: boolean;
+  services_tab_members: boolean;
 }
 
 export const DEFAULTS: FeatureFlags = {
   stage_1_enabled: true,
   stage_2_enabled: true,
   stage_3_enabled: true,
-  kosh_transparency_mode: true,
-  sos_enabled: true,
-  jobs_enabled: true,
-  notices_enabled: true,
-  care_enabled: true,
-  titles_enabled: true,
-  vyapar_enabled: true,
-  matrimony_enabled: true,
-  dharohar_enabled: true,
-  panchang_enabled: true,
-  mahila_enabled: true,
-  polls_enabled: true,
-  arthik_enabled: true,
+  registration_enabled: true,
+  login_enabled: true,
+  profile_edit_enabled: true,
+  profile_photo_enabled: true,
+  mpin_change_self: true,
+  directory_enabled: true,
+  directory_filters_enabled: true,
   scan_enabled: true,
-  rides_enabled: true,
-  gaurav_enabled: true,
-  gamification_enabled: true,
-  ai_member_enabled: true,
-  ai_god_mode_enabled: true,
+  scan_file_upload: true,
+  public_qr_profile: true,
+  feed_enabled: true,
   feed_images_enabled: true,
   feed_member_post_enabled: false,
+  feed_staff_post_only: false,
+  feed_whatsapp_share: true,
+  notices_enabled: true,
+  sos_enabled: true,
+  sos_header_button: true,
+  sos_volunteer_respond: true,
+  sos_location_share: true,
+  care_enabled: true,
+  care_close_staff: true,
+  jobs_enabled: true,
+  jobs_post_enabled: true,
+  kosh_enabled: true,
+  kosh_transparency_mode: true,
+  arthik_enabled: true,
+  vyapar_enabled: true,
+  matrimony_enabled: true,
+  matrimony_share: true,
+  polls_enabled: true,
+  polls_create: true,
+  polls_vote_change_request: true,
+  rides_enabled: true,
+  panchang_enabled: true,
+  panchang_staff_add: true,
+  dharohar_enabled: true,
+  mahila_enabled: true,
+  gaurav_enabled: true,
+  history_page_enabled: true,
+  census_enabled: true,
+  census_edit_others: true,
+  gamification_enabled: true,
+  awards_create: true,
+  leaderboard_enabled: true,
+  titles_enabled: true,
   admin_requests_enabled: true,
+  admin_verify_enabled: true,
+  admin_directory_enabled: true,
+  admin_audit_enabled: true,
+  admin_reset_mpin: true,
+  admin_seed_demo: true,
+  ai_member_enabled: true,
+  ai_god_mode_enabled: true,
+  pwa_install_prompt: true,
+  whatsapp_share_global: true,
+  language_toggle: true,
+  services_tab_members: true,
 };
 
 /** moduleKey → flag key (visibility for members) */
 export const MODULE_FLAG: Record<string, keyof FeatureFlags> = {
-  census: "stage_1_enabled", // census follows stage 1
-  profile: "stage_1_enabled",
-  directory: "stage_1_enabled",
+  census: "census_enabled",
+  profile: "profile_edit_enabled",
+  directory: "directory_enabled",
   scan: "scan_enabled",
   sos: "sos_enabled",
   jobs: "jobs_enabled",
   notices: "notices_enabled",
   care: "care_enabled",
-  kosh: "kosh_transparency_mode",
+  kosh: "kosh_enabled",
   titles: "titles_enabled",
   vyapar: "vyapar_enabled",
   matrimony: "matrimony_enabled",
@@ -79,6 +161,8 @@ export const MODULE_FLAG: Record<string, keyof FeatureFlags> = {
   gaurav: "gaurav_enabled",
   gamification: "gamification_enabled",
   admin_requests: "admin_requests_enabled",
+  history: "history_page_enabled",
+  feed: "feed_enabled",
 };
 
 export const STAGE_MODULES: Record<string, (keyof FeatureFlags)[]> = {
