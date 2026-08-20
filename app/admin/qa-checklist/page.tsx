@@ -2,102 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { ClipboardCheck, RotateCcw } from "lucide-react";
+import { ClipboardCheck, RotateCcw, Info } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import {
+  CRITICAL_SMOKE,
+  buildDynamicSections,
+  allChecklistIds,
+} from "@/lib/qaChecklistRegistry";
 
-const STORAGE_KEY = "matang_qa_checklist_v2";
-
-const CRITICAL: string[] = [
-  "Login works (phone + M-PIN numeric keyboard)",
-  "Register ke baad SAME credentials se login success",
-  "Refresh ke baad session rehti hai",
-  "Home/feed load; scroll pe blank nahi",
-  "Header: MATANG CONNECT + name/role",
-  "Normal footer: Home · Profile · Services ONLY",
-  "Staff footer: Home · Profile · Admin (no Census)",
-  "Profile EDIT → SAVE → reload pe data same",
-  "M-PIN change YA admin reset → naya PIN se login",
-  "Services: flag OFF module normal ko nahi dikhe",
-  "Services: flag ON module sahi page khole",
-  "Admin Settings: flag toggle → member pe asar",
-  "Personal override sirf us user pe (agar use)",
-  "SOS trigger + detail (crash nahi)",
-  "Scan: QR/file → member card → profile",
-  "Feed: author name → profile",
-  "Care YA Jobs create 500 nahi",
-  "Polls: vote save YA clear error",
-  "Panchang calendar + Today",
-  "Panchang staff add green (staff)",
-  "Directory load + 1 filter",
-  "Directory se member profile",
-  "All Requests allowed roles pe open",
-  "Badges/points page OK",
-  "Matrimony list/form crash nahi",
-  "WhatsApp share wa.me open",
-  "Language toggle kaam kare",
-  "Logout ke baad private → login",
-  "Production deploy; Vercel error nahi",
-  "Home + Profile pe critical console error nahi",
-];
-
-const SECTIONS: { title: string; items: string[] }[] = [
-  {
-    title: "A. Environment",
-    items: ["HTTPS loads", "Vercel build green", "Supabase env set", "Old cache stuck UI nahi"],
-  },
-  {
-    title: "B. Auth extra",
-    items: ["Wrong PIN clear error", "Register + CG cities", "Duplicate phone reject", "Pending behaviour OK"],
-  },
-  {
-    title: "C. Shell UI",
-    items: ["Logo 3D correct", "SOS header near language", "Floaters opacity", "PWA install prompt", "Splash real logo"],
-  },
-  {
-    title: "D. Home / Feed",
-    items: ["Normal: feed only", "Image posts flag", "Member post flag", "WhatsApp image+text", "SOS short in feed"],
-  },
-  {
-    title: "E. Profile",
-    items: ["Photo after save", "Dropdown + Other", "DOB + height cm/ft", "Share + branded WA", "Admin full member view"],
-  },
-  {
-    title: "F. Flags / Stages",
-    items: ["Stage 1/2/3 lock", "Module flags save", "URL gated when off", "Reset personal overrides", "Staff admin tools OK"],
-  },
-  {
-    title: "G. SOS deep",
-    items: ["Popup + sound", "Location link", "Volunteer respond", "Status updates"],
-  },
-  {
-    title: "H. Care / Jobs / Kosh / Census",
-    items: ["Care enums match DB", "Jobs create+list", "Kosh path", "Census not in footer"],
-  },
-  {
-    title: "I. Scan / Directory",
-    items: ["Camera + file upload", "Flag off hides entry", "Multi-filter + sort", "No wrong verify on directory"],
-  },
-  {
-    title: "J. Matrimony / Polls / Rides",
-    items: ["Matrimony save+list", "Poll lock + change req", "Requests approve", "Rides poster→profile"],
-  },
-  {
-    title: "K. Panchang",
-    items: ["Verified 2025–27", "Recurrence options", "Edit/Delete staff only", "Sync safe for staff", "WA is-hafte + city"],
-  },
-  {
-    title: "L. Badges / Titles / Admin",
-    items: ["Points order", "Award + clickable names", "Titles on header", "Verify queue", "Audit new rows", "Demo seed"],
-  },
-  {
-    title: "M. Thin modules",
-    items: ["Vyapar open", "Dharohar open", "Mahila open", "Arthik open", "Gaurav open"],
-  },
-  {
-    title: "N. AI / Perf / Roles",
-    items: ["Member AI", "God Mode SA only", "Admin load not too slow", "Mobile 375px layout", "Normal denied settings"],
-  },
-];
+const STORAGE_KEY = "matang_qa_checklist_v3";
 
 type Checks = Record<string, boolean>;
 
@@ -107,7 +20,9 @@ function loadState(): { checks: Checks; build: string; tester: string; date: str
   }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { checks: {}, build: "", tester: "", date: new Date().toISOString().slice(0, 10) };
+    if (!raw) {
+      return { checks: {}, build: "", tester: "", date: new Date().toISOString().slice(0, 10) };
+    }
     const p = JSON.parse(raw);
     return {
       checks: p.checks || {},
@@ -129,6 +44,9 @@ export default function QaChecklistPage() {
   const [showResult, setShowResult] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
+  const sections = useMemo(() => buildDynamicSections(), []);
+  const allIds = useMemo(() => allChecklistIds(), []);
+
   useEffect(() => {
     const s = loadState();
     setChecks(s.checks);
@@ -141,25 +59,11 @@ export default function QaChecklistPage() {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ checks, build, tester, date })
-      );
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ checks, build, tester, date }));
     } catch {
       /* ignore */
     }
   }, [checks, build, tester, date, hydrated]);
-
-  const allIds = useMemo(() => {
-    const ids: { id: string; label: string; critical: boolean }[] = [];
-    CRITICAL.forEach((label, i) => ids.push({ id: `c${i}`, label, critical: true }));
-    SECTIONS.forEach((sec, si) => {
-      sec.items.forEach((label, ti) => {
-        ids.push({ id: `s${si}_${ti}`, label: `${sec.title}: ${label}`, critical: false });
-      });
-    });
-    return ids;
-  }, []);
 
   const toggle = useCallback((id: string) => {
     setChecks((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -172,12 +76,12 @@ export default function QaChecklistPage() {
     setShowResult(false);
   };
 
-  const critTotal = CRITICAL.length;
-  const critPass = CRITICAL.reduce((n, _, i) => n + (checks[`c${i}`] ? 1 : 0), 0);
+  const critTotal = CRITICAL_SMOKE.length;
+  const critPass = CRITICAL_SMOKE.reduce((n, _, i) => n + (checks[`c${i}`] ? 1 : 0), 0);
   const fullTotal = allIds.length;
   const fullPass = allIds.reduce((n, x) => n + (checks[x.id] ? 1 : 0), 0);
   const pct = fullTotal ? Math.round((fullPass / fullTotal) * 100) : 0;
-  const missingCrit = CRITICAL.map((label, i) => ({ label, id: `c${i}` })).filter(
+  const missingCrit = CRITICAL_SMOKE.map((label, i) => ({ label, id: `c${i}` })).filter(
     (x) => !checks[x.id]
   );
 
@@ -192,7 +96,7 @@ export default function QaChecklistPage() {
   } else if (fullPass < fullTotal) {
     resultKind = "partial";
     resultTitle = "PARTIAL — Smoke OK, full list incomplete";
-    resultMsg = `Critical 30 pass. Full checklist mein ${fullTotal - fullPass} baaki.`;
+    resultMsg = `Critical smoke pass. Full checklist mein ${fullTotal - fullPass} baaki.`;
   }
 
   if (loading || !hydrated) {
@@ -215,7 +119,7 @@ export default function QaChecklistPage() {
             QA Checklist
           </h1>
           <p className="text-[11px] text-gray-500 mt-0.5">
-            Super Admin only · Critical 30 smoke + full zero-gap · ticks is device pe save
+            Super Admin · auto-updates from feature flags + module registry
           </p>
         </div>
         <button
@@ -227,7 +131,20 @@ export default function QaChecklistPage() {
         </button>
       </div>
 
-      {/* Progress */}
+      <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 flex gap-2 text-[11px] text-sky-900">
+        <Info size={16} className="shrink-0 mt-0.5" />
+        <div>
+          <p className="font-semibold">Auto checklist</p>
+          <p>
+            Naya module: <code className="bg-white/80 px-1 rounded">featureFlags.ts</code> (DEFAULTS +
+            MODULE_FLAG) + optional <code className="bg-white/80 px-1 rounded">MODULE_ROUTES</code> /{" "}
+            <code className="bg-white/80 px-1 rounded">ADMIN_TOOL_ROUTES</code> in{" "}
+            <code className="bg-white/80 px-1 rounded">lib/qaChecklistRegistry.ts</code> → Part 2 mein
+            khud add. Critical 30 curated rehta hai.
+          </p>
+        </div>
+      </div>
+
       <div className="sticky top-0 z-10 rounded-2xl bg-matang-navy text-matang-gold px-4 py-3 shadow-md">
         <div className="flex items-center justify-between text-sm font-semibold">
           <span>
@@ -245,7 +162,6 @@ export default function QaChecklistPage() {
         </div>
       </div>
 
-      {/* Meta */}
       <div className="rounded-2xl border border-gray-100 bg-white p-4 space-y-2">
         <p className="text-sm font-semibold text-matang-navy">Test info</p>
         <input
@@ -270,14 +186,13 @@ export default function QaChecklistPage() {
         </div>
       </div>
 
-      {/* Critical 30 */}
       <div className="rounded-2xl border border-red-100 bg-white p-4">
-        <h2 className="text-sm font-bold text-red-700 mb-1">PART 1 — Critical 30 Smoke</h2>
+        <h2 className="text-sm font-bold text-red-700 mb-1">PART 1 — Critical smoke</h2>
         <p className="text-[11px] text-gray-500 mb-3">
-          15–20 min. Deploy ke baad pehle ye. ★ fail = release mat bolo.
+          Deploy gate · curated list · ★ fail = release mat bolo
         </p>
         <div className="space-y-1">
-          {CRITICAL.map((label, i) => {
+          {CRITICAL_SMOKE.map((label, i) => {
             const id = `c${i}`;
             const on = !!checks[id];
             return (
@@ -293,7 +208,9 @@ export default function QaChecklistPage() {
                   checked={on}
                   onChange={() => toggle(id)}
                 />
-                <span className={`text-sm ${on ? "line-through text-gray-400" : "text-red-700 font-medium"}`}>
+                <span
+                  className={`text-sm ${on ? "line-through text-gray-400" : "text-red-700 font-medium"}`}
+                >
                   <span className="text-red-600">★</span> {label}
                 </span>
               </label>
@@ -302,16 +219,20 @@ export default function QaChecklistPage() {
         </div>
       </div>
 
-      {/* Full sections */}
       <div className="rounded-2xl border border-gray-100 bg-white p-4 space-y-4">
         <div>
-          <h2 className="text-sm font-bold text-matang-navy">PART 2 — Full Zero-Gap</h2>
-          <p className="text-[11px] text-gray-500">Smoke green ke baad · real device test</p>
+          <h2 className="text-sm font-bold text-matang-navy">PART 2 — Full + Auto from code</h2>
+          <p className="text-[11px] text-gray-500">
+            Flags / modules / admin tools code se generate · total items: {fullTotal - critTotal}
+          </p>
         </div>
-        {SECTIONS.map((sec, si) => (
+        {sections.map((sec, si) => (
           <div key={sec.title}>
             <h3 className="text-xs font-bold text-matang-navy mb-1 border-b border-gray-100 pb-1">
               {sec.title}
+              {sec.title.startsWith("Auto") && (
+                <span className="ml-2 text-[10px] font-normal text-emerald-600">auto</span>
+              )}
             </h3>
             <div className="space-y-0.5">
               {sec.items.map((label, ti) => {
@@ -341,7 +262,6 @@ export default function QaChecklistPage() {
         ))}
       </div>
 
-      {/* Result */}
       <div className="rounded-2xl border border-gray-100 bg-white p-4 space-y-3">
         <h2 className="text-sm font-bold text-matang-navy">Result</h2>
         <Button className="w-full" onClick={() => setShowResult(true)}>
