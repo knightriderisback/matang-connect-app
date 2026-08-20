@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { Calendar, ChevronLeft, ChevronRight, Plus, X, RefreshCw } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Plus, X, RefreshCw, Share2, Pencil, Trash2, LocateFixed } from "lucide-react";
 import { festivalsForYear, hasVerifiedYear, drikPanchangUrl, VERIFIED_YEARS } from "@/lib/hinduFestivals2026";
 
 interface Festival {
@@ -51,7 +51,12 @@ function PanchangPageInner() {
     festival_date: "",
     recurrence: "yearly" as "none" | "monthly" | "yearly",
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
+  const cityLabel =
+    user?.cities?.name ||
+    user?.native_village ||
+    (user?.city_id ? "Your city" : "Chhattisgarh");
 
   const load = () => {
     setLoading(true);
@@ -167,6 +172,24 @@ function PanchangPageInner() {
       toast("Title and date required", "error");
       return;
     }
+    if (editingId) {
+      const res = await fetch("/api/panchang", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingId, ...form }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Update failed", "error");
+        return;
+      }
+      toast("Festival updated", "success");
+      setEditingId(null);
+      setShowForm(false);
+      setForm({ title: "", description: "", festival_date: "", recurrence: "yearly" });
+      load();
+      return;
+    }
     const res = await fetch("/api/panchang", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -183,6 +206,66 @@ function PanchangPageInner() {
     load();
   };
 
+  const goToday = () => {
+    const n = new Date();
+    setYear(n.getFullYear());
+    setMonth0(n.getMonth());
+    setSelected(n.toISOString().slice(0, 10));
+  };
+
+  const startEdit = (ev: Festival) => {
+    // unwrap expanded recurring id → original list id
+    const baseId = list.find((l) => ev.id === l.id || String(ev.id).startsWith(String(l.id) + "_"))?.id || ev.id;
+    const raw = list.find((l) => l.id === baseId) || ev;
+    setEditingId(baseId);
+    setForm({
+      title: raw.title || "",
+      description: raw.description || "",
+      festival_date: (raw.festival_date || "").slice(0, 10),
+      recurrence: (raw.recurrence as any) || "yearly",
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const deleteFest = async (ev: Festival) => {
+    const baseId = list.find((l) => ev.id === l.id || String(ev.id).startsWith(String(l.id) + "_"))?.id || ev.id;
+    if (!confirm("Delete this staff festival?")) return;
+    const res = await fetch(`/api/panchang?id=${encodeURIComponent(baseId)}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast(data.error || "Delete failed", "error");
+      return;
+    }
+    toast("Deleted", "success");
+    load();
+  };
+
+  const shareWeekWhatsApp = () => {
+    const n = new Date();
+    const day = n.getDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const monday = new Date(n);
+    monday.setDate(n.getDate() + mondayOffset);
+    const lines: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const ds = d.toISOString().slice(0, 10);
+      const evs = allEvents.get(ds) || [];
+      if (evs.length) {
+        lines.push(`*${ds}*`);
+        evs.forEach((e) => lines.push(`• ${e.title}`));
+      }
+    }
+    const body =
+      lines.length > 0
+        ? lines.join("\n")
+        : "Is hafte koi registered tyohar nahi.";
+    const text = `🕉️ *Matang Connect — Is hafte ke tyohar*\n📍 ${cityLabel}\n\n${body}\n\n_Matang Connect Panchang_`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
   const dim = daysInMonth(year, month0);
   const start = startWeekday(year, month0);
   const todayStr = now.toISOString().slice(0, 10);
@@ -195,24 +278,42 @@ function PanchangPageInner() {
 
   return (
     <div className="p-4 space-y-4 pb-24">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Calendar className="text-matang-gold" size={22} />
-          <h1 className="text-lg font-bold text-matang-navy">पंचांग</h1>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Calendar className="text-matang-gold shrink-0" size={22} />
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-matang-navy leading-tight">पंचांग</h1>
+            <p className="text-[10px] text-gray-500 truncate">📍 {cityLabel} · Chhattisgarh</p>
+          </div>
         </div>
-        {isStaff && (
-          <Button className="text-sm px-3 py-1.5" onClick={() => setShowForm(!showForm)}>
-            <Plus size={16} /> Add
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Button type="button" variant="outline" className="text-xs px-2 py-1.5 gap-1" onClick={goToday}>
+            <LocateFixed size={14} /> Today
           </Button>
-        )}
+          {isStaff && (
+            <Button
+              className="text-sm px-3 py-1.5"
+              onClick={() => {
+                setEditingId(null);
+                setForm({ title: "", description: "", festival_date: "", recurrence: "yearly" });
+                setShowForm(!showForm);
+              }}
+            >
+              <Plus size={16} /> Add
+            </Button>
+          )}
+        </div>
       </div>
       <p className="text-[11px] text-gray-500">
-        कैलेंडर · त्योहार · समाज की तारीखें। तिथि पर टैप करें विवरण के लिए।
+        कैलेंडर · त्योहार · समाज की तारीखें। तिथि पर टैप करें विवरण के लिए। Local note: {cityLabel}.
       </p>
 
       {showForm && isStaff && (
         <Card className="border-matang-gold/30">
           <CardContent className="p-4 space-y-3">
+            <p className="text-sm font-semibold text-matang-navy">
+              {editingId ? "Edit festival" : "Add festival"}
+            </p>
             <Input
               label="Title"
               value={form.title}
@@ -251,11 +352,18 @@ function PanchangPageInner() {
               onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setShowForm(false);
+                  setEditingId(null);
+                }}
+              >
                 Cancel
               </Button>
               <Button className="flex-1" onClick={submit}>
-                Save
+                {editingId ? "Update" : "Save"}
               </Button>
             </div>
           </CardContent>
@@ -271,7 +379,9 @@ function PanchangPageInner() {
           <p className="text-sm font-bold">
             {MONTHS_HI[month0]} {year}
           </p>
-          <p className="text-[10px] text-matang-gold/70">Drik Panchang (Delhi) · verified years: 2025–2027</p>
+          <p className="text-[10px] text-matang-gold/70">
+            📍 {cityLabel} · Drik baseline Delhi · 2025–2027
+          </p>
         </div>
         <button type="button" onClick={nextMonth} className="p-1.5 rounded-lg active:bg-white/10">
           <ChevronRight size={20} />
@@ -290,12 +400,15 @@ function PanchangPageInner() {
           <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
           {syncing ? "Updating…" : "Update / Sync"}
         </Button>
+        <Button type="button" variant="outline" className="text-xs gap-1.5 text-green-700 border-green-300" onClick={shareWeekWhatsApp}>
+          <Share2 size={14} /> Is hafte WhatsApp
+        </Button>
         {lastSyncAt && (
           <span className="text-[10px] text-gray-500">
             Last sync: {new Date(lastSyncAt).toLocaleString("en-IN")}
           </span>
         )}
-        <span className="text-[10px] text-gray-400">Staff tyohar change nahi hote</span>
+        <span className="text-[10px] text-gray-400">Staff tyohar Sync se safe</span>
       </div>
 
       {!hasVerifiedYear(year) && (
@@ -442,6 +555,24 @@ function PanchangPageInner() {
                       <p className="text-[10px] text-green-700">
                         Repeat: {ev.recurrence === "monthly" ? "Har mahina" : "Har saal"}
                       </p>
+                    )}
+                    {isStaff && staff && (
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 text-[11px] text-matang-navy font-medium"
+                          onClick={() => startEdit(ev)}
+                        >
+                          <Pencil size={12} /> Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 text-[11px] text-red-600 font-medium"
+                          onClick={() => deleteFest(ev)}
+                        >
+                          <Trash2 size={12} /> Delete
+                        </button>
+                      </div>
                     )}
                   </div>
                   );

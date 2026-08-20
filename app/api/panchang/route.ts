@@ -228,3 +228,74 @@ export async function POST(request: NextRequest) {
   }
   return NextResponse.json({ success: true, festival: local, stored: "app_settings" });
 }
+
+
+export async function PATCH(request: NextRequest) {
+  const session = await getSession();
+  if (!session || !STAFF_ROLES.includes(session.role as any)) {
+    return NextResponse.json({ error: "Staff only" }, { status: 403 });
+  }
+  const body = await request.json().catch(() => ({}));
+  const id = body.id;
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+  const supabase = createAdminClient();
+
+  const recurrence = ["none", "monthly", "yearly"].includes(body.recurrence)
+    ? body.recurrence
+    : undefined;
+  const updates: any = {};
+  if (body.title != null) updates.title = body.title;
+  if (body.description != null) updates.description = body.description;
+  if (body.festival_date != null) updates.festival_date = body.festival_date;
+  if (recurrence) {
+    updates.is_recurring = recurrence !== "none";
+  }
+
+  const { data, error } = await supabase
+    .from("festivals")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .maybeSingle();
+
+  if (!error && data) {
+    return NextResponse.json({ success: true, festival: { ...data, recurrence: recurrence || "yearly", source: "staff" } });
+  }
+
+  // fallback store
+  const store = await readStore(supabase);
+  const idx = store.findIndex((f: any) => f.id === id);
+  if (idx < 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const prev = store[idx];
+  const next = {
+    ...prev,
+    ...updates,
+    recurrence: recurrence || prev.recurrence || "yearly",
+    source: "staff",
+  };
+  store[idx] = next;
+  await writeStore(supabase, store);
+  return NextResponse.json({ success: true, festival: next, stored: "app_settings" });
+}
+
+export async function DELETE(request: NextRequest) {
+  const session = await getSession();
+  if (!session || !STAFF_ROLES.includes(session.role as any)) {
+    return NextResponse.json({ error: "Staff only" }, { status: 403 });
+  }
+  const id = request.nextUrl.searchParams.get("id") || (await request.json().catch(() => ({}))).id;
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+  const supabase = createAdminClient();
+
+  const { error } = await supabase.from("festivals").delete().eq("id", id);
+  // also remove from store (always, for fallback ids)
+  const store = await readStore(supabase);
+  const next = store.filter((f: any) => f.id !== id);
+  if (next.length !== store.length) {
+    await writeStore(supabase, next);
+  }
+  if (error && next.length === store.length) {
+    return NextResponse.json({ error: error.message || "Delete failed" }, { status: 500 });
+  }
+  return NextResponse.json({ success: true });
+}
