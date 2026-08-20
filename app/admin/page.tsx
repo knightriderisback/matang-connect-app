@@ -126,9 +126,21 @@ export default function AdminHubPage() {
       <div>
         <h2 className="text-sm font-bold text-matang-navy mb-2">Admin Tools</h2>
         <div className="grid grid-cols-2 gap-2">
-          {ADMIN_LINKS.filter((l: any) => {
+                    {ADMIN_LINKS.filter((l: any) => {
             if ((l as any).superOnly && user?.role !== "super_admin") return false;
-            if (l.href === "/admin/requests" && !can("admin_requests")) return false;
+            if (user?.role === "super_admin") return true;
+            if (l.href === "/admin/settings") return false;
+            const toolFlag: Record<string, string> = {
+              "/admin/requests": "admin_requests_enabled",
+              "/admin/verify": "admin_verify_enabled",
+              "/admin/reset-mpin": "admin_reset_mpin",
+              "/admin/titles": "titles_enabled",
+              "/admin/directory": "admin_directory_enabled",
+              "/admin/audit": "admin_audit_enabled",
+            };
+            const fk = toolFlag[l.href];
+            if (fk) return can(fk);
+            if (l.href === "/admin/requests") return can("admin_requests");
             return true;
           }).map((l) => (
             <button

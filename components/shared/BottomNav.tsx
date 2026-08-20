@@ -3,6 +3,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Home, UserCircle, Shield, Grid3X3 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import { cn } from "@/lib/utils";
 import { effectiveRole } from "@/lib/auth/roleCache";
 
@@ -17,12 +18,13 @@ export function BottomNav() {
   const router = useRouter();
   const { t } = useI18n();
   const { user } = useCurrentUser();
+  const role = effectiveRole(user?.role);
+  const { can } = useFeatureFlags(role);
 
   if (HIDE_ON.includes(pathname) || pathname.startsWith("/u/")) {
     return null;
   }
 
-  const role = effectiveRole(user?.role);
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
   const isNormal = !isStaff;
 
@@ -36,8 +38,8 @@ export function BottomNav() {
     items.push({ icon: Shield, label: "Admin", href: "/admin" });
   }
 
-  // ONLY normal members get Services in footer
-  if (isNormal) {
+  // Normal members: Services tab if matrix Member View for services_tab_members
+  if (isNormal && can("services_tab_members")) {
     items.push({ icon: Grid3X3, label: "Services", href: "/services" });
   }
 

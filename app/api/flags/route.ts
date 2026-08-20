@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeatureFlagsAdmin, DEFAULTS, type FeatureFlags } from "@/lib/featureFlags";
+import { getFeatureRoleMatrix, matrixToLegacyFlags } from "@/lib/featureRoleMatrix";
 
 function coerceBool(v: unknown): boolean | undefined {
   if (typeof v === "boolean") return v;
@@ -13,9 +14,11 @@ function coerceBool(v: unknown): boolean | undefined {
   return undefined;
 }
 
-/** Public feature flags for client gating — merges personal overrides for logged-in user */
 export async function GET() {
   let flags: FeatureFlags = await getFeatureFlagsAdmin();
+  const matrix = await getFeatureRoleMatrix();
+  // Merge matrix into legacy booleans so old clients still work
+  flags = matrixToLegacyFlags(matrix, flags);
 
   try {
     const session = await getSession();
@@ -39,12 +42,13 @@ export async function GET() {
       }
     }
   } catch {
-    /* ignore member override errors */
+    /* ignore */
   }
 
   return NextResponse.json(
     {
       flags,
+      matrix,
       stages: {
         s1: flags.stage_1_enabled,
         s2: flags.stage_2_enabled,

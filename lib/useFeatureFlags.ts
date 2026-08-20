@@ -1,17 +1,22 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { DEFAULTS, FeatureFlags, isModuleVisible } from "./featureFlags";
+import type { FeatureRoleMatrix } from "./featureRoleMatrix";
 
 export function useFeatureFlags(role?: string | null) {
   const [flags, setFlags] = useState<FeatureFlags>(DEFAULTS);
+  const [matrix, setMatrix] = useState<FeatureRoleMatrix | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const apply = (d: any) => {
+    if (d?.flags) setFlags({ ...DEFAULTS, ...d.flags });
+    if (d?.matrix) setMatrix(d.matrix);
+  };
 
   const refresh = useCallback(() => {
     return fetch("/api/flags", { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d?.flags) setFlags({ ...DEFAULTS, ...d.flags });
-      })
+      .then((d) => apply(d))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -22,7 +27,7 @@ export function useFeatureFlags(role?: string | null) {
     fetch("/api/flags", { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (!cancelled && d?.flags) setFlags({ ...DEFAULTS, ...d.flags });
+        if (!cancelled) apply(d);
       })
       .catch(() => {})
       .finally(() => {
@@ -32,9 +37,7 @@ export function useFeatureFlags(role?: string | null) {
     const onFocus = () => {
       fetch("/api/flags", { credentials: "include", cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
-        .then((d) => {
-          if (d?.flags) setFlags({ ...DEFAULTS, ...d.flags });
-        })
+        .then((d) => apply(d))
         .catch(() => {});
     };
     window.addEventListener("focus", onFocus);
@@ -48,7 +51,6 @@ export function useFeatureFlags(role?: string | null) {
     };
   }, [role]);
 
-  // Super Admin: always full access in can() — members respect flags
-  const can = (moduleKey: string) => isModuleVisible(moduleKey, flags, role);
-  return { flags, loading, can, refresh };
+  const can = (moduleKey: string) => isModuleVisible(moduleKey, flags, role, matrix);
+  return { flags, matrix, loading, can, refresh };
 }

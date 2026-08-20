@@ -362,10 +362,24 @@ export async function writeAllFlags(
 export function isModuleVisible(
   moduleKey: string,
   flags: FeatureFlags,
-  role?: string | null
+  role?: string | null,
+  matrix?: Record<string, { member?: boolean; volunteer?: boolean; core?: boolean }> | null
 ): boolean {
   if (role === "super_admin") return true;
-  const fk = MODULE_FLAG[moduleKey];
-  if (!fk) return true; // unknown modules allowed
-  return flags[fk] !== false;
+  const fk = (MODULE_FLAG[moduleKey] || moduleKey) as string;
+
+  if (matrix) {
+    const cell = matrix[fk] || matrix[moduleKey];
+    if (cell) {
+      const col =
+        role === "core_committee" ? "core" : role === "volunteer" ? "volunteer" : "member";
+      if (cell[col as "member" | "volunteer" | "core"] === false) return false;
+      if (cell[col as "member" | "volunteer" | "core"] === true) return true;
+    }
+  }
+
+  if (!(fk in flags) && !(moduleKey in MODULE_FLAG)) return true;
+  const flagKey = MODULE_FLAG[moduleKey];
+  if (!flagKey) return true;
+  return flags[flagKey] !== false;
 }

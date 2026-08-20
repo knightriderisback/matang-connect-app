@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import { effectiveRole } from "@/lib/auth/roleCache";
 import {
   Users, AlertTriangle, HeartHandshake, Briefcase, Heart, Store, Car,
@@ -31,21 +31,10 @@ export default function ServicesPage() {
   const router = useRouter();
   const { user, loading } = useCurrentUser();
   const role = effectiveRole(user?.role);
+  const { can, loading: flagsLoading, refresh } = useFeatureFlags(role);
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
-  const [allowed, setAllowed] = useState<string[] | null>(null);
 
-  const load = () => {
-    fetch("/api/member-services", { credentials: "include", cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => setAllowed(Array.isArray(d.keys) ? d.keys : []))
-      .catch(() => setAllowed([]));
-  };
-
-  useEffect(() => {
-    if (!loading && !isStaff) load();
-  }, [loading, isStaff]);
-
-  if (loading) {
+  if (loading || flagsLoading) {
     return <div className="p-8 text-center text-gray-400">Loading…</div>;
   }
 
@@ -64,11 +53,7 @@ export default function ServicesPage() {
     );
   }
 
-  if (allowed === null) {
-    return <div className="p-8 text-center text-gray-400">Loading services…</div>;
-  }
-
-  const visible = MEMBER_SERVICES.filter((s) => allowed.includes(s.key));
+  const visible = MEMBER_SERVICES.filter((s) => can(s.key));
 
   return (
     <div className="p-4 space-y-4 pb-24">
@@ -77,11 +62,13 @@ export default function ServicesPage() {
           <Grid3X3 className="text-matang-gold" size={22} />
           <h1 className="text-lg font-bold text-matang-navy">Services</h1>
         </div>
-        <button type="button" onClick={load} className="text-[10px] text-matang-gold underline">
+        <button type="button" onClick={() => refresh()} className="text-[10px] text-matang-gold underline">
           Refresh
         </button>
       </div>
-      <p className="text-[11px] text-gray-500">Modules enabled for members by Super Admin.</p>
+      <p className="text-[11px] text-gray-500">
+        Super Admin ne jinke liye <b>View</b> rakha hai (Feature Control → Member).
+      </p>
       {visible.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-12">No services enabled yet.</p>
       ) : (
