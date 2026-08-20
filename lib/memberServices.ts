@@ -146,7 +146,7 @@ export async function resetAllPersonalModuleOverrides(): Promise<{
     if (!row.setting_value || typeof row.setting_value !== "object") continue;
     const prev = { ...(row.setting_value as Record<string, unknown>) };
     let changed = false;
-    for (const fk of flagKeys) {
+    for (const fk of Array.from(flagKeys)) {
       if (fk in prev) {
         delete prev[fk];
         changed = true;
