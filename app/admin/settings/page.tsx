@@ -4,11 +4,11 @@ import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { Settings } from "lucide-react";
 import {
-  ACCESS_SECTIONS,
-  defaultAccessLists,
-  type ModuleAccessLists,
+  MATRIX_SECTIONS,
+  defaultMatrix,
+  type FeatureRoleMatrix,
   type RoleCol,
-} from "@/lib/moduleAccess";
+} from "@/lib/featureRoleMatrix";
 
 function ViewHideBtn({
   on,
@@ -38,54 +38,57 @@ function ViewHideBtn({
 export default function SettingsPage() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
-  const [lists, setLists] = useState<ModuleAccessLists>(() => defaultAccessLists());
+  const [matrix, setMatrix] = useState<FeatureRoleMatrix>(() => defaultMatrix());
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
-  const load = () => {
-    setLoading(true);
-    fetch("/api/admin/module-access", { cache: "no-store" })
+  useEffect(() => {
+    fetch("/api/admin/settings", { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
-        if (d.lists) setLists(d.lists);
+        if (d.matrix) setMatrix(d.matrix);
       })
-      .catch(() => toast("Load failed", "error"))
+      .catch(() => toast("Failed to load", "error"))
       .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [toast]);
 
   const toggle = async (key: string, role: RoleCol) => {
-    const cur = lists[role].includes(key);
+    const cur = matrix[key]?.[role] !== false;
     const next = !cur;
-    // optimistic
-    setLists((prev) => {
-      const set = new Set(prev[role]);
-      if (next) set.add(key);
-      else set.delete(key);
-      return { ...prev, [role]: Array.from(set) };
-    });
+    setMatrix((prev) => ({
+      ...prev,
+      [key]: {
+        member: prev[key]?.member !== false,
+        volunteer: prev[key]?.volunteer !== false,
+        core: prev[key]?.core !== false,
+        [role]: next,
+      },
+    }));
     setBusyKey(`${key}:${role}`);
     try {
-      const res = await fetch("/api/admin/module-access", {
+      const res = await fetch("/api/admin/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, role, view: next }),
+        body: JSON.stringify({ action: "matrix_cell", key, role, view: next }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         toast(data.error || "Save failed", "error");
-        load();
+        // revert
+        setMatrix((prev) => ({
+          ...prev,
+          [key]: { ...prev[key], [role]: cur },
+        }));
         return;
       }
-      if (data.lists) setLists(data.lists);
-      toast(`${key}: ${next ? "View" : "Hide"} (${role})`, "success");
+      if (data.matrix) setMatrix(data.matrix);
+      toast(`${next ? "View" : "Hide"} · ${role}`, "success");
     } catch {
       toast("Network error", "error");
-      load();
+      setMatrix((prev) => ({
+        ...prev,
+        [key]: { ...prev[key], [role]: cur },
+      }));
     } finally {
       setBusyKey(null);
     }
@@ -95,11 +98,12 @@ export default function SettingsPage() {
     return <div className="p-4 text-center text-sm text-gray-500">Super Admin only</div>;
   }
 
-  const counts = {
-    member: lists.member.length,
-    volunteer: lists.volunteer.length,
-    core: lists.core.length,
-  };
+  const counts = { member: 0, volunteer: 0, core: 0 };
+  Object.values(matrix).forEach((c) => {
+    if (c?.member) counts.member++;
+    if (c?.volunteer) counts.volunteer++;
+    if (c?.core) counts.core++;
+  });
 
   return (
     <div className="p-3 space-y-4 max-w-3xl mx-auto pb-28">
@@ -108,35 +112,18 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-lg font-bold text-matang-navy">Feature Control</h1>
           <p className="text-[11px] text-gray-500">
-            Simple list: View = list mein add · Hide = list se hata. Member → Services · Vol/Core →
-            Admin. Super Admin always full.
+            View = dikhe · Hide = chhupe. Member → Services · Vol/Core → Admin. Super Admin always full.
           </p>
         </div>
       </div>
 
       <div className="rounded-xl bg-matang-navy text-matang-gold px-3 py-2 text-[11px] font-semibold flex flex-wrap gap-3">
-        <span>Member: {counts.member} on</span>
-        <span>Volunteer: {counts.volunteer} on</span>
-        <span>Core: {counts.core} on</span>
+        <span>Member View: {counts.member}</span>
+        <span>Volunteer View: {counts.volunteer}</span>
+        <span>Core View: {counts.core}</span>
       </div>
 
-      <button
-        type="button"
-        className="text-xs text-matang-gold underline"
-        onClick={async () => {
-          const res = await fetch("/api/admin/module-access", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "reset" }),
-          });
-          const d = await res.json();
-          if (d.lists) setLists(d.lists);
-          toast("All modules View for all roles", "success");
-        }}
-      >
-        Reset: sab View
-      </button>
-
+      {/* sticky col headers */}
       <div className="sticky top-0 z-10 grid grid-cols-[1fr_4.5rem_4.5rem_4.5rem] gap-1 bg-gray-50/95 backdrop-blur border-b border-gray-200 py-2 px-1 text-[10px] font-bold text-matang-navy text-center">
         <div className="text-left pl-1">Feature</div>
         <div>Member</div>
@@ -146,29 +133,32 @@ export default function SettingsPage() {
 
       {loading && <p className="text-center text-gray-400 text-sm">Loading…</p>}
 
-      {ACCESS_SECTIONS.map((sec) => (
+      {MATRIX_SECTIONS.map((sec) => (
         <div key={sec.title} className="space-y-1">
           <h2 className="text-xs font-bold text-matang-navy pt-2 pb-1">{sec.title}</h2>
-          {sec.items.map(({ key, label }) => (
-            <div
-              key={key}
-              className="grid grid-cols-[1fr_4.5rem_4.5rem_4.5rem] gap-1 items-center bg-white rounded-xl border border-gray-100 px-2 py-2"
-            >
-              <div className="min-w-0 pr-1">
-                <p className="text-xs font-medium text-matang-navy leading-tight truncate">{label}</p>
-                <p className="text-[9px] text-gray-400 font-mono truncate">{key}</p>
-              </div>
-              {(["member", "volunteer", "core"] as RoleCol[]).map((role) => (
-                <div key={role} className="flex justify-center">
-                  <ViewHideBtn
-                    on={lists[role].includes(key)}
-                    busy={busyKey === `${key}:${role}`}
-                    onClick={() => toggle(key, role)}
-                  />
+          {sec.items.map(({ key, label }) => {
+            const cell = matrix[key] || { member: true, volunteer: true, core: true };
+            return (
+              <div
+                key={key}
+                className="grid grid-cols-[1fr_4.5rem_4.5rem_4.5rem] gap-1 items-center bg-white rounded-xl border border-gray-100 px-2 py-2"
+              >
+                <div className="min-w-0 pr-1">
+                  <p className="text-xs font-medium text-matang-navy leading-tight truncate">{label}</p>
+                  <p className="text-[9px] text-gray-400 font-mono truncate">{key}</p>
                 </div>
-              ))}
-            </div>
-          ))}
+                {(["member", "volunteer", "core"] as RoleCol[]).map((role) => (
+                  <div key={role} className="flex justify-center">
+                    <ViewHideBtn
+                      on={cell[role] !== false}
+                      busy={busyKey === `${key}:${role}`}
+                      onClick={() => toggle(key, role)}
+                    />
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
       ))}
     </div>
