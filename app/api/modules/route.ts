@@ -11,7 +11,7 @@ export async function GET() {
 
   const supabase = createAdminClient();
   const { data, error } = await supabase.rpc("get_my_modules", {
-    p_caller_id: session.userId,
+    p_user_id: session.userId,
   });
 
   if (error) {

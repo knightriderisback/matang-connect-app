@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const supabase = createAdminClient();
   const { data, error } = await supabase.rpc("get_effective_modules_for_user", {
     p_caller_id: session.userId,
-    p_user_id: userId,
+    p_target_user_id: userId,
   });
 
   if (error) {
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
   // Refresh effective
   const { data: eff, error: effErr } = await supabase.rpc("get_effective_modules_for_user", {
     p_caller_id: session.userId,
-    p_user_id: userId,
+    p_target_user_id: userId,
   });
   if (effErr) {
     return NextResponse.json({ success: true, data, error_refresh: effErr.message });
