@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useToast } from "@/components/ui/Toaster";
 import { MapPin, Phone, Shield, ChevronLeft, User } from "lucide-react";
-import { MATRIX_SECTIONS } from "@/lib/featureRoleMatrix";
+import { MODULE_SECTIONS, MODULE_LABELS, MODULE_KEYS } from "@/lib/moduleKeys";
 
 function ViewHideBtn({
   on,
@@ -43,16 +43,19 @@ export default function MemberProfilePage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [effective, setEffective] = useState<Record<string, boolean>>({});
-  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const loadFlags = () => {
     if (!id || !canEditFlags) return;
-    fetch(`/api/admin/member-flags?userId=${id}`, { cache: "no-store" })
+    fetch(`/api/admin/member-modules?userId=${id}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
         if (d.effective) setEffective(d.effective);
-        if (d.overrides) setOverrides(d.overrides);
+        else if (Array.isArray(d.modules)) {
+          const e: Record<string, boolean> = {};
+          for (const k of MODULE_KEYS) e[k] = d.modules.includes(k);
+          setEffective(e);
+        }
       })
       .catch(() => {});
   };
@@ -76,15 +79,15 @@ export default function MemberProfilePage() {
   }, [id, canEditFlags]);
 
   const togglePersonal = async (key: string) => {
-    const cur = effective[key] !== false;
+    const cur = effective[key] === true;
     const next = !cur;
     setEffective((p) => ({ ...p, [key]: next }));
     setBusyKey(key);
     try {
-      const res = await fetch("/api/admin/member-flags", {
+      const res = await fetch("/api/admin/member-modules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: id, key, value: next }),
+        body: JSON.stringify({ userId: id, key, view: next }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -93,7 +96,6 @@ export default function MemberProfilePage() {
         return;
       }
       if (data.effective) setEffective(data.effective);
-      if (data.overrides) setOverrides(data.overrides);
       toast(`Personal: ${next ? "View" : "Hide"}`, "success");
     } catch {
       toast("Network error", "error");
@@ -184,34 +186,28 @@ export default function MemberProfilePage() {
           <div>
             <h2 className="text-sm font-bold text-matang-navy">Personal feature access</h2>
             <p className="text-[11px] text-gray-500 mt-0.5">
-              Is person ke liye View/Hide. Global Feature Control se default aata hai; yahan change =
-              sirf is member pe. Global change personal override clear karke phir se sync karta hai.
+              Supabase module_user_access · sirf is member ke liye. Global Feature Control change personal clear karta hai.
             </p>
           </div>
-          {MATRIX_SECTIONS.map((sec) => (
+          {MODULE_SECTIONS.map((sec) => (
             <div key={sec.title} className="rounded-2xl border border-gray-100 bg-white p-3 space-y-1">
               <h3 className="text-[11px] font-bold text-matang-navy pb-1 border-b border-gray-50">
                 {sec.title}
               </h3>
-              {sec.items.map(({ key, label }) => {
-                const on = effective[key] !== false;
-                const isOverride = key in overrides;
+              {sec.keys.map((key) => {
+                const on = effective[key] === true;
                 return (
                   <div
                     key={key}
                     className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-50 last:border-0"
                   >
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-matang-navy truncate">{label}</p>
-                      <p className="text-[9px] text-gray-400">
-                        {isOverride ? "Personal override" : "From global"}
+                      <p className="text-xs font-medium text-matang-navy truncate">
+                        {MODULE_LABELS[key] || key}
                       </p>
+                      <p className="text-[9px] text-gray-400 font-mono">{key}</p>
                     </div>
-                    <ViewHideBtn
-                      on={on}
-                      busy={busyKey === key}
-                      onClick={() => togglePersonal(key)}
-                    />
+                    <ViewHideBtn on={on} busy={busyKey === key} onClick={() => togglePersonal(key)} />
                   </div>
                 );
               })}

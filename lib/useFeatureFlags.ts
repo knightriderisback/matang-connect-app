@@ -1,46 +1,72 @@
 "use client";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { DEFAULTS, FeatureFlags, isModuleVisible, MODULE_FLAG } from "./featureFlags";
+import { DEFAULTS, FeatureFlags, isModuleVisible } from "./featureFlags";
 import type { FeatureRoleMatrix } from "./featureRoleMatrix";
 
+/**
+ * Loads legacy feature flags (/api/flags) AND Supabase RPC modules (/api/modules).
+ * can(key) = super_admin OR (legacy visible AND rpc modules allow when loaded).
+ */
 export function useFeatureFlags(role?: string | null) {
   const [flags, setFlags] = useState<FeatureFlags>(DEFAULTS);
   const [matrix, setMatrix] = useState<FeatureRoleMatrix | null>(null);
-  const [memberModules, setMemberModules] = useState<string[] | null>(null);
+  const [modules, setModules] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const apply = useCallback((d: any) => {
+  const applyFlags = useCallback((d: any) => {
     if (d?.flags) setFlags({ ...DEFAULTS, ...d.flags });
     if (d?.matrix && typeof d.matrix === "object") setMatrix(d.matrix);
-    if (Array.isArray(d?.memberModules)) setMemberModules(d.memberModules.map(String));
+  }, []);
+
+  const applyModules = useCallback((d: any) => {
+    if (Array.isArray(d?.modules)) setModules(d.modules.map(String));
+    else if (d?.modules === null) setModules(null);
   }, []);
 
   const refresh = useCallback(() => {
-    return fetch("/api/flags", { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => apply(d))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [apply]);
+    return Promise.all([
+      fetch("/api/flags", { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => applyFlags(d))
+        .catch(() => {}),
+      fetch("/api/modules", { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => applyModules(d))
+        .catch(() => {}),
+    ]).finally(() => setLoading(false));
+  }, [applyFlags, applyModules]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetch("/api/flags", { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!cancelled) apply(d);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    Promise.all([
+      fetch("/api/flags", { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!cancelled) applyFlags(d);
+        })
+        .catch(() => {}),
+      fetch("/api/modules", { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!cancelled) applyModules(d);
+        })
+        .catch(() => {}),
+    ]).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
 
     const onFocus = () => {
       fetch("/api/flags", { credentials: "include", cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
-          if (!cancelled) apply(d);
+          if (!cancelled) applyFlags(d);
+        })
+        .catch(() => {});
+      fetch("/api/modules", { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!cancelled) applyModules(d);
         })
         .catch(() => {});
     };
@@ -49,43 +75,37 @@ export function useFeatureFlags(role?: string | null) {
       if (document.visibilityState === "visible") onFocus();
     };
     document.addEventListener("visibilitychange", onVis);
-
     return () => {
       cancelled = true;
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [role, apply]);
+  }, [role, applyFlags, applyModules]);
 
   const can = useMemo(() => {
     return (moduleKey: string) => {
       if (role === "super_admin") return true;
 
-      const isMemberRole =
-        !role ||
-        role === "normal" ||
-        (role !== "volunteer" && role !== "core_committee" && role !== "super_admin");
+      // Legacy stage / feature flags (unchanged system)
+      const legacyOk = isModuleVisible(moduleKey, flags, role, matrix);
 
-      // Services modules: memberModules is source of truth once loaded
-      if (isMemberRole && memberModules !== null && moduleKey in MODULE_FLAG) {
-        return memberModules.includes(moduleKey);
+      // Supabase RPC modules (additive gate)
+      if (modules !== null) {
+        const rpcOk = modules.includes(moduleKey);
+        return legacyOk && rpcOk;
       }
 
-      // Raw flag keys (ai_member_enabled, services_tab_members, …)
-      if (matrix) {
-        const col =
-          role === "core_committee" ? "core" : role === "volunteer" ? "volunteer" : "member";
-        const fk =
-          (MODULE_FLAG as Record<string, string>)[moduleKey] || moduleKey;
-        const cell = matrix[fk] || matrix[moduleKey];
-        if (cell && typeof (cell as any)[col] === "boolean") {
-          return (cell as any)[col] === true;
-        }
-      }
-
-      return isModuleVisible(moduleKey, flags, role, matrix);
+      return legacyOk;
     };
-  }, [flags, matrix, role, memberModules]);
+  }, [flags, matrix, role, modules]);
 
-  return { flags, matrix, memberModules, loading, can, refresh };
+  return {
+    flags,
+    matrix,
+    modules,
+    memberModules: modules,
+    loading,
+    can,
+    refresh,
+  };
 }

@@ -31,10 +31,10 @@ export default function ServicesPage() {
   const router = useRouter();
   const { user, loading } = useCurrentUser();
   const role = effectiveRole(user?.role);
-  const { can, loading: flagsLoading, matrix, memberModules, refresh } = useFeatureFlags(role);
+  const { can, loading: flagsLoading, modules, refresh } = useFeatureFlags(role);
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
 
-  if (loading || flagsLoading || matrix == null || memberModules == null) {
+  if (loading || flagsLoading || modules == null) {
     return <div className="p-8 text-center text-gray-400">Loading…</div>;
   }
 
@@ -54,7 +54,7 @@ export default function ServicesPage() {
   }
 
   // Hard allowlist: only modules SA set View for Member
-  const visible = MEMBER_SERVICES.filter((s) => memberModules.includes(s.key) && can(s.key));
+  const visible = MEMBER_SERVICES.filter((s) => can(s.key));
 
   return (
     <div className="p-4 space-y-4 pb-24">
