@@ -304,24 +304,10 @@ export async function setFeatureRoleMatrix(
 }
 
 export async function getMemberVisibleModules(): Promise<string[]> {
+  // Always derive from matrix (never stale allowlist cache) so View can turn back ON
   try {
-    const supabase = createAdminClient();
-    const { data } = await supabase
-      .from("app_settings")
-      .select("setting_value")
-      .eq("setting_key", MEMBER_ALLOWLIST_KEY)
-      .maybeSingle();
-    let raw = data?.setting_value;
-    if (typeof raw === "string") {
-      try {
-        raw = JSON.parse(raw);
-      } catch {
-        raw = null;
-      }
-    }
-    if (Array.isArray(raw)) return raw.map(String); // empty [] = all hidden
-    // derive from matrix
-    return memberModulesFromMatrix(await getFeatureRoleMatrix());
+    const matrix = await getFeatureRoleMatrix();
+    return memberModulesFromMatrix(matrix);
   } catch {
     return memberModulesFromMatrix(defaultMatrix());
   }
@@ -331,15 +317,24 @@ export async function setMatrixCell(
   flagKey: string,
   role: RoleCol,
   view: boolean
-): Promise<{ ok: boolean; matrix: FeatureRoleMatrix; error?: string }> {
+): Promise<{ ok: boolean; matrix: FeatureRoleMatrix; memberModules: string[]; error?: string }> {
   const matrix = await getFeatureRoleMatrix();
-  if (!matrix[flagKey]) {
-    matrix[flagKey] = { member: true, volunteer: true, core: true };
-  }
-  matrix[flagKey] = { ...matrix[flagKey], [role]: view };
+  const prev = matrix[flagKey] || { member: true, volunteer: true, core: true };
+  matrix[flagKey] = {
+    member: role === "member" ? view : prev.member !== false,
+    volunteer: role === "volunteer" ? view : prev.volunteer !== false,
+    core: role === "core" ? view : prev.core !== false,
+  };
+  // ensure booleans
+  matrix[flagKey].member = role === "member" ? !!view : !!matrix[flagKey].member;
+  matrix[flagKey].volunteer = role === "volunteer" ? !!view : !!matrix[flagKey].volunteer;
+  matrix[flagKey].core = role === "core" ? !!view : !!matrix[flagKey].core;
+
   const saved = await setFeatureRoleMatrix(matrix);
-  if (!saved.ok) return { ok: false, matrix, error: saved.error };
-  return { ok: true, matrix: await getFeatureRoleMatrix() };
+  const fresh = await getFeatureRoleMatrix();
+  const memberModules = memberModulesFromMatrix(fresh);
+  if (!saved.ok) return { ok: false, matrix: fresh, memberModules, error: saved.error };
+  return { ok: true, matrix: fresh, memberModules };
 }
 
 export function roleToCol(role?: string | null): RoleCol | "super_admin" {

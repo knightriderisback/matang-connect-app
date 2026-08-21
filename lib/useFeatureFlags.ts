@@ -59,19 +59,30 @@ export function useFeatureFlags(role?: string | null) {
 
   const can = useMemo(() => {
     return (moduleKey: string) => {
-      // Normal members: prefer explicit memberModules allowlist for module keys
+      if (role === "super_admin") return true;
+
       const isMemberRole =
         !role ||
         role === "normal" ||
         (role !== "volunteer" && role !== "core_committee" && role !== "super_admin");
-      if (isMemberRole && memberModules && moduleKey in MODULE_FLAG) {
+
+      // Services modules: memberModules is source of truth once loaded
+      if (isMemberRole && memberModules !== null && moduleKey in MODULE_FLAG) {
         return memberModules.includes(moduleKey);
       }
-      // Flag keys like ai_member_enabled / services_tab_members
-      if (isMemberRole && matrix) {
-        const cell = matrix[moduleKey] || matrix[MODULE_FLAG[moduleKey as keyof typeof MODULE_FLAG] as string];
-        if (cell && typeof cell.member === "boolean") return cell.member;
+
+      // Raw flag keys (ai_member_enabled, services_tab_members, …)
+      if (matrix) {
+        const col =
+          role === "core_committee" ? "core" : role === "volunteer" ? "volunteer" : "member";
+        const fk =
+          (MODULE_FLAG as Record<string, string>)[moduleKey] || moduleKey;
+        const cell = matrix[fk] || matrix[moduleKey];
+        if (cell && typeof (cell as any)[col] === "boolean") {
+          return (cell as any)[col] === true;
+        }
       }
+
       return isModuleVisible(moduleKey, flags, role, matrix);
     };
   }, [flags, matrix, role, memberModules]);

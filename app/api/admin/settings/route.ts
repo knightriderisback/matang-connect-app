@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       const anyOn = !!(cell.member || cell.volunteer || cell.core);
       await writeFeatureFlag(key as keyof FeatureFlags, anyOn, session.userId);
     }
-    return NextResponse.json({ success: true, matrix: result.matrix });
+    return NextResponse.json({ success: true, matrix: result.matrix, memberModules: result.memberModules || [] });
   }
 
   if (body.action === "matrix_reset") {
