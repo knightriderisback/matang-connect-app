@@ -53,8 +53,11 @@ export default function ServicesPage() {
     );
   }
 
-  // Hard allowlist: only modules SA set View for Member
-  const visible = MEMBER_SERVICES.filter((s) => can(s.key));
+  // Prefer explicit modules list when present; else can()
+  const visible = MEMBER_SERVICES.filter((s) => {
+    if (modules !== null && modules.length > 0) return modules.includes(s.key);
+    return can(s.key);
+  });
 
   return (
     <div className="p-4 space-y-4 pb-24">
@@ -68,10 +71,16 @@ export default function ServicesPage() {
         </button>
       </div>
       <p className="text-[11px] text-gray-500">
-        Sirf woh modules jo Super Admin ne Member → View rakhe hain.
+        Jo modules Feature Control / personal pe View hain.
+        {modules !== null ? ` (${modules.length} active)` : ""}
       </p>
       {visible.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-12">No services enabled yet.</p>
+        <div className="text-center py-12 space-y-2">
+          <p className="text-sm text-gray-400">No services visible yet.</p>
+          <p className="text-[11px] text-gray-400 px-4">
+            Super Admin → Feature Control → Member column pe modules <b>View</b> karein, phir yahan Refresh.
+          </p>
+        </div>
       ) : (
         <div className="grid grid-cols-3 gap-2.5">
           {visible.map((s) => (
