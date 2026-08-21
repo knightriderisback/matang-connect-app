@@ -86,18 +86,39 @@ export const MODULE_SECTIONS: { title: string; keys: string[] }[] = [
 
 /** Normalize RPC payload to string[] */
 export function normalizeModuleList(data: unknown): string[] {
-  if (!data) return [];
+  if (data == null) return [];
+  if (typeof data === "string") {
+    try {
+      return normalizeModuleList(JSON.parse(data));
+    } catch {
+      return data.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
+    }
+  }
   if (Array.isArray(data)) {
-    if (data.length && typeof data[0] === "string") return data.map(String);
-    // [{ module_key, visible }]
-    return data
-      .filter((r: any) => r && (r.visible === true || r.visible === undefined) && (r.module_key || r.module))
-      .map((r: any) => String(r.module_key || r.module));
+    if (data.length === 0) return [];
+    if (typeof data[0] === "string") return data.map(String);
+    // [{ module_key, visible }] or [{ modules: ... }]
+    const out: string[] = [];
+    for (const r of data as any[]) {
+      if (!r) continue;
+      if (typeof r === "string") {
+        out.push(r);
+        continue;
+      }
+      if (typeof r.visible === "boolean" && r.visible === false) continue;
+      const k = r.module_key || r.module || r.key;
+      if (k) out.push(String(k));
+    }
+    return Array.from(new Set(out));
   }
   if (typeof data === "object") {
     const o = data as any;
     if (Array.isArray(o.modules)) return normalizeModuleList(o.modules);
     if (Array.isArray(o.module_keys)) return normalizeModuleList(o.module_keys);
+    if (Array.isArray(o.keys)) return normalizeModuleList(o.keys);
+    // map { sos: true, scan: false }
+    const keys = Object.keys(o).filter((k) => o[k] === true);
+    if (keys.length) return keys;
   }
   return [];
 }

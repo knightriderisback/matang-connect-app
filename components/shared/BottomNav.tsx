@@ -9,8 +9,8 @@ import { effectiveRole } from "@/lib/auth/roleCache";
 const HIDE_ON = ["/", "/login", "/register", "/history"];
 
 /**
- * Staff / Super Admin footer unchanged (Home · Census · Profile · Admin).
- * Normal members only: + Services tab (stage/feature gated page).
+ * Staff: Home · Profile · Admin
+ * Normal members: Home · Profile · Services
  */
 export function BottomNav() {
   const pathname = usePathname() || "";
@@ -24,20 +24,16 @@ export function BottomNav() {
   }
 
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
-  const isNormal = !isStaff;
 
   const items: { icon: typeof Home; label: string; href: string }[] = [
     { icon: Home, label: t("nav.home") || "Home", href: "/dashboard" },
+    { icon: UserCircle, label: t("nav.profile") || "Profile", href: "/profile" },
   ];
-
-  items.push({ icon: UserCircle, label: t("nav.profile") || "Profile", href: "/profile" });
 
   if (isStaff) {
     items.push({ icon: Shield, label: "Admin", href: "/admin" });
-  }
-
-  // Normal members: Services tab always (module tiles inside page are gated)
-  if (isNormal) {
+  } else {
+    // Every non-staff member gets Services in footer
     items.push({ icon: Grid3X3, label: "Services", href: "/services" });
   }
 
