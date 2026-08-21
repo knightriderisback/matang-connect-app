@@ -31,10 +31,10 @@ export default function ServicesPage() {
   const router = useRouter();
   const { user, loading } = useCurrentUser();
   const role = effectiveRole(user?.role);
-  const { can, loading: flagsLoading, matrix, memberModules, refresh } = useFeatureFlags(role);
+  const { can, loading: flagsLoading, access, refresh } = useFeatureFlags(role);
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(role || "");
 
-  if (loading || flagsLoading || matrix == null || memberModules == null) {
+  if (loading || flagsLoading || access == null) {
     return <div className="p-8 text-center text-gray-400">Loading…</div>;
   }
 
@@ -42,19 +42,14 @@ export default function ServicesPage() {
     return (
       <div className="p-8 text-center space-y-3">
         <p className="text-sm text-gray-500">Staff use Admin panel for all modules.</p>
-        <button
-          type="button"
-          className="text-sm font-semibold text-matang-gold"
-          onClick={() => router.push("/admin")}
-        >
+        <button type="button" className="text-sm font-semibold text-matang-gold" onClick={() => router.push("/admin")}>
           Open Admin →
         </button>
       </div>
     );
   }
 
-  // Hard allowlist: only modules SA set View for Member
-  const visible = MEMBER_SERVICES.filter((s) => memberModules.includes(s.key) && can(s.key));
+  const visible = MEMBER_SERVICES.filter((s) => can(s.key));
 
   return (
     <div className="p-4 space-y-4 pb-24">
@@ -67,9 +62,7 @@ export default function ServicesPage() {
           Refresh
         </button>
       </div>
-      <p className="text-[11px] text-gray-500">
-        Sirf woh modules jo Super Admin ne Member → View rakhe hain.
-      </p>
+      <p className="text-[11px] text-gray-500">Member list se View wale modules.</p>
       {visible.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-12">No services enabled yet.</p>
       ) : (
@@ -84,9 +77,7 @@ export default function ServicesPage() {
               <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${s.color}`}>
                 <s.icon size={20} />
               </div>
-              <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
-                {s.label}
-              </span>
+              <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">{s.label}</span>
             </button>
           ))}
         </div>

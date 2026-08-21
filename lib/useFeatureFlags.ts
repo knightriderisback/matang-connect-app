@@ -1,18 +1,31 @@
 "use client";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { DEFAULTS, FeatureFlags, isModuleVisible, MODULE_FLAG } from "./featureFlags";
-import type { FeatureRoleMatrix } from "./featureRoleMatrix";
+import { DEFAULTS, FeatureFlags, isModuleVisible } from "./featureFlags";
+import {
+  accessAllows,
+  defaultAccessLists,
+  type ModuleAccessLists,
+} from "./moduleAccess";
 
 export function useFeatureFlags(role?: string | null) {
   const [flags, setFlags] = useState<FeatureFlags>(DEFAULTS);
-  const [matrix, setMatrix] = useState<FeatureRoleMatrix | null>(null);
-  const [memberModules, setMemberModules] = useState<string[] | null>(null);
+  const [access, setAccess] = useState<ModuleAccessLists | null>(null);
   const [loading, setLoading] = useState(true);
 
   const apply = useCallback((d: any) => {
     if (d?.flags) setFlags({ ...DEFAULTS, ...d.flags });
-    if (d?.matrix && typeof d.matrix === "object") setMatrix(d.matrix);
-    if (Array.isArray(d?.memberModules)) setMemberModules(d.memberModules.map(String));
+    if (d?.access && typeof d.access === "object") {
+      setAccess({
+        member: Array.isArray(d.access.member) ? d.access.member.map(String) : [],
+        volunteer: Array.isArray(d.access.volunteer) ? d.access.volunteer.map(String) : [],
+        core: Array.isArray(d.access.core) ? d.access.core.map(String) : [],
+      });
+    } else if (Array.isArray(d?.memberModules)) {
+      setAccess({
+        ...defaultAccessLists(),
+        member: d.memberModules.map(String),
+      });
+    }
   }, []);
 
   const refresh = useCallback(() => {
@@ -49,7 +62,6 @@ export function useFeatureFlags(role?: string | null) {
       if (document.visibilityState === "visible") onFocus();
     };
     document.addEventListener("visibilitychange", onVis);
-
     return () => {
       cancelled = true;
       window.removeEventListener("focus", onFocus);
@@ -60,32 +72,14 @@ export function useFeatureFlags(role?: string | null) {
   const can = useMemo(() => {
     return (moduleKey: string) => {
       if (role === "super_admin") return true;
-
-      const isMemberRole =
-        !role ||
-        role === "normal" ||
-        (role !== "volunteer" && role !== "core_committee" && role !== "super_admin");
-
-      // Services modules: memberModules is source of truth once loaded
-      if (isMemberRole && memberModules !== null && moduleKey in MODULE_FLAG) {
-        return memberModules.includes(moduleKey);
+      if (access) {
+        return accessAllows(moduleKey, access, role);
       }
-
-      // Raw flag keys (ai_member_enabled, services_tab_members, …)
-      if (matrix) {
-        const col =
-          role === "core_committee" ? "core" : role === "volunteer" ? "volunteer" : "member";
-        const fk =
-          (MODULE_FLAG as Record<string, string>)[moduleKey] || moduleKey;
-        const cell = matrix[fk] || matrix[moduleKey];
-        if (cell && typeof (cell as any)[col] === "boolean") {
-          return (cell as any)[col] === true;
-        }
-      }
-
-      return isModuleVisible(moduleKey, flags, role, matrix);
+      return isModuleVisible(moduleKey, flags, role, null);
     };
-  }, [flags, matrix, role, memberModules]);
+  }, [access, flags, role]);
 
-  return { flags, matrix, memberModules, loading, can, refresh };
+  const memberModules = access?.member ?? null;
+
+  return { flags, access, memberModules, matrix: null, loading, can, refresh };
 }
