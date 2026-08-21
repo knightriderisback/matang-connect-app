@@ -71,8 +71,8 @@ export default function ServicesPage() {
         </button>
       </div>
       <p className="text-[11px] text-gray-500">
-        Jo modules Feature Control / personal pe View hain.
-        {modules !== null ? ` (${modules.length} active)` : ""}
+        Jo modules yahan dikh rahe hain (Feature Control / personal View).
+        {" "}({visible.length} active)
       </p>
       {visible.length === 0 ? (
         <div className="text-center py-12 space-y-2">
