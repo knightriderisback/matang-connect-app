@@ -62,7 +62,7 @@ export async function GET() {
     });
   }
 
-  const titles = (data || []).map((row: any) => ({
+  const titlesRaw = (data || []).map((row: any) => ({
     id: row.id,
     city_id: row.city_id,
     user_id: row.user_id,
@@ -70,6 +70,20 @@ export async function GET() {
     title_key: row.titles?.key,
     title_label: row.titles?.name_en || row.titles?.name_hi || row.titles?.key,
     users: row.users,
+  }));
+
+  // Attach city names
+  const cityIds = Array.from(new Set(titlesRaw.map((r: any) => r.city_id).filter(Boolean)));
+  let cityMap: Record<string, string> = {};
+  if (cityIds.length) {
+    const { data: cities } = await supabase.from("cities").select("id, name").in("id", cityIds);
+    for (const c of cities || []) {
+      cityMap[(c as any).id] = (c as any).name;
+    }
+  }
+  const titles = titlesRaw.map((r: any) => ({
+    ...r,
+    city_name: r.city_id ? cityMap[r.city_id] || null : null,
   }));
 
   return NextResponse.json({ titles, options: TITLE_OPTIONS });
