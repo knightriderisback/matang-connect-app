@@ -5,12 +5,11 @@ import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { Award, Trash2, MapPin } from "lucide-react";
+import { Award, Trash2, MapPin, Plus } from "lucide-react";
 import {
   INDIA_STATES,
-  INDIA_STATE_CITIES,
-  staticCityId,
   allIndiaCityOptions,
+  staticCityId,
 } from "@/lib/indiaLocations";
 
 interface TitleRow {
@@ -35,6 +34,17 @@ interface City {
   state: string;
 }
 
+const SECTION_COLORS = [
+  "bg-amber-50 border-amber-200",
+  "bg-sky-50 border-sky-200",
+  "bg-emerald-50 border-emerald-200",
+  "bg-violet-50 border-violet-200",
+  "bg-rose-50 border-rose-200",
+  "bg-orange-50 border-orange-200",
+  "bg-teal-50 border-teal-200",
+  "bg-indigo-50 border-indigo-200",
+];
+
 export default function TitlesPage() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
@@ -46,6 +56,9 @@ export default function TitlesPage() {
   const [userId, setUserId] = useState("");
   const [stateName, setStateName] = useState("");
   const [cityId, setCityId] = useState("");
+  const [customCity, setCustomCity] = useState("");
+  const [showCustom, setShowCustom] = useState(false);
+  const [savingCity, setSavingCity] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -67,21 +80,17 @@ export default function TitlesPage() {
         state: c.state || "Other",
       })
     );
-    // Merge: all India static + DB (DB ids preferred when name+state match)
     const byKey = new Map<string, City>();
     for (const c of allIndiaCityOptions()) {
       byKey.set(`${c.state}||${c.name}`, { id: c.id, name: c.name, state: c.state });
     }
     for (const c of dbCities) {
-      byKey.set(`${c.state}||${c.name}`, c); // real UUID wins
+      byKey.set(`${c.state}||${c.name}`, c);
     }
-    const cityList = Array.from(byKey.values());
-    setCities(cityList);
-
+    setCities(Array.from(byKey.values()));
     setStateName((prev) => prev || "Chhattisgarh");
-
     if (user?.city_id) {
-      const mine = cityList.find((c) => c.id === user.city_id);
+      const mine = Array.from(byKey.values()).find((c) => c.id === user.city_id);
       if (mine) {
         setStateName(mine.state);
         setCityId(mine.id);
@@ -108,17 +117,16 @@ export default function TitlesPage() {
 
   const citiesInState = useMemo(() => {
     if (!stateName) return cities;
-    return cities.filter((c) => c.state === stateName).sort((a, b) => a.name.localeCompare(b.name));
+    return cities
+      .filter((c) => c.state === stateName)
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [cities, stateName]);
 
-  /** Members registered in the selected city only (match city_id UUID; static id → same name+state DB row) */
   const membersInCity = useMemo(() => {
     if (!cityId) return [];
     const selected = cities.find((c) => c.id === cityId);
-    // Direct UUID match
     let list = members.filter((m) => m.city_id && m.city_id === cityId);
     if (list.length === 0 && selected) {
-      // Selected may be static:… while members have real UUID — match via any city option with same name+state that is UUID
       const realIds = cities
         .filter(
           (c) =>
@@ -134,31 +142,73 @@ export default function TitlesPage() {
     return list.sort((a, b) => (a.full_name || "").localeCompare(b.full_name || ""));
   }, [members, cityId, cities]);
 
-  // When state changes, clear city if not in new state
   useEffect(() => {
     if (!cityId) return;
-    const still = citiesInState.some((c) => c.id === cityId);
+    const still = citiesInState.some((c) => c.id === cityId) || cityId === "__custom__";
     if (!still) {
       setCityId("");
       setUserId("");
+      setShowCustom(false);
     }
   }, [stateName, citiesInState, cityId]);
 
-  // When city changes, clear member if not from that city
   useEffect(() => {
     if (!userId) return;
-    if (!cityId) {
+    if (!cityId || cityId === "__custom__") {
       setUserId("");
       return;
     }
-    const ok = membersInCity.some((m) => m.id === userId);
-    if (!ok) setUserId("");
+    if (!membersInCity.some((m) => m.id === userId)) setUserId("");
   }, [cityId, membersInCity, userId]);
 
   const cityName = (id?: string) => {
     const c = cities.find((x) => x.id === id);
     if (!c) return id || "—";
     return c.state ? `${c.name}, ${c.state}` : c.name;
+  };
+
+  const addCustomCity = async () => {
+    const name = customCity.trim();
+    if (!stateName) {
+      toast("Pehle state select karein", "error");
+      return;
+    }
+    if (!name) {
+      toast("City ka naam likhein", "error");
+      return;
+    }
+    setSavingCity(true);
+    try {
+      const res = await fetch("/api/admin/cities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, state: stateName }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "City save failed", "error");
+        return;
+      }
+      const city: City = {
+        id: data.city.id,
+        name: data.city.name,
+        state: data.city.state,
+      };
+      setCities((prev) => {
+        const key = `${city.state}||${city.name}`;
+        const map = new Map(prev.map((c) => [`${c.state}||${c.name}`, c]));
+        map.set(key, city);
+        return Array.from(map.values());
+      });
+      setCityId(city.id);
+      setShowCustom(false);
+      setCustomCity("");
+      toast(data.created ? `"${city.name}" list mein add ho gaya` : `"${city.name}" pehle se list mein tha`, "success");
+    } catch {
+      toast("Network error", "error");
+    } finally {
+      setSavingCity(false);
+    }
   };
 
   const assign = async () => {
@@ -170,8 +220,8 @@ export default function TitlesPage() {
       toast("State select karein", "error");
       return;
     }
-    if (!cityId) {
-      toast("City select karein (kaun si city ka title)", "error");
+    if (!cityId || cityId === "__custom__") {
+      toast("City select karein ya custom add karein", "error");
       return;
     }
     const res = await fetch("/api/titles", {
@@ -202,6 +252,21 @@ export default function TitlesPage() {
     load();
   };
 
+  /** Group assignments by city */
+  const titlesByCity = useMemo(() => {
+    const map = new Map<string, { label: string; items: TitleRow[] }>();
+    for (const t of titles) {
+      const label =
+        t.city_name && t.city_state
+          ? `${t.city_name}, ${t.city_state}`
+          : t.city_name || cityName(t.city_id) || "Unknown city";
+      const key = t.city_id || label;
+      if (!map.has(key)) map.set(key, { label, items: [] });
+      map.get(key)!.items.push(t);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[1].label.localeCompare(b[1].label));
+  }, [titles, cities]);
+
   if (!user || !["core_committee", "super_admin"].includes(user.role || "")) {
     return (
       <div className="p-4 text-center text-sm text-gray-500">Core Committee / Super Admin only</div>
@@ -218,11 +283,12 @@ export default function TitlesPage() {
   const cityOptions = [
     { value: "", label: stateName ? "— Select city —" : "— Pehle state chunein —" },
     ...citiesInState.map((c) => ({ value: c.id, label: c.name })),
+    { value: "__custom__", label: "+ Custom city (naya naam)" },
   ];
   const memberOptions = [
     {
       value: "",
-      label: !cityId
+      label: !cityId || cityId === "__custom__"
         ? "— Pehle city chunein —"
         : membersInCity.length
           ? "— Select member (is city) —"
@@ -241,7 +307,7 @@ export default function TitlesPage() {
         <div>
           <h1 className="text-lg font-bold text-matang-navy">City Titles</h1>
           <p className="text-[11px] text-gray-500">
-            Title + State + City + Member — e.g. Bilaspur (CG) ka Adhyaksh
+            Title + State + City + Member — city-wise Adhyaksh etc.
           </p>
         </div>
       </div>
@@ -260,22 +326,69 @@ export default function TitlesPage() {
             onChange={(e) => {
               setStateName(e.target.value);
               setCityId("");
+              setShowCustom(false);
+              setCustomCity("");
             }}
             options={stateOptions}
           />
           <Select
             label="City (is state ki cities)"
-            value={cityId}
-            onChange={(e) => setCityId(e.target.value)}
+            value={showCustom ? "__custom__" : cityId}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "__custom__") {
+                setShowCustom(true);
+                setCityId("__custom__");
+                setUserId("");
+              } else {
+                setShowCustom(false);
+                setCustomCity("");
+                setCityId(v);
+              }
+            }}
             options={cityOptions}
             disabled={!stateName}
           />
+
+          {showCustom && (
+            <div className="rounded-xl border border-dashed border-matang-gold/50 bg-amber-50/50 p-3 space-y-2">
+              <label className="text-xs font-medium text-matang-navy">Nayi city ka naam</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customCity}
+                  onChange={(e) => setCustomCity(e.target.value)}
+                  placeholder={`e.g. city in ${stateName || "state"}`}
+                  className="flex-1 px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-matang-gold/40"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addCustomCity();
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  onClick={addCustomCity}
+                  disabled={savingCity}
+                  className="shrink-0 px-3"
+                >
+                  <Plus size={16} className="inline mr-1" />
+                  {savingCity ? "…" : "Add"}
+                </Button>
+              </div>
+              <p className="text-[10px] text-gray-500">
+                Add pe DB + list mein save · state: <b>{stateName || "—"}</b>
+              </p>
+            </div>
+          )}
+
           <Select
             label="Member (sirf selected city ke)"
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
             options={memberOptions}
-            disabled={!cityId}
+            disabled={!cityId || cityId === "__custom__"}
           />
           <Button type="button" onClick={assign} className="w-full">
             Assign title
@@ -284,41 +397,52 @@ export default function TitlesPage() {
       </Card>
 
       <div>
-        <h2 className="text-sm font-bold text-matang-navy mb-2">Current assignments</h2>
+        <h2 className="text-sm font-bold text-matang-navy mb-2">Assignments (city-wise)</h2>
         {loading ? (
           <p className="text-sm text-gray-400">Loading…</p>
-        ) : titles.length === 0 ? (
+        ) : titlesByCity.length === 0 ? (
           <p className="text-sm text-gray-400">No titles assigned yet.</p>
         ) : (
-          <div className="space-y-2">
-            {titles.map((t) => (
-              <Card key={t.id}>
-                <CardContent className="p-3 flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-matang-navy">{t.title_label || t.title_key}</p>
-                    <p className="text-xs text-gray-600 truncate">
-                      {t.users?.full_name || t.user_id}
-                      {t.users?.phone ? ` · ${t.users.phone}` : ""}
-                    </p>
-                    <p className="text-[11px] text-matang-gold flex items-center gap-1 mt-0.5">
-                      <MapPin size={10} />
-                      {t.city_name
-                        ? t.city_state
-                          ? `${t.city_name}, ${t.city_state}`
-                          : t.city_name
-                        : cityName(t.city_id)}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => remove(t.id)}
-                    className="p-2 text-red-500 shrink-0"
-                    aria-label="Remove"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </CardContent>
-              </Card>
+          <div className="space-y-4">
+            {titlesByCity.map(([key, group], idx) => (
+              <div
+                key={key}
+                className={`rounded-2xl border p-3 space-y-2 ${SECTION_COLORS[idx % SECTION_COLORS.length]}`}
+              >
+                <h3 className="text-sm font-bold text-matang-navy flex items-center gap-1.5 border-b border-black/5 pb-1.5">
+                  <MapPin size={14} className="text-matang-gold" />
+                  {group.label}
+                  <span className="text-[10px] font-normal text-gray-500 ml-auto">
+                    {group.items.length} title{group.items.length > 1 ? "s" : ""}
+                  </span>
+                </h3>
+                <div className="space-y-2">
+                  {group.items.map((t) => (
+                    <div
+                      key={t.id}
+                      className="bg-white/80 rounded-xl p-2.5 flex items-start justify-between gap-2 border border-white/60"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-matang-navy">
+                          {t.title_label || t.title_key}
+                        </p>
+                        <p className="text-xs text-gray-600 truncate">
+                          {t.users?.full_name || t.user_id}
+                          {t.users?.phone ? ` · ${t.users.phone}` : ""}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => remove(t.id)}
+                        className="p-2 text-red-500 shrink-0"
+                        aria-label="Remove"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}
