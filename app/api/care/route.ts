@@ -16,11 +16,21 @@ export async function GET() {
     .order("created_at", { ascending: false })
     .limit(50);
   if (error) return NextResponse.json({ requests: [], error: error.message });
+  const rows = data || [];
+  const ids = Array.from(new Set(rows.map((r: any) => r.requester_id).filter(Boolean))) as string[];
+  const nameMap: Record<string, string> = {};
+  if (ids.length) {
+    const { data: users } = await supabase.from("users").select("id, full_name").in("id", ids);
+    (users || []).forEach((u: any) => {
+      nameMap[u.id] = u.full_name;
+    });
+  }
   // Map for frontend compatibility
-  const requests = (data || []).map((r: any) => ({
+  const requests = rows.map((r: any) => ({
     ...r,
     title: r.notes || r.care_type || "Care request",
     request_type: r.care_type,
+    requester_name: r.requester_id ? nameMap[r.requester_id] || null : null,
   }));
   return NextResponse.json({ requests });
 }
