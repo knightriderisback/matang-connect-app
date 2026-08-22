@@ -45,7 +45,27 @@ export async function GET() {
     0
   );
 
-  // Normalize for UI that expects entry_type + description
+  // Resolve names for recorded_by / contributor_id
+  const nameIds = Array.from(
+    new Set(
+      [
+        ...txs.map((e: any) => e.recorded_by),
+        ...(contributions || []).map((c: any) => c.contributor_id),
+      ].filter(Boolean)
+    )
+  ) as string[];
+  const nameMap: Record<string, string> = {};
+  if (nameIds.length) {
+    const { data: users } = await supabase
+      .from("users")
+      .select("id, full_name")
+      .in("id", nameIds);
+    (users || []).forEach((u: any) => {
+      nameMap[u.id] = u.full_name || "Member";
+    });
+  }
+
+  // Normalize for UI that expects entry_type + description + who + when
   const entries = txs.map((e: any) => ({
     id: e.id,
     entry_type: isIncome(e.category) ? "income" : "expense",
@@ -55,11 +75,17 @@ export async function GET() {
     entry_date: e.created_at?.slice?.(0, 10) || null,
     created_at: e.created_at,
     recorded_by: e.recorded_by,
+    recorded_by_name: e.recorded_by ? nameMap[e.recorded_by] || "Staff" : null,
+  }));
+
+  const contribs = (contributions || []).map((c: any) => ({
+    ...c,
+    contributor_name: c.contributor_id ? nameMap[c.contributor_id] || "Member" : null,
   }));
 
   return NextResponse.json({
     entries,
-    contributions: contributions || [],
+    contributions: contribs,
     summary: {
       income: income + contribTotal,
       expense,
