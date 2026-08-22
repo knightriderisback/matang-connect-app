@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { allIndiaCityOptions } from "@/lib/indiaLocations";
 
 export async function GET() {
   try {
@@ -41,15 +42,31 @@ export async function GET() {
       }
     }
 
-    // Prefer Chhattisgarh first in list
-    const list = (data || []).slice().sort((a, b) => {
+    // Merge DB + full India static list (DB UUID wins on name+state match)
+    const byKey = new Map<string, { id: string; name: string; state: string }>();
+    for (const c of allIndiaCityOptions()) {
+      byKey.set(`${c.state}||${c.name}`, c);
+    }
+    for (const c of data || []) {
+      byKey.set(`${c.state}||${c.name}`, { id: c.id, name: c.name, state: c.state || "Other" });
+    }
+    const list = Array.from(byKey.values()).sort((a, b) => {
       const aCG = a.state === "Chhattisgarh" ? 0 : 1;
       const bCG = b.state === "Chhattisgarh" ? 0 : 1;
       if (aCG !== bCG) return aCG - bCG;
+      if (a.state !== b.state) return String(a.state).localeCompare(String(b.state));
       return String(a.name).localeCompare(String(b.name));
     });
 
-    return NextResponse.json({ cities: list, error: list.length ? undefined : errorMsg });
+    return NextResponse.json({
+      cities: list,
+      states: Array.from(new Set(list.map((c) => c.state))).sort((a, b) => {
+        if (a === "Chhattisgarh") return -1;
+        if (b === "Chhattisgarh") return 1;
+        return a.localeCompare(b);
+      }),
+      error: list.length ? undefined : errorMsg,
+    });
   } catch (e: any) {
     return NextResponse.json({ cities: [], error: e?.message });
   }

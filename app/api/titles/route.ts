@@ -2,6 +2,43 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TITLE_OPTIONS } from "@/lib/titles";
+import { parseStaticCityId } from "@/lib/indiaLocations";
+
+/** Resolve city_id: real UUID or static:State|City → upsert into cities */
+async function resolveCityId(
+  supabase: ReturnType<typeof createAdminClient>,
+  cityId: string
+): Promise<string | null> {
+  if (!cityId) return null;
+  const parsed = parseStaticCityId(cityId);
+  if (!parsed) return cityId; // already a real id
+
+  const { data: existing } = await supabase
+    .from("cities")
+    .select("id")
+    .eq("name", parsed.name)
+    .eq("state", parsed.state)
+    .maybeSingle();
+  if (existing?.id) return existing.id as string;
+
+  const { data: inserted, error } = await supabase
+    .from("cities")
+    .insert({ name: parsed.name, state: parsed.state, is_active: true })
+    .select("id")
+    .single();
+  if (error) {
+    // unique race: try select again
+    const { data: again } = await supabase
+      .from("cities")
+      .select("id")
+      .eq("name", parsed.name)
+      .eq("state", parsed.state)
+      .maybeSingle();
+    return (again?.id as string) || null;
+  }
+  return (inserted?.id as string) || null;
+}
+
 
 /**
  * Live schema:
@@ -99,10 +136,14 @@ export async function POST(request: NextRequest) {
   if (!title_key || !user_id) {
     return NextResponse.json({ error: "title_key and user_id required" }, { status: 400 });
   }
-  const cityId = city_id || session.cityId;
+  let cityId = city_id || session.cityId;
   if (!cityId) return NextResponse.json({ error: "city_id required" }, { status: 400 });
 
   const supabase = createAdminClient();
+  const resolved = await resolveCityId(supabase, cityId);
+  if (!resolved) return NextResponse.json({ error: "Could not resolve city" }, { status: 400 });
+  cityId = resolved;
+
   try {
     await ensureTitleDefs(supabase);
   } catch {}

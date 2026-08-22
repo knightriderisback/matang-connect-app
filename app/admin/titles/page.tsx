@@ -6,6 +6,12 @@ import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { Award, Trash2, MapPin } from "lucide-react";
+import {
+  INDIA_STATES,
+  INDIA_STATE_CITIES,
+  staticCityId,
+  allIndiaCityOptions,
+} from "@/lib/indiaLocations";
 
 interface TitleRow {
   id: string;
@@ -54,23 +60,25 @@ export default function TitlesPage() {
     setTitles(tData.titles || []);
     setOptions(tData.options || []);
     setMembers(mData.users || []);
-    const cityList: City[] = (Array.isArray(cData.cities) ? cData.cities : Array.isArray(cData) ? cData : []).map(
+    const dbCities: City[] = (Array.isArray(cData.cities) ? cData.cities : Array.isArray(cData) ? cData : []).map(
       (c: any) => ({
         id: c.id,
         name: c.name || c.city_name || "—",
         state: c.state || "Other",
       })
     );
+    // Merge: all India static + DB (DB ids preferred when name+state match)
+    const byKey = new Map<string, City>();
+    for (const c of allIndiaCityOptions()) {
+      byKey.set(`${c.state}||${c.name}`, { id: c.id, name: c.name, state: c.state });
+    }
+    for (const c of dbCities) {
+      byKey.set(`${c.state}||${c.name}`, c); // real UUID wins
+    }
+    const cityList = Array.from(byKey.values());
     setCities(cityList);
 
-    // Prefer Chhattisgarh as default state if present
-    const states = Array.from(new Set(cityList.map((c) => c.state).filter(Boolean))).sort((a, b) => {
-      if (a === "Chhattisgarh") return -1;
-      if (b === "Chhattisgarh") return 1;
-      return a.localeCompare(b);
-    });
-    const preferred = states.includes("Chhattisgarh") ? "Chhattisgarh" : states[0] || "";
-    setStateName((prev) => prev || preferred);
+    setStateName((prev) => prev || "Chhattisgarh");
 
     if (user?.city_id) {
       const mine = cityList.find((c) => c.id === user.city_id);
@@ -88,13 +96,14 @@ export default function TitlesPage() {
   }, []);
 
   const stateList = useMemo(() => {
-    const s = Array.from(new Set(cities.map((c) => c.state).filter(Boolean)));
-    s.sort((a, b) => {
+    const fromData = Array.from(new Set(cities.map((c) => c.state).filter(Boolean)));
+    const merged = Array.from(new Set([...INDIA_STATES, ...fromData]));
+    merged.sort((a, b) => {
       if (a === "Chhattisgarh") return -1;
       if (b === "Chhattisgarh") return 1;
       return a.localeCompare(b);
     });
-    return s;
+    return merged;
   }, [cities]);
 
   const citiesInState = useMemo(() => {
