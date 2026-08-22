@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -14,6 +14,7 @@ interface TitleRow {
   user_id: string;
   city_id?: string;
   city_name?: string;
+  city_state?: string;
   users?: { full_name: string; phone: string } | null;
 }
 interface DirUser {
@@ -25,6 +26,7 @@ interface DirUser {
 interface City {
   id: string;
   name: string;
+  state: string;
 }
 
 export default function TitlesPage() {
@@ -36,6 +38,7 @@ export default function TitlesPage() {
   const [cities, setCities] = useState<City[]>([]);
   const [titleKey, setTitleKey] = useState("adhyaksh");
   const [userId, setUserId] = useState("");
+  const [stateName, setStateName] = useState("");
   const [cityId, setCityId] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -51,16 +54,30 @@ export default function TitlesPage() {
     setTitles(tData.titles || []);
     setOptions(tData.options || []);
     setMembers(mData.users || []);
-    const cityList: City[] = Array.isArray(cData.cities)
-      ? cData.cities
-      : Array.isArray(cData)
-        ? cData
-        : [];
-    setCities(cityList.map((c: any) => ({ id: c.id, name: c.name || c.city_name || "—" })));
-    if (!cityId && user?.city_id && cityList.some((c: any) => c.id === user.city_id)) {
-      setCityId(user.city_id as string);
-    } else if (!cityId && cityList.length === 1) {
-      setCityId(cityList[0].id);
+    const cityList: City[] = (Array.isArray(cData.cities) ? cData.cities : Array.isArray(cData) ? cData : []).map(
+      (c: any) => ({
+        id: c.id,
+        name: c.name || c.city_name || "—",
+        state: c.state || "Other",
+      })
+    );
+    setCities(cityList);
+
+    // Prefer Chhattisgarh as default state if present
+    const states = Array.from(new Set(cityList.map((c) => c.state).filter(Boolean))).sort((a, b) => {
+      if (a === "Chhattisgarh") return -1;
+      if (b === "Chhattisgarh") return 1;
+      return a.localeCompare(b);
+    });
+    const preferred = states.includes("Chhattisgarh") ? "Chhattisgarh" : states[0] || "";
+    setStateName((prev) => prev || preferred);
+
+    if (user?.city_id) {
+      const mine = cityList.find((c) => c.id === user.city_id);
+      if (mine) {
+        setStateName(mine.state);
+        setCityId(mine.id);
+      }
     }
     setLoading(false);
   };
@@ -70,11 +87,41 @@ export default function TitlesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const cityName = (id?: string) => cities.find((c) => c.id === id)?.name || id || "—";
+  const stateList = useMemo(() => {
+    const s = Array.from(new Set(cities.map((c) => c.state).filter(Boolean)));
+    s.sort((a, b) => {
+      if (a === "Chhattisgarh") return -1;
+      if (b === "Chhattisgarh") return 1;
+      return a.localeCompare(b);
+    });
+    return s;
+  }, [cities]);
+
+  const citiesInState = useMemo(() => {
+    if (!stateName) return cities;
+    return cities.filter((c) => c.state === stateName).sort((a, b) => a.name.localeCompare(b.name));
+  }, [cities, stateName]);
+
+  // When state changes, clear city if not in new state
+  useEffect(() => {
+    if (!cityId) return;
+    const still = citiesInState.some((c) => c.id === cityId);
+    if (!still) setCityId("");
+  }, [stateName, citiesInState, cityId]);
+
+  const cityName = (id?: string) => {
+    const c = cities.find((x) => x.id === id);
+    if (!c) return id || "—";
+    return c.state ? `${c.name}, ${c.state}` : c.name;
+  };
 
   const assign = async () => {
     if (!userId || !titleKey) {
       toast("Title aur member select karein", "error");
+      return;
+    }
+    if (!stateName) {
+      toast("State select karein", "error");
       return;
     }
     if (!cityId) {
@@ -118,9 +165,13 @@ export default function TitlesPage() {
   const titleOptions = (options.length ? options : [{ key: "adhyaksh", label: "Adhyaksh" }]).map(
     (o) => ({ value: o.key, label: o.label })
   );
+  const stateOptions = [
+    { value: "", label: "— Select state —" },
+    ...stateList.map((s) => ({ value: s, label: s })),
+  ];
   const cityOptions = [
-    { value: "", label: "— Select city —" },
-    ...cities.map((c) => ({ value: c.id, label: c.name })),
+    { value: "", label: stateName ? "— Select city —" : "— Pehle state chunein —" },
+    ...citiesInState.map((c) => ({ value: c.id, label: c.name })),
   ];
   const memberOptions = [
     { value: "", label: "— Select member —" },
@@ -137,7 +188,7 @@ export default function TitlesPage() {
         <div>
           <h1 className="text-lg font-bold text-matang-navy">City Titles</h1>
           <p className="text-[11px] text-gray-500">
-            Title + member + city — e.g. kaun si city ka Adhyaksh
+            Title + State + City + Member — e.g. Bilaspur (CG) ka Adhyaksh
           </p>
         </div>
       </div>
@@ -151,10 +202,20 @@ export default function TitlesPage() {
             options={titleOptions}
           />
           <Select
-            label="City (title kis city ka)"
+            label="State"
+            value={stateName}
+            onChange={(e) => {
+              setStateName(e.target.value);
+              setCityId("");
+            }}
+            options={stateOptions}
+          />
+          <Select
+            label="City (is state ki cities)"
             value={cityId}
             onChange={(e) => setCityId(e.target.value)}
             options={cityOptions}
+            disabled={!stateName}
           />
           <Select
             label="Member"
@@ -187,7 +248,11 @@ export default function TitlesPage() {
                     </p>
                     <p className="text-[11px] text-matang-gold flex items-center gap-1 mt-0.5">
                       <MapPin size={10} />
-                      {t.city_name || cityName(t.city_id)}
+                      {t.city_name
+                        ? t.city_state
+                          ? `${t.city_name}, ${t.city_state}`
+                          : t.city_name
+                        : cityName(t.city_id)}
                     </p>
                   </div>
                   <button

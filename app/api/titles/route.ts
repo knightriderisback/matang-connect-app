@@ -74,16 +74,17 @@ export async function GET() {
 
   // Attach city names
   const cityIds = Array.from(new Set(titlesRaw.map((r: any) => r.city_id).filter(Boolean)));
-  let cityMap: Record<string, string> = {};
+  let cityMap: Record<string, { name: string; state: string }> = {};
   if (cityIds.length) {
-    const { data: cities } = await supabase.from("cities").select("id, name").in("id", cityIds);
+    const { data: cities } = await supabase.from("cities").select("id, name, state").in("id", cityIds);
     for (const c of cities || []) {
-      cityMap[(c as any).id] = (c as any).name;
+      cityMap[(c as any).id] = { name: (c as any).name, state: (c as any).state || "" };
     }
   }
   const titles = titlesRaw.map((r: any) => ({
     ...r,
-    city_name: r.city_id ? cityMap[r.city_id] || null : null,
+    city_name: r.city_id && cityMap[r.city_id] ? cityMap[r.city_id].name : null,
+    city_state: r.city_id && cityMap[r.city_id] ? cityMap[r.city_id].state : null,
   }));
 
   return NextResponse.json({ titles, options: TITLE_OPTIONS });
