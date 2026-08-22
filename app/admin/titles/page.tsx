@@ -111,12 +111,49 @@ export default function TitlesPage() {
     return cities.filter((c) => c.state === stateName).sort((a, b) => a.name.localeCompare(b.name));
   }, [cities, stateName]);
 
+  /** Members registered in the selected city only (match city_id UUID; static id → same name+state DB row) */
+  const membersInCity = useMemo(() => {
+    if (!cityId) return [];
+    const selected = cities.find((c) => c.id === cityId);
+    // Direct UUID match
+    let list = members.filter((m) => m.city_id && m.city_id === cityId);
+    if (list.length === 0 && selected) {
+      // Selected may be static:… while members have real UUID — match via any city option with same name+state that is UUID
+      const realIds = cities
+        .filter(
+          (c) =>
+            c.name === selected.name &&
+            c.state === selected.state &&
+            !String(c.id).startsWith("static:")
+        )
+        .map((c) => c.id);
+      if (realIds.length) {
+        list = members.filter((m) => m.city_id && realIds.includes(m.city_id));
+      }
+    }
+    return list.sort((a, b) => (a.full_name || "").localeCompare(b.full_name || ""));
+  }, [members, cityId, cities]);
+
   // When state changes, clear city if not in new state
   useEffect(() => {
     if (!cityId) return;
     const still = citiesInState.some((c) => c.id === cityId);
-    if (!still) setCityId("");
+    if (!still) {
+      setCityId("");
+      setUserId("");
+    }
   }, [stateName, citiesInState, cityId]);
+
+  // When city changes, clear member if not from that city
+  useEffect(() => {
+    if (!userId) return;
+    if (!cityId) {
+      setUserId("");
+      return;
+    }
+    const ok = membersInCity.some((m) => m.id === userId);
+    if (!ok) setUserId("");
+  }, [cityId, membersInCity, userId]);
 
   const cityName = (id?: string) => {
     const c = cities.find((x) => x.id === id);
@@ -183,8 +220,15 @@ export default function TitlesPage() {
     ...citiesInState.map((c) => ({ value: c.id, label: c.name })),
   ];
   const memberOptions = [
-    { value: "", label: "— Select member —" },
-    ...members.map((m) => ({
+    {
+      value: "",
+      label: !cityId
+        ? "— Pehle city chunein —"
+        : membersInCity.length
+          ? "— Select member (is city) —"
+          : "— Is city mein koi registered member nahi —",
+    },
+    ...membersInCity.map((m) => ({
       value: m.id,
       label: `${m.full_name}${m.phone ? ` (${m.phone})` : ""}`,
     })),
@@ -227,10 +271,11 @@ export default function TitlesPage() {
             disabled={!stateName}
           />
           <Select
-            label="Member"
+            label="Member (sirf selected city ke)"
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
             options={memberOptions}
+            disabled={!cityId}
           />
           <Button type="button" onClick={assign} className="w-full">
             Assign title
