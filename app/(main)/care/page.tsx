@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { HeartHandshake, Plus, Share2 } from "lucide-react";
+import { NameLink } from "@/components/shared/NameLink";
 
 /** Matches live care_requests columns */
 interface CareReq {
@@ -194,6 +195,9 @@ function CarePageInner() {
                 </span>
               </div>
               {r.description && <p className="text-sm text-gray-600">{r.description}</p>}
+              {(r.requester_name || r.requester_id) && (
+                <p className="text-[11px] text-gray-500">By: <NameLink id={r.requester_id} name={r.requester_name} /></p>
+              )}
               <p className="text-xs text-gray-500">
                 Urgency: {r.urgency}
                 {r.notes ? ` · ${r.notes}` : ""}

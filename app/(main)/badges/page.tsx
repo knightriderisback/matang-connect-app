@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { effectiveRole } from "@/lib/auth/roleCache";
 import { Trophy, Award, Medal, Clock, Sparkles } from "lucide-react";
+import { NameLink } from "@/components/shared/NameLink";
 
 const POINT_PRESETS = [
   { label: "Community service — 10 pts", points: 10, reason: "Community service" },
@@ -19,28 +20,6 @@ const POINT_PRESETS = [
   { label: "Leadership / organising — 30 pts", points: 30, reason: "Leadership / organising" },
   { label: "Custom…", points: 0, reason: "custom" },
 ];
-
-function NameLink({
-  id,
-  name,
-  className,
-}: {
-  id?: string | null;
-  name: string;
-  className?: string;
-}) {
-  const router = useRouter();
-  if (!id) return <span className={className}>{name}</span>;
-  return (
-    <button
-      type="button"
-      onClick={() => router.push(`/member/${id}`)}
-      className={`font-semibold text-matang-navy hover:underline ${className || ""}`}
-    >
-      {name}
-    </button>
-  );
-}
 
 function formatWhen(iso?: string) {
   if (!iso) return "—";

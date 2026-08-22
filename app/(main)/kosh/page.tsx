@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { Heart, Plus, TrendingUp, TrendingDown, Clock, User } from "lucide-react";
+import { NameLink } from "@/components/shared/NameLink";
 import { toLocalizedDigits } from "@/lib/numbers";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 
@@ -225,9 +226,10 @@ function KoshPageInner() {
                   {e.description || e.category || e.entry_type}
                 </p>
                 {(e.recorded_by_name || e.recorded_by) && (
-                  <p className="text-[11px] text-gray-600 flex items-center gap-1">
+                  <p className="text-[11px] text-gray-600 flex items-center gap-1 flex-wrap">
                     <User size={11} className="text-gray-400 shrink-0" />
-                    Entry by: <span className="font-medium">{e.recorded_by_name || "Staff"}</span>
+                    Entry by:{" "}
+                    <NameLink id={e.recorded_by} name={e.recorded_by_name} fallback="Staff" />
                   </p>
                 )}
                 <p className="text-[10px] text-gray-400 flex items-center gap-1">
@@ -260,9 +262,9 @@ function KoshPageInner() {
                   <p className="text-sm font-medium text-matang-navy">
                     {c.purpose || "Contribution"}
                   </p>
-                  <p className="text-[11px] text-gray-600 flex items-center gap-1">
+                  <p className="text-[11px] text-gray-600 flex items-center gap-1 flex-wrap">
                     <User size={11} className="text-gray-400 shrink-0" />
-                    {c.contributor_name || "Member"}
+                    <NameLink id={c.contributor_id} name={c.contributor_name} />
                   </p>
                   <p className="text-[10px] text-gray-400 flex items-center gap-1">
                     <Clock size={10} />

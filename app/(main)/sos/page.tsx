@@ -17,6 +17,7 @@ import {
   Users,
   CheckCircle2,
 } from "lucide-react";
+import { NameLink } from "@/components/shared/NameLink";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((g) => ({
   value: g,
@@ -347,7 +348,7 @@ export default function SOSPage() {
         <Card className="border-red-200">
           <CardContent className="p-4 space-y-2 text-sm">
             <p className="font-semibold text-matang-navy">
-              {detail?.raiser?.full_name || selected.raiser_name || "Member"}
+              <NameLink id={detail?.raiser?.id || selected.raised_by || selected.user_id} name={detail?.raiser?.full_name || selected.raiser_name} />
             </p>
             <p className="text-gray-600">📞 {detail?.raiser?.phone || msg.phone || "-"}</p>
             <p className="text-gray-600">Status: {detail?.alert?.status || selected.status}</p>
@@ -408,7 +409,7 @@ export default function SOSPage() {
             )}
             {(detail?.responses || []).map((r: any) => (
               <div key={r.id} className="text-sm border-b border-gray-50 py-1.5">
-                <span className="font-medium">{r.responder?.full_name || "Staff"}</span>
+                <NameLink id={r.responder_id || r.responder?.id} name={r.responder?.full_name} fallback="Staff" />
                 <span className="text-gray-500"> · {r.status}</span>
               </div>
             ))}
@@ -544,7 +545,7 @@ export default function SOSPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-matang-navy truncate">
-                        {(a.type || "sos").toUpperCase()} · {a.raiser_name || msg.name || "Member"}
+                        {(a.type || "sos").toUpperCase()} · <NameLink id={a.raised_by || a.user_id} name={a.raiser_name || msg.name} className="inline" />
                       </p>
                       <p className="text-[11px] text-gray-500 truncate">
                         {a.status} · {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
