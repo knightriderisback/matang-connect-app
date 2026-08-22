@@ -13,6 +13,7 @@ import { NameLink } from "@/components/shared/NameLink";
 interface CareReq {
   id: string;
   requester_id?: string;
+  requester_name?: string | null;
   family_member_id?: string | null;
   care_type: string;
   description?: string | null;
