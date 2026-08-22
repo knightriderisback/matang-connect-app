@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
       })
       .filter((x: any) => x.points > 0)
       .sort((a: any, b: any) => b.points - a.points)
-      .slice(0, 3);
+      .slice(0, 15);
     if (list.length) {
       const ids = list.map((l: any) => l.user_id);
       const { data: names } = await supabase.from("users").select("id, full_name").in("id", ids);
@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
       .from("volunteer_point_log")
       .select("id, user_id, points, reason, awarded_by, created_at")
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(100);
     if (logRows?.length) logs = logRows;
   }
   if (!logs.length) {
@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
       .select("setting_value")
       .eq("setting_key", "volunteer_award_logs")
       .maybeSingle();
-    if (Array.isArray(sett?.setting_value)) logs = sett.setting_value.slice(0, 20);
+    if (Array.isArray(sett?.setting_value)) logs = sett.setting_value.slice(0, 100);
   }
   if (logs.length) {
     const ids = Array.from(
@@ -204,6 +204,16 @@ export async function GET(request: NextRequest) {
     }));
   }
 
+  // Volunteer: only own award history; staff keep full recent log
+  if (session.role === "volunteer") {
+    logs = logs.filter((l) => l.user_id === session.userId);
+  }
+
+  // Wider leaderboard for volunteers viewing own credits
+  if (session.role === "volunteer" && leaders.length < 10) {
+    // already top 3 from query; optional expand already limited
+  }
+
   return NextResponse.json({
     me: me || { points: 0, badges: [] },
     leaders,
@@ -213,8 +223,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const session = await getSession();
-  if (!session || !STAFF_ROLES.includes(session.role as any)) {
-    return NextResponse.json({ error: "Staff only — volunteer / core / super admin" }, { status: 403 });
+  // Award only core committee / super admin — volunteers cannot give points
+  if (!session || !["core_committee", "super_admin"].includes(session.role)) {
+    return NextResponse.json(
+      { error: "Only Core Committee / Super Admin can award points" },
+      { status: 403 }
+    );
   }
   const body = await request.json().catch(() => ({}));
   const user_id = body.user_id || body.userId;
