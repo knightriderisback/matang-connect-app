@@ -57,9 +57,8 @@ export default function TitlesPage() {
         ? cData
         : [];
     setCities(cityList.map((c: any) => ({ id: c.id, name: c.name || c.city_name || "—" })));
-    // default city: session user's city if present in list
     if (!cityId && user?.city_id && cityList.some((c: any) => c.id === user.city_id)) {
-      setCityId(user.city_id);
+      setCityId(user.city_id as string);
     } else if (!cityId && cityList.length === 1) {
       setCityId(cityList[0].id);
     }
@@ -116,6 +115,21 @@ export default function TitlesPage() {
     );
   }
 
+  const titleOptions = (options.length ? options : [{ key: "adhyaksh", label: "Adhyaksh" }]).map(
+    (o) => ({ value: o.key, label: o.label })
+  );
+  const cityOptions = [
+    { value: "", label: "— Select city —" },
+    ...cities.map((c) => ({ value: c.id, label: c.name })),
+  ];
+  const memberOptions = [
+    { value: "", label: "— Select member —" },
+    ...members.map((m) => ({
+      value: m.id,
+      label: `${m.full_name}${m.phone ? ` (${m.phone})` : ""}`,
+    })),
+  ];
+
   return (
     <div className="p-4 space-y-4 pb-24 max-w-lg mx-auto">
       <div className="flex items-center gap-2">
@@ -130,55 +144,24 @@ export default function TitlesPage() {
 
       <Card>
         <CardContent className="p-4 space-y-3">
-          <div>
-            <label className="text-xs font-medium text-gray-600">Title</label>
-            <Select
-              value={titleKey}
-              onChange={(e) => setTitleKey(e.target.value)}
-              className="mt-1"
-            >
-              {(options.length ? options : [{ key: "adhyaksh", label: "Adhyaksh" }]).map((o) => (
-                <option key={o.key} value={o.key}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-gray-600 flex items-center gap-1">
-              <MapPin size={12} /> City (title kis city ka)
-            </label>
-            <Select
-              value={cityId}
-              onChange={(e) => setCityId(e.target.value)}
-              className="mt-1"
-            >
-              <option value="">— Select city —</option>
-              {cities.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-gray-600">Member</label>
-            <Select
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              className="mt-1"
-            >
-              <option value="">— Select member —</option>
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.full_name} {m.phone ? `(${m.phone})` : ""}
-                </option>
-              ))}
-            </Select>
-          </div>
-
+          <Select
+            label="Title"
+            value={titleKey}
+            onChange={(e) => setTitleKey(e.target.value)}
+            options={titleOptions}
+          />
+          <Select
+            label="City (title kis city ka)"
+            value={cityId}
+            onChange={(e) => setCityId(e.target.value)}
+            options={cityOptions}
+          />
+          <Select
+            label="Member"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            options={memberOptions}
+          />
           <Button type="button" onClick={assign} className="w-full">
             Assign title
           </Button>
