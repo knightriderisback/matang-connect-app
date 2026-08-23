@@ -324,6 +324,26 @@ export default function ProfilePage() {
           </CardContent>
       </Card>
 
+      {/* Vanshawali CTA */}
+      <button
+        type="button"
+        onClick={() => router.push("/vanshawali")}
+        className="w-full rounded-2xl p-4 text-left bg-gradient-to-r from-matang-navy via-blue-900 to-matang-navy text-white shadow-lg border border-matang-gold/40 active:scale-[0.99] transition"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-matang-gold/20 flex items-center justify-center border border-matang-gold/40">
+            <Network className="text-matang-gold" size={26} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-matang-gold tracking-wide">वंशावली · Vanshawali</p>
+            <p className="text-[11px] text-white/70 mt-0.5">
+              Family tree · parents · spouse · children
+            </p>
+          </div>
+          <span className="text-matang-gold text-xl">→</span>
+        </div>
+      </button>
+
       {/* Full details section — below ID card */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">

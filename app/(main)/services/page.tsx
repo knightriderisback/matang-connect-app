@@ -5,7 +5,7 @@ import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import { effectiveRole } from "@/lib/auth/roleCache";
 import {
   Users, AlertTriangle, HeartHandshake, Briefcase, Heart, Store, Car,
-  BarChart3, Calendar, Landmark, Flower2, TrendingUp, Award, Trophy, QrCode, Grid3X3,
+  BarChart3, Calendar, Landmark, Flower2, TrendingUp, Award, Trophy, QrCode, Grid3X3, Network,
 } from "lucide-react";
 
 const MEMBER_SERVICES = [
@@ -25,6 +25,7 @@ const MEMBER_SERVICES = [
   { key: "gaurav", label: "Gaurav", href: "/gaurav", icon: Award, color: "bg-yellow-100 text-yellow-800" },
   { key: "gamification", label: "Credits", href: "/badges", icon: Trophy, color: "bg-violet-100 text-violet-700" },
   { key: "scan", label: "Scan", href: "/scan", icon: QrCode, color: "bg-slate-100 text-slate-700" },
+  { key: "vanshawali", label: "Vanshawali", href: "/vanshawali", icon: Network, color: "bg-amber-100 text-amber-800" },
 ];
 
 export default function ServicesPage() {

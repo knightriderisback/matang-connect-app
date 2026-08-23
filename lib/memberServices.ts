@@ -11,7 +11,7 @@ import { createAdminClient } from "./supabase/admin";
 
 export const ALL_MEMBER_MODULE_KEYS = [
   "census", "sos", "care", "jobs", "kosh", "matrimony", "vyapar", "rides",
-  "polls", "panchang", "dharohar", "mahila", "arthik", "gaurav", "gamification", "scan",
+  "polls", "panchang", "dharohar", "mahila", "arthik", "gaurav", "gamification", "scan", "vanshawali",
 ] as const;
 
 export const ALLOWLIST_KEY = "member_services_allowlist";
@@ -33,6 +33,7 @@ export const MODULE_TO_FLAG: Record<string, string> = {
   gaurav: "gaurav_enabled",
   gamification: "gamification_enabled",
   scan: "scan_enabled",
+  vanshawali: "vanshawali_enabled",
 };
 
 export const DEFAULT_ALLOWLIST: string[] = [...ALL_MEMBER_MODULE_KEYS];

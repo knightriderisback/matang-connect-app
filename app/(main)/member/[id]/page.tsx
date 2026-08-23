@@ -201,6 +201,13 @@ export default function MemberProfilePage() {
             ))}
           </div>
 
+          <button
+            type="button"
+            onClick={() => router.push(`/vanshawali?user=${member.id}`)}
+            className="w-full mt-2 text-sm font-semibold text-matang-navy border border-matang-gold/50 rounded-xl py-2.5 bg-amber-50"
+          >
+            वंशावली · Family tree →
+          </button>
           {isStaff && (
             <button
               type="button"

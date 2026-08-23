@@ -16,6 +16,7 @@ export const MODULE_KEYS = [
   "gaurav",
   "gamification",
   "scan",
+  "vanshawali",
   "notices",
   "titles",
   "admin_requests",
@@ -49,6 +50,7 @@ export const MODULE_LABELS: Record<string, string> = {
   gaurav: "Gaurav",
   gamification: "Credits / Badges",
   scan: "QR Scan",
+  vanshawali: "Vanshawali",
   notices: "Notices / Feed",
   titles: "City titles",
   admin_requests: "All Requests",
@@ -68,7 +70,7 @@ export const MODULE_SECTIONS: { title: string; keys: string[] }[] = [
     title: "Services & community",
     keys: [
       "census", "sos", "care", "jobs", "kosh", "matrimony", "vyapar", "rides",
-      "polls", "panchang", "dharohar", "mahila", "arthik", "gaurav", "gamification", "scan", "notices",
+      "polls", "panchang", "dharohar", "mahila", "arthik", "gaurav", "gamification", "scan", "vanshawali", "notices",
     ],
   },
   {

@@ -27,6 +27,7 @@ const TITLES: Record<string, string> = {
   "/arthik": "nav.arthik",
   "/scan": "nav.scan",
   "/badges": "Volunteer Credits",
+  "/vanshawali": "Vanshawali",
   "/gaurav": "Matang Gaurav",
   "/rides": "Ride Share",
   "/admin": "Admin",

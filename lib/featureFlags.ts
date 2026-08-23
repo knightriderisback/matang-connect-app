@@ -13,6 +13,7 @@ export interface FeatureFlags {
   directory_enabled: boolean;
   directory_filters_enabled: boolean;
   scan_enabled: boolean;
+  vanshawali_enabled: boolean;
   scan_file_upload: boolean;
   public_qr_profile: boolean;
   // 2. Feed / home
@@ -86,6 +87,7 @@ export const DEFAULTS: FeatureFlags = {
   directory_enabled: true,
   directory_filters_enabled: true,
   scan_enabled: true,
+  vanshawali_enabled: true,
   scan_file_upload: true,
   public_qr_profile: true,
   feed_enabled: true,
@@ -144,6 +146,7 @@ export const MODULE_FLAG: Record<string, keyof FeatureFlags> = {
   profile: "profile_edit_enabled",
   directory: "directory_enabled",
   scan: "scan_enabled",
+  vanshawali: "vanshawali_enabled",
   sos: "sos_enabled",
   jobs: "jobs_enabled",
   notices: "notices_enabled",

@@ -84,6 +84,7 @@ export const MATRIX_SECTIONS: { title: string; items: { key: string; label: stri
       { key: "directory_enabled", label: "Directory" },
       { key: "directory_filters_enabled", label: "Directory advanced filters" },
       { key: "scan_enabled", label: "QR Scan" },
+      { key: "vanshawali_enabled", label: "Vanshawali / Family tree" },
       { key: "scan_file_upload", label: "Scan — file upload" },
       { key: "public_qr_profile", label: "Public QR profile (/u/...)" },
     ],
