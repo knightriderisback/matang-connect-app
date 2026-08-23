@@ -39,7 +39,7 @@ const TITLES: Record<string, string> = {
   "/history": "Matang History",
 };
 
-function peekUser(): { full_name?: string; role?: string; title?: string } | null {
+function peekUser(): { full_name?: string; role?: string; title?: string; cities?: { name?: string } | null; city_name?: string } | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem("matang_me_cache") || sessionStorage.getItem("matang_me_cache");
@@ -162,6 +162,17 @@ export function AppHeader() {
               <>
                 <span className="text-white font-medium">{displayUser.full_name}</span>
                 <span className="text-matang-gold/90"> · {roleLabel}</span>
+                {((displayUser as any)?.cities?.name ||
+                  (displayUser as any)?.city_name ||
+                  (displayUser as any)?.city) && (
+                  <span className="text-white/70">
+                    {" "}
+                    ·{" "}
+                    {(displayUser as any)?.cities?.name ||
+                      (displayUser as any)?.city_name ||
+                      (displayUser as any)?.city}
+                  </span>
+                )}
               </>
             ) : (
               <span className="text-matang-gold/80">{roleLabel}</span>
