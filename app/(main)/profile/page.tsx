@@ -324,23 +324,37 @@ export default function ProfilePage() {
           </CardContent>
       </Card>
 
-      {/* Vanshawali CTA */}
+      {/* Vanshawali CTA — soft lavender glass (option C, transparent) */}
       <button
         type="button"
         onClick={() => router.push("/vanshawali")}
-        className="w-full rounded-2xl p-4 text-left bg-gradient-to-r from-matang-navy via-blue-900 to-matang-navy text-white shadow-lg border border-matang-gold/40 active:scale-[0.99] transition"
+        className="w-full rounded-2xl p-4 text-left active:scale-[0.99] transition-all border border-fuchsia-200/50 shadow-sm hover:shadow-md"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(252,231,243,0.45) 0%, rgba(243,232,255,0.4) 50%, rgba(237,233,254,0.35) 100%)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+        }}
       >
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-matang-gold/20 flex items-center justify-center border border-matang-gold/40">
-            <Network className="text-matang-gold" size={26} />
+          <div
+            className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 border border-amber-200/60"
+            style={{
+              background: "rgba(255,255,255,0.55)",
+              boxShadow: "0 2px 10px rgba(192,132,252,0.15)",
+            }}
+          >
+            <Network className="text-amber-700/80" size={24} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-matang-gold tracking-wide">वंशावली · Vanshawali</p>
-            <p className="text-[11px] text-white/70 mt-0.5">
+            <p className="font-bold tracking-wide text-rose-900/80">
+              वंशावली · Vanshawali
+            </p>
+            <p className="text-[11px] text-rose-800/50 mt-0.5">
               Family tree · parents · spouse · children
             </p>
           </div>
-          <span className="text-matang-gold text-xl">→</span>
+          <span className="text-rose-800/40 text-xl font-light">›</span>
         </div>
       </button>
 
