@@ -64,6 +64,242 @@ const glassBorder = "border border-fuchsia-200/50";
 const softGoldLine =
   "linear-gradient(90deg, rgba(201,162,39,0.15), rgba(201,162,39,0.75), rgba(201,162,39,0.15))";
 
+/** 3D shiny gold branch + tiny leaves — overlaps nodes so it touches profiles */
+function GoldLeaf({ x, y, rot = 0, scale = 1 }: { x: number; y: number; rot?: number; scale?: number }) {
+  return (
+    <g transform={`translate(${x} ${y}) rotate(${rot}) scale(${scale})`}>
+      <ellipse
+        cx="0"
+        cy="0"
+        rx="4.2"
+        ry="2.4"
+        fill="url(#leafGold)"
+        stroke="#8B6914"
+        strokeWidth="0.35"
+        opacity="0.95"
+      />
+      <line x1="-2" y1="0" x2="2.5" y2="0" stroke="#FFF3C4" strokeWidth="0.4" opacity="0.7" />
+    </g>
+  );
+}
+
+function BranchVertical({ h = 32, leaves = true }: { h?: number; leaves?: boolean }) {
+  return (
+    <div
+      className="relative z-[1] flex justify-center pointer-events-none"
+      style={{ height: h, marginTop: -10, marginBottom: -10 }}
+    >
+      <svg width="28" height={h} className="overflow-visible" aria-hidden>
+        <defs>
+          <linearGradient id="branchGoldV" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#6B4F12" />
+            <stop offset="28%" stopColor="#E8C547" />
+            <stop offset="50%" stopColor="#FFF1A8" />
+            <stop offset="72%" stopColor="#C9A227" />
+            <stop offset="100%" stopColor="#5C4210" />
+          </linearGradient>
+          <linearGradient id="leafGold" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#FFF6C8" />
+            <stop offset="45%" stopColor="#E4C04A" />
+            <stop offset="100%" stopColor="#9A7B1A" />
+          </linearGradient>
+          <filter id="branchGlow" x="-50%" y="-20%" width="200%" height="140%">
+            <feDropShadow dx="0" dy="1" stdDeviation="1.2" floodColor="#C9A227" floodOpacity="0.55" />
+          </filter>
+        </defs>
+        {/* outer depth */}
+        <line
+          x1="14"
+          y1="2"
+          x2="14"
+          y2={h - 2}
+          stroke="#5C4210"
+          strokeWidth="6"
+          strokeLinecap="round"
+          opacity="0.35"
+        />
+        <line
+          x1="14"
+          y1="0"
+          x2="14"
+          y2={h}
+          stroke="url(#branchGoldV)"
+          strokeWidth="4.5"
+          strokeLinecap="round"
+          filter="url(#branchGlow)"
+        />
+        {/* shine edge */}
+        <line
+          x1="12.5"
+          y1="2"
+          x2="12.5"
+          y2={h - 2}
+          stroke="#FFF8D0"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+          opacity="0.75"
+        />
+        {leaves && (
+          <>
+            <GoldLeaf x={19} y={h * 0.28} rot={-35} scale={1} />
+            <GoldLeaf x={9} y={h * 0.52} rot={40} scale={0.9} />
+            <GoldLeaf x={20} y={h * 0.72} rot={-25} scale={0.85} />
+          </>
+        )}
+      </svg>
+    </div>
+  );
+}
+
+function BranchHorizontal({ w = 36 }: { w?: number }) {
+  return (
+    <div
+      className="relative z-[1] flex items-center pointer-events-none"
+      style={{ width: w, marginLeft: -8, marginRight: -8 }}
+    >
+      <svg width={w} height="28" className="overflow-visible" aria-hidden>
+        <defs>
+          <linearGradient id="branchGoldH" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#6B4F12" />
+            <stop offset="30%" stopColor="#F0D56A" />
+            <stop offset="55%" stopColor="#FFF1A8" />
+            <stop offset="100%" stopColor="#8B6914" />
+          </linearGradient>
+          <linearGradient id="leafGoldH" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#FFF6C8" />
+            <stop offset="50%" stopColor="#E4C04A" />
+            <stop offset="100%" stopColor="#9A7B1A" />
+          </linearGradient>
+        </defs>
+        <line
+          x1="2"
+          y1="15"
+          x2={w - 2}
+          y2="15"
+          stroke="#5C4210"
+          strokeWidth="6"
+          strokeLinecap="round"
+          opacity="0.3"
+        />
+        <line
+          x1="0"
+          y1="14"
+          x2={w}
+          y2="14"
+          stroke="url(#branchGoldH)"
+          strokeWidth="4.2"
+          strokeLinecap="round"
+        />
+        <line
+          x1="2"
+          y1="12.5"
+          x2={w - 2}
+          y2="12.5"
+          stroke="#FFF8D0"
+          strokeWidth="1.1"
+          strokeLinecap="round"
+          opacity="0.7"
+        />
+        <g transform={`translate(${w * 0.4} 8)`}>
+          <ellipse cx="0" cy="0" rx="4" ry="2.2" fill="url(#leafGoldH)" stroke="#8B6914" strokeWidth="0.3" />
+        </g>
+        <g transform={`translate(${w * 0.65} 18) rotate(15)`}>
+          <ellipse cx="0" cy="0" rx="3.6" ry="2" fill="url(#leafGoldH)" stroke="#8B6914" strokeWidth="0.3" />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+function BranchFork({ width = 200, childCount = 3 }: { width?: number; childCount?: number }) {
+  const w = Math.max(80, Math.min(width, childCount * 72));
+  const mid = w / 2;
+  return (
+    <div className="relative z-[1] flex flex-col items-center pointer-events-none" style={{ marginTop: -8, marginBottom: -6 }}>
+      <BranchVertical h={20} leaves={false} />
+      <svg width={w} height="36" className="overflow-visible" aria-hidden>
+        <defs>
+          <linearGradient id="forkGold" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#8B6914" />
+            <stop offset="50%" stopColor="#FFE9A0" />
+            <stop offset="100%" stopColor="#8B6914" />
+          </linearGradient>
+        </defs>
+        {/* horizontal bar touching child stems */}
+        <line
+          x1="8"
+          y1="8"
+          x2={w - 8}
+          y2="8"
+          stroke="#5C4210"
+          strokeWidth="5"
+          strokeLinecap="round"
+          opacity="0.3"
+        />
+        <line
+          x1="4"
+          y1="7"
+          x2={w - 4}
+          y2="7"
+          stroke="url(#forkGold)"
+          strokeWidth="3.8"
+          strokeLinecap="round"
+        />
+        <line
+          x1="8"
+          y1="5.5"
+          x2={w - 8}
+          y2="5.5"
+          stroke="#FFF8D0"
+          strokeWidth="1"
+          opacity="0.65"
+        />
+        {/* drop stems toward each child slot */}
+        {Array.from({ length: childCount }).map((_, i) => {
+          const x =
+            childCount === 1
+              ? mid
+              : 16 + (i * (w - 32)) / Math.max(1, childCount - 1);
+          return (
+            <g key={i}>
+              <line
+                x1={x}
+                y1="7"
+                x2={x}
+                y2="34"
+                stroke="url(#forkGold)"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+              />
+              <line
+                x1={x - 1}
+                y1="10"
+                x2={x - 1}
+                y2="32"
+                stroke="#FFF8D0"
+                strokeWidth="0.9"
+                opacity="0.6"
+              />
+              <ellipse
+                cx={x + 5}
+                cy={20}
+                rx="3.2"
+                ry="1.8"
+                fill="#E8C547"
+                stroke="#8B6914"
+                strokeWidth="0.25"
+                opacity="0.9"
+                transform={`rotate(-30 ${x + 5} 20)`}
+              />
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+
 function relLabel(lang: string, key: string, gender?: string | null) {
   const L = REL_LABELS[lang] || REL_LABELS.en;
   if (key === "child") {
@@ -300,33 +536,25 @@ function VanshawaliInner() {
               )}
             </div>
 
-            <div className="flex justify-center my-1">
-              <div className="w-0.5 h-6 rounded-full" style={{ background: softGoldLine }} />
-            </div>
+            {(tree.parents.length > 0) && <BranchVertical h={36} />}
 
-            <div className="flex items-center justify-center gap-4 sm:gap-8">
+            <div className="relative z-[2] flex items-center justify-center gap-1 sm:gap-2">
               <NodeCard node={tree.centre} isCentre lang={lang} onFocus={focusUser} />
               {tree.spouses.map((n) => (
-                <div key={n.id} className="flex items-center gap-2">
-                  <div className="w-8 h-0.5 rounded-full" style={{ background: softGoldLine }} />
+                <div key={n.id} className="flex items-center">
+                  <BranchHorizontal w={40} />
                   <NodeCard node={n} lang={lang} onFocus={focusUser} />
                 </div>
               ))}
             </div>
 
-            <div className="flex justify-center my-1">
-              <div className="w-0.5 h-6 rounded-full" style={{ background: softGoldLine }} />
-            </div>
-            {tree.children.length > 0 && (
-              <div className="flex justify-center mb-1">
-                <div
-                  className="h-0.5 rounded-full"
-                  style={{
-                    width: Math.min(280, tree.children.length * 72),
-                    background: softGoldLine,
-                  }}
-                />
-              </div>
+            {tree.children.length > 0 ? (
+              <BranchFork
+                width={Math.min(280, tree.children.length * 72)}
+                childCount={tree.children.length}
+              />
+            ) : (
+              <div className="h-2" />
             )}
 
             <div className="flex justify-center gap-3 flex-wrap min-h-[88px]">
