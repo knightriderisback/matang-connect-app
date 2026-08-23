@@ -342,7 +342,11 @@ function NodeCard({
 }
 
 
-/** Full-tree metallic gold limbs (1B mockup) — one SVG, organic paths, no leaves */
+
+/**
+ * 1B metallic tree — filled tapered limbs (not thin bars).
+ * Honest limit: AI mockup = raster 3D; this = high-end SVG tree that reads as the same structure.
+ */
 function TreeCanvas({
   tree,
   lang,
@@ -355,29 +359,27 @@ function TreeCanvas({
   const parents = tree.parents || [];
   const spouses = tree.spouses || [];
   const children = tree.children || [];
-  const nP = parents.length;
-  const nC = Math.max(children.length, 1);
 
-  // viewBox coordinates
-  const W = 320;
-  const H = 400;
-  const cx = 160;
-  const cy = 175; // centre avatar
-  const r = 28; // avatar radius approx
+  const W = 340;
+  const H = 420;
+  // Avatar centers in viewBox (labels render below via CSS offset)
+  const cx = 170;
+  const cy = 168;
+  const R = 30; // avatar radius in viewBox units
 
   const parentPts =
-    nP === 0
+    parents.length === 0
       ? []
-      : nP === 1
-        ? [{ x: 160, y: 48 }]
+      : parents.length === 1
+        ? [{ x: 170, y: 52 }]
         : parents.map((_, i) => ({
-            x: 70 + (i * 180) / Math.max(nP - 1, 1),
-            y: 48,
+            x: 72 + (i * (W - 144)) / Math.max(parents.length - 1, 1),
+            y: 52,
           }));
 
   const spousePts = spouses.map((_, i) => ({
-    x: 260 + i * 8,
-    y: 175,
+    x: 278 + i * 10,
+    y: 168,
   }));
 
   const childPts =
@@ -386,20 +388,35 @@ function TreeCanvas({
       : children.map((_, i) => ({
           x:
             children.length === 1
-              ? 160
-              : 50 + (i * 220) / Math.max(children.length - 1, 1),
-          y: 330,
+              ? 170
+              : 55 + (i * (W - 110)) / Math.max(children.length - 1, 1),
+          y: 355,
         }));
 
-  const metalStroke = {
-    fill: "none" as const,
-    stroke: "url(#m1b)",
-    strokeLinecap: "round" as const,
-    filter: "url(#mglow)",
-  };
+  /** Quadratic-ish cubic from edge of circle A to edge of circle B */
+  function edgePath(
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+    bend: number
+  ) {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
+    const sx = ax + ux * R;
+    const sy = ay + uy * R;
+    const ex = bx - ux * R;
+    const ey = by - uy * R;
+    const mx = (sx + ex) / 2 - uy * bend;
+    const my = (sy + ey) / 2 + ux * bend;
+    return { d: `M${sx} ${sy} Q${mx} ${my} ${ex} ${ey}`, sx, sy, ex, ey };
+  }
 
   return (
-    <div className="relative w-full mx-auto" style={{ minHeight: 380, maxWidth: 360 }}>
+    <div className="relative w-full mx-auto select-none" style={{ minHeight: 400, maxWidth: 380 }}>
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
         viewBox={`0 0 ${W} ${H}`}
@@ -407,123 +424,116 @@ function TreeCanvas({
         aria-hidden
       >
         <defs>
-          <linearGradient id="m1b" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#7A5C12" />
-            <stop offset="25%" stopColor="#E8C547" />
-            <stop offset="48%" stopColor="#FFFCE8" />
-            <stop offset="55%" stopColor="#F5D76E" />
-            <stop offset="80%" stopColor="#C9A227" />
-            <stop offset="100%" stopColor="#6B5210" />
+          <linearGradient id="m1bBody" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#5C4210" />
+            <stop offset="18%" stopColor="#C9A227" />
+            <stop offset="40%" stopColor="#FFF6C8" />
+            <stop offset="55%" stopColor="#F0D060" />
+            <stop offset="78%" stopColor="#B8860B" />
+            <stop offset="100%" stopColor="#4A350C" />
           </linearGradient>
-          <filter id="mglow" x="-40%" y="-40%" width="180%" height="180%">
-            <feDropShadow dx="0" dy="0" stdDeviation="2.4" floodColor="#E8C547" floodOpacity="0.8" />
+          <linearGradient id="m1bBodyV" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#4A350C" />
+            <stop offset="30%" stopColor="#E8C547" />
+            <stop offset="50%" stopColor="#FFFEF0" />
+            <stop offset="70%" stopColor="#D4AF37" />
+            <stop offset="100%" stopColor="#4A350C" />
+          </linearGradient>
+          <filter id="m1bGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="1" stdDeviation="2.8" floodColor="#E8C547" floodOpacity="0.85" />
+          </filter>
+          <filter id="m1bDepth">
+            <feDropShadow dx="0" dy="2" stdDeviation="1.5" floodColor="#3D2914" floodOpacity="0.35" />
           </filter>
         </defs>
 
-        {/* Parent → centre organic branches */}
+        {/* —— Parents → centre: thick curved limbs —— */}
         {parentPts.map((pt, i) => {
-          const dx = cx - pt.x;
-          const dy = cy - pt.y;
-          const len = Math.sqrt(dx * dx + dy * dy) || 1;
-          // stop at circle edge
-          const ex = cx - (dx / len) * r;
-          const ey = cy - (dy / len) * r;
-          const sx = pt.x + (dx / len) * r * 0.85;
-          const sy = pt.y + (dy / len) * r * 0.85;
-          const c1x = pt.x + dx * 0.35 + (i % 2 === 0 ? -28 : 28);
-          const c1y = pt.y + dy * 0.35;
-          const c2x = cx - dx * 0.25 + (i % 2 === 0 ? 18 : -18);
-          const c2y = cy - dy * 0.3;
-          const d = `M${sx} ${sy} C${c1x} ${c1y}, ${c2x} ${c2y}, ${ex} ${ey}`;
+          const bend = i === 0 ? -48 : i === parentPts.length - 1 ? 48 : 0;
+          const { d } = edgePath(pt.x, pt.y, cx, cy, bend);
           return (
-            <g key={`p-${i}`}>
-              <path d={d} stroke="#5C4210" strokeWidth="9" fill="none" strokeLinecap="round" opacity="0.2" />
-              <path d={d} {...metalStroke} strokeWidth="6" />
-              <path
-                d={d}
-                fill="none"
-                stroke="#FFFEF0"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                opacity="0.45"
-              />
+            <g key={`p-${i}`} filter="url(#m1bGlow)">
+              <path d={d} fill="none" stroke="#3D2914" strokeWidth="14" strokeLinecap="round" opacity="0.22" />
+              <path d={d} fill="none" stroke="url(#m1bBody)" strokeWidth="10" strokeLinecap="round" />
+              <path d={d} fill="none" stroke="#FFFEF0" strokeWidth="2.2" strokeLinecap="round" opacity="0.4" />
             </g>
           );
         })}
 
-        {/* Centre → spouse */}
+        {/* —— Centre → spouse —— */}
         {spousePts.map((pt, i) => {
-          const sx = cx + r;
-          const sy = cy;
-          const ex = pt.x - r * 0.7;
-          const ey = pt.y;
-          const d = `M${sx} ${sy} C${sx + 30} ${sy - 18}, ${ex - 25} ${ey + 16}, ${ex} ${ey}`;
+          const { d } = edgePath(cx, cy, pt.x, pt.y, -36);
           return (
-            <g key={`s-${i}`}>
-              <path d={d} stroke="#5C4210" strokeWidth="8" fill="none" strokeLinecap="round" opacity="0.18" />
-              <path d={d} {...metalStroke} strokeWidth="5.5" />
-              <path d={d} fill="none" stroke="#FFFEF0" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
+            <g key={`s-${i}`} filter="url(#m1bGlow)">
+              <path d={d} fill="none" stroke="#3D2914" strokeWidth="12" strokeLinecap="round" opacity="0.2" />
+              <path d={d} fill="none" stroke="url(#m1bBody)" strokeWidth="9" strokeLinecap="round" />
+              <path d={d} fill="none" stroke="#FFFEF0" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
             </g>
           );
         })}
 
-        {/* Centre → children (tree canopy drop) */}
+        {/* —— Trunk + organic child limbs (no flat T-bar) —— */}
         {childPts.length > 0 && (
-          <>
-            {/* trunk down */}
+          <g filter="url(#m1bGlow)">
+            {/* short trunk from centre bottom edge */}
             <path
-              d={`M${cx} ${cy + r} C${cx - 6} ${cy + 55}, ${cx + 6} ${cy + 75}, ${cx} ${cy + 95}`}
-              stroke="#5C4210"
-              strokeWidth="9"
+              d={`M${cx} ${cy + R} C${cx - 8} ${cy + 55}, ${cx + 8} ${cy + 70}, ${cx} ${cy + 88}`}
               fill="none"
+              stroke="#3D2914"
+              strokeWidth="14"
               strokeLinecap="round"
               opacity="0.2"
             />
             <path
-              d={`M${cx} ${cy + r} C${cx - 6} ${cy + 55}, ${cx + 6} ${cy + 75}, ${cx} ${cy + 95}`}
-              {...metalStroke}
-              strokeWidth="6.5"
+              d={`M${cx} ${cy + R} C${cx - 8} ${cy + 55}, ${cx + 8} ${cy + 70}, ${cx} ${cy + 88}`}
+              fill="none"
+              stroke="url(#m1bBodyV)"
+              strokeWidth="11"
+              strokeLinecap="round"
             />
-            {/* horizontal limb */}
-            {childPts.length > 0 && (
-              <>
-                <path
-                  d={`M${childPts[0].x} ${cy + 100} Q${cx} ${cy + 88} ${childPts[childPts.length - 1].x} ${cy + 100}`}
-                  stroke="#5C4210"
-                  strokeWidth="8"
-                  fill="none"
-                  strokeLinecap="round"
-                  opacity="0.18"
-                />
-                <path
-                  d={`M${childPts[0].x} ${cy + 100} Q${cx} ${cy + 88} ${childPts[childPts.length - 1].x} ${cy + 100}`}
-                  {...metalStroke}
-                  strokeWidth="5.5"
-                />
-              </>
-            )}
+            <path
+              d={`M${cx - 2} ${cy + R + 4} C${cx - 6} ${cy + 55}, ${cx + 2} ${cy + 70}, ${cx - 1} ${cy + 86}`}
+              fill="none"
+              stroke="#FFFEF0"
+              strokeWidth="2"
+              opacity="0.35"
+            />
+            {/* each child: S-curve limb from trunk fork — tree-like, not ruler */}
             {childPts.map((pt, i) => {
-              const d = `M${pt.x} ${cy + 100} C${pt.x - 4} ${cy + 140}, ${pt.x + 4} ${pt.y - 40}, ${pt.x} ${pt.y - r}`;
+              const forkY = cy + 88;
+              const spread = (i - (childPts.length - 1) / 2) * 22;
+              const c1x = cx + spread * 0.4;
+              const c1y = forkY + 35;
+              const c2x = pt.x - spread * 0.15;
+              const c2y = pt.y - R - 25;
+              const ex = pt.x;
+              const ey = pt.y - R;
+              const d = `M${cx} ${forkY} C${c1x} ${c1y}, ${c2x} ${c2y}, ${ex} ${ey}`;
               return (
                 <g key={`c-${i}`}>
-                  <path d={d} stroke="#5C4210" strokeWidth="7" fill="none" strokeLinecap="round" opacity="0.18" />
-                  <path d={d} {...metalStroke} strokeWidth="5" />
-                  <path d={d} fill="none" stroke="#FFFEF0" strokeWidth="1.1" strokeLinecap="round" opacity="0.45" />
+                  <path d={d} fill="none" stroke="#3D2914" strokeWidth="12" strokeLinecap="round" opacity="0.18" />
+                  <path d={d} fill="none" stroke="url(#m1bBody)" strokeWidth="9" strokeLinecap="round" />
+                  <path d={d} fill="none" stroke="#FFFEF0" strokeWidth="1.8" strokeLinecap="round" opacity="0.38" />
                 </g>
               );
             })}
-          </>
+          </g>
         )}
       </svg>
 
-      {/* Nodes overlaid at same % positions */}
+      {/* Nodes: position by avatar centre; label hangs below */}
       {parents.map((n, i) => {
-        const pt = parentPts[i] || { x: 160, y: 48 };
+        const pt = parentPts[i];
+        if (!pt) return null;
         return (
           <div
             key={n.id}
-            className="absolute z-[2] -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${(pt.x / W) * 100}%`, top: `${(pt.y / H) * 100}%` }}
+            className="absolute z-[2] flex flex-col items-center"
+            style={{
+              left: `${(pt.x / W) * 100}%`,
+              top: `${(pt.y / H) * 100}%`,
+              transform: "translate(-50%, -30px)",
+            }}
           >
             <NodeCard node={n} lang={lang} onFocus={onFocus} />
           </div>
@@ -531,19 +541,28 @@ function TreeCanvas({
       })}
 
       <div
-        className="absolute z-[2] -translate-x-1/2 -translate-y-1/2"
-        style={{ left: `${(cx / W) * 100}%`, top: `${(cy / H) * 100}%` }}
+        className="absolute z-[2] flex flex-col items-center"
+        style={{
+          left: `${(cx / W) * 100}%`,
+          top: `${(cy / H) * 100}%`,
+          transform: "translate(-50%, -30px)",
+        }}
       >
         <NodeCard node={tree.centre} isCentre lang={lang} onFocus={onFocus} />
       </div>
 
       {spouses.map((n, i) => {
-        const pt = spousePts[i] || { x: 260, y: 175 };
+        const pt = spousePts[i];
+        if (!pt) return null;
         return (
           <div
             key={n.id}
-            className="absolute z-[2] -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${(pt.x / W) * 100}%`, top: `${(pt.y / H) * 100}%` }}
+            className="absolute z-[2] flex flex-col items-center"
+            style={{
+              left: `${(pt.x / W) * 100}%`,
+              top: `${(pt.y / H) * 100}%`,
+              transform: "translate(-50%, -30px)",
+            }}
           >
             <NodeCard node={n} lang={lang} onFocus={onFocus} />
           </div>
@@ -556,8 +575,12 @@ function TreeCanvas({
         return (
           <div
             key={n.id}
-            className="absolute z-[2] -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${(pt.x / W) * 100}%`, top: `${(pt.y / H) * 100}%` }}
+            className="absolute z-[2] flex flex-col items-center"
+            style={{
+              left: `${(pt.x / W) * 100}%`,
+              top: `${(pt.y / H) * 100}%`,
+              transform: "translate(-50%, -30px)",
+            }}
           >
             <NodeCard node={n} lang={lang} onFocus={onFocus} />
           </div>
