@@ -1,12 +1,15 @@
 "use client";
+/**
+ * Vertical 2-way mind-map canvas (Samsung Notes style):
+ * branches UP (parents) + DOWN (children), curved gold lines, inline + add.
+ */
 import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
-import { Network, Plus, User, X, Focus, Trash2, ChevronRight } from "lucide-react";
+import { Plus, Trash2, X, Focus, User } from "lucide-react";
 
 type Node = {
   id: string;
@@ -28,42 +31,14 @@ type Tree = {
   children: Node[];
 };
 
-const REL_LABELS: Record<string, Record<string, string>> = {
-  en: {
-    self: "Self",
-    father: "Father",
-    mother: "Mother",
-    spouse: "Spouse",
-    child: "Child",
-    son: "Son",
-    daughter: "Daughter",
-  },
-  hi: {
-    self: "स्वयं",
-    father: "पिता",
-    mother: "माता",
-    spouse: "जीवनसाथी",
-    child: "संतान",
-    son: "पुत्र",
-    daughter: "पुत्री",
-  },
-  mr: {
-    self: "स्वतः",
-    father: "वडील",
-    mother: "आई",
-    spouse: "जोडीदार",
-    child: "मूल",
-    son: "मुलगा",
-    daughter: "मुलगी",
-  },
+const REL: Record<string, Record<string, string>> = {
+  en: { self: "Self", father: "Father", mother: "Mother", spouse: "Spouse", child: "Child", son: "Son", daughter: "Daughter" },
+  hi: { self: "स्वयं", father: "पिता", mother: "माता", spouse: "जीवनसाथी", child: "संतान", son: "पुत्र", daughter: "पुत्री" },
+  mr: { self: "स्वतः", father: "वडील", mother: "आई", spouse: "जोडीदार", child: "मूल", son: "मुलगा", daughter: "मुलगी" },
 };
 
-const glassBg =
-  "linear-gradient(135deg, rgba(252,231,243,0.55) 0%, rgba(243,232,255,0.45) 50%, rgba(237,233,254,0.4) 100%)";
-const glassBorder = "border border-fuchsia-200/50";
-
-function relLabel(lang: string, key: string, gender?: string | null) {
-  const L = REL_LABELS[lang] || REL_LABELS.en;
+function lbl(lang: string, key: string, gender?: string | null) {
+  const L = REL[lang] || REL.en;
   if (key === "child") {
     if (gender === "female" || gender === "F") return L.daughter;
     if (gender === "male" || gender === "M") return L.son;
@@ -71,104 +46,10 @@ function relLabel(lang: string, key: string, gender?: string | null) {
   return L[key] || key;
 }
 
-function MindNode({
-  node,
-  isCentre,
-  lang,
-  onOpen,
-}: {
-  node: Node;
-  isCentre?: boolean;
-  lang: string;
-  onOpen: (n: Node) => void;
-}) {
-  const ageStr = node.age != null ? `${node.age}y` : "—";
-  const rel = relLabel(lang, node.relation, node.gender);
-  const pending = node.status === "pending";
-
-  return (
-    <button
-      type="button"
-      onClick={() => onOpen(node)}
-      className="group flex flex-col items-center gap-1 max-w-[100px] active:scale-95 transition-transform"
-    >
-      <div
-        className={`relative w-[4.25rem] h-[4.25rem] rounded-full overflow-hidden flex items-center justify-center border-2 transition-shadow ${
-          isCentre
-            ? "border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.55)] ring-2 ring-emerald-200/50"
-            : pending
-              ? "border-amber-300 border-dashed"
-              : "border-white/80 shadow-lg shadow-fuchsia-200/40 group-hover:shadow-matang-gold/30"
-        }`}
-        style={{
-          background: isCentre
-            ? "linear-gradient(145deg,#ecfdf5,#d1fae5)"
-            : "rgba(255,255,255,0.85)",
-        }}
-      >
-        {node.photo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={node.photo_url} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <span className="text-xl font-bold text-rose-900/70">
-            {node.display_name?.[0] || <User size={22} />}
-          </span>
-        )}
-        {!isCentre && (
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-white/90 text-[9px] text-rose-800/50 flex items-center justify-center border border-fuchsia-100 opacity-0 group-hover:opacity-100">
-            ···
-          </span>
-        )}
-      </div>
-      <p className="text-[11px] font-semibold text-rose-950/85 text-center leading-tight truncate w-full">
-        {node.display_name}
-      </p>
-      <p className="text-[9px] text-rose-800/45 text-center leading-none">
-        {ageStr} ·{" "}
-        <span className={isCentre ? "text-emerald-600 font-medium" : "text-amber-800/70"}>
-          {rel}
-        </span>
-        {pending ? " · …" : ""}
-      </p>
-    </button>
-  );
-}
-
-function AddSlot({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex flex-col items-center gap-1.5 max-w-[88px] active:scale-95 transition-transform"
-    >
-      <div
-        className="w-[4.25rem] h-[4.25rem] rounded-full border-2 border-dashed border-fuchsia-300/60 flex items-center justify-center text-rose-800/40 hover:border-matang-gold hover:text-matang-gold hover:bg-white/40 transition-all"
-        style={{ background: "rgba(255,255,255,0.35)" }}
-      >
-        <Plus size={22} strokeWidth={2.2} />
-      </div>
-      <p className="text-[9px] font-medium text-rose-800/45 text-center leading-tight">{label}</p>
-    </button>
-  );
-}
-
-function Connector() {
-  return (
-    <div className="flex justify-center py-0.5">
-      <div
-        className="w-0.5 h-5 rounded-full"
-        style={{
-          background: "linear-gradient(180deg,rgba(201,162,39,0.15),rgba(201,162,39,0.7),rgba(201,162,39,0.15))",
-        }}
-      />
-    </div>
-  );
+/** Curved connector path between two points (Notes-style) */
+function curve(x1: number, y1: number, x2: number, y2: number) {
+  const my = (y1 + y2) / 2;
+  return `M${x1} ${y1} C${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`;
 }
 
 function VanshawaliInner() {
@@ -183,11 +64,10 @@ function VanshawaliInner() {
   const [loading, setLoading] = useState(true);
   const [canEdit, setCanEdit] = useState(false);
   const [selected, setSelected] = useState<Node | null>(null);
-  const [addRel, setAddRel] = useState<string | null>(null);
-  const [form, setForm] = useState({ display_name: "", birth_year: "", gender: "" });
+  const [draft, setDraft] = useState<{ relation: string; name: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const L = useMemo(() => REL_LABELS[lang] || REL_LABELS.en, [lang]);
+  const L = useMemo(() => REL[lang] || REL.en, [lang]);
 
   const load = useCallback(() => {
     if (!rootId) return;
@@ -206,11 +86,8 @@ function VanshawaliInner() {
     load();
   }, [load]);
 
-  const addRelative = async () => {
-    if (!addRel || !form.display_name.trim()) {
-      toast(lang === "hi" ? "नाम लिखें" : "Enter name", "error");
-      return;
-    }
+  const saveAdd = async () => {
+    if (!draft?.name.trim()) return;
     setSaving(true);
     try {
       const res = await fetch("/api/vanshawali", {
@@ -219,10 +96,8 @@ function VanshawaliInner() {
         body: JSON.stringify({
           action: "add",
           centre_user_id: rootId,
-          relation: addRel,
-          display_name: form.display_name,
-          birth_year: form.birth_year || null,
-          gender: form.gender || null,
+          relation: draft.relation,
+          display_name: draft.name.trim(),
         }),
       });
       const data = await res.json();
@@ -230,9 +105,7 @@ function VanshawaliInner() {
         toast(data.error || "Failed", "error");
         return;
       }
-      toast(data.link?.status === "verified" ? "Added" : "Pending", "success");
-      setAddRel(null);
-      setForm({ display_name: "", birth_year: "", gender: "" });
+      setDraft(null);
       load();
     } finally {
       setSaving(false);
@@ -240,11 +113,8 @@ function VanshawaliInner() {
   };
 
   const removeLink = async (node: Node) => {
-    if (!node.link_id) {
-      toast("Cannot remove", "error");
-      return;
-    }
-    if (!confirm(lang === "hi" ? "Yeh rishta hataayein?" : "Remove this relation?")) return;
+    if (!node.link_id) return;
+    if (!confirm(lang === "hi" ? "Rishta hataayein?" : "Remove relation?")) return;
     setSaving(true);
     try {
       const res = await fetch("/api/vanshawali", {
@@ -261,7 +131,6 @@ function VanshawaliInner() {
         toast(data.error || "Failed", "error");
         return;
       }
-      toast(lang === "hi" ? "Hata diya" : "Removed", "success");
       setSelected(null);
       load();
     } finally {
@@ -269,235 +138,375 @@ function VanshawaliInner() {
     }
   };
 
-  const title = lang === "hi" || lang === "mr" ? "वंशावली" : "Vanshawali";
+  // --- Layout geometry (viewBox) ---
+  const W = 360;
+  const parents = tree?.parents || [];
+  const spouses = tree?.spouses || [];
+  const children = tree?.children || [];
+  const nUp = Math.max(parents.length + (canEdit ? 1 : 0), 1);
+  const nDown = Math.max(children.length + (canEdit ? 1 : 0), 1);
+  const upH = 100;
+  const midY = upH + 50;
+  const downStart = midY + 56;
+  const downH = 110;
+  const H = downStart + downH + 40;
+  const cx = W / 2;
+  const cy = midY;
 
-  const hasFather = tree?.parents.some((p) => p.relation === "father");
-  const hasMother = tree?.parents.some((p) => p.relation === "mother");
+  const upXs = (count: number) => {
+    if (count <= 1) return [cx];
+    const span = Math.min(280, 60 * (count - 1));
+    const start = cx - span / 2;
+    return Array.from({ length: count }, (_, i) => start + (i * span) / (count - 1));
+  };
+  const downXs = upXs;
+
+  const parentSlots = upXs(Math.max(parents.length, canEdit ? parents.length + 1 : parents.length || 1));
+  const childSlots = downXs(Math.max(children.length, canEdit ? children.length + 1 : children.length || 1));
+
+  const line = "#E8A317";
+  const lineW = 2.5;
 
   return (
-    <div
-      className="min-h-[70vh] p-4 pb-32 max-w-lg mx-auto space-y-3"
-      style={{
-        background:
-          "linear-gradient(180deg, rgba(252,231,243,0.4) 0%, rgba(250,245,255,0.55) 45%, rgba(255,255,255,0.95) 100%)",
-      }}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3 min-w-0">
-          <div
-            className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${glassBorder}`}
-            style={{ background: "rgba(255,255,255,0.55)" }}
-          >
-            <Network className="text-amber-700/80" size={20} />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-lg font-bold text-rose-950/90 truncate">{title}</h1>
-            <p className="text-[10px] text-rose-800/45">
-              {lang === "hi"
-                ? "Mind map · + add · node · remove · branch"
-                : "Mind map · tap + to add · tap node to remove / branch"}
-            </p>
-          </div>
-        </div>
+    <div className="flex flex-col min-h-[70vh] bg-[#fafafa]">
+      {/* Minimal canvas chrome */}
+      <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+        <p className="text-sm font-semibold text-gray-800">
+          {lang === "hi" || lang === "mr" ? "वंशावली" : "Vanshawali"}
+        </p>
+        <p className="text-[10px] text-gray-400">
+          ↑ parents · ↓ children · tap node · + add
+        </p>
       </div>
 
-      {loading && <p className="text-center text-rose-800/40 py-16">Loading…</p>}
+      {loading && <p className="text-center text-gray-400 py-20">Loading…</p>}
 
       {!loading && tree && (
-        <div
-          className={`rounded-[1.75rem] overflow-hidden ${glassBorder} shadow-sm`}
-          style={{
-            background: glassBg,
-            backdropFilter: "blur(14px)",
-            WebkitBackdropFilter: "blur(14px)",
-          }}
-        >
-          <div className="p-4 sm:p-5 space-y-0">
-            {/* PARENTS ZONE */}
-            <div className="flex justify-center items-start gap-3 flex-wrap">
-              {tree.parents.map((n) => (
-                <MindNode key={n.id} node={n} lang={lang} onOpen={setSelected} />
-              ))}
-              {canEdit && !hasFather && (
-                <AddSlot label={L.father} onClick={() => setAddRel("father")} />
-              )}
-              {canEdit && !hasMother && (
-                <AddSlot label={L.mother} onClick={() => setAddRel("mother")} />
-              )}
-              {canEdit && hasFather && hasMother && tree.parents.length < 4 && (
-                <AddSlot label={L.father + " / " + L.mother} onClick={() => setAddRel("father")} />
-              )}
-            </div>
-
-            <Connector />
-
-            {/* CENTRE + SPOUSE */}
-            <div className="flex justify-center items-start gap-2 flex-wrap">
-              <MindNode node={tree.centre} isCentre lang={lang} onOpen={setSelected} />
-              {tree.spouses.map((n) => (
-                <div key={n.id} className="flex items-center gap-1">
-                  <div className="w-5 h-px bg-matang-gold/40" />
-                  <MindNode node={n} lang={lang} onOpen={setSelected} />
-                </div>
-              ))}
-              {canEdit && tree.spouses.length < 2 && (
-                <AddSlot label={L.spouse} onClick={() => setAddRel("spouse")} />
-              )}
-            </div>
-
-            <Connector />
-
-            {/* CHILDREN — unlimited */}
-            <div className="flex justify-center items-start gap-3 flex-wrap">
-              {tree.children.map((n) => (
-                <MindNode key={n.id} node={n} lang={lang} onOpen={setSelected} />
-              ))}
+        <div className="flex-1 overflow-auto px-1 pb-28">
+          {/* CANVAS */}
+          <div className="relative mx-auto" style={{ width: "100%", maxWidth: 400, minHeight: H }}>
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              viewBox={`0 0 ${W} ${H}`}
+              preserveAspectRatio="xMidYMid meet"
+            >
+              {/* UP branches — parents */}
+              {parents.map((_, i) => {
+                const x = parentSlots[i] ?? cx;
+                const y = 36;
+                return (
+                  <path
+                    key={`up-l-${i}`}
+                    d={curve(cx, cy - 22, x, y + 18)}
+                    fill="none"
+                    stroke={line}
+                    strokeWidth={lineW}
+                    strokeLinecap="round"
+                  />
+                );
+              })}
+              {/* UP add slot line */}
               {canEdit && (
-                <AddSlot label={L.child} onClick={() => setAddRel("child")} />
+                <path
+                  d={curve(
+                    cx,
+                    cy - 22,
+                    parentSlots[parents.length] ?? cx + 40,
+                    36 + 18
+                  )}
+                  fill="none"
+                  stroke={line}
+                  strokeWidth={lineW}
+                  strokeLinecap="round"
+                  strokeDasharray="4 4"
+                  opacity={0.55}
+                />
               )}
-            </div>
-          </div>
 
-          <p className="px-4 pb-3 text-[9px] text-center text-rose-800/35">
-            {lang === "hi"
-              ? "टेम्पलेट: + जोड़ें · व्यक्ति टैप = मेनू · Branch = उनकी वंशावली"
-              : "Template: + add · tap person = menu · Branch = their tree"}
-          </p>
-        </div>
-      )}
+              {/* SIDE spouse */}
+              {spouses.map((_, i) => {
+                const x = cx + 110 + i * 20;
+                return (
+                  <path
+                    key={`sp-${i}`}
+                    d={`M${cx + 28} ${cy} C${cx + 55} ${cy - 8}, ${x - 30} ${cy + 8}, ${x - 20} ${cy}`}
+                    fill="none"
+                    stroke={line}
+                    strokeWidth={lineW}
+                    strokeLinecap="round"
+                  />
+                );
+              })}
+              {canEdit && spouses.length < 2 && (
+                <path
+                  d={`M${cx + 28} ${cy} C${cx + 60} ${cy - 6}, ${cx + 90} ${cy + 6}, ${cx + 105} ${cy}`}
+                  fill="none"
+                  stroke={line}
+                  strokeWidth={lineW}
+                  strokeDasharray="4 4"
+                  opacity={0.55}
+                />
+              )}
 
-      {/* NODE ACTION SHEET */}
-      {selected && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-[2px]"
-          onClick={() => setSelected(null)}
-        >
-          <div
-            className={`w-full max-w-sm mx-3 mb-6 sm:mb-0 rounded-3xl p-4 shadow-2xl ${glassBorder}`}
-            style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(16px)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-100 border-2 border-matang-gold/40 flex items-center justify-center text-lg font-bold">
-                {selected.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={selected.photo_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  selected.display_name?.[0]
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-bold text-rose-950 truncate">{selected.display_name}</p>
-                <p className="text-xs text-rose-800/50">
-                  {relLabel(lang, selected.relation, selected.gender)}
-                  {selected.age != null ? ` · ${selected.age} yrs` : ""}
-                </p>
-              </div>
-              <button type="button" onClick={() => setSelected(null)} className="p-2 text-gray-400">
-                <X size={18} />
-              </button>
-            </div>
+              {/* DOWN branches — children */}
+              {children.map((_, i) => {
+                const x = childSlots[i] ?? cx;
+                const y = downStart + 50;
+                return (
+                  <path
+                    key={`dn-l-${i}`}
+                    d={curve(cx, cy + 22, x, y - 8)}
+                    fill="none"
+                    stroke={line}
+                    strokeWidth={lineW}
+                    strokeLinecap="round"
+                  />
+                );
+              })}
+              {canEdit && (
+                <path
+                  d={curve(
+                    cx,
+                    cy + 22,
+                    childSlots[children.length] ?? cx,
+                    downStart + 50 - 8
+                  )}
+                  fill="none"
+                  stroke={line}
+                  strokeWidth={lineW}
+                  strokeDasharray="4 4"
+                  opacity={0.55}
+                />
+              )}
+            </svg>
 
-            <div className="space-y-1.5">
-              {selected.user_id && selected.relation !== "self" && (
+            {/* --- Nodes overlaid --- */}
+            {/* Parents UP */}
+            {parents.map((n, i) => {
+              const x = parentSlots[i] ?? cx;
+              return (
                 <button
+                  key={n.id}
                   type="button"
-                  className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-left text-sm font-medium text-rose-950/85 hover:bg-fuchsia-50"
-                  onClick={() => {
-                    router.push(`/vanshawali?user=${selected.user_id}`);
-                    setSelected(null);
-                  }}
+                  onClick={() => setSelected(n)}
+                  className="absolute z-10 -translate-x-1/2 text-center"
+                  style={{ left: `${(x / W) * 100}%`, top: 8 }}
                 >
-                  <Focus size={18} className="text-matang-gold" />
-                  {lang === "hi" ? "Branch — उनकी वंशावली" : "Branch — open their tree"}
-                  <ChevronRight size={16} className="ml-auto text-gray-300" />
+                  <span className="inline-block px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 shadow-sm text-[12px] font-semibold text-gray-800 max-w-[100px] truncate">
+                    {n.display_name}
+                  </span>
+                  <span className="block text-[9px] text-amber-700/80 mt-0.5">
+                    {lbl(lang, n.relation, n.gender)}
+                    {n.age != null ? ` · ${n.age}` : ""}
+                  </span>
                 </button>
-              )}
-              {selected.user_id && (
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-left text-sm font-medium text-rose-950/85 hover:bg-fuchsia-50"
-                  onClick={() => {
-                    router.push(`/member/${selected.user_id}`);
-                    setSelected(null);
-                  }}
-                >
-                  <User size={18} className="text-matang-gold" />
-                  {lang === "hi" ? "प्रोफ़ाइल" : "Open profile"}
-                  <ChevronRight size={16} className="ml-auto text-gray-300" />
-                </button>
-              )}
-              {canEdit && selected.relation !== "self" && selected.link_id && (
-                <button
-                  type="button"
-                  disabled={saving}
-                  className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-left text-sm font-semibold text-red-600 hover:bg-red-50"
-                  onClick={() => removeLink(selected)}
-                >
-                  <Trash2 size={18} />
-                  {lang === "hi" ? "रिलेशन हटाएँ" : "Remove relation"}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ADD SHEET */}
-      {addRel && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-[2px]"
-          onClick={() => setAddRel(null)}
-        >
-          <div
-            className={`w-full max-w-sm mx-3 mb-6 sm:mb-0 rounded-3xl p-4 shadow-2xl space-y-3 ${glassBorder}`}
-            style={{ background: "rgba(255,255,255,0.94)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <p className="font-bold text-rose-950">
-                + {relLabel(lang, addRel === "child" ? "child" : addRel)}
-              </p>
-              <button type="button" onClick={() => setAddRel(null)} className="p-1 text-gray-400">
-                <X size={18} />
-              </button>
-            </div>
-            <Input
-              label={lang === "hi" ? "नाम" : "Name"}
-              value={form.display_name}
-              onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))}
-              autoFocus
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                label="Birth year"
-                inputMode="numeric"
-                value={form.birth_year}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    birth_year: e.target.value.replace(/\D/g, "").slice(0, 4),
-                  }))
+              );
+            })}
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() =>
+                  setDraft({
+                    relation: parents.some((p) => p.relation === "father") ? "mother" : "father",
+                    name: "",
+                  })
                 }
-              />
-              <select
-                className="w-full px-3 py-2.5 rounded-xl text-sm border border-fuchsia-200/50 mt-6 bg-white/80"
-                value={form.gender}
-                onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))}
+                className="absolute z-10 -translate-x-1/2 flex items-center gap-0.5"
+                style={{
+                  left: `${((parentSlots[parents.length] ?? cx + 50) / W) * 100}%`,
+                  top: 14,
+                }}
               >
-                <option value="">Gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-              </select>
-            </div>
+                <span className="text-[11px] text-gray-400 bg-amber-50 px-2 py-0.5 rounded border border-dashed border-amber-300">
+                  {L.father}/{L.mother}
+                </span>
+                <span className="w-5 h-5 rounded-full bg-amber-400 text-white flex items-center justify-center shadow">
+                  <Plus size={12} strokeWidth={3} />
+                </span>
+              </button>
+            )}
+
+            {/* Centre */}
+            <button
+              type="button"
+              onClick={() => setSelected(tree.centre)}
+              className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
+              style={{ left: "50%", top: `${(cy / H) * 100}%` }}
+            >
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 text-white text-[13px] font-bold shadow-md shadow-amber-200 max-w-[140px]">
+                {tree.centre.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={tree.centre.photo_url}
+                    alt=""
+                    className="w-6 h-6 rounded-full object-cover border border-white/50"
+                  />
+                ) : null}
+                <span className="truncate">{tree.centre.display_name}</span>
+              </span>
+              <span className="block text-center text-[9px] text-emerald-600 font-medium mt-0.5">
+                {L.self}
+                {tree.centre.age != null ? ` · ${tree.centre.age}` : ""}
+              </span>
+            </button>
+
+            {/* Spouse side */}
+            {spouses.map((n, i) => (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => setSelected(n)}
+                className="absolute z-10 -translate-y-1/2 text-left"
+                style={{ left: `${((cx + 100 + i * 10) / W) * 100}%`, top: `${(cy / H) * 100}%` }}
+              >
+                <span className="inline-block px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 shadow-sm text-[12px] font-semibold text-gray-800 max-w-[90px] truncate">
+                  {n.display_name}
+                </span>
+                <span className="block text-[9px] text-amber-700/80">{lbl(lang, "spouse")}</span>
+              </button>
+            ))}
+            {canEdit && spouses.length < 2 && (
+              <button
+                type="button"
+                onClick={() => setDraft({ relation: "spouse", name: "" })}
+                className="absolute z-10 -translate-y-1/2 flex items-center gap-0.5"
+                style={{ left: `${((cx + 100) / W) * 100}%`, top: `${(cy / H) * 100}%` }}
+              >
+                <span className="text-[11px] text-gray-400 bg-amber-50 px-2 py-0.5 rounded border border-dashed border-amber-300">
+                  {L.spouse}
+                </span>
+                <span className="w-5 h-5 rounded-full bg-amber-400 text-white flex items-center justify-center">
+                  <Plus size={12} strokeWidth={3} />
+                </span>
+              </button>
+            )}
+
+            {/* Children DOWN */}
+            {children.map((n, i) => {
+              const x = childSlots[i] ?? cx;
+              return (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => setSelected(n)}
+                  className="absolute z-10 -translate-x-1/2 text-center"
+                  style={{ left: `${(x / W) * 100}%`, top: downStart + 28 }}
+                >
+                  <span className="inline-block px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 shadow-sm text-[12px] font-semibold text-gray-800 max-w-[100px] truncate">
+                    {n.display_name}
+                  </span>
+                  <span className="block text-[9px] text-amber-700/80 mt-0.5">
+                    {lbl(lang, n.relation, n.gender)}
+                    {n.age != null ? ` · ${n.age}` : ""}
+                  </span>
+                </button>
+              );
+            })}
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => setDraft({ relation: "child", name: "" })}
+                className="absolute z-10 -translate-x-1/2 flex flex-col items-center gap-0.5"
+                style={{
+                  left: `${((childSlots[children.length] ?? cx) / W) * 100}%`,
+                  top: downStart + 32,
+                }}
+              >
+                <span className="flex items-center gap-0.5">
+                  <span className="text-[11px] text-gray-400 bg-amber-50 px-2 py-0.5 rounded border border-dashed border-amber-300">
+                    {L.child}
+                  </span>
+                  <span className="w-5 h-5 rounded-full bg-amber-400 text-white flex items-center justify-center shadow">
+                    <Plus size={12} strokeWidth={3} />
+                  </span>
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Inline draft (Notes-style enter text) */}
+      {draft && (
+        <div className="fixed bottom-24 left-0 right-0 z-40 px-4">
+          <div className="max-w-sm mx-auto flex items-center gap-2 bg-white rounded-2xl shadow-xl border border-amber-200 p-2">
+            <input
+              autoFocus
+              className="flex-1 text-sm px-3 py-2 outline-none bg-amber-50/50 rounded-xl"
+              placeholder={lang === "hi" ? "नाम लिखें…" : "Enter name…"}
+              value={draft.name}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && saveAdd()}
+            />
             <button
               type="button"
               disabled={saving}
-              onClick={addRelative}
-              className="w-full py-3 rounded-2xl text-sm font-bold text-rose-950/90 active:scale-[0.98] transition"
-              style={{ background: glassBg, border: "1px solid rgba(244,114,182,0.35)" }}
+              onClick={saveAdd}
+              className="w-9 h-9 rounded-full bg-amber-400 text-white flex items-center justify-center shrink-0"
             >
-              {saving ? "…" : lang === "hi" ? "जोड़ें" : "Add to map"}
+              <Plus size={18} strokeWidth={2.5} />
+            </button>
+            <button type="button" onClick={() => setDraft(null)} className="p-2 text-gray-400">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Node menu */}
+      {selected && (
+        <div
+          className="fixed inset-0 z-50 bg-black/25 flex items-end sm:items-center justify-center"
+          onClick={() => setSelected(null)}
+        >
+          <div
+            className="w-full max-w-sm mx-3 mb-8 bg-white rounded-3xl p-4 shadow-2xl space-y-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-bold text-gray-900 px-1 mb-2">{selected.display_name}</p>
+            <p className="text-xs text-gray-500 px-1 mb-2">
+              {lbl(lang, selected.relation, selected.gender)}
+              {selected.age != null ? ` · ${selected.age} yrs` : ""}
+            </p>
+            {selected.user_id && selected.relation !== "self" && (
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-gray-50"
+                onClick={() => {
+                  router.push(`/vanshawali?user=${selected.user_id}`);
+                  setSelected(null);
+                }}
+              >
+                <Focus size={16} className="text-amber-500" /> Branch (their map)
+              </button>
+            )}
+            {selected.user_id && (
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-gray-50"
+                onClick={() => {
+                  router.push(`/member/${selected.user_id}`);
+                  setSelected(null);
+                }}
+              >
+                <User size={16} className="text-amber-500" /> Profile
+              </button>
+            )}
+            {canEdit && selected.relation !== "self" && selected.link_id && (
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-50"
+                onClick={() => removeLink(selected)}
+              >
+                <Trash2 size={16} /> Remove
+              </button>
+            )}
+            <button
+              type="button"
+              className="w-full py-2 text-sm text-gray-400"
+              onClick={() => setSelected(null)}
+            >
+              Close
             </button>
           </div>
         </div>
@@ -509,7 +518,7 @@ function VanshawaliInner() {
 export default function VanshawaliPage() {
   return (
     <FeatureGate moduleKey="vanshawali">
-      <Suspense fallback={<div className="p-8 text-center text-rose-800/40">Loading…</div>}>
+      <Suspense fallback={<div className="p-8 text-center text-gray-400">Loading…</div>}>
         <VanshawaliInner />
       </Suspense>
     </FeatureGate>
