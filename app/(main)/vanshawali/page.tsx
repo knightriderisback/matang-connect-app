@@ -341,6 +341,232 @@ function NodeCard({
   );
 }
 
+
+/** Full-tree metallic gold limbs (1B mockup) — one SVG, organic paths, no leaves */
+function TreeCanvas({
+  tree,
+  lang,
+  onFocus,
+}: {
+  tree: Tree;
+  lang: string;
+  onFocus: (userId: string) => void;
+}) {
+  const parents = tree.parents || [];
+  const spouses = tree.spouses || [];
+  const children = tree.children || [];
+  const nP = parents.length;
+  const nC = Math.max(children.length, 1);
+
+  // viewBox coordinates
+  const W = 320;
+  const H = 400;
+  const cx = 160;
+  const cy = 175; // centre avatar
+  const r = 28; // avatar radius approx
+
+  const parentPts =
+    nP === 0
+      ? []
+      : nP === 1
+        ? [{ x: 160, y: 48 }]
+        : parents.map((_, i) => ({
+            x: 70 + (i * 180) / Math.max(nP - 1, 1),
+            y: 48,
+          }));
+
+  const spousePts = spouses.map((_, i) => ({
+    x: 260 + i * 8,
+    y: 175,
+  }));
+
+  const childPts =
+    children.length === 0
+      ? []
+      : children.map((_, i) => ({
+          x:
+            children.length === 1
+              ? 160
+              : 50 + (i * 220) / Math.max(children.length - 1, 1),
+          y: 330,
+        }));
+
+  const metalStroke = {
+    fill: "none" as const,
+    stroke: "url(#m1b)",
+    strokeLinecap: "round" as const,
+    filter: "url(#mglow)",
+  };
+
+  return (
+    <div className="relative w-full mx-auto" style={{ minHeight: 380, maxWidth: 360 }}>
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="xMidYMid meet"
+        aria-hidden
+      >
+        <defs>
+          <linearGradient id="m1b" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#7A5C12" />
+            <stop offset="25%" stopColor="#E8C547" />
+            <stop offset="48%" stopColor="#FFFCE8" />
+            <stop offset="55%" stopColor="#F5D76E" />
+            <stop offset="80%" stopColor="#C9A227" />
+            <stop offset="100%" stopColor="#6B5210" />
+          </linearGradient>
+          <filter id="mglow" x="-40%" y="-40%" width="180%" height="180%">
+            <feDropShadow dx="0" dy="0" stdDeviation="2.4" floodColor="#E8C547" floodOpacity="0.8" />
+          </filter>
+        </defs>
+
+        {/* Parent → centre organic branches */}
+        {parentPts.map((pt, i) => {
+          const dx = cx - pt.x;
+          const dy = cy - pt.y;
+          const len = Math.sqrt(dx * dx + dy * dy) || 1;
+          // stop at circle edge
+          const ex = cx - (dx / len) * r;
+          const ey = cy - (dy / len) * r;
+          const sx = pt.x + (dx / len) * r * 0.85;
+          const sy = pt.y + (dy / len) * r * 0.85;
+          const c1x = pt.x + dx * 0.35 + (i % 2 === 0 ? -28 : 28);
+          const c1y = pt.y + dy * 0.35;
+          const c2x = cx - dx * 0.25 + (i % 2 === 0 ? 18 : -18);
+          const c2y = cy - dy * 0.3;
+          const d = `M${sx} ${sy} C${c1x} ${c1y}, ${c2x} ${c2y}, ${ex} ${ey}`;
+          return (
+            <g key={`p-${i}`}>
+              <path d={d} stroke="#5C4210" strokeWidth="9" fill="none" strokeLinecap="round" opacity="0.2" />
+              <path d={d} {...metalStroke} strokeWidth="6" />
+              <path
+                d={d}
+                fill="none"
+                stroke="#FFFEF0"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                opacity="0.45"
+              />
+            </g>
+          );
+        })}
+
+        {/* Centre → spouse */}
+        {spousePts.map((pt, i) => {
+          const sx = cx + r;
+          const sy = cy;
+          const ex = pt.x - r * 0.7;
+          const ey = pt.y;
+          const d = `M${sx} ${sy} C${sx + 30} ${sy - 18}, ${ex - 25} ${ey + 16}, ${ex} ${ey}`;
+          return (
+            <g key={`s-${i}`}>
+              <path d={d} stroke="#5C4210" strokeWidth="8" fill="none" strokeLinecap="round" opacity="0.18" />
+              <path d={d} {...metalStroke} strokeWidth="5.5" />
+              <path d={d} fill="none" stroke="#FFFEF0" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
+            </g>
+          );
+        })}
+
+        {/* Centre → children (tree canopy drop) */}
+        {childPts.length > 0 && (
+          <>
+            {/* trunk down */}
+            <path
+              d={`M${cx} ${cy + r} C${cx - 6} ${cy + 55}, ${cx + 6} ${cy + 75}, ${cx} ${cy + 95}`}
+              stroke="#5C4210"
+              strokeWidth="9"
+              fill="none"
+              strokeLinecap="round"
+              opacity="0.2"
+            />
+            <path
+              d={`M${cx} ${cy + r} C${cx - 6} ${cy + 55}, ${cx + 6} ${cy + 75}, ${cx} ${cy + 95}`}
+              {...metalStroke}
+              strokeWidth="6.5"
+            />
+            {/* horizontal limb */}
+            {childPts.length > 0 && (
+              <>
+                <path
+                  d={`M${childPts[0].x} ${cy + 100} Q${cx} ${cy + 88} ${childPts[childPts.length - 1].x} ${cy + 100}`}
+                  stroke="#5C4210"
+                  strokeWidth="8"
+                  fill="none"
+                  strokeLinecap="round"
+                  opacity="0.18"
+                />
+                <path
+                  d={`M${childPts[0].x} ${cy + 100} Q${cx} ${cy + 88} ${childPts[childPts.length - 1].x} ${cy + 100}`}
+                  {...metalStroke}
+                  strokeWidth="5.5"
+                />
+              </>
+            )}
+            {childPts.map((pt, i) => {
+              const d = `M${pt.x} ${cy + 100} C${pt.x - 4} ${cy + 140}, ${pt.x + 4} ${pt.y - 40}, ${pt.x} ${pt.y - r}`;
+              return (
+                <g key={`c-${i}`}>
+                  <path d={d} stroke="#5C4210" strokeWidth="7" fill="none" strokeLinecap="round" opacity="0.18" />
+                  <path d={d} {...metalStroke} strokeWidth="5" />
+                  <path d={d} fill="none" stroke="#FFFEF0" strokeWidth="1.1" strokeLinecap="round" opacity="0.45" />
+                </g>
+              );
+            })}
+          </>
+        )}
+      </svg>
+
+      {/* Nodes overlaid at same % positions */}
+      {parents.map((n, i) => {
+        const pt = parentPts[i] || { x: 160, y: 48 };
+        return (
+          <div
+            key={n.id}
+            className="absolute z-[2] -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${(pt.x / W) * 100}%`, top: `${(pt.y / H) * 100}%` }}
+          >
+            <NodeCard node={n} lang={lang} onFocus={onFocus} />
+          </div>
+        );
+      })}
+
+      <div
+        className="absolute z-[2] -translate-x-1/2 -translate-y-1/2"
+        style={{ left: `${(cx / W) * 100}%`, top: `${(cy / H) * 100}%` }}
+      >
+        <NodeCard node={tree.centre} isCentre lang={lang} onFocus={onFocus} />
+      </div>
+
+      {spouses.map((n, i) => {
+        const pt = spousePts[i] || { x: 260, y: 175 };
+        return (
+          <div
+            key={n.id}
+            className="absolute z-[2] -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${(pt.x / W) * 100}%`, top: `${(pt.y / H) * 100}%` }}
+          >
+            <NodeCard node={n} lang={lang} onFocus={onFocus} />
+          </div>
+        );
+      })}
+
+      {children.map((n, i) => {
+        const pt = childPts[i];
+        if (!pt) return null;
+        return (
+          <div
+            key={n.id}
+            className="absolute z-[2] -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${(pt.x / W) * 100}%`, top: `${(pt.y / H) * 100}%` }}
+          >
+            <NodeCard node={n} lang={lang} onFocus={onFocus} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function VanshawaliInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
@@ -457,45 +683,8 @@ function VanshawaliInner() {
             WebkitBackdropFilter: "blur(12px)",
           }}
         >
-          <div className="p-4 sm:p-6">
-            <div className="flex justify-center gap-8 min-h-[88px]">
-              {(tree.parents.length ? tree.parents : []).map((n) => (
-                <NodeCard key={n.id} node={n} lang={lang} onFocus={focusUser} />
-              ))}
-              {!tree.parents.length && (
-                <p className="text-[10px] text-rose-800/35 self-center">Parents —</p>
-              )}
-            </div>
-
-            {(tree.parents.length > 0) && <BranchVertical h={40} />}
-
-            <div className="relative z-[2] flex items-center justify-center gap-1 sm:gap-2">
-              <NodeCard node={tree.centre} isCentre lang={lang} onFocus={focusUser} />
-              {tree.spouses.map((n) => (
-                <div key={n.id} className="flex items-center">
-                  <BranchHorizontal w={40} />
-                  <NodeCard node={n} lang={lang} onFocus={focusUser} />
-                </div>
-              ))}
-            </div>
-
-            {tree.children.length > 0 ? (
-              <BranchFork
-                width={Math.min(280, tree.children.length * 72)}
-                childCount={tree.children.length}
-              />
-            ) : (
-              <div className="h-2" />
-            )}
-
-            <div className="flex justify-center gap-3 flex-wrap min-h-[88px]">
-              {tree.children.map((n) => (
-                <NodeCard key={n.id} node={n} lang={lang} onFocus={focusUser} />
-              ))}
-              {!tree.children.length && (
-                <p className="text-[10px] text-rose-800/35 self-center">Children —</p>
-              )}
-            </div>
+          <div className="p-3 sm:p-4">
+            <TreeCanvas tree={tree} lang={lang} onFocus={focusUser} />
           </div>
         </div>
       )}
