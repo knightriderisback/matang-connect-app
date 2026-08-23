@@ -258,11 +258,6 @@ export default function ProfilePage() {
     <div className="p-4 md:p-6 space-y-4 max-w-2xl mx-auto">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold text-matang-navy">{t("profile.title")}</h1>
-        {!editing && (
-          <button onClick={startEdit} className="flex items-center gap-1 text-sm text-matang-gold font-medium">
-            <Pencil size={14} /> Edit
-          </button>
-        )}
       </div>
 
       <Card className="border-2 border-matang-gold/40 overflow-hidden shadow-md">
@@ -311,124 +306,156 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {editing ? (
-          <CardContent className="p-4 space-y-3">
-            <Input
-              label="Full Name *"
-              value={form.full_name}
-              onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-              required
-            />
-            <Input
-              label="Native Village *"
-              value={form.native_village}
-              onChange={(e) => setForm({ ...form, native_village: e.target.value })}
-              required
-            />
-            <Input
-              label="Current Address"
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <Select
-                label="Gender"
-                value={form.gender}
-                onChange={(e) => setForm({ ...form, gender: e.target.value })}
-                options={GENDERS}
-              />
-              <Select
-                label="Blood Group"
-                value={form.blood_group}
-                onChange={(e) => setForm({ ...form, blood_group: e.target.value })}
-                options={BLOOD}
-              />
+                  <CardContent className="p-4 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">City</span>
+              <span className="font-medium">{user?.cities?.name || "—"}</span>
             </div>
-            <Select
-              label="Education"
-              value={form.education_level}
-              onChange={(e) => setForm({ ...form, education_level: e.target.value })}
-              options={EDUCATION}
-            />
-            <Select
-              label="Occupation"
-              value={form.occupation}
-              onChange={(e) => setForm({ ...form, occupation: e.target.value })}
-              options={OCCUPATIONS}
-            />
-            <label className="block text-sm font-medium text-matang-navy">About</label>
-            <textarea
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm min-h-[80px]"
-              value={form.about}
-              onChange={(e) => setForm({ ...form, about: e.target.value })}
-              placeholder="Short intro about you / family"
-            />
-            <p className="text-xs text-gray-400">Phone & city change only via admin (security).</p>
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setEditing(false)}>
-                Cancel
-              </Button>
-              <Button className="flex-1" isLoading={saving} onClick={saveProfile}>
-                <Save size={16} /> Save
-              </Button>
+            <div className="flex justify-between">
+              <span className="text-gray-500">QR ID</span>
+              <span className="font-mono text-xs">{user?.qr_code_id || "—"}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500">Role</span>
+              <span className="font-medium flex items-center gap-1">
+                <Shield size={14} /> {style.label}
+              </span>
             </div>
           </CardContent>
-        ) : (
-          <CardContent className="p-0 text-sm">
-            <div className="divide-y divide-gray-100">
-              <div className="flex items-center justify-between gap-2 px-4 py-2.5">
-                <span className="text-gray-500">Phone</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium font-mono text-xs">{user?.phone || "—"}</span>
-                  <button
-                    type="button"
-                    onClick={toggleShowPhone}
-                    className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
-                      u?.show_phone
-                        ? "bg-green-100 text-green-800 border-green-300"
-                        : "bg-gray-100 text-gray-500 border-gray-200"
-                    }`}
-                    title="Public visibility"
-                  >
-                    {u?.show_phone ? "View" : "Hide"}
-                  </button>
-                </div>
+      </Card>
+
+      {/* Full details section — below ID card */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-matang-navy">Profile details</h2>
+          {!editing ? (
+            <button
+              type="button"
+              onClick={startEdit}
+              className="flex items-center gap-1 text-sm text-matang-gold font-medium"
+            >
+              <Pencil size={14} /> Edit
+            </button>
+          ) : (
+            <span className="text-[10px] text-gray-400">Editing…</span>
+          )}
+        </div>
+
+        {editing ? (
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <Input
+                label="Full Name *"
+                value={form.full_name}
+                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                required
+              />
+              <Input
+                label="Native Village *"
+                value={form.native_village}
+                onChange={(e) => setForm({ ...form, native_village: e.target.value })}
+                required
+              />
+              <Input
+                label="Current Address"
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <Select
+                  label="Gender"
+                  value={form.gender}
+                  onChange={(e) => setForm({ ...form, gender: e.target.value })}
+                  options={GENDERS}
+                />
+                <Select
+                  label="Blood Group"
+                  value={form.blood_group}
+                  onChange={(e) => setForm({ ...form, blood_group: e.target.value })}
+                  options={BLOOD}
+                />
               </div>
-              {[
-                ["Full name", user?.full_name || "—"],
-                ["Village", user?.native_village || "—"],
-                ["City", user?.cities?.name || "—"],
-                ["Address", u?.address || "—"],
-                ["Gender", u?.gender || "—"],
-                ["Blood group", u?.blood_group || "—"],
-                ["Education", u?.education_level || "—"],
-                ["Occupation", u?.occupation || "—"],
-                ["About", u?.about || "—"],
-                ["QR ID", user?.qr_code_id || "—"],
-                ["Role", style.label],
-              ].map(([label, value]) => (
-                <div key={String(label)} className="flex items-center justify-between gap-2 px-4 py-2.5">
-                  <span className="text-gray-500 shrink-0">{label}</span>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-medium text-right truncate max-w-[12rem]">{value}</span>
+              <Select
+                label="Education"
+                value={form.education_level}
+                onChange={(e) => setForm({ ...form, education_level: e.target.value })}
+                options={EDUCATION}
+              />
+              <Select
+                label="Occupation"
+                value={form.occupation}
+                onChange={(e) => setForm({ ...form, occupation: e.target.value })}
+                options={OCCUPATIONS}
+              />
+              <label className="block text-sm font-medium text-matang-navy">About</label>
+              <textarea
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm min-h-[80px]"
+                value={form.about}
+                onChange={(e) => setForm({ ...form, about: e.target.value })}
+                placeholder="Short intro about you / family"
+              />
+              <p className="text-xs text-gray-400">Phone & city change only via admin (security).</p>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setEditing(false)}>
+                  Cancel
+                </Button>
+                <Button className="flex-1" isLoading={saving} onClick={saveProfile}>
+                  <Save size={16} /> Save
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="p-0 text-sm">
+              <div className="divide-y divide-gray-100">
+                <div className="flex items-center justify-between gap-2 px-4 py-2.5">
+                  <span className="text-gray-500">Phone</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium font-mono text-xs">{user?.phone || "—"}</span>
                     <button
                       type="button"
-                      onClick={startEdit}
-                      className="shrink-0 text-matang-gold p-1"
-                      aria-label={`Edit ${label}`}
+                      onClick={toggleShowPhone}
+                      className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
+                        u?.show_phone
+                          ? "bg-green-100 text-green-800 border-green-300"
+                          : "bg-gray-100 text-gray-500 border-gray-200"
+                      }`}
+                      title="Public visibility"
                     >
-                      <Pencil size={14} />
+                      {u?.show_phone ? "View" : "Hide"}
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
-            <p className="px-4 py-2 text-[10px] text-gray-400 border-t border-gray-50">
-              Phone default Hide — View = dusre members dekh sakte hain. Super Admin hamesha dekh sakta hai.
-            </p>
-          </CardContent>
+                {[
+                  ["Full name", user?.full_name || "—"],
+                  ["Village", user?.native_village || "—"],
+                  ["City", user?.cities?.name || "—"],
+                  ["Address", u?.address || "—"],
+                  ["Gender", u?.gender || "—"],
+                  ["Blood group", u?.blood_group || "—"],
+                  ["Education", u?.education_level || "—"],
+                  ["Occupation", u?.occupation || "—"],
+                  ["About", u?.about || "—"],
+                  ["QR ID", user?.qr_code_id || "—"],
+                  ["Role", style.label],
+                  ["Status", user?.verification_status || "—"],
+                ].map(([label, value]) => (
+                  <div key={String(label)} className="flex items-center justify-between gap-2 px-4 py-2.5">
+                    <span className="text-gray-500 shrink-0">{label}</span>
+                    <span className="font-medium text-right text-matang-navy max-w-[65%] break-words">
+                      {value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="px-4 py-2 text-[10px] text-gray-400 border-t border-gray-50">
+                Phone default Hide — View = dusre members dekh sakte hain. Super Admin hamesha dekh sakta hai.
+              </p>
+            </CardContent>
+          </Card>
         )}
-      </Card>
+      </div>
 
       {user?.qr_code_id && (
         <Card>
