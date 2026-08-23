@@ -154,6 +154,7 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     relation: row.relation,
     status: row.link.status,
     gotra: row.person.gotra,
+    link_id: row.link.id,
   });
 
   return {
@@ -230,6 +231,38 @@ export async function POST(request: NextRequest) {
     link.status = action === "verify" ? "verified" : "rejected";
     await saveStore(supabase, store, session.userId);
     return NextResponse.json({ success: true, link });
+  }
+
+  if (action === "remove") {
+    const linkId = String(body.link_id || "");
+    const link = store.links.find((l) => l.id === linkId);
+    if (!link) return NextResponse.json({ error: "Link not found" }, { status: 404 });
+    const centre = body.centre_person_id
+      ? store.persons.find((p) => p.id === body.centre_person_id)
+      : null;
+    const touches =
+      !centre ||
+      link.from_id === centre.id ||
+      link.to_id === centre.id;
+    const allowed =
+      isStaff ||
+      link.proposed_by === session.userId ||
+      (centre?.user_id === session.userId && touches);
+    if (!allowed) return NextResponse.json({ error: "Not allowed to remove" }, { status: 403 });
+    store.links = store.links.filter((l) => l.id !== linkId);
+    // prune orphan ghosts (no user_id, no remaining links)
+    const used = new Set<string>();
+    for (const l of store.links) {
+      used.add(l.from_id);
+      used.add(l.to_id);
+    }
+    store.persons = store.persons.filter(
+      (p) => p.user_id || used.has(p.id) || p.created_by === session.userId
+    );
+    // keep persons that still linked
+    store.persons = store.persons.filter((p) => p.user_id != null || used.has(p.id));
+    await saveStore(supabase, store, session.userId);
+    return NextResponse.json({ success: true });
   }
 
   // add relative
