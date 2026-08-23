@@ -16,14 +16,47 @@ export async function POST(request: NextRequest) {
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json().catch(() => ({}));
+  const supabase = createAdminClient();
+
+  // Self by default; super_admin may update another member
+  let userId = session.userId;
+  if (body.user_id && body.user_id !== session.userId) {
+    if (session.role !== "super_admin") {
+      return NextResponse.json({ error: "Only Super Admin can edit other profiles" }, { status: 403 });
+    }
+    userId = String(body.user_id);
+  }
+
+  // show_phone only (privacy toggle) — can save without full form
+  if (body.show_phone !== undefined && body.full_name === undefined) {
+    const key = `profile_extra:${userId}`;
+    const { data: existing } = await supabase
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", key)
+      .maybeSingle();
+    const prev =
+      existing?.setting_value && typeof existing.setting_value === "object"
+        ? { ...(existing.setting_value as object) }
+        : {};
+    const merged = { ...prev, show_phone: body.show_phone === true };
+    await supabase.from("app_settings").upsert(
+      {
+        setting_key: key,
+        setting_value: merged,
+        updated_by: session.userId,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "setting_key" }
+    );
+    return NextResponse.json({ success: true, show_phone: merged.show_phone });
+  }
+
   const full_name = String(body.full_name || "").trim();
   const native_village = String(body.native_village || "").trim();
   if (!full_name || !native_village) {
     return NextResponse.json({ error: "Name and village required" }, { status: 400 });
   }
-
-  const supabase = createAdminClient();
-  const userId = session.userId;
 
   const extras: Record<string, unknown> = {};
   if (body.gender !== undefined) extras.gender = body.gender ? String(body.gender).slice(0, 20) : null;
@@ -75,6 +108,9 @@ export async function POST(request: NextRequest) {
   // Always mirror photo into profile_extra so Profile card can load it even if users.photo_url missing
   if (extras.photo_url) {
     leftover.photo_url = extras.photo_url;
+  }
+  if (extras.show_phone !== undefined) {
+    leftover.show_phone = extras.show_phone;
   }
 
   // Persist leftover extras in app_settings

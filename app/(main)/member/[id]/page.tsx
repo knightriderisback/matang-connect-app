@@ -169,6 +169,38 @@ export default function MemberProfilePage() {
           )}
           {member.about && <p className="text-gray-600 pt-1">{member.about}</p>}
 
+          <div className="border-t border-gray-100 pt-2 mt-2 divide-y divide-gray-50">
+            <div className="flex justify-between items-center py-2 gap-2">
+              <span className="text-gray-500">Phone</span>
+              <span className="font-mono text-xs font-medium">
+                {member.phone_hidden
+                  ? "Hidden"
+                  : member.phone || "—"}
+                {me?.role === "super_admin" && member.show_phone === false && member.phone
+                  ? " (SA view)"
+                  : ""}
+              </span>
+            </div>
+            {[
+              ["Village", member.native_village || "—"],
+              ["City", member.cities?.name || "—"],
+              ["Address", member.address || "—"],
+              ["Gender", member.gender || "—"],
+              ["Blood group", member.blood_group || "—"],
+              ["Education", member.education_level || "—"],
+              ["Occupation", member.occupation || "—"],
+              ["About", member.about || "—"],
+              ["QR ID", member.qr_code_id || "—"],
+              ["Role", member.role || "—"],
+              ["Status", member.verification_status || "—"],
+            ].map(([label, value]) => (
+              <div key={String(label)} className="flex justify-between items-start gap-2 py-2">
+                <span className="text-gray-500 shrink-0">{label}</span>
+                <span className="font-medium text-right text-matang-navy max-w-[60%]">{value}</span>
+              </div>
+            ))}
+          </div>
+
           {isStaff && (
             <button
               type="button"

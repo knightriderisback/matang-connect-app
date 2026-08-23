@@ -11,7 +11,7 @@ import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import { useToast } from "@/components/ui/Toaster";
 import { MatangQR } from "@/components/shared/MatangQR";
 import { Logo } from "@/components/shared/Logo";
-import { LogOut, Shield, MapPin, Phone, Pencil, Save, QrCode, ImagePlus } from "lucide-react";
+import { LogOut, Shield, MapPin, Phone, Pencil, Save, QrCode, ImagePlus, Eye, EyeOff } from "lucide-react";
 
 const ROLE_STYLE: Record<string, { label: string; gradient: string; badge: string }> = {
   super_admin: { label: "Super Admin", gradient: "from-matang-navy via-blue-900 to-purple-900", badge: "bg-matang-gold text-matang-navy" },
@@ -209,6 +209,27 @@ export default function ProfilePage() {
     }
   };
 
+  const toggleShowPhone = async () => {
+    const next = !((user as any)?.show_phone === true);
+    try {
+      const res = await fetch("/api/profile/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ show_phone: next }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Failed", "error");
+        return;
+      }
+      toast(next ? "Phone ab public View pe hai" : "Phone hide (sirf aap + Super Admin)", "success");
+      // refresh user
+      window.location.reload();
+    } catch {
+      toast("Network error", "error");
+    }
+  };
+
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
@@ -280,8 +301,8 @@ export default function ProfilePage() {
               <p className="text-white/70 text-sm flex items-center gap-1">
                 <MapPin size={12} /> {user?.native_village}
               </p>
-              <p className="text-white/70 text-sm flex items-center gap-1">
-                <Phone size={12} /> {user?.phone}
+              <p className="text-white/70 text-sm flex items-center gap-1 flex-wrap">
+                <Phone size={12} /> {user?.phone || "—"}
               </p>
             </div>
           </div>
@@ -353,57 +374,58 @@ export default function ProfilePage() {
             </div>
           </CardContent>
         ) : (
-          <CardContent className="p-4 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-500">City</span>
-              <span className="font-medium">{user?.cities?.name || "-"}</span>
+          <CardContent className="p-0 text-sm">
+            <div className="divide-y divide-gray-100">
+              <div className="flex items-center justify-between gap-2 px-4 py-2.5">
+                <span className="text-gray-500">Phone</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium font-mono text-xs">{user?.phone || "—"}</span>
+                  <button
+                    type="button"
+                    onClick={toggleShowPhone}
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
+                      u?.show_phone
+                        ? "bg-green-100 text-green-800 border-green-300"
+                        : "bg-gray-100 text-gray-500 border-gray-200"
+                    }`}
+                    title="Public visibility"
+                  >
+                    {u?.show_phone ? "View" : "Hide"}
+                  </button>
+                </div>
+              </div>
+              {[
+                ["Full name", user?.full_name || "—"],
+                ["Village", user?.native_village || "—"],
+                ["City", user?.cities?.name || "—"],
+                ["Address", u?.address || "—"],
+                ["Gender", u?.gender || "—"],
+                ["Blood group", u?.blood_group || "—"],
+                ["Education", u?.education_level || "—"],
+                ["Occupation", u?.occupation || "—"],
+                ["About", u?.about || "—"],
+                ["QR ID", user?.qr_code_id || "—"],
+                ["Role", style.label],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="flex items-center justify-between gap-2 px-4 py-2.5">
+                  <span className="text-gray-500 shrink-0">{label}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-medium text-right truncate max-w-[12rem]">{value}</span>
+                    <button
+                      type="button"
+                      onClick={startEdit}
+                      className="shrink-0 text-matang-gold p-1"
+                      aria-label={`Edit ${label}`}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-            {u?.address && (
-              <div className="flex justify-between gap-4">
-                <span className="text-gray-500 shrink-0">Address</span>
-                <span className="font-medium text-right">{u.address}</span>
-              </div>
-            )}
-            {u?.gender && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">Gender</span>
-                <span className="font-medium">{u.gender}</span>
-              </div>
-            )}
-            {u?.blood_group && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">Blood Group</span>
-                <span className="font-medium">{u.blood_group}</span>
-              </div>
-            )}
-            {u?.education_level && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">Education</span>
-                <span className="font-medium">{u.education_level}</span>
-              </div>
-            )}
-            {u?.occupation && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">Occupation</span>
-                <span className="font-medium">{u.occupation}</span>
-              </div>
-            )}
-            {u?.about && (
-              <div>
-                <span className="text-gray-500 block mb-0.5">About</span>
-                <p className="font-medium text-gray-800">{u.about}</p>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-gray-500">QR ID</span>
-              <span className="font-mono text-xs">{user?.qr_code_id}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500">Role</span>
-              <span className="font-medium flex items-center gap-1">
-                <Shield size={14} /> {style.label}
-              </span>
-            </div>
+            <p className="px-4 py-2 text-[10px] text-gray-400 border-t border-gray-50">
+              Phone default Hide — View = dusre members dekh sakte hain. Super Admin hamesha dekh sakta hai.
+            </p>
           </CardContent>
         )}
       </Card>
