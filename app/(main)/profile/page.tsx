@@ -11,7 +11,7 @@ import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import { useToast } from "@/components/ui/Toaster";
 import { MatangQR } from "@/components/shared/MatangQR";
 import { Logo } from "@/components/shared/Logo";
-import { LogOut, Shield, MapPin, Phone, Pencil, Save, QrCode, ImagePlus, Eye, EyeOff } from "lucide-react";
+import { LogOut, Shield, MapPin, Phone, Pencil, Save, QrCode, ImagePlus, Eye, EyeOff, Network } from "lucide-react";
 
 const ROLE_STYLE: Record<string, { label: string; gradient: string; badge: string }> = {
   super_admin: { label: "Super Admin", gradient: "from-matang-navy via-blue-900 to-purple-900", badge: "bg-matang-gold text-matang-navy" },
