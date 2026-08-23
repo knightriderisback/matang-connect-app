@@ -64,7 +64,7 @@ export default function LoginPage() {
       <div className="p-4 flex justify-end"><LanguageToggleLight /></div>
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-splash.png" alt="Matang" className="w-48 h-48 sm:w-56 sm:h-56 object-contain bg-transparent mb-6 drop-shadow-xl" draggable={false} />
+        <img src="/logo-float.png?v=nobg2" alt="Matang" className="w-48 h-48 sm:w-56 sm:h-56 object-contain bg-transparent mb-6 drop-shadow-xl" draggable={false} />
         <h1 className="text-2xl font-bold text-matang-navy mb-1">{t("app.name")}</h1>
         <p className="text-gray-500 mb-8">{t("app.tagline")}</p>
         <form onSubmit={handleLogin} className="w-full max-w-sm space-y-4">

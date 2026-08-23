@@ -3,7 +3,7 @@ import { useState } from "react";
 import { LOGO_SRC, LOGO_FALLBACK, LOGO_SVG } from "@/lib/logo-data";
 
 /**
- * High-clarity logo (transparent PNG). No plate background.
+ * Official Matang logo — transparent PNG only, no plate / background box.
  */
 export function Logo({
   className = "w-10 h-10",
@@ -19,9 +19,10 @@ export function Logo({
     <img
       src={src}
       alt={title}
-      className={`${className} object-contain bg-transparent`}
+      className={`${className} object-contain`}
       style={{
-        background: "transparent",
+        backgroundColor: "transparent",
+        background: "none",
         imageRendering: "auto",
         WebkitBackfaceVisibility: "hidden",
         backfaceVisibility: "hidden",

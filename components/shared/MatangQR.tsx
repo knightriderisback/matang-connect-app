@@ -3,7 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { LOGO_SRC } from "@/lib/logo-data";
 
 /**
- * Matang ID QR with official logo in the centre (not a dummy mark).
+ * Matang ID QR — centre uses transparent official logo only (no plate / dummy).
  */
 export function MatangQR({
   value,
@@ -14,9 +14,9 @@ export function MatangQR({
   size?: number;
   className?: string;
 }) {
-  const logoSize = Math.max(20, Math.round(size * 0.22));
+  const logoSize = Math.max(22, Math.round(size * 0.24));
   return (
-    <div className={`bg-white p-2 rounded-xl border inline-flex ${className}`}>
+    <div className={`inline-flex items-center justify-center bg-white p-2 rounded-xl border ${className}`}>
       <QRCodeSVG
         value={value}
         size={size}

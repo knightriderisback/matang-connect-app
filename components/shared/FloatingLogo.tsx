@@ -21,7 +21,7 @@ export function FloatingLogo() {
       aria-label="Matang Samaj History"
     >
       <Logo
-        className="w-full h-full object-contain bg-transparent"
+        className="w-full h-full object-contain !bg-transparent"
         title="Matang History"
       />
       {/* Soft 3D lift without a solid plate */}

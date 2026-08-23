@@ -59,7 +59,7 @@ export function WelcomeAnimation({ onComplete }: { onComplete: () => void }) {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/logo-splash.png"
+          src="/logo-float.png?v=nobg2"
           alt="Matang Connect"
           className="welcome-logo-3d mb-6 h-[min(78vw,22rem)] w-[min(78vw,22rem)] max-h-[45vh] max-w-[90vw] object-contain bg-transparent"
           draggable={false}

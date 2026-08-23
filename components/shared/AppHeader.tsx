@@ -39,12 +39,25 @@ const TITLES: Record<string, string> = {
   "/history": "Matang History",
 };
 
+function peekUser(): { full_name?: string; role?: string; title?: string } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("matang_me_cache") || sessionStorage.getItem("matang_me_cache");
+    if (!raw) return null;
+    return JSON.parse(raw)?.user || null;
+  } catch {
+    return null;
+  }
+}
+
 export function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
   const { user } = useCurrentUser();
-  const { can } = useFeatureFlags(user?.role);
+  const cached = !user ? peekUser() : null;
+  const displayUser = user || (cached as any);
+  const { can } = useFeatureFlags(displayUser?.role || user?.role);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -98,9 +111,9 @@ export function AppHeader() {
     normal: "Member",
   };
   const roleLabel =
-    (user as any)?.title ||
-    ROLE_LABEL[user?.role || ""] ||
-    user?.role ||
+    (displayUser as any)?.title ||
+    ROLE_LABEL[displayUser?.role || ""] ||
+    displayUser?.role ||
     "Member";
 
   return (
@@ -145,9 +158,9 @@ export function AppHeader() {
             MATANG CONNECT
           </p>
           <p className="text-white/85 text-[10px] truncate leading-none -mt-0.5">
-            {user?.full_name ? (
+            {displayUser?.full_name ? (
               <>
-                <span className="text-white font-medium">{user.full_name}</span>
+                <span className="text-white font-medium">{displayUser.full_name}</span>
                 <span className="text-matang-gold/90"> · {roleLabel}</span>
               </>
             ) : (

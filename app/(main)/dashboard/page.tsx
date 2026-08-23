@@ -370,7 +370,7 @@ export default function DashboardPage() {
           <Card className="border-2 border-matang-gold/30">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Logo className="w-6 h-6" />
+                <Logo className="w-6 h-6 !bg-transparent" />
                 {t("profile.digitalId")}
               </CardTitle>
             </CardHeader>
@@ -385,7 +385,7 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="w-14 h-14 shrink-0 flex items-center justify-center">
-                    <Logo className="w-12 h-12" />
+                    <Logo className="w-12 h-12 !bg-transparent" />
                   </div>
                 )}
                 <div className="min-w-0">

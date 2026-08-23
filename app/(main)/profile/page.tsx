@@ -10,6 +10,7 @@ import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import { useToast } from "@/components/ui/Toaster";
 import { MatangQR } from "@/components/shared/MatangQR";
+import { Logo } from "@/components/shared/Logo";
 import { LogOut, Shield, MapPin, Phone, Pencil, Save, QrCode, ImagePlus } from "lucide-react";
 
 const ROLE_STYLE: Record<string, { label: string; gradient: string; badge: string }> = {
@@ -246,7 +247,10 @@ export default function ProfilePage() {
       <Card className="border-2 border-matang-gold/40 overflow-hidden shadow-md">
         <div className={`bg-gradient-to-r ${style.gradient} p-4 text-white`}>
           <div className="flex items-center justify-between mb-4">
-            <span className="font-bold text-matang-gold text-sm">🪷 {t("profile.digitalId")}</span>
+            <span className="font-bold text-matang-gold text-sm flex items-center gap-1.5">
+              <Logo className="w-5 h-5 !bg-transparent" title="Matang" />
+              {t("profile.digitalId")}
+            </span>
             <span className={`text-xs px-2 py-1 rounded-full font-medium ${style.badge}`}>{style.label}</span>
           </div>
           <div className="flex items-center gap-4">

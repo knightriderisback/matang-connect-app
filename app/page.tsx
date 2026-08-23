@@ -15,7 +15,7 @@ export default function LandingPage() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/logo-splash.png"
+          src="/logo-float.png?v=nobg2"
           alt="Matang Connect"
           className="splash-logo-float w-52 h-52 sm:w-64 sm:h-64 object-contain bg-transparent mb-8"
           draggable={false}
