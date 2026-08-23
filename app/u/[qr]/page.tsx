@@ -50,7 +50,7 @@ export default function PublicMemberPage() {
           >
             <ArrowLeft size={18} />
           </button>
-          <Logo className="w-10 h-10 rounded-xl" />
+          <Logo className="w-14 h-14" title="Matang Connect" />
           <div>
             <p className="font-bold text-matang-navy text-sm">Matang Connect</p>
             <p className="text-[11px] text-gray-500">Digital Member ID</p>

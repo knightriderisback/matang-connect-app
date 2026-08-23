@@ -10,7 +10,8 @@ import { Onboarding } from "@/components/shared/Onboarding";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import { useToast } from "@/components/ui/Toaster";
-import { QRCodeSVG } from "qrcode.react";
+import { MatangQR } from "@/components/shared/MatangQR";
+import { Logo } from "@/components/shared/Logo";
 import { Bell, Plus, Share2, Sparkles, Shield } from "lucide-react";
 
 interface Notice {
@@ -368,21 +369,23 @@ export default function DashboardPage() {
         <div className="px-4">
           <Card className="border-2 border-matang-gold/30">
             <CardHeader>
-              <CardTitle className="text-base">🪷 {t("profile.digitalId")}</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Logo className="w-6 h-6" />
+                {t("profile.digitalId")}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-4">
                 {user?.qr_code_id ? (
-                  <div className="bg-white p-2 rounded-lg border shrink-0">
-                    <QRCodeSVG
+                  <div className="shrink-0">
+                    <MatangQR
                       value={`${typeof window !== "undefined" ? window.location.origin : ""}/u/${user.qr_code_id}`}
                       size={72}
-                      level="M"
                     />
                   </div>
                 ) : (
-                  <div className="w-12 h-12 bg-matang-navy rounded-full flex items-center justify-center text-white text-lg font-bold shrink-0">
-                    {user?.full_name?.[0] || "?"}
+                  <div className="w-14 h-14 shrink-0 flex items-center justify-center">
+                    <Logo className="w-12 h-12" />
                   </div>
                 )}
                 <div className="min-w-0">

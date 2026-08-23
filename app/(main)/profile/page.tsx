@@ -9,7 +9,7 @@ import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import { useToast } from "@/components/ui/Toaster";
-import { QRCodeSVG } from "qrcode.react";
+import { MatangQR } from "@/components/shared/MatangQR";
 import { LogOut, Shield, MapPin, Phone, Pencil, Save, QrCode, ImagePlus } from "lucide-react";
 
 const ROLE_STYLE: Record<string, { label: string; gradient: string; badge: string }> = {
@@ -412,13 +412,10 @@ export default function ProfilePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center py-4 gap-2">
-            <div className="bg-white p-3 rounded-xl border">
-              <QRCodeSVG
-                value={`${typeof window !== "undefined" ? window.location.origin : ""}/u/${user.qr_code_id}`}
-                size={160}
-                level="M"
-              />
-            </div>
+            <MatangQR
+              value={`${typeof window !== "undefined" ? window.location.origin : ""}/u/${user.qr_code_id}`}
+              size={160}
+            />
             <p className="text-xs text-gray-500 text-center max-w-xs">
               Show this QR at community events for verification.
             </p>
