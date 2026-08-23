@@ -64,86 +64,137 @@ const glassBorder = "border border-fuchsia-200/50";
 const softGoldLine =
   "linear-gradient(90deg, rgba(201,162,39,0.15), rgba(201,162,39,0.75), rgba(201,162,39,0.15))";
 
-/** 3D shiny gold branch + tiny leaves — overlaps nodes so it touches profiles */
-function GoldLeaf({ x, y, rot = 0, scale = 1 }: { x: number; y: number; rot?: number; scale?: number }) {
+/** Hyper-realistic gold tree branches — organic path, bark depth, leaves */
+function GoldLeaf({
+  x,
+  y,
+  rot = 0,
+  scale = 1,
+}: {
+  x: number;
+  y: number;
+  rot?: number;
+  scale?: number;
+}) {
   return (
     <g transform={`translate(${x} ${y}) rotate(${rot}) scale(${scale})`}>
       <ellipse
-        cx="0"
+        cx="1.5"
         cy="0"
-        rx="4.2"
-        ry="2.4"
-        fill="url(#leafGold)"
-        stroke="#8B6914"
+        rx="5.5"
+        ry="2.8"
+        fill="url(#hrLeaf)"
+        stroke="#5C3B0A"
         strokeWidth="0.35"
-        opacity="0.95"
       />
-      <line x1="-2" y1="0" x2="2.5" y2="0" stroke="#FFF3C4" strokeWidth="0.4" opacity="0.7" />
+      <path
+        d="M-2.5 0 Q1.5 -1.2 5.5 0"
+        fill="none"
+        stroke="#FFF6C8"
+        strokeWidth="0.45"
+        opacity="0.55"
+      />
+      <ellipse cx="0.5" cy="-0.6" rx="2" ry="0.7" fill="#FFF8DC" opacity="0.35" />
     </g>
   );
 }
 
-function BranchVertical({ h = 32, leaves = true }: { h?: number; leaves?: boolean }) {
+function branchDefs() {
+  return (
+    <defs>
+      <linearGradient id="hrBark" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stopColor="#3D2914" />
+        <stop offset="18%" stopColor="#8B5A1A" />
+        <stop offset="38%" stopColor="#D4A017" />
+        <stop offset="50%" stopColor="#FFE566" />
+        <stop offset="62%" stopColor="#C9A227" />
+        <stop offset="82%" stopColor="#7A5210" />
+        <stop offset="100%" stopColor="#2A1A0A" />
+      </linearGradient>
+      <linearGradient id="hrBarkV" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stopColor="#2A1A0A" />
+        <stop offset="22%" stopColor="#A67C1A" />
+        <stop offset="45%" stopColor="#F5E6A3" />
+        <stop offset="55%" stopColor="#E8C547" />
+        <stop offset="78%" stopColor="#8B6914" />
+        <stop offset="100%" stopColor="#1A1008" />
+      </linearGradient>
+      <linearGradient id="hrLeaf" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#FFF9D6" />
+        <stop offset="35%" stopColor="#F0D060" />
+        <stop offset="70%" stopColor="#C9A227" />
+        <stop offset="100%" stopColor="#6B4A0E" />
+      </linearGradient>
+      <filter id="hrSoft" x="-40%" y="-40%" width="180%" height="180%">
+        <feDropShadow dx="0.5" dy="1.5" stdDeviation="1.4" floodColor="#8B6914" floodOpacity="0.45" />
+      </filter>
+      <filter id="hrInner">
+        <feGaussianBlur stdDeviation="0.4" result="b" />
+        <feMerge>
+          <feMergeNode in="b" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+    </defs>
+  );
+}
+
+/** Vertical trunk/branch — curves slightly, thick→thin, touches nodes */
+function BranchVertical({ h = 40, leaves = true }: { h?: number; leaves?: boolean }) {
+  const path = `M14 0 C12 ${h * 0.25}, 16 ${h * 0.5}, 14 ${h}`;
   return (
     <div
       className="relative z-[1] flex justify-center pointer-events-none"
-      style={{ height: h, marginTop: -10, marginBottom: -10 }}
+      style={{ height: h, marginTop: -14, marginBottom: -14 }}
     >
-      <svg width="28" height={h} className="overflow-visible" aria-hidden>
-        <defs>
-          <linearGradient id="branchGoldV" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#6B4F12" />
-            <stop offset="28%" stopColor="#E8C547" />
-            <stop offset="50%" stopColor="#FFF1A8" />
-            <stop offset="72%" stopColor="#C9A227" />
-            <stop offset="100%" stopColor="#5C4210" />
-          </linearGradient>
-          <linearGradient id="leafGold" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#FFF6C8" />
-            <stop offset="45%" stopColor="#E4C04A" />
-            <stop offset="100%" stopColor="#9A7B1A" />
-          </linearGradient>
-          <filter id="branchGlow" x="-50%" y="-20%" width="200%" height="140%">
-            <feDropShadow dx="0" dy="1" stdDeviation="1.2" floodColor="#C9A227" floodOpacity="0.55" />
-          </filter>
-        </defs>
-        {/* outer depth */}
-        <line
-          x1="14"
-          y1="2"
-          x2="14"
-          y2={h - 2}
-          stroke="#5C4210"
-          strokeWidth="6"
+      <svg width="36" height={h} className="overflow-visible" aria-hidden>
+        {branchDefs()}
+        {/* ambient depth */}
+        <path
+          d={path}
+          fill="none"
+          stroke="#1A1008"
+          strokeWidth="9"
           strokeLinecap="round"
-          opacity="0.35"
+          opacity="0.25"
         />
-        <line
-          x1="14"
-          y1="0"
-          x2="14"
-          y2={h}
-          stroke="url(#branchGoldV)"
-          strokeWidth="4.5"
+        {/* main bark body */}
+        <path
+          d={path}
+          fill="none"
+          stroke="url(#hrBarkV)"
+          strokeWidth="6.5"
           strokeLinecap="round"
-          filter="url(#branchGlow)"
+          filter="url(#hrSoft)"
         />
-        {/* shine edge */}
-        <line
-          x1="12.5"
-          y1="2"
-          x2="12.5"
-          y2={h - 2}
-          stroke="#FFF8D0"
-          strokeWidth="1.2"
+        {/* highlight ridge */}
+        <path
+          d={`M12.2 2 C10.5 ${h * 0.25}, 14.5 ${h * 0.5}, 12.2 ${h - 2}`}
+          fill="none"
+          stroke="#FFF8D6"
+          strokeWidth="1.6"
           strokeLinecap="round"
-          opacity="0.75"
+          opacity="0.55"
+        />
+        {/* bark cracks */}
+        <path
+          d={`M15.5 ${h * 0.2} L16.2 ${h * 0.28}`}
+          stroke="#3D2914"
+          strokeWidth="0.6"
+          opacity="0.5"
+        />
+        <path
+          d={`M13 ${h * 0.55} L12.2 ${h * 0.62}`}
+          stroke="#3D2914"
+          strokeWidth="0.5"
+          opacity="0.45"
         />
         {leaves && (
           <>
-            <GoldLeaf x={19} y={h * 0.28} rot={-35} scale={1} />
-            <GoldLeaf x={9} y={h * 0.52} rot={40} scale={0.9} />
-            <GoldLeaf x={20} y={h * 0.72} rot={-25} scale={0.85} />
+            <GoldLeaf x={22} y={h * 0.22} rot={-42} scale={1.05} />
+            <GoldLeaf x={8} y={h * 0.4} rot={48} scale={0.95} />
+            <GoldLeaf x={23} y={h * 0.58} rot={-28} scale={0.88} />
+            <GoldLeaf x={9} y={h * 0.75} rot={55} scale={0.8} />
           </>
         )}
       </svg>
@@ -151,146 +202,99 @@ function BranchVertical({ h = 32, leaves = true }: { h?: number; leaves?: boolea
   );
 }
 
-function BranchHorizontal({ w = 36 }: { w?: number }) {
+function BranchHorizontal({ w = 44 }: { w?: number }) {
+  const path = `M0 14 C${w * 0.3} 10, ${w * 0.7} 18, ${w} 14`;
   return (
     <div
       className="relative z-[1] flex items-center pointer-events-none"
-      style={{ width: w, marginLeft: -8, marginRight: -8 }}
+      style={{ width: w, marginLeft: -12, marginRight: -12 }}
     >
-      <svg width={w} height="28" className="overflow-visible" aria-hidden>
-        <defs>
-          <linearGradient id="branchGoldH" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#6B4F12" />
-            <stop offset="30%" stopColor="#F0D56A" />
-            <stop offset="55%" stopColor="#FFF1A8" />
-            <stop offset="100%" stopColor="#8B6914" />
-          </linearGradient>
-          <linearGradient id="leafGoldH" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#FFF6C8" />
-            <stop offset="50%" stopColor="#E4C04A" />
-            <stop offset="100%" stopColor="#9A7B1A" />
-          </linearGradient>
-        </defs>
-        <line
-          x1="2"
-          y1="15"
-          x2={w - 2}
-          y2="15"
-          stroke="#5C4210"
-          strokeWidth="6"
+      <svg width={w} height="32" className="overflow-visible" aria-hidden>
+        {branchDefs()}
+        <path d={path} fill="none" stroke="#1A1008" strokeWidth="8" strokeLinecap="round" opacity="0.22" />
+        <path
+          d={path}
+          fill="none"
+          stroke="url(#hrBark)"
+          strokeWidth="5.5"
           strokeLinecap="round"
-          opacity="0.3"
+          filter="url(#hrSoft)"
         />
-        <line
-          x1="0"
-          y1="14"
-          x2={w}
-          y2="14"
-          stroke="url(#branchGoldH)"
-          strokeWidth="4.2"
+        <path
+          d={`M2 12.5 C${w * 0.3} 9, ${w * 0.7} 16, ${w - 2} 12.5`}
+          fill="none"
+          stroke="#FFF8D6"
+          strokeWidth="1.3"
           strokeLinecap="round"
+          opacity="0.5"
         />
-        <line
-          x1="2"
-          y1="12.5"
-          x2={w - 2}
-          y2="12.5"
-          stroke="#FFF8D0"
-          strokeWidth="1.1"
-          strokeLinecap="round"
-          opacity="0.7"
-        />
-        <g transform={`translate(${w * 0.4} 8)`}>
-          <ellipse cx="0" cy="0" rx="4" ry="2.2" fill="url(#leafGoldH)" stroke="#8B6914" strokeWidth="0.3" />
-        </g>
-        <g transform={`translate(${w * 0.65} 18) rotate(15)`}>
-          <ellipse cx="0" cy="0" rx="3.6" ry="2" fill="url(#leafGoldH)" stroke="#8B6914" strokeWidth="0.3" />
-        </g>
+        <GoldLeaf x={w * 0.35} y={8} rot={-20} scale={0.9} />
+        <GoldLeaf x={w * 0.62} y={20} rot={25} scale={0.85} />
       </svg>
     </div>
   );
 }
 
 function BranchFork({ width = 200, childCount = 3 }: { width?: number; childCount?: number }) {
-  const w = Math.max(80, Math.min(width, childCount * 72));
+  const w = Math.max(96, Math.min(width, Math.max(childCount, 1) * 76));
   const mid = w / 2;
   return (
-    <div className="relative z-[1] flex flex-col items-center pointer-events-none" style={{ marginTop: -8, marginBottom: -6 }}>
-      <BranchVertical h={20} leaves={false} />
-      <svg width={w} height="36" className="overflow-visible" aria-hidden>
-        <defs>
-          <linearGradient id="forkGold" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#8B6914" />
-            <stop offset="50%" stopColor="#FFE9A0" />
-            <stop offset="100%" stopColor="#8B6914" />
-          </linearGradient>
-        </defs>
-        {/* horizontal bar touching child stems */}
-        <line
-          x1="8"
-          y1="8"
-          x2={w - 8}
-          y2="8"
-          stroke="#5C4210"
+    <div
+      className="relative z-[1] flex flex-col items-center pointer-events-none"
+      style={{ marginTop: -12, marginBottom: -10 }}
+    >
+      <BranchVertical h={24} leaves={true} />
+      <svg width={w} height="48" className="overflow-visible" aria-hidden>
+        {branchDefs()}
+        {/* curved horizontal limb */}
+        <path
+          d={`M10 10 Q${mid} 4 ${w - 10} 10`}
+          fill="none"
+          stroke="#1A1008"
+          strokeWidth="7"
+          strokeLinecap="round"
+          opacity="0.22"
+        />
+        <path
+          d={`M6 9 Q${mid} 3 ${w - 6} 9`}
+          fill="none"
+          stroke="url(#hrBark)"
           strokeWidth="5"
           strokeLinecap="round"
-          opacity="0.3"
+          filter="url(#hrSoft)"
         />
-        <line
-          x1="4"
-          y1="7"
-          x2={w - 4}
-          y2="7"
-          stroke="url(#forkGold)"
-          strokeWidth="3.8"
-          strokeLinecap="round"
+        <path
+          d={`M12 7.5 Q${mid} 2 ${w - 12} 7.5`}
+          fill="none"
+          stroke="#FFF8D6"
+          strokeWidth="1.2"
+          opacity="0.45"
         />
-        <line
-          x1="8"
-          y1="5.5"
-          x2={w - 8}
-          y2="5.5"
-          stroke="#FFF8D0"
-          strokeWidth="1"
-          opacity="0.65"
-        />
-        {/* drop stems toward each child slot */}
         {Array.from({ length: childCount }).map((_, i) => {
           const x =
             childCount === 1
               ? mid
-              : 16 + (i * (w - 32)) / Math.max(1, childCount - 1);
+              : 18 + (i * (w - 36)) / Math.max(1, childCount - 1);
+          const drop = `M${x} 9 C${x - 2} 22, ${x + 2} 30, ${x} 46`;
           return (
             <g key={i}>
-              <line
-                x1={x}
-                y1="7"
-                x2={x}
-                y2="34"
-                stroke="url(#forkGold)"
-                strokeWidth="3.5"
+              <path d={drop} fill="none" stroke="#1A1008" strokeWidth="6" strokeLinecap="round" opacity="0.2" />
+              <path
+                d={drop}
+                fill="none"
+                stroke="url(#hrBarkV)"
+                strokeWidth="4.2"
                 strokeLinecap="round"
               />
-              <line
-                x1={x - 1}
-                y1="10"
-                x2={x - 1}
-                y2="32"
-                stroke="#FFF8D0"
-                strokeWidth="0.9"
-                opacity="0.6"
+              <path
+                d={`M${x - 1.2} 12 C${x - 2.5} 24, ${x} 32, ${x - 1} 44`}
+                fill="none"
+                stroke="#FFF8D6"
+                strokeWidth="1"
+                opacity="0.4"
               />
-              <ellipse
-                cx={x + 5}
-                cy={20}
-                rx="3.2"
-                ry="1.8"
-                fill="#E8C547"
-                stroke="#8B6914"
-                strokeWidth="0.25"
-                opacity="0.9"
-                transform={`rotate(-30 ${x + 5} 20)`}
-              />
+              <GoldLeaf x={x + 6} y={24} rot={-30} scale={0.85} />
+              <GoldLeaf x={x - 6} y={34} rot={40} scale={0.75} />
             </g>
           );
         })}
@@ -298,7 +302,6 @@ function BranchFork({ width = 200, childCount = 3 }: { width?: number; childCoun
     </div>
   );
 }
-
 
 function relLabel(lang: string, key: string, gender?: string | null) {
   const L = REL_LABELS[lang] || REL_LABELS.en;
