@@ -21,14 +21,15 @@
  *   • Spouse: Remove
  *   New person links to the bubble you opened from
  *
- * LINES (blood / parent-child):
+ * LINES (blood / parent–child) — LOCKED:
  *   Start inside source · end INSIDE target (IN px overshoot)
  *   Male → left · Female → right · gender or relation
  *
- * MARRIAGE BOND (husband–wife / spouse) — Indian family core:
- *   Light-green outline on BOTH partner bubbles + green link
- *   between them (zero gap). Applies to: self–spouse, father–mother,
- *   and any future child–spouse pairs. NOT the gold blood lines.
+ * MARRIAGE (EXTRA, does not change locked bubbles/layout):
+ *   Very light green outer ring on both partners + green link
+ *   between husband–wife only (same inward zero-gap rule).
+ *   Pairs: self–spouse, father–mother, each GP couple (dada–dadi /
+ *   nana–nani), and any child–spouse when present.
  * ═══════════════════════════════════════════════════════════════
  */
 import { FeatureGate } from "@/components/shared/FeatureGate";
@@ -553,7 +554,7 @@ function VanshawaliInner() {
     return { x: clampX(raw, w, W, pad), w };
   });
 
-  // Marriage pairs (husband–wife): light-green bond — not gold blood lines
+  // EXTRA: marriage pairs only (layout/bubbles unchanged)
   type MPair = {
     ax: number; ay: number; aw: number;
     bx: number; by: number; bw: number;
@@ -561,64 +562,81 @@ function VanshawaliInner() {
   };
   const marriagePairs: MPair[] = [];
   const marriedIdSet = new Set<string>();
-
-  spouses.forEach((s, i) => {
-    const sp = spousePositions[i];
-    if (!sp || !tree) return;
+  const pushCouple = (
+    a: { id: string; x: number; top: number; w: number },
+    b: { id: string; x: number; top: number; w: number }
+  ) => {
     marriagePairs.push({
-      ax: centreX,
-      ay: yMid - 20,
-      aw: centreW,
-      bx: sp.x,
-      by: yMid - 20,
-      bw: sp.w,
-      idA: tree.centre.id,
-      idB: s.id,
+      ax: a.x, ay: a.top, aw: a.w,
+      bx: b.x, by: b.top, bw: b.w,
+      idA: a.id, idB: b.id,
     });
-    marriedIdSet.add(tree.centre.id);
-    marriedIdSet.add(s.id);
-  });
+    marriedIdSet.add(a.id);
+    marriedIdSet.add(b.id);
+  };
 
-  const fatherN = parentsSorted.find((p) => p.relation === "father");
-  const motherN = parentsSorted.find((p) => p.relation === "mother");
-  if (fatherN && motherN) {
-    const fi = parentsSorted.indexOf(fatherN);
-    const mi = parentsSorted.indexOf(motherN);
-    marriagePairs.push({
-      ax: parXs[fi],
-      ay: yPar + parRows[fi] * subRowH - 4,
-      aw: nameW(fatherN.display_name),
-      bx: parXs[mi],
-      by: yPar + parRows[mi] * subRowH - 4,
-      bw: nameW(motherN.display_name),
-      idA: fatherN.id,
-      idB: motherN.id,
+  if (tree) {
+    spouses.forEach((s, i) => {
+      const sp = spousePositions[i];
+      if (!sp) return;
+      pushCouple(
+        { id: tree.centre.id, x: centreX, top: yMid - 20, w: centreW },
+        { id: s.id, x: sp.x, top: yMid - 20, w: sp.w }
+      );
     });
-    marriedIdSet.add(fatherN.id);
-    marriedIdSet.add(motherN.id);
+    const f = parentsSorted.find((p) => p.relation === "father");
+    const m = parentsSorted.find((p) => p.relation === "mother");
+    if (f && m) {
+      const fi = parentsSorted.indexOf(f);
+      const mi = parentsSorted.indexOf(m);
+      pushCouple(
+        { id: f.id, x: parXs[fi], top: yPar + parRows[fi] * subRowH - 4, w: nameW(f.display_name) },
+        { id: m.id, x: parXs[mi], top: yPar + parRows[mi] * subRowH - 4, w: nameW(m.display_name) }
+      );
+    }
+    // GP couples: same via_parent_id + father+mother relations
+    const gpByVia = new Map<string, typeof grandparents>();
+    grandparents.forEach((g) => {
+      const k = g.via_parent_id || "_";
+      if (!gpByVia.has(k)) gpByVia.set(k, []);
+      gpByVia.get(k)!.push(g);
+    });
+    gpByVia.forEach((list) => {
+      const gf = list.find((g) => g.relation === "father" || resolveSex(g.gender, g.relation) === "M");
+      const gm = list.find((g) => g.relation === "mother" || resolveSex(g.gender, g.relation) === "F");
+      if (!gf || !gm) return;
+      const pa = gpPositions.find((p) => p.n.id === gf.id);
+      const pb = gpPositions.find((p) => p.n.id === gm.id);
+      if (!pa || !pb) return;
+      pushCouple(
+        { id: gf.id, x: pa.x, top: yGpBase + pa.row * subRowH - 4, w: nameW(gf.display_name) },
+        { id: gm.id, x: pb.x, top: yGpBase + pb.row * subRowH - 4, w: nameW(gm.display_name) }
+      );
+    });
   }
 
   const line = "#E8A317";
-  const marryLine = "#34D399";
+  const marryLine = "#6EE7B7"; // very light green
 
   const Tag = ({
     n,
     extra,
-    married,
   }: {
     n: Node;
     extra?: string;
-    married?: boolean;
   }) => (
     <button type="button" onClick={() => setSelected(n)} className="text-center">
       <span
         className={`inline-block px-2.5 py-1.5 rounded-lg shadow-sm text-[12px] font-semibold leading-snug border whitespace-nowrap ${
-          married
-            ? "bg-emerald-50/50 text-gray-800 border-2 border-emerald-400/70"
-            : n.user_id
-              ? "bg-amber-400/40 text-amber-950 border-amber-500/35"
-              : "bg-white/35 text-gray-800 border-amber-200/40 backdrop-blur-[4px]"
+          n.user_id
+            ? "bg-amber-400/40 text-amber-950 border-amber-500/35"
+            : "bg-white/35 text-gray-800 border-amber-200/40 backdrop-blur-[4px]"
         }`}
+        style={
+          marriedIdSet.has(n.id)
+            ? { boxShadow: "0 0 0 2px rgba(110,231,183,0.55)" }
+            : undefined
+        }
       >
         {n.display_name}
       </span>
@@ -662,9 +680,8 @@ function VanshawaliInner() {
         <div ref={wrapRef} className="flex-1 overflow-y-auto overflow-x-hidden pb-36 w-full">
           <div className="relative mx-auto" style={{ width: W, height: H }}>
                         <svg className="absolute inset-0 pointer-events-none" width={W} height={H}>
-              {/* Marriage bonds — light green, couples only */}
+              {/* EXTRA marriage bonds — light green, couples only */}
               {marriagePairs.map((mp, i) => {
-                // horizontal link: right edge of left person → left edge of right person, INSIDE
                 const left = mp.ax <= mp.bx
                   ? { x: mp.ax, y: mp.ay, w: mp.aw }
                   : { x: mp.bx, y: mp.by, w: mp.bw };
@@ -673,28 +690,18 @@ function VanshawaliInner() {
                   : { x: mp.ax, y: mp.ay, w: mp.aw };
                 const y1 = left.y + BUBBLE_H / 2;
                 const y2 = right.y + BUBBLE_H / 2;
-                const x1 = left.x + left.w / 2 - IN; // inside left bubble
-                const x2 = right.x - right.w / 2 + IN; // inside right bubble
+                const x1 = left.x + left.w / 2 - IN;
+                const x2 = right.x - right.w / 2 + IN;
                 return (
-                  <g key={`marry-${i}`}>
-                    <path
-                      d={`M${x1} ${y1} L${x2} ${y2}`}
-                      fill="none"
-                      stroke={marryLine}
-                      strokeWidth={3}
-                      strokeLinecap="round"
-                      opacity={0.9}
-                    />
-                    {/* soft glow */}
-                    <path
-                      d={`M${x1} ${y1} L${x2} ${y2}`}
-                      fill="none"
-                      stroke={marryLine}
-                      strokeWidth={6}
-                      strokeLinecap="round"
-                      opacity={0.25}
-                    />
-                  </g>
+                  <path
+                    key={`marry-${i}`}
+                    d={`M${x1} ${y1} L${x2} ${y2}`}
+                    fill="none"
+                    stroke={marryLine}
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                    opacity={0.85}
+                  />
                 );
               })}
 
@@ -738,8 +745,7 @@ function VanshawaliInner() {
                   />
                 );
               })}
-
-              {children.map((c, i) => {
+{children.map((c, i) => {
                 const cTop = yMid - 20;
                 const chTop = yChild + chRows[i] * subRowH - 4;
                 const start = undock(centreX, cTop, "down");
@@ -806,7 +812,6 @@ function VanshawaliInner() {
               >
                 <Tag
                   n={n}
-                  married={marriedIdSet.has(n.id)}
                   extra={
                     n.relation === "mother"
                       ? L.grandmother || "Grandmother"
@@ -822,15 +827,16 @@ function VanshawaliInner() {
                 className="absolute z-10 -translate-x-1/2"
                 style={{ left: parXs[i], top: yPar + parRows[i] * subRowH - 4 }}
               >
-                <Tag n={n} married={marriedIdSet.has(n.id)} />
-              </div>
+                <Tag n={n} />
+</div>
             ))}
             <div
               className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
               style={{ left: centreX, top: yMid }}
             >
               <button type="button" onClick={() => setSelected(tree.centre)} className="text-center">
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-bold shadow-md whitespace-nowrap backdrop-blur-[1px] ${marriedIdSet.has(tree.centre.id) ? "bg-emerald-50/60 text-gray-900 border-2 border-emerald-400/70" : "bg-amber-400/50 text-amber-950 border border-amber-400/40"}`}>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400/50 text-amber-950 text-[13px] font-bold shadow-md whitespace-nowrap backdrop-blur-[1px]"
+                  style={marriedIdSet.has(tree.centre.id) ? { boxShadow: "0 0 0 2px rgba(110,231,183,0.55)" } : undefined}>
                   {tree.centre.photo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={tree.centre.photo_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
@@ -847,7 +853,7 @@ function VanshawaliInner() {
                 className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
                 style={{ left: spousePositions[i]?.x ?? centreX, top: yMid }}
               >
-                <Tag n={n} extra={L.spouse} married={marriedIdSet.has(n.id)} />
+                <Tag n={n} extra={L.spouse} />
               </div>
             ))}
 {children.map((n, i) => (
@@ -856,7 +862,7 @@ function VanshawaliInner() {
                 className="absolute z-10 -translate-x-1/2"
                 style={{ left: chXs[i], top: yChild + chRows[i] * subRowH - 4 }}
               >
-                <Tag n={n} married={marriedIdSet.has(n.id)} />
+                <Tag n={n} />
 </div>
             ))}
 {gcPositions.map(({ n, x, row }) => (
@@ -865,7 +871,7 @@ function VanshawaliInner() {
                 className="absolute z-10 -translate-x-1/2"
                 style={{ left: x, top: yGcBase + row * subRowH - 4 }}
               >
-                <Tag n={n} extra={L.grandchild || "Grandchild"} married={marriedIdSet.has(n.id)} />
+                <Tag n={n} extra={L.grandchild || "Grandchild"} />
               </div>
             ))}
           </div>
