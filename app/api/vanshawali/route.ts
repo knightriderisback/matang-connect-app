@@ -95,44 +95,6 @@ async function ensurePersonForUser(
   return person;
 }
 
-
-function getParentsOf(
-  store: Store,
-  personId: string,
-  showLink: (l: Link) => boolean,
-  byId: (id: string) => Person | undefined
-) {
-  const out: { person: Person; relation: string; link: Link }[] = [];
-  for (const l of store.links) {
-    if (!showLink(l)) continue;
-    if ((l.relation === "father" || l.relation === "mother") && l.to_id === personId) {
-      const p = byId(l.from_id);
-      if (p) out.push({ person: p, relation: l.relation, link: l });
-    }
-  }
-  return out;
-}
-
-function getChildrenOf(
-  store: Store,
-  personId: string,
-  showLink: (l: Link) => boolean,
-  byId: (id: string) => Person | undefined
-) {
-  const out: { person: Person; relation: string; link: Link }[] = [];
-  for (const l of store.links) {
-    if (!showLink(l)) continue;
-    if (l.relation === "child" && l.from_id === personId) {
-      const p = byId(l.to_id);
-      if (p) out.push({ person: p, relation: "child", link: l });
-    } else if ((l.relation === "father" || l.relation === "mother") && l.from_id === personId) {
-      const p = byId(l.to_id);
-      if (p) out.push({ person: p, relation: "child", link: l });
-    }
-  }
-  return out;
-}
-
 function buildTree(store: Store, centre: Person, viewerId: string, isStaff: boolean) {
   const showLink = (l: Link) =>
     l.status === "verified" ||
@@ -140,12 +102,48 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     isStaff ||
     centre.user_id === viewerId;
 
+  const links = store.links.filter(
+    (l) =>
+      showLink(l) &&
+      (l.from_id === centre.id || l.to_id === centre.id || /* parent of centre */ true)
+  );
+
   const byId = (id: string) => store.persons.find((p) => p.id === id);
 
-  const mapNode = (
-    row: { person: Person; relation: string; link: Link },
-    via?: { via_id?: string }
-  ) => ({
+  // Parents: link where to_id = centre and relation father/mother
+  // OR from_id = centre relation child means centre is child of from? We use:
+  // father: from=father, to=child
+  // mother: from=mother, to=child
+  // spouse: bidirectional from/to
+  // child: from=parent, to=child
+
+  const parents: { person: Person; relation: string; link: Link }[] = [];
+  const spouses: { person: Person; relation: string; link: Link }[] = [];
+  const children: { person: Person; relation: string; link: Link }[] = [];
+
+  for (const l of store.links) {
+    if (!showLink(l)) continue;
+    if (l.relation === "father" && l.to_id === centre.id) {
+      const p = byId(l.from_id);
+      if (p) parents.push({ person: p, relation: "father", link: l });
+    } else if (l.relation === "mother" && l.to_id === centre.id) {
+      const p = byId(l.from_id);
+      if (p) parents.push({ person: p, relation: "mother", link: l });
+    } else if (l.relation === "spouse" && (l.from_id === centre.id || l.to_id === centre.id)) {
+      const otherId = l.from_id === centre.id ? l.to_id : l.from_id;
+      const p = byId(otherId);
+      if (p) spouses.push({ person: p, relation: "spouse", link: l });
+    } else if (l.relation === "child" && l.from_id === centre.id) {
+      const p = byId(l.to_id);
+      if (p) children.push({ person: p, relation: "child", link: l });
+    } else if ((l.relation === "father" || l.relation === "mother") && l.from_id === centre.id) {
+      // centre is parent
+      const p = byId(l.to_id);
+      if (p) children.push({ person: p, relation: "child", link: l });
+    }
+  }
+
+  const mapNode = (row: { person: Person; relation: string; link: Link }) => ({
     id: row.person.id,
     user_id: row.person.user_id,
     display_name: row.person.display_name,
@@ -157,63 +155,34 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     status: row.link.status,
     gotra: row.person.gotra,
     link_id: row.link.id,
-    via_id: via?.via_id,
   });
 
-  // Spouses of centre
-  const spouses: { person: Person; relation: string; link: Link }[] = [];
-  for (const l of store.links) {
-    if (!showLink(l)) continue;
-    if (l.relation === "spouse" && (l.from_id === centre.id || l.to_id === centre.id)) {
-      const otherId = l.from_id === centre.id ? l.to_id : l.from_id;
-      const p = byId(otherId);
-      if (p) spouses.push({ person: p, relation: "spouse", link: l });
-    }
-  }
-
-  // Infinite UP: levelsUp[0]=parents, [1]=grandparents, ...
-  const levelsUp: ReturnType<typeof mapNode>[][] = [];
-  let frontier = [centre.id];
-  const seenUp = new Set<string>([centre.id]);
-  for (let depth = 0; depth < 30; depth++) {
-    const level: ReturnType<typeof mapNode>[] = [];
-    const next: string[] = [];
-    for (const pid of frontier) {
-      for (const row of getParentsOf(store, pid, showLink, byId)) {
-        if (seenUp.has(row.person.id)) continue;
-        seenUp.add(row.person.id);
-        level.push(mapNode(row, { via_id: pid }));
-        next.push(row.person.id);
+  // Grandparents: parents of each parent
+  const grandparents: { person: Person; relation: string; link: Link; via_parent_id: string }[] = [];
+  for (const par of parents) {
+    for (const l of store.links) {
+      if (!showLink(l)) continue;
+      if ((l.relation === "father" || l.relation === "mother") && l.to_id === par.person.id) {
+        const g = byId(l.from_id);
+        if (g) grandparents.push({ person: g, relation: l.relation, link: l, via_parent_id: par.person.id });
       }
     }
-    if (!level.length) break;
-    levelsUp.push(level);
-    frontier = next;
   }
 
-  // Infinite DOWN
-  const levelsDown: ReturnType<typeof mapNode>[][] = [];
-  frontier = [centre.id];
-  const seenDown = new Set<string>([centre.id]);
-  for (let depth = 0; depth < 30; depth++) {
-    const level: ReturnType<typeof mapNode>[] = [];
-    const next: string[] = [];
-    for (const pid of frontier) {
-      for (const row of getChildrenOf(store, pid, showLink, byId)) {
-        if (seenDown.has(row.person.id)) continue;
-        seenDown.add(row.person.id);
-        level.push(mapNode(row, { via_id: pid }));
-        next.push(row.person.id);
+  // Grandchildren: children of each child
+  const grandchildren: { person: Person; relation: string; link: Link; via_child_id: string }[] = [];
+  for (const ch of children) {
+    for (const l of store.links) {
+      if (!showLink(l)) continue;
+      if (l.relation === "child" && l.from_id === ch.person.id) {
+        const g = byId(l.to_id);
+        if (g) grandchildren.push({ person: g, relation: "child", link: l, via_child_id: ch.person.id });
+      } else if ((l.relation === "father" || l.relation === "mother") && l.from_id === ch.person.id) {
+        const g = byId(l.to_id);
+        if (g) grandchildren.push({ person: g, relation: "child", link: l, via_child_id: ch.person.id });
       }
     }
-    if (!level.length) break;
-    levelsDown.push(level);
-    frontier = next;
   }
-
-  // Legacy flat fields for compatibility
-  const parents = levelsUp[0] || [];
-  const children = levelsDown[0] || [];
 
   return {
     centre: {
@@ -228,13 +197,11 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
       status: "verified",
       gotra: centre.gotra,
     },
-    spouses: spouses.map((r) => mapNode(r)),
-    parents,
-    children,
-    grandparents: levelsUp[1] || [],
-    grandchildren: levelsDown[1] || [],
-    levels_up: levelsUp,
-    levels_down: levelsDown,
+    parents: parents.map(mapNode),
+    spouses: spouses.map(mapNode),
+    children: children.map(mapNode),
+    grandparents: grandparents.map((row) => ({ ...mapNode(row), via_parent_id: row.via_parent_id })),
+    grandchildren: grandchildren.map((row) => ({ ...mapNode(row), via_child_id: row.via_child_id })),
   };
 }
 
