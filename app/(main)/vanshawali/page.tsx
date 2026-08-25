@@ -88,11 +88,37 @@ function curve(x1: number, y1: number, x2: number, y2: number) {
   return `M${x1} ${y1} C${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`;
 }
 
-/** End of line: male → left edge, female → right edge, else centre */
-function anchorX(cx: number, w: number, gender?: string | null) {
+/** Resolve male/female from gender field OR relation label */
+function resolveSex(
+  gender?: string | null,
+  relation?: string | null
+): "M" | "F" | null {
   const g = (gender || "").toLowerCase();
-  if (g === "female" || g === "f") return cx + w / 2 - 2;
-  if (g === "male" || g === "m") return cx - w / 2 + 2;
+  if (g === "female" || g === "f" || g === "woman") return "F";
+  if (g === "male" || g === "m" || g === "man") return "M";
+  const r = (relation || "").toLowerCase();
+  if (
+    ["mother", "grandmother", "wife", "spouse", "daughter", "sister"].includes(r)
+  )
+    return "F";
+  if (
+    ["father", "grandfather", "husband", "son", "brother"].includes(r)
+  )
+    return "M";
+  // spouse alone unknown
+  return null;
+}
+
+/** End of line: male → LEFT edge, female → RIGHT edge, unknown → centre */
+function anchorX(
+  cx: number,
+  w: number,
+  gender?: string | null,
+  relation?: string | null
+) {
+  const sex = resolveSex(gender, relation);
+  if (sex === "F") return cx + w / 2 - 1;
+  if (sex === "M") return cx - w / 2 + 1;
   return cx;
 }
 
@@ -495,8 +521,8 @@ function VanshawaliInner() {
       <span
         className={`inline-block px-2.5 py-1.5 rounded-lg shadow-sm text-[12px] font-semibold leading-snug border whitespace-nowrap ${
           n.user_id
-            ? "bg-amber-400/55 text-white border-amber-500/40"
-            : "bg-white/45 text-gray-800 border-amber-200/50 backdrop-blur-[3px]"
+            ? "bg-amber-400/40 text-amber-950 border-amber-500/35"
+            : "bg-white/35 text-gray-800 border-amber-200/40 backdrop-blur-[4px]"
         }`}
       >
         {n.display_name}
@@ -545,7 +571,7 @@ function VanshawaliInner() {
                 const px = parentXById.get(n.via_parent_id || "") ?? centreX;
                 const gy = yGpBase + row * subRowH;
                 const py = yPar + (parentRowById.get(n.via_parent_id || "") ?? 0) * subRowH;
-                const endX = anchorX(x, nameW(n.display_name), n.gender);
+                const endX = anchorX(x, nameW(n.display_name), n.gender, n.relation);
                 return (
                   <path
                     key={`gpl-${n.id}`}
@@ -559,7 +585,7 @@ function VanshawaliInner() {
               })}
               {parentsSorted.map((p, i) => {
                 const py = yPar + parRows[i] * subRowH;
-                const endX = anchorX(parXs[i], nameW(p.display_name), p.gender);
+                const endX = anchorX(parXs[i], nameW(p.display_name), p.gender, p.relation);
                 return (
                   <path
                     key={`pl-${p.id}`}
@@ -587,7 +613,7 @@ function VanshawaliInner() {
                   d={curve(
                     centreX,
                     yMid + 16,
-                    anchorX(chXs[i], nameW(c.display_name), c.gender),
+                    anchorX(chXs[i], nameW(c.display_name), c.gender, c.relation),
                     yChild + chRows[i] * subRowH - 4
                   )}
                   fill="none"
@@ -661,7 +687,7 @@ function VanshawaliInner() {
               style={{ left: centreX, top: yMid }}
             >
               <button type="button" onClick={() => setSelected(tree.centre)} className="text-center">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400/65 text-white text-[13px] font-bold shadow-md whitespace-nowrap backdrop-blur-[1px]">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400/50 text-amber-950 text-[13px] font-bold shadow-md whitespace-nowrap backdrop-blur-[1px]">
                   {tree.centre.photo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={tree.centre.photo_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
