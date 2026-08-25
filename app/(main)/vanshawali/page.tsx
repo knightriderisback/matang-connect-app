@@ -539,14 +539,16 @@ function VanshawaliInner() {
               const isSelf = n.relation === "self" || n.id === tree.centre.id;
               const st = isSelf ? BUBBLE_SELF : p.style;
               return (
-                <div key={n.id + "-" + i} className="absolute z-10 -translate-x-1/2 -translate-y-1/2 text-center">
+                <div
+                  key={n.id + "-" + i}
+                  className="absolute z-10 -translate-x-1/2 -translate-y-1/2 text-center"
+                  style={{ left: p.x, top: p.y }}
+                >
                   <button
                     type="button"
                     onClick={() => setSelected(n)}
                     className="px-2.5 py-1.5 rounded-lg shadow-sm text-[12px] font-semibold border whitespace-nowrap overflow-hidden text-ellipsis"
                     style={{
-                      left: p.x,
-                      top: p.y,
                       maxWidth: Math.min(p.w, vw - 24),
                       background: st.bg,
                       borderColor: st.border,
