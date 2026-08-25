@@ -1,14 +1,30 @@
 "use client";
 /**
- * VANSHAWALI — LOCKED CORE (do not replace mechanism)
- * Mind-map system stays: centre · parents up · children down · spouse side ·
- * curves · add/remove/search · owner/SA edit.
- * Only allowed changes: placement polish, colours, options UI.
- * Rules: no bubble off left/right; vertical scroll OK; full names;
- * LINES LOCKED: path MUST touch target bubble 100% — zero gap.
- *   up-target  → bottom-left (male) / bottom-right (female) corner
- *   down-target → top-left (male) / top-right (female) corner
- *   fallback corners if side unclear.
+ * ═══════════════════════════════════════════════════════════════
+ * VANSHAWALI — LOCKED (do not break these rules)
+ * ═══════════════════════════════════════════════════════════════
+ * METAPHOR: Each bubble = a real person. Each line = a living
+ * relationship between two people — it must NEVER float or break
+ * (lines overshoot INSIDE bubbles; zero visible gap).
+ *
+ * CORE (mind-map):
+ *   Self centre · parents up · children down · spouse side
+ *   Father-side ancestors LEFT half · Mother-side RIGHT half
+ *   Full names · multi-row if needed · no left/right clip
+ *   Owner or Super-Admin (Edit toggle) may edit
+ *
+ * ADD / REMOVE UX (no floating + on canvas):
+ *   • Click ANY bubble → sheet
+ *   • Self: Add Father · Mother · Spouse · Child
+ *   • Parent / GP: Add their parent · Remove
+ *   • Child / GC: Add their child · Remove
+ *   • Spouse: Remove
+ *   New person links to the bubble you opened from
+ *
+ * LINES:
+ *   Start inside source · end INSIDE target (IN px overshoot)
+ *   Male → left · Female → right · gender or relation
+ * ═══════════════════════════════════════════════════════════════
  */
 import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useCallback, useEffect, useMemo, useState, Suspense, useRef } from "react";
@@ -726,21 +742,6 @@ function VanshawaliInner() {
                 <Tag n={n} />
 </div>
             ))}
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() =>
-                  openAdd(parentsSorted.some((p) => p.relation === "father") ? "mother" : "father")
-                }
-                className="absolute z-10 -translate-x-1/2"
-                style={{ left: parAdd.x, top: yPar + parAdd.row * subRowH + 4 }}
-              >
-                <span className="text-[10px] border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded">
-                  +
-                </span>
-              </button>
-            )}
-
             <div
               className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
               style={{ left: centreX, top: yMid }}
@@ -951,56 +952,69 @@ function VanshawaliInner() {
                 </button>
               </>
             )}
-            {canEdit && (
-              <button
-                type="button"
-                className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
-                onClick={() => {
-                  const isSelf = selected.id === tree?.centre.id || selected.relation === "self";
-                  if (isSelf) {
+            {canEdit && (selected.id === tree?.centre.id || selected.relation === "self") && (
+              <>
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
+                  onClick={() => {
+                    openAdd("father");
+                    setSelected(null);
+                  }}
+                >
+                  <Plus size={16} className="text-amber-500" /> {L.father}
+                </button>
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
+                  onClick={() => {
+                    openAdd("mother");
+                    setSelected(null);
+                  }}
+                >
+                  <Plus size={16} className="text-amber-500" /> {L.mother}
+                </button>
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
+                  onClick={() => {
+                    openAdd("spouse");
+                    setSelected(null);
+                  }}
+                >
+                  <Plus size={16} className="text-amber-500" /> {L.spouse}
+                </button>
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
+                  onClick={() => {
                     openAdd("child");
-                  } else {
-                    // extend from this person: parent if ancestor-ish, else child
-                    const rel =
+                    setSelected(null);
+                  }}
+                >
+                  <Plus size={16} className="text-amber-500" /> {L.child}
+                </button>
+              </>
+            )}
+            {canEdit &&
+              !(selected.id === tree?.centre.id || selected.relation === "self") && (
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
+                  onClick={() => {
+                    const isAncestor =
                       selected.relation === "father" ||
                       selected.relation === "mother" ||
                       selected.relation === "grandfather" ||
-                      selected.relation === "grandmother"
-                        ? "father"
-                        : "child";
-                    openAdd(rel, selected.id);
-                  }
-                  setSelected(null);
-                }}
-              >
-                <Plus size={16} className="text-amber-500" />{" "}
-                {lang === "hi" ? "Member जोड़ें" : "Add member"}
-              </button>
-            )}
-            {canEdit && selected.relation === "self" && (
-              <button
-                type="button"
-                className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
-                onClick={() => {
-                  openAdd("father");
-                  setSelected(null);
-                }}
-              >
-                <Plus size={16} className="text-amber-500" /> {L.father} / {L.mother}
-              </button>
-            )}
-            {canEdit && selected.relation === "self" && (
-              <button
-                type="button"
-                className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
-                onClick={() => {
-                  openAdd("spouse");
-                  setSelected(null);
-                }}
-              >
-                <Plus size={16} className="text-amber-500" /> {L.spouse}
-              </button>
-            )}
+                      selected.relation === "grandmother";
+                    openAdd(isAncestor ? "father" : "child", selected.id);
+                    setSelected(null);
+                  }}
+                >
+                  <Plus size={16} className="text-amber-500" />{" "}
+                  {lang === "hi" ? "रिश्तेदार जोड़ें" : "Add relative"}
+                </button>
+              )}
             {canEdit && selected.relation !== "self" && selected.link_id && (
               <button
                 type="button"
@@ -1009,6 +1023,7 @@ function VanshawaliInner() {
               >
                 <Trash2 size={16} /> Remove
               </button>
+            )}
             )}
             <button type="button" className="w-full py-2 text-sm text-gray-400" onClick={() => setSelected(null)}>
               Close
