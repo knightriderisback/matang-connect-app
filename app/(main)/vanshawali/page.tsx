@@ -135,6 +135,48 @@ function resolveSex(
 
 /** Measured bubble body (~px-2.5 py-1.5 + 12px text) */
 const BUBBLE_H = 34;
+
+/** Soft generation fills (transparent) + 3D shadow */
+const GEN_STYLE: Record<string, { bg: string; border: string; text: string }> = {
+  self: {
+    bg: "rgba(245, 185, 66, 0.42)",
+    border: "rgba(217, 119, 6, 0.45)",
+    text: "#78350f",
+  },
+  up1: {
+    bg: "rgba(167, 139, 250, 0.38)",
+    border: "rgba(139, 92, 246, 0.4)",
+    text: "#4c1d95",
+  },
+  up2: {
+    bg: "rgba(96, 165, 250, 0.36)",
+    border: "rgba(59, 130, 246, 0.38)",
+    text: "#1e3a8a",
+  },
+  up3: {
+    bg: "rgba(45, 212, 191, 0.32)",
+    border: "rgba(20, 184, 166, 0.35)",
+    text: "#134e4a",
+  },
+  down1: {
+    bg: "rgba(52, 211, 153, 0.36)",
+    border: "rgba(16, 185, 129, 0.4)",
+    text: "#064e3b",
+  },
+  down2: {
+    bg: "rgba(251, 146, 60, 0.36)",
+    border: "rgba(249, 115, 22, 0.38)",
+    text: "#7c2d12",
+  },
+  spouse: {
+    bg: "rgba(244, 114, 182, 0.32)",
+    border: "rgba(236, 72, 153, 0.35)",
+    text: "#831843",
+  },
+};
+const BUBBLE_3D =
+  "0 2px 4px rgba(0,0,0,0.12), 0 6px 14px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.55)";
+
 /** Pull line endpoints INSIDE the bubble so no hairline gap remains */
 const IN = 10;
 
@@ -621,31 +663,36 @@ function VanshawaliInner() {
   const Tag = ({
     n,
     extra,
+    gen = "up1",
   }: {
     n: Node;
     extra?: string;
-  }) => (
-    <button type="button" onClick={() => setSelected(n)} className="text-center">
-      <span
-        className={`inline-block px-2.5 py-1.5 rounded-lg shadow-sm text-[12px] font-semibold leading-snug border whitespace-nowrap ${
-          n.user_id
-            ? "bg-amber-400/40 text-amber-950 border-amber-500/35"
-            : "bg-white/35 text-gray-800 border-amber-200/40 backdrop-blur-[4px]"
-        }`}
-        style={
-          marriedIdSet.has(n.id)
-            ? { boxShadow: "0 0 0 2px rgba(110,231,183,0.55)" }
-            : undefined
-        }
-      >
-        {n.display_name}
-      </span>
-      <span className="block text-[9px] text-amber-800/80 mt-0.5 leading-tight whitespace-nowrap">
-        {extra || lbl(lang, n.relation, n.gender)}
-        {n.age != null ? ` · ${n.age}` : ""}
-      </span>
-    </button>
-  );
+    gen?: keyof typeof GEN_STYLE;
+  }) => {
+    const st = GEN_STYLE[gen] || GEN_STYLE.up1;
+    const marry = marriedIdSet.has(n.id)
+      ? `, 0 0 0 2px rgba(110,231,183,0.55)`
+      : "";
+    return (
+      <button type="button" onClick={() => setSelected(n)} className="text-center">
+        <span
+          className="inline-block px-2.5 py-1.5 rounded-lg text-[12px] font-semibold leading-snug border whitespace-nowrap backdrop-blur-[3px]"
+          style={{
+            background: st.bg,
+            borderColor: st.border,
+            color: st.text,
+            boxShadow: BUBBLE_3D + marry,
+          }}
+        >
+          {n.display_name}
+        </span>
+        <span className="block text-[9px] text-gray-500 mt-0.5 leading-tight whitespace-nowrap">
+          {extra || lbl(lang, n.relation, n.gender)}
+          {n.age != null ? ` · ${n.age}` : ""}
+        </span>
+      </button>
+    );
+  };
 
   return (
     <div className="flex flex-col min-h-[70vh] bg-[#fafafa] relative">
@@ -692,15 +739,19 @@ function VanshawaliInner() {
                 const y2 = right.y + BUBBLE_H / 2;
                 const x1 = left.x + left.w / 2 - IN;
                 const x2 = right.x - right.w / 2 + IN;
+                // Mind-map style branch curve (slight arch)
+                const midX = (x1 + x2) / 2;
+                const arch = Math.min(18, Math.abs(x2 - x1) * 0.12 + 8);
+                const d = `M${x1} ${y1} C${midX} ${y1 - arch}, ${midX} ${y2 - arch}, ${x2} ${y2}`;
                 return (
                   <path
                     key={`marry-${i}`}
-                    d={`M${x1} ${y1} L${x2} ${y2}`}
+                    d={d}
                     fill="none"
                     stroke={marryLine}
                     strokeWidth={2.5}
                     strokeLinecap="round"
-                    opacity={0.85}
+                    opacity={0.9}
                   />
                 );
               })}
@@ -812,6 +863,7 @@ function VanshawaliInner() {
               >
                 <Tag
                   n={n}
+                  gen="up2"
                   extra={
                     n.relation === "mother"
                       ? L.grandmother || "Grandmother"
@@ -827,7 +879,7 @@ function VanshawaliInner() {
                 className="absolute z-10 -translate-x-1/2"
                 style={{ left: parXs[i], top: yPar + parRows[i] * subRowH - 4 }}
               >
-                <Tag n={n} />
+                <Tag n={n} gen="up1" />
 </div>
             ))}
             <div
@@ -835,8 +887,19 @@ function VanshawaliInner() {
               style={{ left: centreX, top: yMid }}
             >
               <button type="button" onClick={() => setSelected(tree.centre)} className="text-center">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400/50 text-amber-950 text-[13px] font-bold shadow-md whitespace-nowrap backdrop-blur-[1px]"
-                  style={marriedIdSet.has(tree.centre.id) ? { boxShadow: "0 0 0 2px rgba(110,231,183,0.55)" } : undefined}>
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-bold whitespace-nowrap backdrop-blur-[2px] border"
+                  style={{
+                    background: GEN_STYLE.self.bg,
+                    borderColor: GEN_STYLE.self.border,
+                    color: GEN_STYLE.self.text,
+                    boxShadow:
+                      BUBBLE_3D +
+                      (marriedIdSet.has(tree.centre.id)
+                        ? ", 0 0 0 2px rgba(110,231,183,0.55)"
+                        : ""),
+                  }}
+                >
                   {tree.centre.photo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={tree.centre.photo_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
@@ -853,7 +916,7 @@ function VanshawaliInner() {
                 className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
                 style={{ left: spousePositions[i]?.x ?? centreX, top: yMid }}
               >
-                <Tag n={n} extra={L.spouse} />
+                <Tag n={n} extra={L.spouse} gen="spouse" />
               </div>
             ))}
 {children.map((n, i) => (
@@ -862,7 +925,7 @@ function VanshawaliInner() {
                 className="absolute z-10 -translate-x-1/2"
                 style={{ left: chXs[i], top: yChild + chRows[i] * subRowH - 4 }}
               >
-                <Tag n={n} />
+                <Tag n={n} gen="down1" />
 </div>
             ))}
 {gcPositions.map(({ n, x, row }) => (
@@ -871,7 +934,7 @@ function VanshawaliInner() {
                 className="absolute z-10 -translate-x-1/2"
                 style={{ left: x, top: yGcBase + row * subRowH - 4 }}
               >
-                <Tag n={n} extra={L.grandchild || "Grandchild"} />
+                <Tag n={n} extra={L.grandchild || "Grandchild"} gen="down2" />
               </div>
             ))}
           </div>
