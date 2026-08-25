@@ -117,19 +117,26 @@ function packSmart(
   W: number,
   pad = 10,
   gap = 10,
-  preferCx?: number
+  preferCx?: number,
+  /** optional hard bounds — pack ONLY inside [xMin, xMax] */
+  xMin?: number,
+  xMax?: number
 ): { x: number; row: number }[] {
   const n = widths.length;
+  const lo = xMin ?? pad;
+  const hi = xMax ?? W - pad;
+  const span = Math.max(40, hi - lo);
   if (n === 0) return [];
   if (n === 1) {
-    return [{ x: clampX(preferCx ?? W / 2, widths[0], W, pad), row: 0 }];
+    const x = Math.max(lo + widths[0] / 2, Math.min(hi - widths[0] / 2, preferCx ?? (lo + hi) / 2));
+    return [{ x, row: 0 }];
   }
 
   const rows: number[][] = [[]];
   let rowW = 0;
   widths.forEach((w, i) => {
     const need = (rowW > 0 ? gap : 0) + w;
-    if (rowW > 0 && rowW + need > W - pad * 2) {
+    if (rowW > 0 && rowW + need > span) {
       rows.push([]);
       rowW = 0;
     }
@@ -141,9 +148,10 @@ function packSmart(
   rows.forEach((idxs, r) => {
     const ws = idxs.map((i) => widths[i]);
     const total = ws.reduce((s, w) => s + w, 0) + gap * Math.max(0, ws.length - 1);
-    let start = (preferCx ?? W / 2) - total / 2;
-    if (start < pad) start = pad;
-    if (start + total > W - pad) start = Math.max(pad, W - pad - total);
+    const mid = preferCx ?? (lo + hi) / 2;
+    let start = mid - total / 2;
+    if (start < lo) start = lo;
+    if (start + total > hi) start = Math.max(lo, hi - total);
     let cursor = start;
     idxs.forEach((i, j) => {
       const w = ws[j];
@@ -326,6 +334,7 @@ function VanshawaliInner() {
   const pad = 10;
   const gap = 10;
   const cx = W / 2;
+  const midGate = W / 2; // hard split L/R — father left, mother right
   const subRowH = 48;
 
   const parentsSorted = [...parents].sort((a, b) => {
@@ -334,79 +343,88 @@ function VanshawaliInner() {
     return ra - rb;
   });
 
-  const parWidths = parentsSorted.map((p) => nameW(p.display_name));
-  if (canEdit) parWidths.push(48);
-  const parPack = packSmart(parWidths, W, pad, gap, cx);
-  const parXs = parentsSorted.map((_, i) => parPack[i].x);
-  const parRows = parentsSorted.map((_, i) => parPack[i].row);
-  const parAdd = canEdit ? parPack[parentsSorted.length] : { x: cx, row: 0 };
+  // Parents: father left half, mother right half (aligned under GP sides)
+  const parXs: number[] = [];
+  const parRows: number[] = [];
+  parentsSorted.forEach((p) => {
+    const w = nameW(p.display_name);
+    if (p.relation === "father") {
+      const pack = packSmart([w], W, pad, gap, (pad + midGate) / 2, pad, midGate);
+      parXs.push(pack[0].x);
+      parRows.push(0);
+    } else if (p.relation === "mother") {
+      const pack = packSmart([w], W, pad, gap, (midGate + W - pad) / 2, midGate, W - pad);
+      parXs.push(pack[0].x);
+      parRows.push(0);
+    } else {
+      const pack = packSmart([w], W, pad, gap, cx);
+      parXs.push(pack[0].x);
+      parRows.push(0);
+    }
+  });
+  const parAdd = canEdit
+    ? { x: clampX(cx, 48, W, pad), row: 0 }
+    : { x: cx, row: 0 };
   const parentXById = new Map(parentsSorted.map((p, i) => [p.id, parXs[i]]));
   const parentRowById = new Map(parentsSorted.map((p, i) => [p.id, parRows[i]]));
-  const parMaxRow = Math.max(0, ...parPack.map((p) => p.row));
+  const parMaxRow = 0;
 
-  // Grandparents: EACH group under its parent column
-  // Father-side → lean LEFT; Mother-side → lean RIGHT (use empty side space)
+  // Grandparents STRICT: father-side ONLY left half, mother-side ONLY right half
+  // Never share one full-width row (prevents cross-overlap)
   type GpPos = { n: Node; x: number; row: number; tilt: number };
   const gpPositions: GpPos[] = [];
+  const midX = W / 2;
+  const gutter = 14;
   if (grandparents.length) {
-    const byVia = new Map<string, Node[]>();
+    const fatherId = parentsSorted.find((p) => p.relation === "father")?.id;
+    const motherId = parentsSorted.find((p) => p.relation === "mother")?.id;
+
+    const fatherSide: Node[] = [];
+    const motherSide: Node[] = [];
     grandparents.forEach((g) => {
-      const k = g.via_parent_id || "_";
-      if (!byVia.has(k)) byVia.set(k, []);
-      byVia.get(k)!.push(g);
+      if (fatherId && g.via_parent_id === fatherId) fatherSide.push(g);
+      else if (motherId && g.via_parent_id === motherId) motherSide.push(g);
+      else if (fatherSide.length <= motherSide.length) fatherSide.push(g);
+      else motherSide.push(g);
     });
 
-    // Process father parent first (left), then mother (right)
-    const viaOrder = parentsSorted.map((p) => p.id);
-    const seen = new Set<string>();
-    const orderedVias: string[] = [];
-    viaOrder.forEach((id) => {
-      if (byVia.has(id)) {
-        orderedVias.push(id);
-        seen.add(id);
-      }
-    });
-    byVia.forEach((_, k) => {
-      if (!seen.has(k)) orderedVias.push(k);
-    });
-
-    orderedVias.forEach((via, vi) => {
-      const list = byVia.get(via) || [];
+    const placeSide = (list: Node[], side: "L" | "R") => {
+      if (!list.length) return;
       const sorted = [...list].sort((a, b) => {
         const ra = a.relation === "father" ? 0 : 1;
         const rb = b.relation === "father" ? 0 : 1;
         return ra - rb;
       });
-      const parent = parentsSorted.find((p) => p.id === via);
-      const parentX = parentXById.get(via) ?? cx;
-      // Lean: father column → left third; mother → right third; else parentX
-      let prefer = parentX;
-      if (parent?.relation === "father") {
-        prefer = Math.min(parentX, pad + (W - pad * 2) * 0.28);
-      } else if (parent?.relation === "mother") {
-        prefer = Math.max(parentX, pad + (W - pad * 2) * 0.72);
-      }
+      const gutter = 12;
+      const lo = side === "L" ? pad : midGate + gutter;
+      const hi = side === "L" ? midGate - gutter : W - pad;
+      const prefer = side === "L" ? (lo + hi) / 2 - 8 : (lo + hi) / 2 + 8;
       const widths = sorted.map((n) => nameW(n.display_name));
-      const pack = packSmart(widths, W, pad, gap, prefer);
+      const pack = packSmart(widths, W, pad, gap, prefer, lo, hi);
       sorted.forEach((n, i) => {
         gpPositions.push({
           n,
           x: pack[i].x,
           row: pack[i].row,
-          tilt: mildTilt(i, sorted.length) + (parent?.relation === "father" ? -2 : parent?.relation === "mother" ? 2 : 0),
+          tilt: mildTilt(i, sorted.length) + (side === "L" ? -3 : 3),
         });
       });
-    });
+    };
+
+    placeSide(fatherSide, "L");
+    placeSide(motherSide, "R");
   }
   const gpMaxRow = gpPositions.length
     ? Math.max(...gpPositions.map((g) => g.row))
     : -1;
 
-  const yGpBase = gpPositions.length ? 24 : -80;
-  const yPar =
-    gpPositions.length ? yGpBase + (gpMaxRow + 1) * subRowH + 24 : 32;
-  const yMid = yPar + parMaxRow * subRowH + 96;
-  const yChild = yMid + 100;
+  // Self = vertical visual centre: more top room for ancestors, balanced bottom
+  const yGpBase = gpPositions.length ? 20 : -80;
+  const gpBlockH = gpPositions.length ? (gpMaxRow + 1) * subRowH + 16 : 0;
+  const yPar = gpPositions.length ? yGpBase + gpBlockH + 20 : 28;
+  // Push self lower so it sits near vertical mid of the tree block
+  const yMid = yPar + parMaxRow * subRowH + 120;
+  const yChild = yMid + 110;
 
   const chWidths = children.map((c) => nameW(c.display_name));
   if (canEdit) chWidths.push(48);
