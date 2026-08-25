@@ -1,7 +1,6 @@
 "use client";
 /**
- * Vertical 2-way mind-map — no overlap, search registered members,
- * multi-gen, edit only owner or SA (left Edit toggle).
+ * Smart auto-layout mind-map: no overlap, full names, adaptive width + scroll.
  */
 import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
@@ -75,21 +74,50 @@ function lbl(lang: string, key: string, gender?: string | null) {
     if (gender === "female" || gender === "F") return L.daughter;
     if (gender === "male" || gender === "M") return L.son;
   }
-  if (key === "father" && false) return L.father;
   return L[key] || key;
+}
+
+/** Estimate tag width in px from name (full text, no truncate) */
+function estWidth(name: string) {
+  const len = Math.max((name || "?").length, 4);
+  // ~7.2px per char + padding; clamp
+  return Math.min(200, Math.max(72, Math.round(len * 7.4 + 28)));
+}
+
+function estHeight(name: string) {
+  const w = estWidth(name);
+  const lines = Math.ceil(((name || "").length * 7.4) / Math.max(w - 20, 40));
+  return 28 + Math.max(0, lines - 1) * 14 + 16; // tag + relation line
+}
+
+/** Pack centers so boxes [x-w/2, x+w/2] never overlap; keep order; center group */
+function packCenters(widths: number[], minGap = 12, preferCx?: number): number[] {
+  const n = widths.length;
+  if (n === 0) return [];
+  if (n === 1) return [preferCx ?? 0];
+
+  // sequential left-to-right with gaps
+  const xs: number[] = [];
+  let cursor = 0;
+  for (let i = 0; i < n; i++) {
+    const half = widths[i] / 2;
+    if (i === 0) {
+      xs.push(half);
+      cursor = widths[i] + minGap;
+    } else {
+      const x = cursor + half;
+      xs.push(x);
+      cursor = x + half + minGap;
+    }
+  }
+  const total = cursor - minGap;
+  const shift = (preferCx ?? total / 2) - total / 2;
+  return xs.map((x) => x + shift);
 }
 
 function curve(x1: number, y1: number, x2: number, y2: number) {
   const my = (y1 + y2) / 2;
   return `M${x1} ${y1} C${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`;
-}
-
-function slotXs(count: number, cx: number, gap = 88) {
-  if (count <= 0) return [] as number[];
-  if (count === 1) return [cx];
-  const span = gap * (count - 1);
-  const start = cx - span / 2;
-  return Array.from({ length: count }, (_, i) => start + i * gap);
 }
 
 function VanshawaliInner() {
@@ -108,7 +136,6 @@ function VanshawaliInner() {
   const [saEditMode, setSaEditMode] = useState(false);
   const [selected, setSelected] = useState<Node | null>(null);
 
-  // add form
   const [draft, setDraft] = useState<{
     relation: string;
     centre_person_id?: string;
@@ -234,48 +261,137 @@ function VanshawaliInner() {
     setHits([]);
   };
 
-  // Layout
-  const W = 400;
-  const parents = tree?.parents || [];
-  const spouses = tree?.spouses || [];
-  const children = tree?.children || [];
-  const grandparents = tree?.grandparents || [];
-  const grandchildren = tree?.grandchildren || [];
+  // ——— Smart layout ———
+  const layout = useMemo(() => {
+    if (!tree) return null;
+    const parents = tree.parents || [];
+    const spouses = tree.spouses || [];
+    const children = tree.children || [];
+    const grandparents = tree.grandparents || [];
+    const grandchildren = tree.grandchildren || [];
+    const addW = canEdit ? 56 : 0;
 
-  const nParentSlots = parents.length + (canEdit ? 1 : 0);
-  const nChildSlots = children.length + (canEdit ? 1 : 0);
-  const nGpSlots = grandparents.length;
-  const nGcSlots = grandchildren.length;
+    const gpItems = grandparents.map((n) => ({ n, w: estWidth(n.display_name), h: estHeight(n.display_name) }));
+    const parItems = [
+      ...parents.map((n) => ({ n, w: estWidth(n.display_name), h: estHeight(n.display_name), kind: "node" as const })),
+      ...(canEdit ? [{ n: null as Node | null, w: addW, h: 40, kind: "add" as const }] : []),
+    ];
+    const chItems = [
+      ...children.map((n) => ({ n, w: estWidth(n.display_name), h: estHeight(n.display_name) + (canEdit ? 22 : 0), kind: "node" as const })),
+      ...(canEdit ? [{ n: null as Node | null, w: addW, h: 40, kind: "add" as const }] : []),
+    ];
+    const gcItems = grandchildren.map((n) => ({
+      n,
+      w: estWidth(n.display_name),
+      h: estHeight(n.display_name),
+    }));
 
-  const gap = 118;
-  const cx = W / 2;
+    const centreW = estWidth(tree.centre.display_name) + (tree.centre.photo_url ? 28 : 0);
+    const spouseItems = [
+      ...spouses.map((n) => ({ n, w: estWidth(n.display_name), h: estHeight(n.display_name) })),
+      ...(canEdit && spouses.length < 2 ? [{ n: null as Node | null, w: 72, h: 36 }] : []),
+    ];
 
-  // Vertical bands (no overlap)
-  const yGp = 28;
-  const yPar = grandparents.length || canEdit ? 110 : 36;
-  const yMid = yPar + 100;
-  const yChild = yMid + 100;
-  const yGc = yChild + 95;
-  const H = (grandchildren.length ? yGc : yChild) + 90;
+    // Vertical bands from content height
+    const pad = 16;
+    let y = pad;
+    const yGp = gpItems.length ? y : -999;
+    if (gpItems.length) y += Math.max(...gpItems.map((i) => i.h), 40) + 28;
+    const yPar = y;
+    y += Math.max(...parItems.map((i) => i.h), 40) + 36;
+    const yMid = y + 8;
+    y += 52;
+    const yChild = y;
+    y += Math.max(...chItems.map((i) => i.h), 40) + 28;
+    const yGc = gcItems.length ? y : -999;
+    if (gcItems.length) y += Math.max(...gcItems.map((i) => i.h), 40) + 16;
+    const contentH = y + pad;
 
-  const gpXs = slotXs(Math.max(nGpSlots, 1), cx, gap);
-  const parXs = slotXs(Math.max(nParentSlots, 1), cx, gap);
-  const chXs = slotXs(Math.max(nChildSlots, 1), cx, gap);
-  const gcXs = slotXs(Math.max(nGcSlots, 1), cx, gap);
+    // Provisional center X = 0, pack then shift
+    const gpXs = packCenters(gpItems.map((i) => i.w), 14, 0);
+    const parXs = packCenters(parItems.map((i) => i.w), 14, 0);
+    const chXs = packCenters(chItems.map((i) => i.w), 14, 0);
+    const gcXs = packCenters(gcItems.map((i) => i.w), 14, 0);
+
+    // Spouse to the right of centre
+    let spouseStart = centreW / 2 + 28;
+    const spouseXs: number[] = [];
+    spouseItems.forEach((s, i) => {
+      spouseXs.push(spouseStart + s.w / 2);
+      spouseStart += s.w + 14;
+    });
+
+    const allX = [
+      ...gpXs,
+      ...parXs,
+      ...chXs,
+      ...gcXs,
+      0,
+      ...spouseXs,
+      ...gpItems.map((it, i) => gpXs[i] - it.w / 2),
+      ...gpItems.map((it, i) => gpXs[i] + it.w / 2),
+      ...parItems.map((it, i) => parXs[i] - it.w / 2),
+      ...parItems.map((it, i) => parXs[i] + it.w / 2),
+      ...chItems.map((it, i) => chXs[i] - it.w / 2),
+      ...chItems.map((it, i) => chXs[i] + it.w / 2),
+      ...gcItems.map((it, i) => gcXs[i] - it.w / 2),
+      ...gcItems.map((it, i) => gcXs[i] + it.w / 2),
+      -centreW / 2,
+      centreW / 2,
+      ...spouseItems.map((it, i) => spouseXs[i] + it.w / 2),
+    ];
+    const minX = Math.min(...allX, -80);
+    const maxX = Math.max(...allX, 80);
+    const margin = 24;
+    const W = maxX - minX + margin * 2;
+    const shift = -minX + margin;
+    const cx = shift; // centre at 0 + shift
+
+    const mapX = (x: number) => x + shift;
+
+    return {
+      W,
+      H: contentH,
+      cx,
+      yGp,
+      yPar,
+      yMid,
+      yChild,
+      yGc,
+      centreW,
+      gpItems,
+      parItems,
+      chItems,
+      gcItems,
+      spouseItems,
+      gpXs: gpXs.map(mapX),
+      parXs: parXs.map(mapX),
+      chXs: chXs.map(mapX),
+      gcXs: gcXs.map(mapX),
+      spouseXs: spouseXs.map(mapX),
+      parents,
+      children,
+      grandparents,
+      grandchildren,
+    };
+  }, [tree, canEdit]);
 
   const line = "#E8A317";
 
-  const Tag = ({
+  const TagBtn = ({
     n,
     extra,
+    style,
   }: {
     n: Node;
     extra?: string;
+    style: React.CSSProperties;
   }) => (
     <button
       type="button"
       onClick={() => setSelected(n)}
-      className="text-center max-w-[140px]"
+      className="absolute z-10 -translate-x-1/2 text-center"
+      style={style}
     >
       <span
         className={`inline-block px-2.5 py-1.5 rounded-lg shadow-sm text-[12px] font-semibold leading-snug text-center border break-words whitespace-normal ${
@@ -283,10 +399,11 @@ function VanshawaliInner() {
             ? "bg-amber-400 text-white border-amber-500"
             : "bg-white text-gray-800 border-amber-200"
         }`}
+        style={{ maxWidth: estWidth(n.display_name) }}
       >
         {n.display_name}
       </span>
-      <span className="block text-[9px] text-amber-800/80 mt-0.5 leading-tight">
+      <span className="block text-[9px] text-amber-800/80 mt-0.5 leading-tight whitespace-nowrap">
         {extra || lbl(lang, n.relation, n.gender)}
         {n.age != null ? ` · ${n.age}` : ""}
       </span>
@@ -295,7 +412,6 @@ function VanshawaliInner() {
 
   return (
     <div className="flex flex-col min-h-[70vh] bg-[#fafafa] relative">
-      {/* SA edit toggle — left corner */}
       {isSA && !isOwner && (
         <button
           type="button"
@@ -311,34 +427,35 @@ function VanshawaliInner() {
         </button>
       )}
 
-      <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+      <div className="px-4 pt-3 pb-1 flex items-center justify-between shrink-0">
         <p className="text-sm font-semibold text-gray-800 pl-14 sm:pl-0">
           {lang === "hi" ? "वंशावली" : "Vanshawali"}
         </p>
         <p className="text-[10px] text-gray-400">
-          {canEdit ? "Edit mode" : "View only"}
+          {canEdit ? "Edit · swipe if wide" : "View only · swipe if wide"}
         </p>
       </div>
 
       {loading && <p className="text-center text-gray-400 py-20">Loading…</p>}
 
-      {!loading && tree && (
-        <div className="flex-1 overflow-auto px-2 pb-36">
-          <div className="relative mx-auto" style={{ width: "100%", maxWidth: 420, height: H }}>
+      {!loading && tree && layout && (
+        <div className="flex-1 overflow-auto pb-36">
+          <div
+            className="relative mx-auto"
+            style={{ width: layout.W, height: layout.H, minWidth: "100%" }}
+          >
             <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              viewBox={`0 0 ${W} ${H}`}
-              preserveAspectRatio="xMidYMid meet"
+              className="absolute inset-0 pointer-events-none"
+              width={layout.W}
+              height={layout.H}
             >
-              {/* GP -> parents */}
-              {grandparents.map((g, i) => {
-                const gx = gpXs[i] ?? cx;
-                const pi = parents.findIndex((p) => p.id === g.via_parent_id);
-                const px = pi >= 0 ? parXs[pi] ?? cx : cx;
+              {layout.gpItems.map((it, i) => {
+                const pi = layout.parents.findIndex((p) => p.id === it.n.via_parent_id);
+                const px = pi >= 0 ? layout.parXs[pi] : layout.cx;
                 return (
                   <path
-                    key={`gpl-${g.id}`}
-                    d={curve(px, yPar - 8, gx, yGp + 20)}
+                    key={`gpl-${it.n.id}`}
+                    d={curve(px, layout.yPar - 4, layout.gpXs[i], layout.yGp + 20)}
                     fill="none"
                     stroke={line}
                     strokeWidth={2.2}
@@ -346,67 +463,72 @@ function VanshawaliInner() {
                   />
                 );
               })}
-              {/* parents -> centre */}
-              {parents.map((_, i) => (
-                <path
-                  key={`pl-${i}`}
-                  d={curve(cx, yMid - 18, parXs[i] ?? cx, yPar + 22)}
-                  fill="none"
-                  stroke={line}
-                  strokeWidth={2.4}
-                  strokeLinecap="round"
-                />
-              ))}
-              {canEdit && nParentSlots > parents.length && (
-                <path
-                  d={curve(cx, yMid - 18, parXs[parents.length] ?? cx, yPar + 22)}
-                  fill="none"
-                  stroke={line}
-                  strokeWidth={2}
-                  strokeDasharray="4 3"
-                  opacity={0.5}
-                />
-              )}
-              {/* spouse */}
-              {spouses.map((_, i) => (
+              {layout.parItems.map((it, i) => {
+                if (it.kind === "add") {
+                  return (
+                    <path
+                      key="par-add-line"
+                      d={curve(layout.cx, layout.yMid - 16, layout.parXs[i], layout.yPar + 12)}
+                      fill="none"
+                      stroke={line}
+                      strokeWidth={2}
+                      strokeDasharray="4 3"
+                      opacity={0.45}
+                    />
+                  );
+                }
+                return (
+                  <path
+                    key={`pl-${it.n!.id}`}
+                    d={curve(layout.cx, layout.yMid - 16, layout.parXs[i], layout.yPar + 12)}
+                    fill="none"
+                    stroke={line}
+                    strokeWidth={2.4}
+                    strokeLinecap="round"
+                  />
+                );
+              })}
+              {layout.spouseItems.map((it, i) => (
                 <path
                   key={`sl-${i}`}
-                  d={`M${cx + 36} ${yMid} C${cx + 60} ${yMid - 10}, ${cx + 90} ${yMid + 10}, ${cx + 108 + i * 8} ${yMid}`}
+                  d={`M${layout.cx + layout.centreW / 2} ${layout.yMid} C${layout.cx + layout.centreW / 2 + 20} ${layout.yMid - 8}, ${layout.spouseXs[i] - 20} ${layout.yMid + 8}, ${layout.spouseXs[i] - it.w / 2} ${layout.yMid}`}
                   fill="none"
                   stroke={line}
                   strokeWidth={2.2}
                 />
               ))}
-              {/* centre -> children */}
-              {children.map((_, i) => (
-                <path
-                  key={`cl-${i}`}
-                  d={curve(cx, yMid + 18, chXs[i] ?? cx, yChild - 6)}
-                  fill="none"
-                  stroke={line}
-                  strokeWidth={2.4}
-                  strokeLinecap="round"
-                />
-              ))}
-              {canEdit && nChildSlots > children.length && (
-                <path
-                  d={curve(cx, yMid + 18, chXs[children.length] ?? cx, yChild - 6)}
-                  fill="none"
-                  stroke={line}
-                  strokeWidth={2}
-                  strokeDasharray="4 3"
-                  opacity={0.5}
-                />
-              )}
-              {/* children -> grandchildren */}
-              {grandchildren.map((g, i) => {
-                const gx = gcXs[i] ?? cx;
-                const ci = children.findIndex((c) => c.id === g.via_child_id);
-                const px = ci >= 0 ? chXs[ci] ?? cx : cx;
+              {layout.chItems.map((it, i) => {
+                if (it.kind === "add") {
+                  return (
+                    <path
+                      key="ch-add-line"
+                      d={curve(layout.cx, layout.yMid + 16, layout.chXs[i], layout.yChild - 4)}
+                      fill="none"
+                      stroke={line}
+                      strokeWidth={2}
+                      strokeDasharray="4 3"
+                      opacity={0.45}
+                    />
+                  );
+                }
                 return (
                   <path
-                    key={`gcl-${g.id}`}
-                    d={curve(px, yChild + 22, gx, yGc - 6)}
+                    key={`cl-${it.n!.id}`}
+                    d={curve(layout.cx, layout.yMid + 16, layout.chXs[i], layout.yChild - 4)}
+                    fill="none"
+                    stroke={line}
+                    strokeWidth={2.4}
+                    strokeLinecap="round"
+                  />
+                );
+              })}
+              {layout.gcItems.map((it, i) => {
+                const ci = layout.children.findIndex((c) => c.id === it.n.via_child_id);
+                const px = ci >= 0 ? layout.chXs[ci] : layout.cx;
+                return (
+                  <path
+                    key={`gcl-${it.n.id}`}
+                    d={curve(px, layout.yChild + 24, layout.gcXs[i], layout.yGc - 4)}
                     fill="none"
                     stroke={line}
                     strokeWidth={2}
@@ -416,157 +538,154 @@ function VanshawaliInner() {
               })}
             </svg>
 
-            {/* Grandparents row */}
-            {grandparents.map((n, i) => (
-              <div
-                key={n.id}
-                className="absolute -translate-x-1/2 z-10"
-                style={{ left: `${((gpXs[i] ?? cx) / W) * 100}%`, top: yGp - 4 }}
-              >
-                <Tag
-                  n={n}
-                  extra={
-                    n.relation === "mother" ? L.grandmother || "Grandmother" : L.grandfather || "Grandfather"
-                  }
-                />
-              </div>
+            {/* GP */}
+            {layout.gpItems.map((it, i) => (
+              <TagBtn
+                key={it.n.id}
+                n={it.n}
+                extra={
+                  it.n.relation === "mother"
+                    ? L.grandmother || "Grandmother"
+                    : L.grandfather || "Grandfather"
+                }
+                style={{ left: layout.gpXs[i], top: layout.yGp }}
+              />
             ))}
 
             {/* Parents */}
-            {parents.map((n, i) => (
-              <div
-                key={n.id}
-                className="absolute -translate-x-1/2 z-10"
-                style={{ left: `${((parXs[i] ?? cx) / W) * 100}%`, top: yPar - 4 }}
-              >
-                <Tag n={n} />
-                {canEdit && (
-                  <button
-                    type="button"
-                    className="mt-0.5 mx-auto flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-700 text-[9px]"
-                    title="Add grandparent"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openAdd("father", n.id);
-                    }}
-                  >
-                    <Plus size={10} />
-                  </button>
-                )}
-              </div>
-            ))}
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() =>
-                  openAdd(parents.some((p) => p.relation === "father") ? "mother" : "father")
-                }
-                className="absolute z-10 -translate-x-1/2 flex items-center gap-0.5"
-                style={{
-                  left: `${((parXs[parents.length] ?? cx) / W) * 100}%`,
-                  top: yPar + 4,
-                }}
-              >
-                <span className="text-[10px] text-gray-400 border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded">
-                  +
-                </span>
-              </button>
+            {layout.parItems.map((it, i) =>
+              it.kind === "add" ? (
+                <button
+                  key="par-add"
+                  type="button"
+                  onClick={() =>
+                    openAdd(
+                      (tree.parents || []).some((p) => p.relation === "father")
+                        ? "mother"
+                        : "father"
+                    )
+                  }
+                  className="absolute z-10 -translate-x-1/2"
+                  style={{ left: layout.parXs[i], top: layout.yPar + 4 }}
+                >
+                  <span className="inline-flex items-center gap-0.5 text-[11px] border border-dashed border-amber-300 bg-amber-50 px-2 py-1 rounded-lg text-gray-500">
+                    <Plus size={12} /> Parent
+                  </span>
+                </button>
+              ) : (
+                <div key={it.n!.id}>
+                  <TagBtn n={it.n!} style={{ left: layout.parXs[i], top: layout.yPar }} />
+                  {canEdit && (
+                    <button
+                      type="button"
+                      className="absolute z-10 w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center -translate-x-1/2"
+                      style={{
+                        left: layout.parXs[i],
+                        top: layout.yPar + it.h - 6,
+                      }}
+                      title="Grandparent"
+                      onClick={() => openAdd("father", it.n!.id)}
+                    >
+                      <Plus size={10} />
+                    </button>
+                  )}
+                </div>
+              )
             )}
 
             {/* Centre */}
-            <div
-              className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
-              style={{ left: "50%", top: yMid }}
+            <button
+              type="button"
+              onClick={() => setSelected(tree.centre)}
+              className="absolute z-20 -translate-x-1/2 -translate-y-1/2 text-center"
+              style={{ left: layout.cx, top: layout.yMid }}
             >
-              <button type="button" onClick={() => setSelected(tree.centre)} className="text-center">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 text-white text-[13px] font-bold shadow-md max-w-[180px]">
-                  {tree.centre.photo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={tree.centre.photo_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
-                  ) : null}
-                  <span className="text-left leading-snug break-words whitespace-normal">{tree.centre.display_name}</span>
-                </span>
-                <span className="block text-[9px] text-emerald-600 font-medium mt-0.5">{L.self}</span>
-              </button>
-            </div>
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 text-white text-[13px] font-bold shadow-md leading-snug text-left"
+                style={{ maxWidth: layout.centreW + 8 }}
+              >
+                {tree.centre.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={tree.centre.photo_url}
+                    alt=""
+                    className="w-6 h-6 rounded-full object-cover shrink-0"
+                  />
+                ) : null}
+                <span className="break-words whitespace-normal">{tree.centre.display_name}</span>
+              </span>
+              <span className="block text-[9px] text-emerald-600 font-medium mt-0.5">{L.self}</span>
+            </button>
 
-            {/* Spouse */}
-            {spouses.map((n, i) => (
-              <div
-                key={n.id}
-                className="absolute z-10 -translate-y-1/2"
-                style={{ left: `${((cx + 100 + i * 8) / W) * 100}%`, top: yMid }}
-              >
-                <Tag n={n} extra={L.spouse} />
-              </div>
-            ))}
-            {canEdit && spouses.length < 2 && (
-              <button
-                type="button"
-                onClick={() => openAdd("spouse")}
-                className="absolute z-10 -translate-y-1/2"
-                style={{ left: `${((cx + 100) / W) * 100}%`, top: yMid }}
-              >
-                <span className="text-[10px] border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded text-gray-500">
-                  + {L.spouse}
-                </span>
-              </button>
+            {/* Spouses */}
+            {layout.spouseItems.map((it, i) =>
+              it.n ? (
+                <TagBtn
+                  key={it.n.id}
+                  n={it.n}
+                  extra={L.spouse}
+                  style={{ left: layout.spouseXs[i], top: layout.yMid - 18 }}
+                />
+              ) : (
+                <button
+                  key="sp-add"
+                  type="button"
+                  onClick={() => openAdd("spouse")}
+                  className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
+                  style={{ left: layout.spouseXs[i], top: layout.yMid }}
+                >
+                  <span className="text-[11px] border border-dashed border-amber-300 bg-amber-50 px-2 py-1 rounded-lg text-gray-500">
+                    + {L.spouse}
+                  </span>
+                </button>
+              )
             )}
 
             {/* Children */}
-            {children.map((n, i) => (
-              <div
-                key={n.id}
-                className="absolute -translate-x-1/2 z-10"
-                style={{ left: `${((chXs[i] ?? cx) / W) * 100}%`, top: yChild - 4 }}
-              >
-                <Tag n={n} />
-                {canEdit && (
-                  <button
-                    type="button"
-                    className="mt-0.5 mx-auto flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-700"
-                    title="Add grandchild"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openAdd("child", n.id);
-                    }}
-                  >
-                    <Plus size={10} />
-                  </button>
-                )}
-              </div>
-            ))}
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => openAdd("child")}
-                className="absolute z-10 -translate-x-1/2"
-                style={{
-                  left: `${((chXs[children.length] ?? cx) / W) * 100}%`,
-                  top: yChild + 4,
-                }}
-              >
-                <span className="text-[10px] border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded text-gray-500">
-                  + {L.child}
-                </span>
-              </button>
+            {layout.chItems.map((it, i) =>
+              it.kind === "add" ? (
+                <button
+                  key="ch-add"
+                  type="button"
+                  onClick={() => openAdd("child")}
+                  className="absolute z-10 -translate-x-1/2"
+                  style={{ left: layout.chXs[i], top: layout.yChild + 4 }}
+                >
+                  <span className="inline-flex items-center gap-0.5 text-[11px] border border-dashed border-amber-300 bg-amber-50 px-2 py-1 rounded-lg text-gray-500">
+                    <Plus size={12} /> {L.child}
+                  </span>
+                </button>
+              ) : (
+                <div key={it.n!.id}>
+                  <TagBtn n={it.n!} style={{ left: layout.chXs[i], top: layout.yChild }} />
+                  {canEdit && (
+                    <button
+                      type="button"
+                      className="absolute z-10 w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center -translate-x-1/2"
+                      style={{ left: layout.chXs[i], top: layout.yChild + it.h - 8 }}
+                      onClick={() => openAdd("child", it.n!.id)}
+                    >
+                      <Plus size={10} />
+                    </button>
+                  )}
+                </div>
+              )
             )}
 
             {/* Grandchildren */}
-            {grandchildren.map((n, i) => (
-              <div
-                key={n.id}
-                className="absolute -translate-x-1/2 z-10"
-                style={{ left: `${((gcXs[i] ?? cx) / W) * 100}%`, top: yGc - 4 }}
-              >
-                <Tag n={n} extra={L.grandchild || "Grandchild"} />
-              </div>
+            {layout.gcItems.map((it, i) => (
+              <TagBtn
+                key={it.n.id}
+                n={it.n}
+                extra={L.grandchild || "Grandchild"}
+                style={{ left: layout.gcXs[i], top: layout.yGc }}
+              />
             ))}
           </div>
         </div>
       )}
 
-      {/* ADD sheet with search */}
+      {/* ADD sheet */}
       {draft && canEdit && (
         <div
           className="fixed inset-0 z-50 bg-black/30 flex items-end sm:items-center justify-center"
@@ -584,13 +703,12 @@ function VanshawaliInner() {
                 <X size={18} className="text-gray-400" />
               </button>
             </div>
-
             <div>
               <label className="text-[11px] font-medium text-gray-500 mb-1 block">
-                {lang === "hi" ? "रिश्ता (Relationship)" : "Relationship"}
+                {lang === "hi" ? "रिश्ता" : "Relationship"}
               </label>
               <select
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:border-amber-400"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
                 value={draft.relation}
                 onChange={(e) => setDraft({ ...draft, relation: e.target.value })}
               >
@@ -600,12 +718,11 @@ function VanshawaliInner() {
                 <option value="child">{L.child}</option>
               </select>
             </div>
-
             <div className="relative">
               <Search size={14} className="absolute left-3 top-3 text-gray-400" />
               <input
                 className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50 outline-none focus:border-amber-400"
-                placeholder={lang === "hi" ? "Member search (app)…" : "Search registered member…"}
+                placeholder={lang === "hi" ? "Member search…" : "Search registered member…"}
                 value={q}
                 onChange={(e) => {
                   setQ(e.target.value);
@@ -615,49 +732,41 @@ function VanshawaliInner() {
             </div>
             {searching && <p className="text-[10px] text-gray-400">Searching…</p>}
             {hits.length > 0 && (
-              <ul className="max-h-36 overflow-y-auto rounded-xl border border-gray-100 divide-y">
+              <ul className="max-h-36 overflow-y-auto rounded-xl border divide-y">
                 {hits.map((h) => (
                   <li key={h.id}>
                     <button
                       type="button"
-                      className={`w-full text-left px-3 py-2 text-sm hover:bg-amber-50 flex items-center gap-2 ${
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-amber-50 ${
                         draft.member_user_id === h.id ? "bg-amber-50" : ""
                       }`}
                       onClick={() => {
-                        setDraft({
-                          ...draft,
-                          member_user_id: h.id,
-                          name: h.full_name,
-                        });
+                        setDraft({ ...draft, member_user_id: h.id, name: h.full_name });
                         setQ(h.full_name);
                         setHits([]);
                       }}
                     >
-                      <span className="font-medium truncate">{h.full_name}</span>
+                      <span className="font-medium">{h.full_name}</span>
                       {h.native_village && (
-                        <span className="text-[10px] text-gray-400 truncate">{h.native_village}</span>
+                        <span className="text-[10px] text-gray-400 ml-2">{h.native_village}</span>
                       )}
                     </button>
                   </li>
                 ))}
               </ul>
             )}
-
             {!draft.member_user_id && (
               <>
-                <p className="text-[10px] text-gray-400">
-                  {lang === "hi"
-                    ? "App mein nahi? Neeche name / age bharo"
-                    : "Not registered? Fill name & year below"}
-                </p>
                 <input
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm"
-                  placeholder={lang === "hi" ? "नाम" : "Name"}
+                  className="w-full px-3 py-2.5 rounded-xl border text-sm"
+                  placeholder={lang === "hi" ? "नाम (full)" : "Full name"}
                   value={draft.name}
-                  onChange={(e) => setDraft({ ...draft, name: e.target.value, member_user_id: null })}
+                  onChange={(e) =>
+                    setDraft({ ...draft, name: e.target.value, member_user_id: null })
+                  }
                 />
                 <input
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm"
+                  className="w-full px-3 py-2.5 rounded-xl border text-sm"
                   placeholder="Birth year (optional)"
                   inputMode="numeric"
                   value={draft.birth_year}
@@ -670,13 +779,11 @@ function VanshawaliInner() {
                 />
               </>
             )}
-
             {draft.member_user_id && (
               <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-2 py-1.5">
-                ✓ Linked member — profile fetch / clickable tag
+                ✓ Linked member
               </p>
             )}
-
             <button
               type="button"
               disabled={saving}
@@ -689,7 +796,6 @@ function VanshawaliInner() {
         </div>
       )}
 
-      {/* Node actions */}
       {selected && (
         <div
           className="fixed inset-0 z-50 bg-black/25 flex items-end sm:items-center justify-center"
@@ -699,7 +805,7 @@ function VanshawaliInner() {
             className="w-full max-w-sm mx-3 mb-8 bg-white rounded-3xl p-4 shadow-2xl space-y-1"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="font-bold text-gray-900">{selected.display_name}</p>
+            <p className="font-bold text-gray-900 break-words">{selected.display_name}</p>
             <p className="text-xs text-gray-500 mb-2">
               {lbl(lang, selected.relation, selected.gender)}
               {selected.age != null ? ` · ${selected.age} yrs` : ""}
@@ -725,7 +831,7 @@ function VanshawaliInner() {
                     setSelected(null);
                   }}
                 >
-                  <User size={16} className="text-amber-500" /> Profile / info
+                  <User size={16} className="text-amber-500" /> Profile
                 </button>
               </>
             )}
@@ -738,7 +844,11 @@ function VanshawaliInner() {
                 <Trash2 size={16} /> Remove
               </button>
             )}
-            <button type="button" className="w-full py-2 text-sm text-gray-400" onClick={() => setSelected(null)}>
+            <button
+              type="button"
+              className="w-full py-2 text-sm text-gray-400"
+              onClick={() => setSelected(null)}
+            >
               Close
             </button>
           </div>
