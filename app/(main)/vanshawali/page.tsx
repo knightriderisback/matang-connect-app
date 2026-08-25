@@ -1,9 +1,10 @@
 "use client";
 /**
- * Smart auto-layout mind-map: no overlap, full names, adaptive width + scroll.
+ * Mind-map canvas: generation-coloured bubbles, infinite up/down,
+ * vertical scroll only, single-line names, smart non-overlap packing.
  */
 import { FeatureGate } from "@/components/shared/FeatureGate";
-import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
+import { useCallback, useEffect, useMemo, useState, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
@@ -21,25 +22,21 @@ type Node = {
   relation: string;
   status?: string;
   link_id?: string;
-  via_parent_id?: string;
-  via_child_id?: string;
+  via_id?: string;
 };
 
 type Tree = {
   centre: Node;
-  parents: Node[];
   spouses: Node[];
-  children: Node[];
+  parents?: Node[];
+  children?: Node[];
   grandparents?: Node[];
   grandchildren?: Node[];
+  levels_up?: Node[][];
+  levels_down?: Node[][];
 };
 
-type SearchHit = {
-  id: string;
-  full_name: string;
-  native_village?: string;
-  photo_url?: string;
-};
+type SearchHit = { id: string; full_name: string; native_village?: string };
 
 const REL: Record<string, Record<string, string>> = {
   en: {
@@ -50,9 +47,6 @@ const REL: Record<string, Record<string, string>> = {
     child: "Child",
     son: "Son",
     daughter: "Daughter",
-    grandfather: "Grandfather",
-    grandmother: "Grandmother",
-    grandchild: "Grandchild",
   },
   hi: {
     self: "स्वयं",
@@ -62,11 +56,26 @@ const REL: Record<string, Record<string, string>> = {
     child: "संतान",
     son: "पुत्र",
     daughter: "पुत्री",
-    grandfather: "दादा/नाना",
-    grandmother: "दादी/नानी",
-    grandchild: "पोता/पोती",
   },
 };
+
+/** Soft generation bubble fills (tag only) */
+const BUBBLE_UP = [
+  { bg: "rgba(167,139,250,0.55)", border: "rgba(139,92,246,0.5)", text: "#4c1d95" },
+  { bg: "rgba(96,165,250,0.5)", border: "rgba(59,130,246,0.45)", text: "#1e3a8a" },
+  { bg: "rgba(45,212,191,0.45)", border: "rgba(20,184,166,0.45)", text: "#134e4a" },
+  { bg: "rgba(251,191,36,0.4)", border: "rgba(245,158,11,0.45)", text: "#78350f" },
+  { bg: "rgba(251,113,133,0.4)", border: "rgba(244,63,94,0.4)", text: "#881337" },
+];
+const BUBBLE_DOWN = [
+  { bg: "rgba(52,211,153,0.5)", border: "rgba(16,185,129,0.45)", text: "#064e3b" },
+  { bg: "rgba(251,146,60,0.48)", border: "rgba(249,115,22,0.45)", text: "#7c2d12" },
+  { bg: "rgba(244,114,182,0.45)", border: "rgba(236,72,153,0.4)", text: "#831843" },
+  { bg: "rgba(129,140,248,0.45)", border: "rgba(99,102,241,0.4)", text: "#312e81" },
+  { bg: "rgba(56,189,248,0.45)", border: "rgba(14,165,233,0.4)", text: "#0c4a6e" },
+];
+const BUBBLE_SELF = { bg: "rgba(251,191,36,0.95)", border: "rgba(217,119,6,0.6)", text: "#fff" };
+const BUBBLE_MANUAL = { bg: "rgba(255,255,255,0.92)", border: "rgba(201,162,39,0.45)", text: "#1f2937" };
 
 function lbl(lang: string, key: string, gender?: string | null) {
   const L = REL[lang] || REL.en;
@@ -77,47 +86,48 @@ function lbl(lang: string, key: string, gender?: string | null) {
   return L[key] || key;
 }
 
-/** Estimate tag width in px from name (full text, no truncate) */
-function estWidth(name: string) {
-  const len = Math.max((name || "?").length, 4);
-  // ~7.2px per char + padding; clamp
-  return Math.min(200, Math.max(72, Math.round(len * 7.4 + 28)));
-}
-
-function estHeight(name: string) {
-  const w = estWidth(name);
-  const lines = Math.ceil(((name || "").length * 7.4) / Math.max(w - 20, 40));
-  return 28 + Math.max(0, lines - 1) * 14 + 16; // tag + relation line
-}
-
-/** Pack centers so boxes [x-w/2, x+w/2] never overlap; keep order; center group */
-function packCenters(widths: number[], minGap = 12, preferCx?: number): number[] {
-  const n = widths.length;
-  if (n === 0) return [];
-  if (n === 1) return [preferCx ?? 0];
-
-  // sequential left-to-right with gaps
-  const xs: number[] = [];
-  let cursor = 0;
-  for (let i = 0; i < n; i++) {
-    const half = widths[i] / 2;
-    if (i === 0) {
-      xs.push(half);
-      cursor = widths[i] + minGap;
-    } else {
-      const x = cursor + half;
-      xs.push(x);
-      cursor = x + half + minGap;
-    }
-  }
-  const total = cursor - minGap;
-  const shift = (preferCx ?? total / 2) - total / 2;
-  return xs.map((x) => x + shift);
+function nameWidth(name: string, max = 160) {
+  const len = Math.max((name || "?").length, 3);
+  return Math.min(max, Math.max(56, Math.round(len * 7.6 + 24)));
 }
 
 function curve(x1: number, y1: number, x2: number, y2: number) {
   const my = (y1 + y2) / 2;
   return `M${x1} ${y1} C${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`;
+}
+
+/** Pack items into rows within maxW — overflow goes to next row (vertical adjust) */
+function packRows(
+  widths: number[],
+  maxW: number,
+  gap = 10
+): { x: number; row: number; w: number }[] {
+  const out: { x: number; row: number; w: number }[] = [];
+  let row = 0;
+  let x = 0;
+  let rowW = 0;
+  const rowItems: number[][] = [[]];
+
+  widths.forEach((w, i) => {
+    if (rowW > 0 && rowW + gap + w > maxW) {
+      row++;
+      rowItems.push([]);
+      rowW = 0;
+    }
+    rowItems[row].push(i);
+    rowW += (rowW > 0 ? gap : 0) + w;
+  });
+
+  rowItems.forEach((idxs, r) => {
+    const total = idxs.reduce((s, i) => s + widths[i], 0) + gap * Math.max(0, idxs.length - 1);
+    let cursor = (maxW - total) / 2;
+    idxs.forEach((i) => {
+      const w = widths[i];
+      out[i] = { x: cursor + w / 2, row: r, w };
+      cursor += w + gap;
+    });
+  });
+  return out;
 }
 
 function VanshawaliInner() {
@@ -127,6 +137,8 @@ function VanshawaliInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rootId = searchParams.get("user") || user?.id || "";
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [vw, setVw] = useState(360);
 
   const [tree, setTree] = useState<Tree | null>(null);
   const [loading, setLoading] = useState(true);
@@ -135,7 +147,6 @@ function VanshawaliInner() {
   const [isOwner, setIsOwner] = useState(false);
   const [saEditMode, setSaEditMode] = useState(false);
   const [selected, setSelected] = useState<Node | null>(null);
-
   const [draft, setDraft] = useState<{
     relation: string;
     centre_person_id?: string;
@@ -150,6 +161,15 @@ function VanshawaliInner() {
 
   const L = useMemo(() => REL[lang] || REL.en, [lang]);
   const canEdit = apiCanEdit && (isOwner || (isSA && saEditMode));
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setVw(Math.max(300, el.clientWidth - 8)));
+    ro.observe(el);
+    setVw(Math.max(300, el.clientWidth - 8));
+    return () => ro.disconnect();
+  }, [tree]);
 
   const load = useCallback(() => {
     if (!rootId) return;
@@ -261,154 +281,191 @@ function VanshawaliInner() {
     setHits([]);
   };
 
-  // ——— Smart layout ———
+  const levelsUp = tree?.levels_up || [];
+  const levelsDown = tree?.levels_down || [];
+
   const layout = useMemo(() => {
     if (!tree) return null;
-    const parents = tree.parents || [];
-    const spouses = tree.spouses || [];
-    const children = tree.children || [];
-    const grandparents = tree.grandparents || [];
-    const grandchildren = tree.grandchildren || [];
-    const addW = canEdit ? 56 : 0;
+    const maxW = vw;
+    const cx = maxW / 2;
+    const rowH = 58;
+    const subRowH = 52;
+    const gapY = 28;
 
-    const gpItems = grandparents.map((n) => ({ n, w: estWidth(n.display_name), h: estHeight(n.display_name) }));
-    const parItems = [
-      ...parents.map((n) => ({ n, w: estWidth(n.display_name), h: estHeight(n.display_name), kind: "node" as const })),
-      ...(canEdit ? [{ n: null as Node | null, w: addW, h: 40, kind: "add" as const }] : []),
-    ];
-    const chItems = [
-      ...children.map((n) => ({ n, w: estWidth(n.display_name), h: estHeight(n.display_name) + (canEdit ? 22 : 0), kind: "node" as const })),
-      ...(canEdit ? [{ n: null as Node | null, w: addW, h: 40, kind: "add" as const }] : []),
-    ];
-    const gcItems = grandchildren.map((n) => ({
-      n,
-      w: estWidth(n.display_name),
-      h: estHeight(n.display_name),
-    }));
+    type Placed = {
+      n: Node | null;
+      x: number;
+      y: number;
+      w: number;
+      kind: "node" | "add";
+      gen: number; // negative up, 0 self, positive down
+      style: typeof BUBBLE_SELF;
+    };
 
-    const centreW = estWidth(tree.centre.display_name) + (tree.centre.photo_url ? 28 : 0);
-    const spouseItems = [
-      ...spouses.map((n) => ({ n, w: estWidth(n.display_name), h: estHeight(n.display_name) })),
-      ...(canEdit && spouses.length < 2 ? [{ n: null as Node | null, w: 72, h: 36 }] : []),
-    ];
+    const placed: Placed[] = [];
+    let y = 16;
 
-    // Vertical bands from content height
-    const pad = 16;
-    let y = pad;
-    const yGp = gpItems.length ? y : -999;
-    if (gpItems.length) y += Math.max(...gpItems.map((i) => i.h), 40) + 28;
-    const yPar = y;
-    y += Math.max(...parItems.map((i) => i.h), 40) + 36;
-    const yMid = y + 8;
-    y += 52;
-    const yChild = y;
-    y += Math.max(...chItems.map((i) => i.h), 40) + 28;
-    const yGc = gcItems.length ? y : -999;
-    if (gcItems.length) y += Math.max(...gcItems.map((i) => i.h), 40) + 16;
-    const contentH = y + pad;
+    // UP levels farthest first
+    for (let d = levelsUp.length - 1; d >= 0; d--) {
+      const level = levelsUp[d];
+      const items = level.map((n) => ({ n, w: nameWidth(n.display_name), kind: "node" as const }));
+      if (canEdit && d === 0) items.push({ n: null as any, w: 52, kind: "add" });
+      const widths = items.map((i) => i.w);
+      const pack = packRows(widths, maxW - 16, 10);
+      const maxRow = Math.max(0, ...pack.map((p) => p.row));
+      items.forEach((it, i) => {
+        const p = pack[i];
+        placed.push({
+          n: it.n,
+          x: p.x + 8,
+          y: y + p.row * subRowH,
+          w: it.w,
+          kind: it.kind,
+          gen: -(d + 1),
+          style: it.n?.user_id
+            ? BUBBLE_UP[d % BUBBLE_UP.length]
+            : it.n
+              ? BUBBLE_MANUAL
+              : BUBBLE_MANUAL,
+        });
+      });
+      y += (maxRow + 1) * subRowH + gapY;
+    }
 
-    // Provisional center X = 0, pack then shift
-    const gpXs = packCenters(gpItems.map((i) => i.w), 14, 0);
-    const parXs = packCenters(parItems.map((i) => i.w), 14, 0);
-    const chXs = packCenters(chItems.map((i) => i.w), 14, 0);
-    const gcXs = packCenters(gcItems.map((i) => i.w), 14, 0);
+    if (canEdit && levelsUp.length === 0) {
+      placed.push({
+        n: null,
+        x: cx,
+        y,
+        w: 72,
+        kind: "add",
+        gen: -1,
+        style: BUBBLE_MANUAL,
+      });
+      y += subRowH + gapY;
+    }
 
-    // Spouse to the right of centre
-    let spouseStart = centreW / 2 + 28;
-    const spouseXs: number[] = [];
-    spouseItems.forEach((s, i) => {
-      spouseXs.push(spouseStart + s.w / 2);
-      spouseStart += s.w + 14;
+    const yMid = y + 10;
+    // centre
+    const centreW = nameWidth(tree.centre.display_name, 180) + (tree.centre.photo_url ? 28 : 0);
+    placed.push({
+      n: tree.centre,
+      x: cx,
+      y: yMid,
+      w: centreW,
+      kind: "node",
+      gen: 0,
+      style: BUBBLE_SELF,
     });
 
-    const allX = [
-      ...gpXs,
-      ...parXs,
-      ...chXs,
-      ...gcXs,
-      0,
-      ...spouseXs,
-      ...gpItems.map((it, i) => gpXs[i] - it.w / 2),
-      ...gpItems.map((it, i) => gpXs[i] + it.w / 2),
-      ...parItems.map((it, i) => parXs[i] - it.w / 2),
-      ...parItems.map((it, i) => parXs[i] + it.w / 2),
-      ...chItems.map((it, i) => chXs[i] - it.w / 2),
-      ...chItems.map((it, i) => chXs[i] + it.w / 2),
-      ...gcItems.map((it, i) => gcXs[i] - it.w / 2),
-      ...gcItems.map((it, i) => gcXs[i] + it.w / 2),
-      -centreW / 2,
-      centreW / 2,
-      ...spouseItems.map((it, i) => spouseXs[i] + it.w / 2),
-    ];
-    const minX = Math.min(...allX, -80);
-    const maxX = Math.max(...allX, 80);
-    const margin = 24;
-    const W = maxX - minX + margin * 2;
-    const shift = -minX + margin;
-    const cx = shift; // centre at 0 + shift
+    // spouses right of centre — if overflow, place below centre slightly
+    let spX = cx + centreW / 2 + 16;
+    (tree.spouses || []).forEach((n, i) => {
+      const w = nameWidth(n.display_name);
+      let x = spX + w / 2;
+      let yy = yMid;
+      if (x + w / 2 > maxW - 8) {
+        yy = yMid + subRowH;
+        x = cx + (i + 1) * 20;
+      }
+      placed.push({
+        n,
+        x,
+        y: yy,
+        w,
+        kind: "node",
+        gen: 0,
+        style: n.user_id ? BUBBLE_UP[0] : BUBBLE_MANUAL,
+      });
+      spX = x + w / 2 + 12;
+    });
+    if (canEdit && (tree.spouses || []).length < 2) {
+      placed.push({
+        n: null,
+        x: Math.min(spX + 30, maxW - 40),
+        y: yMid,
+        w: 64,
+        kind: "add",
+        gen: 0,
+        style: BUBBLE_MANUAL,
+      });
+    }
 
-    const mapX = (x: number) => x + shift;
+    y = yMid + rowH + gapY;
 
-    return {
-      W,
-      H: contentH,
-      cx,
-      yGp,
-      yPar,
-      yMid,
-      yChild,
-      yGc,
-      centreW,
-      gpItems,
-      parItems,
-      chItems,
-      gcItems,
-      spouseItems,
-      gpXs: gpXs.map(mapX),
-      parXs: parXs.map(mapX),
-      chXs: chXs.map(mapX),
-      gcXs: gcXs.map(mapX),
-      spouseXs: spouseXs.map(mapX),
-      parents,
-      children,
-      grandparents,
-      grandchildren,
-    };
-  }, [tree, canEdit]);
+    // DOWN levels
+    for (let d = 0; d < levelsDown.length; d++) {
+      const level = levelsDown[d];
+      const items = level.map((n) => ({ n, w: nameWidth(n.display_name), kind: "node" as const }));
+      if (canEdit) items.push({ n: null as any, w: 52, kind: "add" });
+      const widths = items.map((i) => i.w);
+      const pack = packRows(widths, maxW - 16, 10);
+      const maxRow = Math.max(0, ...pack.map((p) => p.row));
+      items.forEach((it, i) => {
+        const p = pack[i];
+        placed.push({
+          n: it.n,
+          x: p.x + 8,
+          y: y + p.row * subRowH,
+          w: it.w,
+          kind: it.kind,
+          gen: d + 1,
+          style: it.n?.user_id
+            ? BUBBLE_DOWN[d % BUBBLE_DOWN.length]
+            : it.n
+              ? BUBBLE_MANUAL
+              : BUBBLE_MANUAL,
+        });
+      });
+      y += (maxRow + 1) * subRowH + gapY;
+    }
 
-  const line = "#E8A317";
+    if (canEdit && levelsDown.length === 0) {
+      placed.push({
+        n: null,
+        x: cx,
+        y,
+        w: 64,
+        kind: "add",
+        gen: 1,
+        style: BUBBLE_MANUAL,
+      });
+      y += subRowH + gapY;
+    }
 
-  const TagBtn = ({
-    n,
-    extra,
-    style,
-  }: {
-    n: Node;
-    extra?: string;
-    style: React.CSSProperties;
-  }) => (
-    <button
-      type="button"
-      onClick={() => setSelected(n)}
-      className="absolute z-10 -translate-x-1/2 text-center"
-      style={style}
-    >
-      <span
-        className={`inline-block px-2.5 py-1.5 rounded-lg shadow-sm text-[12px] font-semibold leading-snug text-center border break-words whitespace-normal ${
-          n.user_id
-            ? "bg-amber-400 text-white border-amber-500"
-            : "bg-white text-gray-800 border-amber-200"
-        }`}
-        style={{ maxWidth: estWidth(n.display_name) }}
-      >
-        {n.display_name}
-      </span>
-      <span className="block text-[9px] text-amber-800/80 mt-0.5 leading-tight whitespace-nowrap">
-        {extra || lbl(lang, n.relation, n.gender)}
-        {n.age != null ? ` · ${n.age}` : ""}
-      </span>
-    </button>
-  );
+    // Lines: connect via_id
+    const byId = new Map<string, Placed>();
+    placed.forEach((p) => {
+      if (p.n) byId.set(p.n.id, p);
+    });
+    const centreP = placed.find((p) => p.n?.id === tree.centre.id)!;
+    const lines: { x1: number; y1: number; x2: number; y2: number }[] = [];
+
+    placed.forEach((p) => {
+      if (!p.n || p.gen === 0) return;
+      const parent = p.n.via_id ? byId.get(p.n.via_id) : centreP;
+      const from = parent || centreP;
+      lines.push({
+        x1: from.x,
+        y1: from.y + (p.gen > 0 ? 14 : -14),
+        x2: p.x,
+        y2: p.y + (p.gen > 0 ? -10 : 14),
+      });
+    });
+    // spouses to centre
+    placed.forEach((p) => {
+      if (p.n && p.gen === 0 && p.n.relation === "spouse") {
+        lines.push({
+          x1: centreP.x + centreW / 2 - 4,
+          y1: centreP.y,
+          x2: p.x - p.w / 2,
+          y2: p.y,
+        });
+      }
+    });
+
+    return { W: maxW, H: y + 40, placed, lines, centreP };
+  }, [tree, canEdit, levelsUp, levelsDown, vw]);
 
   return (
     <div className="flex flex-col min-h-[70vh] bg-[#fafafa] relative">
@@ -417,9 +474,7 @@ function VanshawaliInner() {
           type="button"
           onClick={() => setSaEditMode((v) => !v)}
           className={`absolute top-3 left-3 z-30 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold shadow border ${
-            saEditMode
-              ? "bg-amber-400 text-white border-amber-500"
-              : "bg-white text-gray-600 border-gray-200"
+            saEditMode ? "bg-amber-400 text-white border-amber-500" : "bg-white text-gray-600 border-gray-200"
           }`}
         >
           <Pencil size={12} />
@@ -427,302 +482,125 @@ function VanshawaliInner() {
         </button>
       )}
 
-      <div className="px-4 pt-3 pb-1 flex items-center justify-between shrink-0">
+      <div className="px-4 pt-3 pb-1 flex justify-between shrink-0">
         <p className="text-sm font-semibold text-gray-800 pl-14 sm:pl-0">
           {lang === "hi" ? "वंशावली" : "Vanshawali"}
         </p>
-        <p className="text-[10px] text-gray-400">
-          {canEdit ? "Edit · swipe if wide" : "View only · swipe if wide"}
-        </p>
+        <p className="text-[10px] text-gray-400">{canEdit ? "Edit" : "View"}</p>
       </div>
 
       {loading && <p className="text-center text-gray-400 py-20">Loading…</p>}
 
-      {!loading && tree && layout && (
-        <div className="flex-1 overflow-auto pb-36">
-          <div
-            className="relative mx-auto"
-            style={{ width: layout.W, height: layout.H, minWidth: "100%" }}
-          >
-            <svg
-              className="absolute inset-0 pointer-events-none"
-              width={layout.W}
-              height={layout.H}
-            >
-              {layout.gpItems.map((it, i) => {
-                const pi = layout.parents.findIndex((p) => p.id === it.n.via_parent_id);
-                const px = pi >= 0 ? layout.parXs[pi] : layout.cx;
-                return (
-                  <path
-                    key={`gpl-${it.n.id}`}
-                    d={curve(px, layout.yPar - 4, layout.gpXs[i], layout.yGp + 20)}
-                    fill="none"
-                    stroke={line}
-                    strokeWidth={2.2}
-                    strokeLinecap="round"
-                  />
-                );
-              })}
-              {layout.parItems.map((it, i) => {
-                if (it.kind === "add") {
-                  return (
-                    <path
-                      key="par-add-line"
-                      d={curve(layout.cx, layout.yMid - 16, layout.parXs[i], layout.yPar + 12)}
-                      fill="none"
-                      stroke={line}
-                      strokeWidth={2}
-                      strokeDasharray="4 3"
-                      opacity={0.45}
-                    />
-                  );
-                }
-                return (
-                  <path
-                    key={`pl-${it.n!.id}`}
-                    d={curve(layout.cx, layout.yMid - 16, layout.parXs[i], layout.yPar + 12)}
-                    fill="none"
-                    stroke={line}
-                    strokeWidth={2.4}
-                    strokeLinecap="round"
-                  />
-                );
-              })}
-              {layout.spouseItems.map((it, i) => (
+      <div ref={wrapRef} className="flex-1 overflow-y-auto overflow-x-hidden pb-36 w-full">
+        {!loading && tree && layout && (
+          <div className="relative mx-auto" style={{ width: layout.W, height: layout.H }}>
+            <svg className="absolute inset-0 pointer-events-none" width={layout.W} height={layout.H}>
+              {layout.lines.map((ln, i) => (
                 <path
-                  key={`sl-${i}`}
-                  d={`M${layout.cx + layout.centreW / 2} ${layout.yMid} C${layout.cx + layout.centreW / 2 + 20} ${layout.yMid - 8}, ${layout.spouseXs[i] - 20} ${layout.yMid + 8}, ${layout.spouseXs[i] - it.w / 2} ${layout.yMid}`}
+                  key={i}
+                  d={curve(ln.x1, ln.y1, ln.x2, ln.y2)}
                   fill="none"
-                  stroke={line}
+                  stroke="#E8A317"
                   strokeWidth={2.2}
+                  strokeLinecap="round"
                 />
               ))}
-              {layout.chItems.map((it, i) => {
-                if (it.kind === "add") {
-                  return (
-                    <path
-                      key="ch-add-line"
-                      d={curve(layout.cx, layout.yMid + 16, layout.chXs[i], layout.yChild - 4)}
-                      fill="none"
-                      stroke={line}
-                      strokeWidth={2}
-                      strokeDasharray="4 3"
-                      opacity={0.45}
-                    />
-                  );
-                }
-                return (
-                  <path
-                    key={`cl-${it.n!.id}`}
-                    d={curve(layout.cx, layout.yMid + 16, layout.chXs[i], layout.yChild - 4)}
-                    fill="none"
-                    stroke={line}
-                    strokeWidth={2.4}
-                    strokeLinecap="round"
-                  />
-                );
-              })}
-              {layout.gcItems.map((it, i) => {
-                const ci = layout.children.findIndex((c) => c.id === it.n.via_child_id);
-                const px = ci >= 0 ? layout.chXs[ci] : layout.cx;
-                return (
-                  <path
-                    key={`gcl-${it.n.id}`}
-                    d={curve(px, layout.yChild + 24, layout.gcXs[i], layout.yGc - 4)}
-                    fill="none"
-                    stroke={line}
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                  />
-                );
-              })}
             </svg>
 
-            {/* GP */}
-            {layout.gpItems.map((it, i) => (
-              <TagBtn
-                key={it.n.id}
-                n={it.n}
-                extra={
-                  it.n.relation === "mother"
-                    ? L.grandmother || "Grandmother"
-                    : L.grandfather || "Grandfather"
-                }
-                style={{ left: layout.gpXs[i], top: layout.yGp }}
-              />
-            ))}
-
-            {/* Parents */}
-            {layout.parItems.map((it, i) =>
-              it.kind === "add" ? (
-                <button
-                  key="par-add"
-                  type="button"
-                  onClick={() =>
-                    openAdd(
-                      (tree.parents || []).some((p) => p.relation === "father")
-                        ? "mother"
-                        : "father"
-                    )
-                  }
-                  className="absolute z-10 -translate-x-1/2"
-                  style={{ left: layout.parXs[i], top: layout.yPar + 4 }}
-                >
-                  <span className="inline-flex items-center gap-0.5 text-[11px] border border-dashed border-amber-300 bg-amber-50 px-2 py-1 rounded-lg text-gray-500">
-                    <Plus size={12} /> Parent
-                  </span>
-                </button>
-              ) : (
-                <div key={it.n!.id}>
-                  <TagBtn n={it.n!} style={{ left: layout.parXs[i], top: layout.yPar }} />
-                  {canEdit && (
+            {layout.placed.map((p, i) => {
+              if (p.kind === "add") {
+                const isUp = p.gen < 0;
+                const isSpouse = p.gen === 0;
+                return (
+                  <button
+                    key={`add-${i}`}
+                    type="button"
+                    className="absolute z-10 -translate-x-1/2 -translate-y-1/2 text-[10px] border border-dashed border-amber-400 bg-amber-50 px-2 py-1 rounded-full text-amber-800 whitespace-nowrap"
+                    style={{ left: p.x, top: p.y }}
+                    onClick={() => {
+                      if (isSpouse) openAdd("spouse");
+                      else if (isUp) openAdd("father");
+                      else openAdd("child");
+                    }}
+                  >
+                    + {isSpouse ? L.spouse : isUp ? "Parent" : L.child}
+                  </button>
+                );
+              }
+              const n = p.n!;
+              const isSelf = n.relation === "self" || n.id === tree.centre.id;
+              const st = isSelf ? BUBBLE_SELF : p.style;
+              return (
+                <div key={n.id + "-" + i} className="absolute z-10 -translate-x-1/2 -translate-y-1/2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setSelected(n)}
+                    className="px-2.5 py-1.5 rounded-lg shadow-sm text-[12px] font-semibold border whitespace-nowrap overflow-hidden text-ellipsis"
+                    style={{
+                      left: p.x,
+                      top: p.y,
+                      maxWidth: Math.min(p.w, vw - 24),
+                      background: st.bg,
+                      borderColor: st.border,
+                      color: st.text,
+                    }}
+                  >
+                    {isSelf && n.photo_url ? (
+                      <span className="inline-flex items-center gap-1">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={n.photo_url} alt="" className="w-5 h-5 rounded-full object-cover" />
+                        {n.display_name}
+                      </span>
+                    ) : (
+                      n.display_name
+                    )}
+                  </button>
+                  <p className="text-[8px] text-gray-500 mt-0.5 whitespace-nowrap">
+                    {lbl(lang, n.relation, n.gender)}
+                    {n.age != null ? ` · ${n.age}` : ""}
+                  </p>
+                  {canEdit && !isSelf && (
                     <button
                       type="button"
-                      className="absolute z-10 w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center -translate-x-1/2"
-                      style={{
-                        left: layout.parXs[i],
-                        top: layout.yPar + it.h - 6,
+                      className="mx-auto mt-0.5 w-5 h-5 rounded-full bg-white border border-amber-200 text-amber-700 flex items-center justify-center"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openAdd(p.gen < 0 ? "father" : "child", n.id);
                       }}
-                      title="Grandparent"
-                      onClick={() => openAdd("father", it.n!.id)}
                     >
                       <Plus size={10} />
                     </button>
                   )}
                 </div>
-              )
-            )}
-
-            {/* Centre */}
-            <button
-              type="button"
-              onClick={() => setSelected(tree.centre)}
-              className="absolute z-20 -translate-x-1/2 -translate-y-1/2 text-center"
-              style={{ left: layout.cx, top: layout.yMid }}
-            >
-              <span
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 text-white text-[13px] font-bold shadow-md leading-snug text-left"
-                style={{ maxWidth: layout.centreW + 8 }}
-              >
-                {tree.centre.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={tree.centre.photo_url}
-                    alt=""
-                    className="w-6 h-6 rounded-full object-cover shrink-0"
-                  />
-                ) : null}
-                <span className="break-words whitespace-normal">{tree.centre.display_name}</span>
-              </span>
-              <span className="block text-[9px] text-emerald-600 font-medium mt-0.5">{L.self}</span>
-            </button>
-
-            {/* Spouses */}
-            {layout.spouseItems.map((it, i) =>
-              it.n ? (
-                <TagBtn
-                  key={it.n.id}
-                  n={it.n}
-                  extra={L.spouse}
-                  style={{ left: layout.spouseXs[i], top: layout.yMid - 18 }}
-                />
-              ) : (
-                <button
-                  key="sp-add"
-                  type="button"
-                  onClick={() => openAdd("spouse")}
-                  className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
-                  style={{ left: layout.spouseXs[i], top: layout.yMid }}
-                >
-                  <span className="text-[11px] border border-dashed border-amber-300 bg-amber-50 px-2 py-1 rounded-lg text-gray-500">
-                    + {L.spouse}
-                  </span>
-                </button>
-              )
-            )}
-
-            {/* Children */}
-            {layout.chItems.map((it, i) =>
-              it.kind === "add" ? (
-                <button
-                  key="ch-add"
-                  type="button"
-                  onClick={() => openAdd("child")}
-                  className="absolute z-10 -translate-x-1/2"
-                  style={{ left: layout.chXs[i], top: layout.yChild + 4 }}
-                >
-                  <span className="inline-flex items-center gap-0.5 text-[11px] border border-dashed border-amber-300 bg-amber-50 px-2 py-1 rounded-lg text-gray-500">
-                    <Plus size={12} /> {L.child}
-                  </span>
-                </button>
-              ) : (
-                <div key={it.n!.id}>
-                  <TagBtn n={it.n!} style={{ left: layout.chXs[i], top: layout.yChild }} />
-                  {canEdit && (
-                    <button
-                      type="button"
-                      className="absolute z-10 w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center -translate-x-1/2"
-                      style={{ left: layout.chXs[i], top: layout.yChild + it.h - 8 }}
-                      onClick={() => openAdd("child", it.n!.id)}
-                    >
-                      <Plus size={10} />
-                    </button>
-                  )}
-                </div>
-              )
-            )}
-
-            {/* Grandchildren */}
-            {layout.gcItems.map((it, i) => (
-              <TagBtn
-                key={it.n.id}
-                n={it.n}
-                extra={L.grandchild || "Grandchild"}
-                style={{ left: layout.gcXs[i], top: layout.yGc }}
-              />
-            ))}
+              );
+            })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ADD sheet */}
       {draft && canEdit && (
-        <div
-          className="fixed inset-0 z-50 bg-black/30 flex items-end sm:items-center justify-center"
-          onClick={() => setDraft(null)}
-        >
-          <div
-            className="w-full max-w-sm mx-3 mb-6 bg-white rounded-3xl p-4 shadow-2xl space-y-3"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-50 bg-black/30 flex items-end sm:items-center justify-center" onClick={() => setDraft(null)}>
+          <div className="w-full max-w-sm mx-3 mb-6 bg-white rounded-3xl p-4 shadow-2xl space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center">
-              <p className="font-bold text-gray-900">
-                {lang === "hi" ? "रिश्तेदार जोड़ें" : "Add relative"}
-              </p>
-              <button type="button" onClick={() => setDraft(null)}>
-                <X size={18} className="text-gray-400" />
-              </button>
+              <p className="font-bold">{lang === "hi" ? "रिश्तेदार जोड़ें" : "Add relative"}</p>
+              <button type="button" onClick={() => setDraft(null)}><X size={18} className="text-gray-400" /></button>
             </div>
-            <div>
-              <label className="text-[11px] font-medium text-gray-500 mb-1 block">
-                {lang === "hi" ? "रिश्ता" : "Relationship"}
-              </label>
-              <select
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
-                value={draft.relation}
-                onChange={(e) => setDraft({ ...draft, relation: e.target.value })}
-              >
-                <option value="father">{L.father}</option>
-                <option value="mother">{L.mother}</option>
-                <option value="spouse">{L.spouse}</option>
-                <option value="child">{L.child}</option>
-              </select>
-            </div>
+            <select
+              className="w-full px-3 py-2.5 rounded-xl border text-sm"
+              value={draft.relation}
+              onChange={(e) => setDraft({ ...draft, relation: e.target.value })}
+            >
+              <option value="father">{L.father}</option>
+              <option value="mother">{L.mother}</option>
+              <option value="spouse">{L.spouse}</option>
+              <option value="child">{L.child}</option>
+            </select>
             <div className="relative">
               <Search size={14} className="absolute left-3 top-3 text-gray-400" />
               <input
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50 outline-none focus:border-amber-400"
-                placeholder={lang === "hi" ? "Member search…" : "Search registered member…"}
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl border text-sm bg-gray-50"
+                placeholder="Search member…"
                 value={q}
                 onChange={(e) => {
                   setQ(e.target.value);
@@ -730,127 +608,70 @@ function VanshawaliInner() {
                 }}
               />
             </div>
-            {searching && <p className="text-[10px] text-gray-400">Searching…</p>}
-            {hits.length > 0 && (
-              <ul className="max-h-36 overflow-y-auto rounded-xl border divide-y">
-                {hits.map((h) => (
-                  <li key={h.id}>
-                    <button
-                      type="button"
-                      className={`w-full text-left px-3 py-2 text-sm hover:bg-amber-50 ${
-                        draft.member_user_id === h.id ? "bg-amber-50" : ""
-                      }`}
-                      onClick={() => {
-                        setDraft({ ...draft, member_user_id: h.id, name: h.full_name });
-                        setQ(h.full_name);
-                        setHits([]);
-                      }}
-                    >
-                      <span className="font-medium">{h.full_name}</span>
-                      {h.native_village && (
-                        <span className="text-[10px] text-gray-400 ml-2">{h.native_village}</span>
-                      )}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            {hits.map((h) => (
+              <button
+                key={h.id}
+                type="button"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 rounded-lg"
+                onClick={() => {
+                  setDraft({ ...draft, member_user_id: h.id, name: h.full_name });
+                  setQ(h.full_name);
+                  setHits([]);
+                }}
+              >
+                {h.full_name}
+              </button>
+            ))}
             {!draft.member_user_id && (
               <>
                 <input
                   className="w-full px-3 py-2.5 rounded-xl border text-sm"
-                  placeholder={lang === "hi" ? "नाम (full)" : "Full name"}
+                  placeholder="Full name"
                   value={draft.name}
-                  onChange={(e) =>
-                    setDraft({ ...draft, name: e.target.value, member_user_id: null })
-                  }
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                 />
                 <input
                   className="w-full px-3 py-2.5 rounded-xl border text-sm"
-                  placeholder="Birth year (optional)"
+                  placeholder="Birth year"
                   inputMode="numeric"
                   value={draft.birth_year}
                   onChange={(e) =>
-                    setDraft({
-                      ...draft,
-                      birth_year: e.target.value.replace(/\D/g, "").slice(0, 4),
-                    })
+                    setDraft({ ...draft, birth_year: e.target.value.replace(/\D/g, "").slice(0, 4) })
                   }
                 />
               </>
             )}
-            {draft.member_user_id && (
-              <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-2 py-1.5">
-                ✓ Linked member
-              </p>
-            )}
-            <button
-              type="button"
-              disabled={saving}
-              onClick={saveAdd}
-              className="w-full py-3 rounded-2xl bg-amber-400 text-white text-sm font-bold"
-            >
-              {saving ? "…" : lang === "hi" ? "जोड़ें" : "Add"}
+            <button type="button" disabled={saving} onClick={saveAdd} className="w-full py-3 rounded-2xl bg-amber-400 text-white font-bold text-sm">
+              {saving ? "…" : "Add"}
             </button>
           </div>
         </div>
       )}
 
       {selected && (
-        <div
-          className="fixed inset-0 z-50 bg-black/25 flex items-end sm:items-center justify-center"
-          onClick={() => setSelected(null)}
-        >
-          <div
-            className="w-full max-w-sm mx-3 mb-8 bg-white rounded-3xl p-4 shadow-2xl space-y-1"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="font-bold text-gray-900 break-words">{selected.display_name}</p>
+        <div className="fixed inset-0 z-50 bg-black/25 flex items-end sm:items-center justify-center" onClick={() => setSelected(null)}>
+          <div className="w-full max-w-sm mx-3 mb-8 bg-white rounded-3xl p-4 shadow-2xl space-y-1" onClick={(e) => e.stopPropagation()}>
+            <p className="font-bold break-words">{selected.display_name}</p>
             <p className="text-xs text-gray-500 mb-2">
               {lbl(lang, selected.relation, selected.gender)}
-              {selected.age != null ? ` · ${selected.age} yrs` : ""}
-              {selected.user_id ? " · Registered" : " · Manual"}
+              {selected.age != null ? ` · ${selected.age}` : ""}
             </p>
             {selected.user_id && (
               <>
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-gray-50"
-                  onClick={() => {
-                    router.push(`/vanshawali?user=${selected.user_id}`);
-                    setSelected(null);
-                  }}
-                >
-                  <Focus size={16} className="text-amber-500" /> Open their tree
+                <button type="button" className="w-full flex items-center gap-2 px-3 py-3 text-sm font-medium hover:bg-gray-50 rounded-xl" onClick={() => { router.push(`/vanshawali?user=${selected.user_id}`); setSelected(null); }}>
+                  <Focus size={16} className="text-amber-500" /> Their tree
                 </button>
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-gray-50"
-                  onClick={() => {
-                    router.push(`/member/${selected.user_id}`);
-                    setSelected(null);
-                  }}
-                >
+                <button type="button" className="w-full flex items-center gap-2 px-3 py-3 text-sm font-medium hover:bg-gray-50 rounded-xl" onClick={() => { router.push(`/member/${selected.user_id}`); setSelected(null); }}>
                   <User size={16} className="text-amber-500" /> Profile
                 </button>
               </>
             )}
             {canEdit && selected.relation !== "self" && selected.link_id && (
-              <button
-                type="button"
-                className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-50"
-                onClick={() => removeLink(selected)}
-              >
+              <button type="button" className="w-full flex items-center gap-2 px-3 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl" onClick={() => removeLink(selected)}>
                 <Trash2 size={16} /> Remove
               </button>
             )}
-            <button
-              type="button"
-              className="w-full py-2 text-sm text-gray-400"
-              onClick={() => setSelected(null)}
-            >
-              Close
-            </button>
+            <button type="button" className="w-full py-2 text-sm text-gray-400" onClick={() => setSelected(null)}>Close</button>
           </div>
         </div>
       )}
