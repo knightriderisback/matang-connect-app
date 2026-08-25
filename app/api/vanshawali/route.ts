@@ -231,6 +231,8 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     spouses: spouses.map((r) => mapNode(r)),
     parents,
     children,
+    grandparents: levelsUp[1] || [],
+    grandchildren: levelsDown[1] || [],
     levels_up: levelsUp,
     levels_down: levelsDown,
   };
