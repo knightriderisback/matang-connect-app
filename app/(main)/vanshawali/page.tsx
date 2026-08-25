@@ -156,9 +156,9 @@ function packSmart(
 
 /** Mild tilt (deg) only for visual air when 3+ on same row — optional polish */
 function mildTilt(i: number, count: number) {
-  if (count < 3) return 0;
+  if (count < 2) return 0;
   const mid = (count - 1) / 2;
-  return Math.max(-4, Math.min(4, (i - mid) * 1.2));
+  return Math.max(-6, Math.min(6, (i - mid) * 2.2));
 }
 
 function VanshawaliInner() {
@@ -344,38 +344,57 @@ function VanshawaliInner() {
   const parentRowById = new Map(parentsSorted.map((p, i) => [p.id, parRows[i]]));
   const parMaxRow = Math.max(0, ...parPack.map((p) => p.row));
 
-  // Grandparents: pack ALL together smartly (multi-row if needed), then
-  // prefer near parent — still no overlap
+  // Grandparents: EACH group under its parent column
+  // Father-side → lean LEFT; Mother-side → lean RIGHT (use empty side space)
   type GpPos = { n: Node; x: number; row: number; tilt: number };
   const gpPositions: GpPos[] = [];
   if (grandparents.length) {
-    const sorted = [...grandparents].sort((a, b) => {
-      // keep family groups: by via, then father before mother
-      const va = a.via_parent_id || "";
-      const vb = b.via_parent_id || "";
-      if (va !== vb) return va.localeCompare(vb);
-      const ra = a.relation === "father" ? 0 : 1;
-      const rb = b.relation === "father" ? 0 : 1;
-      return ra - rb;
+    const byVia = new Map<string, Node[]>();
+    grandparents.forEach((g) => {
+      const k = g.via_parent_id || "_";
+      if (!byVia.has(k)) byVia.set(k, []);
+      byVia.get(k)!.push(g);
     });
-    const widths = sorted.map((n) => nameW(n.display_name));
-    // prefer center of their parents' average x if possible
-    const prefer =
-      sorted.length && sorted[0].via_parent_id
-        ? (() => {
-            const xs = sorted
-              .map((n) => parentXById.get(n.via_parent_id || "") ?? cx)
-              .filter(Boolean);
-            return xs.reduce((s, x) => s + x, 0) / xs.length;
-          })()
-        : cx;
-    const pack = packSmart(widths, W, pad, gap, prefer);
-    sorted.forEach((n, i) => {
-      gpPositions.push({
-        n,
-        x: pack[i].x,
-        row: pack[i].row,
-        tilt: mildTilt(i, sorted.length),
+
+    // Process father parent first (left), then mother (right)
+    const viaOrder = parentsSorted.map((p) => p.id);
+    const seen = new Set<string>();
+    const orderedVias: string[] = [];
+    viaOrder.forEach((id) => {
+      if (byVia.has(id)) {
+        orderedVias.push(id);
+        seen.add(id);
+      }
+    });
+    byVia.forEach((_, k) => {
+      if (!seen.has(k)) orderedVias.push(k);
+    });
+
+    orderedVias.forEach((via, vi) => {
+      const list = byVia.get(via) || [];
+      const sorted = [...list].sort((a, b) => {
+        const ra = a.relation === "father" ? 0 : 1;
+        const rb = b.relation === "father" ? 0 : 1;
+        return ra - rb;
+      });
+      const parent = parentsSorted.find((p) => p.id === via);
+      const parentX = parentXById.get(via) ?? cx;
+      // Lean: father column → left third; mother → right third; else parentX
+      let prefer = parentX;
+      if (parent?.relation === "father") {
+        prefer = Math.min(parentX, pad + (W - pad * 2) * 0.28);
+      } else if (parent?.relation === "mother") {
+        prefer = Math.max(parentX, pad + (W - pad * 2) * 0.72);
+      }
+      const widths = sorted.map((n) => nameW(n.display_name));
+      const pack = packSmart(widths, W, pad, gap, prefer);
+      sorted.forEach((n, i) => {
+        gpPositions.push({
+          n,
+          x: pack[i].x,
+          row: pack[i].row,
+          tilt: mildTilt(i, sorted.length) + (parent?.relation === "father" ? -2 : parent?.relation === "mother" ? 2 : 0),
+        });
       });
     });
   }
@@ -448,8 +467,8 @@ function VanshawaliInner() {
       <span
         className={`inline-block px-2.5 py-1.5 rounded-lg shadow-sm text-[12px] font-semibold leading-snug border whitespace-nowrap ${
           n.user_id
-            ? "bg-amber-400 text-white border-amber-500"
-            : "bg-white text-gray-800 border-amber-200"
+            ? "bg-amber-400/75 text-white border-amber-500/50"
+            : "bg-white/70 text-gray-800 border-amber-200/60 backdrop-blur-[2px]"
         }`}
       >
         {n.display_name}
@@ -640,7 +659,7 @@ function VanshawaliInner() {
               style={{ left: centreX, top: yMid }}
             >
               <button type="button" onClick={() => setSelected(tree.centre)} className="text-center">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 text-white text-[13px] font-bold shadow-md whitespace-nowrap">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400/85 text-white text-[13px] font-bold shadow-md whitespace-nowrap backdrop-blur-[1px]">
                   {tree.centre.photo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={tree.centre.photo_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
