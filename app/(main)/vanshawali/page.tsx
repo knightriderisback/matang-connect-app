@@ -111,13 +111,16 @@ function resolveSex(
   return null;
 }
 
-const BUBBLE_H = 28; // visual bubble height (px) — line docks here, zero gap
+/** Measured bubble body (~px-2.5 py-1.5 + 12px text) */
+const BUBBLE_H = 34;
+/** Pull line endpoints INSIDE the bubble so no hairline gap remains */
+const IN = 10;
 
 /**
- * Dock point ON the bubble surface (100% touch, no gap).
- * dir "up"   = line arrives from below → use TOP corners
- * dir "down" = line arrives from above → use BOTTOM corners
- * male → left corner, female → right corner, unknown → centre of that edge
+ * Dock INSIDE bubble (overshoot) — 100% connected, zero visible gap.
+ * dir "up"   = arrives from above → top edge, then +IN into bubble
+ * dir "down" = arrives from below → bottom edge, then -IN into bubble
+ * male → left third, female → right third
  */
 function dock(
   cx: number,
@@ -128,17 +131,19 @@ function dock(
   relation?: string | null
 ): { x: number; y: number } {
   const sex = resolveSex(gender, relation);
-  const inset = 6; // into the corner so stroke sits on rounded rect
+  const side = Math.min(14, w * 0.28);
   let x = cx;
-  if (sex === "M") x = cx - w / 2 + inset;
-  else if (sex === "F") x = cx + w / 2 - inset;
-  const y = dir === "up" ? topY : topY + BUBBLE_H;
+  if (sex === "M") x = cx - w / 2 + side;
+  else if (sex === "F") x = cx + w / 2 - side;
+  // go INSIDE the pill
+  const y = dir === "up" ? topY + IN : topY + BUBBLE_H - IN;
   return { x, y };
 }
 
-/** Start of line from centre of a bubble edge */
+/** Start from centre edge, also slightly inside so join is solid */
 function undock(cx: number, topY: number, dir: "up" | "down"): { x: number; y: number } {
-  return { x: cx, y: dir === "up" ? topY : topY + BUBBLE_H };
+  const y = dir === "up" ? topY + IN : topY + BUBBLE_H - IN;
+  return { x: cx, y };
 }
 
 function nameW(name: string, max = 148) {
@@ -598,14 +603,14 @@ function VanshawaliInner() {
                     d={curve(start.x, start.y, end.x, end.y)}
                     fill="none"
                     stroke={line}
-                    strokeWidth={2.2}
+                    strokeWidth={2.5}
                     strokeLinecap="round"
                   />
                 );
               })}
               {parentsSorted.map((p, i) => {
                 const pTop = yPar + parRows[i] * subRowH - 4;
-                const cTop = yMid - BUBBLE_H / 2; // centre uses -translate-y-1/2 at yMid
+                const cTop = yMid - 20; // centre tag is translateY(-50%); bubble sits upper half
                 const start = undock(centreX, cTop, "up");
                 const end = dock(
                   parXs[i],
@@ -621,7 +626,7 @@ function VanshawaliInner() {
                     d={curve(start.x, start.y, end.x, end.y)}
                     fill="none"
                     stroke={line}
-                    strokeWidth={2.3}
+                    strokeWidth={2.5}
                     strokeLinecap="round"
                   />
                 );
@@ -632,12 +637,12 @@ function VanshawaliInner() {
                   d={`M${centreX + centreW / 2 - 1} ${yMid} L${sp.x - sp.w / 2 + 1} ${yMid}`}
                   fill="none"
                   stroke={line}
-                  strokeWidth={2.4}
+                  strokeWidth={2.6}
                   strokeLinecap="round"
                 />
               ))}
               {children.map((c, i) => {
-                const cTop = yMid - BUBBLE_H / 2;
+                const cTop = yMid - 20;
                 const chTop = yChild + chRows[i] * subRowH - 4;
                 const start = undock(centreX, cTop, "down");
                 const end = dock(
@@ -654,7 +659,7 @@ function VanshawaliInner() {
                     d={curve(start.x, start.y, end.x, end.y)}
                     fill="none"
                     stroke={line}
-                    strokeWidth={2.3}
+                    strokeWidth={2.5}
                     strokeLinecap="round"
                   />
                 );
@@ -684,7 +689,7 @@ function VanshawaliInner() {
                     d={curve(start.x, start.y, end.x, end.y)}
                     fill="none"
                     stroke={line}
-                    strokeWidth={2.1}
+                    strokeWidth={2.5}
                     strokeLinecap="round"
                   />
                 );
