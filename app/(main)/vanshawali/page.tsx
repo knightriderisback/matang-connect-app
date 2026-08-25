@@ -1,7 +1,11 @@
 "use client";
 /**
- * Mind-map canvas: generation-coloured bubbles, infinite up/down,
- * vertical scroll only, single-line names, smart non-overlap packing.
+ * God-level hierarchical family map:
+ * - Centre fixed; spouse RIGHT same row (horizontal link only)
+ * - Children ALWAYS under centre (never under spouse)
+ * - Parents above centre; grandparents stacked above each parent (column)
+ * - Infinite gens; gen-coloured bubbles; vertical scroll only
+ * - Full single-line names; no crossing trunk lines
  */
 import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useCallback, useEffect, useMemo, useState, Suspense, useRef } from "react";
@@ -28,10 +32,6 @@ type Node = {
 type Tree = {
   centre: Node;
   spouses: Node[];
-  parents?: Node[];
-  children?: Node[];
-  grandparents?: Node[];
-  grandchildren?: Node[];
   levels_up?: Node[][];
   levels_down?: Node[][];
 };
@@ -59,23 +59,24 @@ const REL: Record<string, Record<string, string>> = {
   },
 };
 
-/** Soft generation bubble fills (tag only) */
-const BUBBLE_UP = [
-  { bg: "rgba(167,139,250,0.55)", border: "rgba(139,92,246,0.5)", text: "#4c1d95" },
-  { bg: "rgba(96,165,250,0.5)", border: "rgba(59,130,246,0.45)", text: "#1e3a8a" },
-  { bg: "rgba(45,212,191,0.45)", border: "rgba(20,184,166,0.45)", text: "#134e4a" },
-  { bg: "rgba(251,191,36,0.4)", border: "rgba(245,158,11,0.45)", text: "#78350f" },
-  { bg: "rgba(251,113,133,0.4)", border: "rgba(244,63,94,0.4)", text: "#881337" },
+type BubbleStyle = { bg: string; border: string; text: string };
+
+const UP: BubbleStyle[] = [
+  { bg: "rgba(167,139,250,0.55)", border: "rgba(139,92,246,0.55)", text: "#4c1d95" },
+  { bg: "rgba(96,165,250,0.55)", border: "rgba(59,130,246,0.5)", text: "#1e3a8a" },
+  { bg: "rgba(45,212,191,0.5)", border: "rgba(20,184,166,0.5)", text: "#134e4a" },
+  { bg: "rgba(251,191,36,0.45)", border: "rgba(245,158,11,0.5)", text: "#78350f" },
+  { bg: "rgba(251,113,133,0.45)", border: "rgba(244,63,94,0.45)", text: "#881337" },
 ];
-const BUBBLE_DOWN = [
-  { bg: "rgba(52,211,153,0.5)", border: "rgba(16,185,129,0.45)", text: "#064e3b" },
-  { bg: "rgba(251,146,60,0.48)", border: "rgba(249,115,22,0.45)", text: "#7c2d12" },
-  { bg: "rgba(244,114,182,0.45)", border: "rgba(236,72,153,0.4)", text: "#831843" },
-  { bg: "rgba(129,140,248,0.45)", border: "rgba(99,102,241,0.4)", text: "#312e81" },
-  { bg: "rgba(56,189,248,0.45)", border: "rgba(14,165,233,0.4)", text: "#0c4a6e" },
+const DOWN: BubbleStyle[] = [
+  { bg: "rgba(52,211,153,0.55)", border: "rgba(16,185,129,0.5)", text: "#064e3b" },
+  { bg: "rgba(251,146,60,0.55)", border: "rgba(249,115,22,0.5)", text: "#7c2d12" },
+  { bg: "rgba(244,114,182,0.5)", border: "rgba(236,72,153,0.45)", text: "#831843" },
+  { bg: "rgba(129,140,248,0.5)", border: "rgba(99,102,241,0.45)", text: "#312e81" },
+  { bg: "rgba(56,189,248,0.5)", border: "rgba(14,165,233,0.45)", text: "#0c4a6e" },
 ];
-const BUBBLE_SELF = { bg: "rgba(251,191,36,0.95)", border: "rgba(217,119,6,0.6)", text: "#fff" };
-const BUBBLE_MANUAL = { bg: "rgba(255,255,255,0.92)", border: "rgba(201,162,39,0.45)", text: "#1f2937" };
+const SELF: BubbleStyle = { bg: "#F5B942", border: "#D97706", text: "#fff" };
+const SPOUSE: BubbleStyle = { bg: "rgba(167,139,250,0.65)", border: "rgba(124,58,237,0.5)", text: "#4c1d95" };
 
 function lbl(lang: string, key: string, gender?: string | null) {
   const L = REL[lang] || REL.en;
@@ -86,48 +87,14 @@ function lbl(lang: string, key: string, gender?: string | null) {
   return L[key] || key;
 }
 
-function nameWidth(name: string, max = 160) {
-  const len = Math.max((name || "?").length, 3);
-  return Math.min(max, Math.max(56, Math.round(len * 7.6 + 24)));
+function nw(name: string, max = 150) {
+  return Math.min(max, Math.max(52, Math.round(Math.max((name || "?").length, 3) * 7.5 + 22)));
 }
 
-function curve(x1: number, y1: number, x2: number, y2: number) {
-  const my = (y1 + y2) / 2;
-  return `M${x1} ${y1} C${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`;
-}
-
-/** Pack items into rows within maxW — overflow goes to next row (vertical adjust) */
-function packRows(
-  widths: number[],
-  maxW: number,
-  gap = 10
-): { x: number; row: number; w: number }[] {
-  const out: { x: number; row: number; w: number }[] = [];
-  let row = 0;
-  let x = 0;
-  let rowW = 0;
-  const rowItems: number[][] = [[]];
-
-  widths.forEach((w, i) => {
-    if (rowW > 0 && rowW + gap + w > maxW) {
-      row++;
-      rowItems.push([]);
-      rowW = 0;
-    }
-    rowItems[row].push(i);
-    rowW += (rowW > 0 ? gap : 0) + w;
-  });
-
-  rowItems.forEach((idxs, r) => {
-    const total = idxs.reduce((s, i) => s + widths[i], 0) + gap * Math.max(0, idxs.length - 1);
-    let cursor = (maxW - total) / 2;
-    idxs.forEach((i) => {
-      const w = widths[i];
-      out[i] = { x: cursor + w / 2, row: r, w };
-      cursor += w + gap;
-    });
-  });
-  return out;
+/** Orthogonal connector: vertical then horizontal then vertical — no diagonal mess */
+function orthoPath(x1: number, y1: number, x2: number, y2: number) {
+  const midY = (y1 + y2) / 2;
+  return `M${x1} ${y1} L${x1} ${midY} L${x2} ${midY} L${x2} ${y2}`;
 }
 
 function VanshawaliInner() {
@@ -156,18 +123,19 @@ function VanshawaliInner() {
   } | null>(null);
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
-  const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const L = useMemo(() => REL[lang] || REL.en, [lang]);
   const canEdit = apiCanEdit && (isOwner || (isSA && saEditMode));
+  const levelsUp = tree?.levels_up || [];
+  const levelsDown = tree?.levels_down || [];
 
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setVw(Math.max(300, el.clientWidth - 8)));
+    const ro = new ResizeObserver(() => setVw(Math.max(300, el.clientWidth)));
     ro.observe(el);
-    setVw(Math.max(300, el.clientWidth - 8));
+    setVw(Math.max(300, el.clientWidth));
     return () => ro.disconnect();
   }, [tree]);
 
@@ -196,12 +164,10 @@ function VanshawaliInner() {
       return;
     }
     const t = setTimeout(() => {
-      setSearching(true);
       fetch(`/api/vanshawali/search?q=${encodeURIComponent(q.trim())}`)
         .then((r) => r.json())
         .then((d) => setHits(d.users || []))
-        .catch(() => setHits([]))
-        .finally(() => setSearching(false));
+        .catch(() => setHits([]));
     }, 280);
     return () => clearTimeout(t);
   }, [q, draft]);
@@ -209,7 +175,7 @@ function VanshawaliInner() {
   const saveAdd = async () => {
     if (!draft) return;
     if (!draft.member_user_id && !draft.name.trim()) {
-      toast(lang === "hi" ? "Search ya name" : "Search or enter name", "error");
+      toast("Name or search required", "error");
       return;
     }
     setSaving(true);
@@ -244,7 +210,7 @@ function VanshawaliInner() {
 
   const removeLink = async (node: Node) => {
     if (!node.link_id) return;
-    if (!confirm(lang === "hi" ? "Rishta hataayein?" : "Remove relation?")) return;
+    if (!confirm("Remove relation?")) return;
     setSaving(true);
     try {
       const res = await fetch("/api/vanshawali", {
@@ -281,195 +247,356 @@ function VanshawaliInner() {
     setHits([]);
   };
 
-  const levelsUp = tree?.levels_up || [];
-  const levelsDown = tree?.levels_down || [];
-
+  /**
+   * Hierarchical layout:
+   * 1. Place centre at (cx, yMid)
+   * 2. Spouse to the RIGHT of centre, same Y
+   * 3. Parents row above centre — father left, mother right of cx
+   * 4. Higher ancestors: above their child (column alignment by via_id)
+   * 5. Children row BELOW centre, centered on cx (ignore spouse)
+   * 6. Deeper descendants under their parent column
+   */
   const layout = useMemo(() => {
     if (!tree) return null;
-    const maxW = vw;
-    const cx = maxW / 2;
-    const rowH = 58;
-    const subRowH = 52;
-    const gapY = 28;
 
-    type Placed = {
+    const pad = 12;
+    const W = vw;
+    const cx = W / 2;
+    const rowGap = 56;
+    const bubbleH = 36;
+
+    type P = {
+      id: string;
       n: Node | null;
       x: number;
       y: number;
       w: number;
       kind: "node" | "add";
-      gen: number; // negative up, 0 self, positive down
-      style: typeof BUBBLE_SELF;
+      gen: number;
+      style: BubbleStyle;
+      addRel?: string;
+      addCentre?: string;
     };
 
-    const placed: Placed[] = [];
-    let y = 16;
+    const placed: P[] = [];
+    const pos = new Map<string, { x: number; y: number; w: number }>();
 
-    // UP levels farthest first
-    for (let d = levelsUp.length - 1; d >= 0; d--) {
-      const level = [...levelsUp[d]].sort((a, b) => {
-        const ra = a.relation === "father" ? 0 : a.relation === "mother" ? 1 : 2;
-        const rb = b.relation === "father" ? 0 : b.relation === "mother" ? 1 : 2;
-        if (ra !== rb) return ra - rb;
-        return (a.via_id || "").localeCompare(b.via_id || "");
+    // —— Centre ——
+    const centreW = nw(tree.centre.display_name, 170) + (tree.centre.photo_url ? 26 : 0);
+    // yMid computed after ancestors height
+    // First measure ancestor depth
+    const upDepth = levelsUp.length;
+    let yCursor = pad + 8;
+
+    // Place UP levels from farthest to nearest, column-aligned
+    // Strategy: for each parent of centre, allocate a column; grandparents stack in that column
+    const parents = [...(levelsUp[0] || [])].sort((a, b) => {
+      const ra = a.relation === "father" ? 0 : a.relation === "mother" ? 1 : 2;
+      const rb = b.relation === "father" ? 0 : b.relation === "mother" ? 1 : 2;
+      return ra - rb;
+    });
+
+    // Column X for each person id (built bottom-up from parents)
+    const colX = new Map<string, number>();
+    const parentCount = Math.max(parents.length, 1);
+    const parentSpan = Math.min(W - 40, parentCount * 130);
+    parents.forEach((p, i) => {
+      const x =
+        parentCount === 1
+          ? cx
+          : cx - parentSpan / 2 + (i * parentSpan) / (parentCount - 1);
+      colX.set(p.id, x);
+    });
+
+    // Higher gens: group by via_id under parent columns
+    for (let d = upDepth - 1; d >= 1; d--) {
+      const level = levelsUp[d] || [];
+      // group by via
+      const groups = new Map<string, Node[]>();
+      level.forEach((n) => {
+        const k = n.via_id || "_";
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k)!.push(n);
       });
-      const items: { n: Node | null; w: number; kind: "node" | "add" }[] = level.map((n) => ({
-        n,
-        w: nameWidth(n.display_name),
-        kind: "node",
-      }));
-      if (canEdit && d === 0) items.push({ n: null, w: 52, kind: "add" });
-      const widths = items.map((i) => i.w);
-      const pack = packRows(widths, maxW - 16, 10);
-      const maxRow = Math.max(0, ...pack.map((p) => p.row));
-      items.forEach((it, i) => {
-        const p = pack[i];
-        placed.push({
-          n: it.n,
-          x: p.x + 8,
-          y: y + p.row * subRowH,
-          w: it.w,
-          kind: it.kind,
-          gen: -(d + 1),
-          style: BUBBLE_UP[d % BUBBLE_UP.length],
+      let maxH = bubbleH;
+      groups.forEach((nodes, via) => {
+        const baseX = colX.get(via) ?? cx;
+        const sorted = [...nodes].sort((a, b) => {
+          const ra = a.relation === "father" ? 0 : 1;
+          const rb = b.relation === "father" ? 0 : 1;
+          return ra - rb;
+        });
+        const widths = sorted.map((n) => nw(n.display_name));
+        const total = widths.reduce((s, w) => s + w, 0) + 8 * (sorted.length - 1);
+        let x0 = baseX - total / 2;
+        sorted.forEach((n, i) => {
+          const w = widths[i];
+          const x = x0 + w / 2;
+          x0 += w + 8;
+          colX.set(n.id, x);
+          placed.push({
+            id: n.id,
+            n,
+            x,
+            y: yCursor,
+            w,
+            kind: "node",
+            gen: -(d + 1),
+            style: UP[d % UP.length],
+          });
+          pos.set(n.id, { x, y: yCursor, w });
         });
       });
-      y += (maxRow + 1) * subRowH + gapY;
+      yCursor += maxH + rowGap - 8;
     }
 
-    if (canEdit && levelsUp.length === 0) {
+    // Parents row
+    const yParents = yCursor;
+    parents.forEach((p) => {
+      const w = nw(p.display_name);
+      const x = colX.get(p.id) ?? cx;
       placed.push({
+        id: p.id,
+        n: p,
+        x,
+        y: yParents,
+        w,
+        kind: "node",
+        gen: -1,
+        style: UP[0],
+      });
+      pos.set(p.id, { x, y: yParents, w });
+    });
+    if (canEdit) {
+      placed.push({
+        id: "add-parent",
         n: null,
-        x: cx,
-        y,
-        w: 72,
+        x: cx + parentSpan / 2 + 40,
+        y: yParents,
+        w: 56,
         kind: "add",
         gen: -1,
-        style: BUBBLE_MANUAL,
+        style: UP[0],
+        addRel: parents.some((p) => p.relation === "father") ? "mother" : "father",
       });
-      y += subRowH + gapY;
     }
+    yCursor = yParents + bubbleH + rowGap;
 
-    const yMid = y + 10;
-    // centre
-    const centreW = nameWidth(tree.centre.display_name, 180) + (tree.centre.photo_url ? 28 : 0);
+    // —— Centre + Spouse (same row) ——
+    const yMid = yCursor;
+    const centreX = Math.min(cx - ((tree.spouses || []).length ? 30 : 0), W - 100);
     placed.push({
+      id: tree.centre.id,
       n: tree.centre,
-      x: cx,
+      x: centreX,
       y: yMid,
       w: centreW,
       kind: "node",
       gen: 0,
-      style: BUBBLE_SELF,
+      style: SELF,
     });
+    pos.set(tree.centre.id, { x: centreX, y: yMid, w: centreW });
 
-    // spouses right of centre — if overflow, place below centre slightly
-    let spX = cx + centreW / 2 + 16;
-    (tree.spouses || []).forEach((n, i) => {
-      const w = nameWidth(n.display_name);
-      let x = spX + w / 2;
-      let yy = yMid;
-      if (x + w / 2 > maxW - 8) {
-        yy = yMid + subRowH;
-        x = cx + (i + 1) * 20;
-      }
+    let spouseX = centreX + centreW / 2 + 20;
+    (tree.spouses || []).forEach((s, i) => {
+      const w = nw(s.display_name);
+      const x = spouseX + w / 2;
+      // keep on screen
+      const finalX = Math.min(x, W - w / 2 - pad);
       placed.push({
-        n,
-        x,
-        y: yy,
+        id: s.id,
+        n: s,
+        x: finalX,
+        y: yMid,
         w,
         kind: "node",
         gen: 0,
-        style: BUBBLE_UP[0], // spouse — soft violet
+        style: SPOUSE,
       });
-      spX = x + w / 2 + 12;
+      pos.set(s.id, { x: finalX, y: yMid, w });
+      spouseX = finalX + w / 2 + 12;
     });
     if (canEdit && (tree.spouses || []).length < 2) {
       placed.push({
+        id: "add-spouse",
         n: null,
-        x: Math.min(spX + 30, maxW - 40),
+        x: Math.min(spouseX + 28, W - 40),
         y: yMid,
-        w: 64,
+        w: 60,
         kind: "add",
         gen: 0,
-        style: BUBBLE_MANUAL,
+        style: SPOUSE,
+        addRel: "spouse",
       });
     }
+    yCursor = yMid + bubbleH + rowGap;
 
-    y = yMid + rowH + gapY;
+    // —— DOWN: children centered under CENTRE only ——
+    // Assign column under each parent for deeper gens
+    const downCol = new Map<string, number>();
+    downCol.set(tree.centre.id, centreX);
 
-    // DOWN levels
     for (let d = 0; d < levelsDown.length; d++) {
-      const level = levelsDown[d];
-      const items: { n: Node | null; w: number; kind: "node" | "add" }[] = level.map((n) => ({
-        n,
-        w: nameWidth(n.display_name),
-        kind: "node",
-      }));
-      if (canEdit) items.push({ n: null, w: 52, kind: "add" });
-      const widths = items.map((i) => i.w);
-      const pack = packRows(widths, maxW - 16, 10);
-      const maxRow = Math.max(0, ...pack.map((p) => p.row));
-      items.forEach((it, i) => {
-        const p = pack[i];
-        placed.push({
-          n: it.n,
-          x: p.x + 8,
-          y: y + p.row * subRowH,
-          w: it.w,
-          kind: it.kind,
-          gen: d + 1,
-          style: BUBBLE_DOWN[d % BUBBLE_DOWN.length],
+      const level = levelsDown[d] || [];
+      // group by via_id
+      const groups = new Map<string, Node[]>();
+      level.forEach((n) => {
+        const k = n.via_id || tree.centre.id;
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k)!.push(n);
+      });
+
+      // For depth 0, force via = centre
+      if (d === 0) {
+        groups.clear();
+        groups.set(tree.centre.id, level);
+      }
+
+      let rowMaxY = yCursor;
+      groups.forEach((nodes, via) => {
+        const baseX = downCol.get(via) ?? centreX;
+        const widths = nodes.map((n) => nw(n.display_name));
+        const total = widths.reduce((s, w) => s + w, 0) + 10 * Math.max(0, nodes.length - 1);
+        // clamp group into screen
+        let start = baseX - total / 2;
+        if (start < pad) start = pad;
+        if (start + total > W - pad) start = Math.max(pad, W - pad - total);
+
+        let x0 = start;
+        nodes.forEach((n, i) => {
+          const w = widths[i];
+          const x = x0 + w / 2;
+          x0 += w + 10;
+          downCol.set(n.id, x);
+          placed.push({
+            id: n.id,
+            n,
+            x,
+            y: yCursor,
+            w,
+            kind: "node",
+            gen: d + 1,
+            style: DOWN[d % DOWN.length],
+          });
+          pos.set(n.id, { x, y: yCursor, w });
         });
       });
-      y += (maxRow + 1) * subRowH + gapY;
+
+      if (canEdit && d === levelsDown.length - 1) {
+        // add child under centre
+        placed.push({
+          id: `add-child-${d}`,
+          n: null,
+          x: centreX,
+          y: yCursor + bubbleH + 6,
+          w: 56,
+          kind: "add",
+          gen: d + 1,
+          style: DOWN[d % DOWN.length],
+          addRel: "child",
+          addCentre: d === 0 ? undefined : undefined,
+        });
+        rowMaxY = yCursor + bubbleH + 28;
+      }
+
+      // per-node + for extend
+      if (canEdit) {
+        level.forEach((n) => {
+          const p = pos.get(n.id);
+          if (p) {
+            placed.push({
+              id: `add-under-${n.id}`,
+              n: null,
+              x: p.x,
+              y: p.y + 28,
+              w: 22,
+              kind: "add",
+              gen: d + 1,
+              style: DOWN[d % DOWN.length],
+              addRel: "child",
+              addCentre: n.id,
+            });
+          }
+        });
+      }
+
+      yCursor += bubbleH + rowGap + (canEdit ? 14 : 0);
     }
 
     if (canEdit && levelsDown.length === 0) {
       placed.push({
+        id: "add-child-0",
         n: null,
-        x: cx,
-        y,
-        w: 64,
+        x: centreX,
+        y: yCursor,
+        w: 56,
         kind: "add",
         gen: 1,
-        style: BUBBLE_MANUAL,
+        style: DOWN[0],
+        addRel: "child",
       });
-      y += subRowH + gapY;
+      yCursor += 40;
     }
 
-    // Lines: connect via_id
-    const byId = new Map<string, Placed>();
-    placed.forEach((p) => {
-      if (p.n) byId.set(p.n.id, p);
-    });
-    const centreP = placed.find((p) => p.n?.id === tree.centre.id)!;
-    const lines: { x1: number; y1: number; x2: number; y2: number }[] = [];
+    // —— Lines (orthogonal, no cross trunk) ——
+    const lines: { d: string; spouse?: boolean }[] = [];
 
+    // ancestors → their child (via)
     placed.forEach((p) => {
-      if (!p.n || p.gen === 0) return;
-      const parent = p.n.via_id ? byId.get(p.n.via_id) : centreP;
-      const from = parent || centreP;
+      if (!p.n || p.gen >= 0) return;
+      const via = p.n.via_id;
+      const target = via ? pos.get(via) : pos.get(tree.centre.id);
+      if (!target) return;
+      // from bottom of ancestor to top of target
       lines.push({
-        x1: from.x,
-        y1: from.y + (p.gen > 0 ? 18 : -18),
-        x2: p.x,
-        y2: p.y + (p.gen > 0 ? -16 : 16),
+        d: orthoPath(p.x, p.y + 14, target.x, target.y - 14),
       });
     });
-    // spouses to centre
-    placed.forEach((p) => {
-      if (p.n && p.gen === 0 && p.n.relation === "spouse") {
+
+    // parents already connected via via_id; for parents via is centre conceptually
+    parents.forEach((p) => {
+      const from = pos.get(p.id);
+      const to = pos.get(tree.centre.id);
+      if (from && to) {
+        lines.push({ d: orthoPath(from.x, from.y + 14, to.x, to.y - 14) });
+      }
+    });
+
+    // spouse — horizontal only
+    (tree.spouses || []).forEach((s) => {
+      const sp = pos.get(s.id);
+      const c = pos.get(tree.centre.id);
+      if (sp && c) {
+        const x1 = c.x + c.w / 2;
+        const x2 = sp.x - sp.w / 2;
         lines.push({
-          x1: centreP.x + centreW / 2 - 4,
-          y1: centreP.y,
-          x2: p.x - p.w / 2,
-          y2: p.y,
+          d: `M${x1} ${c.y} L${x2} ${sp.y}`,
+          spouse: true,
         });
       }
     });
 
-    return { W: maxW, H: y + 40, placed, lines, centreP };
+    // descendants → parent (via), depth 0 → centre
+    levelsDown.forEach((level, d) => {
+      level.forEach((n) => {
+        const child = pos.get(n.id);
+        if (!child) return;
+        const parentId = d === 0 ? tree.centre.id : n.via_id || tree.centre.id;
+        const parent = pos.get(parentId);
+        if (!parent) return;
+        lines.push({
+          d: orthoPath(parent.x, parent.y + 14, child.x, child.y - 14),
+        });
+      });
+    });
+
+    // Deduplicate parent→centre if double-added
+    const uniq = Array.from(new Set(lines.map((l) => l.d))).map((d) => ({
+      d,
+      spouse: lines.find((l) => l.d === d)?.spouse,
+    }));
+
+    return { W, H: yCursor + 48, placed, lines: uniq, centreX };
   }, [tree, canEdit, levelsUp, levelsDown, vw]);
 
   return (
@@ -503,57 +630,51 @@ function VanshawaliInner() {
               {layout.lines.map((ln, i) => (
                 <path
                   key={i}
-                  d={curve(ln.x1, ln.y1, ln.x2, ln.y2)}
+                  d={ln.d}
                   fill="none"
                   stroke="#E8A317"
-                  strokeWidth={2.2}
+                  strokeWidth={ln.spouse ? 2 : 2.25}
                   strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
               ))}
             </svg>
 
-            {layout.placed.map((p, i) => {
+            {layout.placed.map((p) => {
               if (p.kind === "add") {
-                const isUp = p.gen < 0;
-                const isSpouse = p.gen === 0;
                 return (
                   <button
-                    key={`add-${i}`}
+                    key={p.id}
                     type="button"
-                    className="absolute z-10 -translate-x-1/2 -translate-y-1/2 text-[10px] border border-dashed border-amber-400 bg-amber-50 px-2 py-1 rounded-full text-amber-800 whitespace-nowrap"
+                    className="absolute z-10 -translate-x-1/2 -translate-y-1/2 text-[10px] border border-dashed border-amber-400 bg-white px-2 py-0.5 rounded-full text-amber-800 whitespace-nowrap shadow-sm"
                     style={{ left: p.x, top: p.y }}
-                    onClick={() => {
-                      if (isSpouse) openAdd("spouse");
-                      else if (isUp) openAdd("father");
-                      else openAdd("child");
-                    }}
+                    onClick={() => openAdd(p.addRel || "child", p.addCentre)}
                   >
-                    + {isSpouse ? L.spouse : isUp ? "Parent" : L.child}
+                    +
                   </button>
                 );
               }
               const n = p.n!;
-              const isSelf = n.relation === "self" || n.id === tree.centre.id;
-              const st = isSelf ? BUBBLE_SELF : p.style;
+              const isSelf = n.id === tree.centre.id;
               return (
                 <div
-                  key={n.id + "-" + i}
+                  key={p.id}
                   className="absolute z-10 -translate-x-1/2 -translate-y-1/2 text-center"
                   style={{ left: p.x, top: p.y }}
                 >
                   <button
                     type="button"
                     onClick={() => setSelected(n)}
-                    className="px-2.5 py-1.5 rounded-lg shadow-sm text-[12px] font-semibold border whitespace-nowrap overflow-hidden text-ellipsis"
+                    className="px-2.5 py-1.5 rounded-lg shadow-sm text-[12px] font-semibold border whitespace-nowrap"
                     style={{
-                      maxWidth: Math.min(p.w, vw - 24),
-                      background: st.bg,
-                      borderColor: st.border,
-                      color: st.text,
+                      maxWidth: Math.min(p.w + 4, vw - 24),
+                      background: p.style.bg,
+                      borderColor: p.style.border,
+                      color: p.style.text,
                     }}
                   >
                     {isSelf && n.photo_url ? (
-                      <span className="inline-flex items-center gap-1">
+                      <span className="inline-flex items-center gap-1.5">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={n.photo_url} alt="" className="w-5 h-5 rounded-full object-cover" />
                         {n.display_name}
@@ -563,21 +684,9 @@ function VanshawaliInner() {
                     )}
                   </button>
                   <p className="text-[8px] text-gray-500 mt-0.5 whitespace-nowrap">
-                    {lbl(lang, n.relation, n.gender)}
+                    {lbl(lang, isSelf ? "self" : n.relation, n.gender)}
                     {n.age != null ? ` · ${n.age}` : ""}
                   </p>
-                  {canEdit && !isSelf && (
-                    <button
-                      type="button"
-                      className="mx-auto mt-0.5 w-5 h-5 rounded-full bg-white border border-amber-200 text-amber-700 flex items-center justify-center"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openAdd(p.gen < 0 ? "father" : "child", n.id);
-                      }}
-                    >
-                      <Plus size={10} />
-                    </button>
-                  )}
                 </div>
               );
             })}
@@ -585,12 +694,11 @@ function VanshawaliInner() {
         )}
       </div>
 
-      {/* ADD sheet */}
       {draft && canEdit && (
         <div className="fixed inset-0 z-50 bg-black/30 flex items-end sm:items-center justify-center" onClick={() => setDraft(null)}>
           <div className="w-full max-w-sm mx-3 mb-6 bg-white rounded-3xl p-4 shadow-2xl space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center">
-              <p className="font-bold">{lang === "hi" ? "रिश्तेदार जोड़ें" : "Add relative"}</p>
+              <p className="font-bold">Add relative</p>
               <button type="button" onClick={() => setDraft(null)}><X size={18} className="text-gray-400" /></button>
             </div>
             <select
