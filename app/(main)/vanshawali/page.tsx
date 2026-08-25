@@ -1024,7 +1024,6 @@ function VanshawaliInner() {
                 <Trash2 size={16} /> Remove
               </button>
             )}
-            )}
             <button type="button" className="w-full py-2 text-sm text-gray-400" onClick={() => setSelected(null)}>
               Close
             </button>
