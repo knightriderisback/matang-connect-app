@@ -5,7 +5,10 @@
  * curves · add/remove/search · owner/SA edit.
  * Only allowed changes: placement polish, colours, options UI.
  * Rules: no bubble off left/right; vertical scroll OK; full names;
- * lines must attach to exact node centres end-to-end.
+ * LINES LOCKED: path MUST touch target bubble 100% — zero gap.
+ *   up-target  → bottom-left (male) / bottom-right (female) corner
+ *   down-target → top-left (male) / top-right (female) corner
+ *   fallback corners if side unclear.
  */
 import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useCallback, useEffect, useMemo, useState, Suspense, useRef } from "react";
@@ -105,21 +108,37 @@ function resolveSex(
     ["father", "grandfather", "husband", "son", "brother"].includes(r)
   )
     return "M";
-  // spouse alone unknown
   return null;
 }
 
-/** End of line: male → LEFT edge, female → RIGHT edge, unknown → centre */
-function anchorX(
+const BUBBLE_H = 28; // visual bubble height (px) — line docks here, zero gap
+
+/**
+ * Dock point ON the bubble surface (100% touch, no gap).
+ * dir "up"   = line arrives from below → use TOP corners
+ * dir "down" = line arrives from above → use BOTTOM corners
+ * male → left corner, female → right corner, unknown → centre of that edge
+ */
+function dock(
   cx: number,
+  topY: number,
   w: number,
+  dir: "up" | "down",
   gender?: string | null,
   relation?: string | null
-) {
+): { x: number; y: number } {
   const sex = resolveSex(gender, relation);
-  if (sex === "F") return cx + w / 2 - 1;
-  if (sex === "M") return cx - w / 2 + 1;
-  return cx;
+  const inset = 6; // into the corner so stroke sits on rounded rect
+  let x = cx;
+  if (sex === "M") x = cx - w / 2 + inset;
+  else if (sex === "F") x = cx + w / 2 - inset;
+  const y = dir === "up" ? topY : topY + BUBBLE_H;
+  return { x, y };
+}
+
+/** Start of line from centre of a bubble edge */
+function undock(cx: number, topY: number, dir: "up" | "down"): { x: number; y: number } {
+  return { x: cx, y: dir === "up" ? topY : topY + BUBBLE_H };
 }
 
 function nameW(name: string, max = 148) {
@@ -569,13 +588,14 @@ function VanshawaliInner() {
             <svg className="absolute inset-0 pointer-events-none" width={W} height={H}>
               {gpPositions.map(({ n, x, row }) => {
                 const px = parentXById.get(n.via_parent_id || "") ?? centreX;
-                const gy = yGpBase + row * subRowH;
-                const py = yPar + (parentRowById.get(n.via_parent_id || "") ?? 0) * subRowH;
-                const endX = anchorX(x, nameW(n.display_name), n.gender, n.relation);
+                const pTop = yPar + (parentRowById.get(n.via_parent_id || "") ?? 0) * subRowH - 4;
+                const gTop = yGpBase + row * subRowH - 4;
+                const start = undock(px, pTop, "up");
+                const end = dock(x, gTop, nameW(n.display_name), "down", n.gender, n.relation);
                 return (
                   <path
                     key={`gpl-${n.id}`}
-                    d={curve(px, py - 6, endX, gy + 16)}
+                    d={curve(start.x, start.y, end.x, end.y)}
                     fill="none"
                     stroke={line}
                     strokeWidth={2.2}
@@ -584,12 +604,21 @@ function VanshawaliInner() {
                 );
               })}
               {parentsSorted.map((p, i) => {
-                const py = yPar + parRows[i] * subRowH;
-                const endX = anchorX(parXs[i], nameW(p.display_name), p.gender, p.relation);
+                const pTop = yPar + parRows[i] * subRowH - 4;
+                const cTop = yMid - BUBBLE_H / 2; // centre uses -translate-y-1/2 at yMid
+                const start = undock(centreX, cTop, "up");
+                const end = dock(
+                  parXs[i],
+                  pTop,
+                  nameW(p.display_name),
+                  "down",
+                  p.gender,
+                  p.relation
+                );
                 return (
                   <path
                     key={`pl-${p.id}`}
-                    d={curve(centreX, yMid - 16, endX, py + 18)}
+                    d={curve(start.x, start.y, end.x, end.y)}
                     fill="none"
                     stroke={line}
                     strokeWidth={2.3}
@@ -600,34 +629,59 @@ function VanshawaliInner() {
 {spousePositions.map((sp, i) => (
                 <path
                   key={`sl-${i}`}
-                  d={`M${centreX + centreW / 2} ${yMid} L${sp.x - sp.w / 2} ${yMid}`}
+                  d={`M${centreX + centreW / 2 - 1} ${yMid} L${sp.x - sp.w / 2 + 1} ${yMid}`}
                   fill="none"
                   stroke={line}
-                  strokeWidth={2.2}
+                  strokeWidth={2.4}
                   strokeLinecap="round"
                 />
               ))}
-              {children.map((c, i) => (
-                <path
-                  key={`cl-${c.id}`}
-                  d={curve(
-                    centreX,
-                    yMid + 16,
-                    anchorX(chXs[i], nameW(c.display_name), c.gender, c.relation),
-                    yChild + chRows[i] * subRowH - 4
-                  )}
-                  fill="none"
-                  stroke={line}
-                  strokeWidth={2.3}
-                  strokeLinecap="round"
-                />
-              ))}
+              {children.map((c, i) => {
+                const cTop = yMid - BUBBLE_H / 2;
+                const chTop = yChild + chRows[i] * subRowH - 4;
+                const start = undock(centreX, cTop, "down");
+                const end = dock(
+                  chXs[i],
+                  chTop,
+                  nameW(c.display_name),
+                  "up",
+                  c.gender,
+                  c.relation
+                );
+                return (
+                  <path
+                    key={`cl-${c.id}`}
+                    d={curve(start.x, start.y, end.x, end.y)}
+                    fill="none"
+                    stroke={line}
+                    strokeWidth={2.3}
+                    strokeLinecap="round"
+                  />
+                );
+              })}
 {gcPositions.map(({ n, x, row }) => {
-                const px = childXById.get(n.via_child_id || "") ?? centreX;
+                const via = n.via_child_id || "";
+                const px = childXById.get(via) ?? centreX;
+                // find child row
+                const ci = children.findIndex((c) => c.id === via);
+                const chTop =
+                  ci >= 0
+                    ? yChild + chRows[ci] * subRowH - 4
+                    : yChild - 4;
+                const gTop = yGcBase + row * subRowH - 4;
+                const start = undock(px, chTop, "down");
+                const end = dock(
+                  x,
+                  gTop,
+                  nameW(n.display_name),
+                  "up",
+                  n.gender,
+                  n.relation
+                );
                 return (
                   <path
                     key={`gcl-${n.id}`}
-                    d={curve(px, yChild + chMaxRow * subRowH + 22, x, yGcBase + row * subRowH - 4)}
+                    d={curve(start.x, start.y, end.x, end.y)}
                     fill="none"
                     stroke={line}
                     strokeWidth={2.1}
