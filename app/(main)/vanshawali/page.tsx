@@ -308,8 +308,12 @@ function VanshawaliInner() {
     // UP levels farthest first
     for (let d = levelsUp.length - 1; d >= 0; d--) {
       const level = levelsUp[d];
-      const items = level.map((n) => ({ n, w: nameWidth(n.display_name), kind: "node" as const }));
-      if (canEdit && d === 0) items.push({ n: null as any, w: 52, kind: "add" });
+      const items: { n: Node | null; w: number; kind: "node" | "add" }[] = level.map((n) => ({
+        n,
+        w: nameWidth(n.display_name),
+        kind: "node",
+      }));
+      if (canEdit && d === 0) items.push({ n: null, w: 52, kind: "add" });
       const widths = items.map((i) => i.w);
       const pack = packRows(widths, maxW - 16, 10);
       const maxRow = Math.max(0, ...pack.map((p) => p.row));
@@ -396,8 +400,12 @@ function VanshawaliInner() {
     // DOWN levels
     for (let d = 0; d < levelsDown.length; d++) {
       const level = levelsDown[d];
-      const items = level.map((n) => ({ n, w: nameWidth(n.display_name), kind: "node" as const }));
-      if (canEdit) items.push({ n: null as any, w: 52, kind: "add" });
+      const items: { n: Node | null; w: number; kind: "node" | "add" }[] = level.map((n) => ({
+        n,
+        w: nameWidth(n.display_name),
+        kind: "node",
+      }));
+      if (canEdit) items.push({ n: null, w: 52, kind: "add" });
       const widths = items.map((i) => i.w);
       const pack = packRows(widths, maxW - 16, 10);
       const maxRow = Math.max(0, ...pack.map((p) => p.row));
