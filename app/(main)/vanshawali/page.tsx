@@ -1,6 +1,7 @@
 "use client";
 /**
- * Smart auto-layout mind-map: no overlap, full names, adaptive width + scroll.
+ * Vertical-only infinite generations mind-map.
+ * Each generation soft transparent colour band. No side scroll.
  */
 import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
@@ -21,25 +22,19 @@ type Node = {
   relation: string;
   status?: string;
   link_id?: string;
-  via_parent_id?: string;
-  via_child_id?: string;
+  via_id?: string;
 };
 
 type Tree = {
   centre: Node;
-  parents: Node[];
   spouses: Node[];
-  children: Node[];
-  grandparents?: Node[];
-  grandchildren?: Node[];
+  parents?: Node[];
+  children?: Node[];
+  levels_up?: Node[][];
+  levels_down?: Node[][];
 };
 
-type SearchHit = {
-  id: string;
-  full_name: string;
-  native_village?: string;
-  photo_url?: string;
-};
+type SearchHit = { id: string; full_name: string; native_village?: string; photo_url?: string };
 
 const REL: Record<string, Record<string, string>> = {
   en: {
@@ -50,9 +45,6 @@ const REL: Record<string, Record<string, string>> = {
     child: "Child",
     son: "Son",
     daughter: "Daughter",
-    grandfather: "Grandfather",
-    grandmother: "Grandmother",
-    grandchild: "Grandchild",
   },
   hi: {
     self: "स्वयं",
@@ -62,9 +54,6 @@ const REL: Record<string, Record<string, string>> = {
     child: "संतान",
     son: "पुत्र",
     daughter: "पुत्री",
-    grandfather: "दादा/नाना",
-    grandmother: "दादी/नानी",
-    grandchild: "पोता/पोती",
   },
 };
 
@@ -77,47 +66,35 @@ function lbl(lang: string, key: string, gender?: string | null) {
   return L[key] || key;
 }
 
-/** Estimate tag width in px from name (full text, no truncate) */
-function estWidth(name: string) {
-  const len = Math.max((name || "?").length, 4);
-  // ~7.2px per char + padding; clamp
-  return Math.min(200, Math.max(72, Math.round(len * 7.4 + 28)));
-}
+/** Soft transparent generation colours (cycle) */
+const GEN_UP = [
+  "rgba(167, 139, 250, 0.18)", // violet
+  "rgba(96, 165, 250, 0.18)", // blue
+  "rgba(45, 212, 191, 0.18)", // teal
+  "rgba(52, 211, 153, 0.16)", // emerald
+  "rgba(251, 191, 36, 0.16)", // amber
+  "rgba(251, 113, 133, 0.16)", // rose
+];
+const GEN_DOWN = [
+  "rgba(52, 211, 153, 0.18)", // green
+  "rgba(251, 146, 60, 0.18)", // orange
+  "rgba(244, 114, 182, 0.16)", // pink
+  "rgba(129, 140, 248, 0.16)", // indigo
+  "rgba(56, 189, 248, 0.16)", // sky
+  "rgba(163, 230, 53, 0.16)", // lime
+];
+const GEN_SELF = "rgba(251, 191, 36, 0.22)";
 
-function estHeight(name: string) {
-  const w = estWidth(name);
-  const lines = Math.ceil(((name || "").length * 7.4) / Math.max(w - 20, 40));
-  return 28 + Math.max(0, lines - 1) * 14 + 16; // tag + relation line
-}
-
-/** Pack centers so boxes [x-w/2, x+w/2] never overlap; keep order; center group */
-function packCenters(widths: number[], minGap = 12, preferCx?: number): number[] {
-  const n = widths.length;
-  if (n === 0) return [];
-  if (n === 1) return [preferCx ?? 0];
-
-  // sequential left-to-right with gaps
-  const xs: number[] = [];
-  let cursor = 0;
-  for (let i = 0; i < n; i++) {
-    const half = widths[i] / 2;
-    if (i === 0) {
-      xs.push(half);
-      cursor = widths[i] + minGap;
-    } else {
-      const x = cursor + half;
-      xs.push(x);
-      cursor = x + half + minGap;
-    }
+function genLabel(lang: string, dir: "up" | "down" | "self", depth: number) {
+  if (dir === "self") return lang === "hi" ? "स्वयं" : "You";
+  if (dir === "up") {
+    if (depth === 0) return lang === "hi" ? "माता-पिता" : "Parents";
+    if (depth === 1) return lang === "hi" ? "दादा-दादी" : "Grandparents";
+    return lang === "hi" ? `पीढ़ी −${depth + 1}` : `Gen −${depth + 1}`;
   }
-  const total = cursor - minGap;
-  const shift = (preferCx ?? total / 2) - total / 2;
-  return xs.map((x) => x + shift);
-}
-
-function curve(x1: number, y1: number, x2: number, y2: number) {
-  const my = (y1 + y2) / 2;
-  return `M${x1} ${y1} C${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`;
+  if (depth === 0) return lang === "hi" ? "संतान" : "Children";
+  if (depth === 1) return lang === "hi" ? "पोते-पोतियाँ" : "Grandchildren";
+  return lang === "hi" ? `पीढ़ी +${depth + 1}` : `Gen +${depth + 1}`;
 }
 
 function VanshawaliInner() {
@@ -150,6 +127,9 @@ function VanshawaliInner() {
 
   const L = useMemo(() => REL[lang] || REL.en, [lang]);
   const canEdit = apiCanEdit && (isOwner || (isSA && saEditMode));
+
+  const levelsUp = tree?.levels_up || [];
+  const levelsDown = tree?.levels_down || [];
 
   const load = useCallback(() => {
     if (!rootId) return;
@@ -261,157 +241,50 @@ function VanshawaliInner() {
     setHits([]);
   };
 
-  // ——— Smart layout ———
-  const layout = useMemo(() => {
-    if (!tree) return null;
-    const parents = tree.parents || [];
-    const spouses = tree.spouses || [];
-    const children = tree.children || [];
-    const grandparents = tree.grandparents || [];
-    const grandchildren = tree.grandchildren || [];
-    const addW = canEdit ? 56 : 0;
-
-    const gpItems = grandparents.map((n) => ({ n, w: estWidth(n.display_name), h: estHeight(n.display_name) }));
-    const parItems = [
-      ...parents.map((n) => ({ n, w: estWidth(n.display_name), h: estHeight(n.display_name), kind: "node" as const })),
-      ...(canEdit ? [{ n: null as Node | null, w: addW, h: 40, kind: "add" as const }] : []),
-    ];
-    const chItems = [
-      ...children.map((n) => ({ n, w: estWidth(n.display_name), h: estHeight(n.display_name) + (canEdit ? 22 : 0), kind: "node" as const })),
-      ...(canEdit ? [{ n: null as Node | null, w: addW, h: 40, kind: "add" as const }] : []),
-    ];
-    const gcItems = grandchildren.map((n) => ({
-      n,
-      w: estWidth(n.display_name),
-      h: estHeight(n.display_name),
-    }));
-
-    const centreW = estWidth(tree.centre.display_name) + (tree.centre.photo_url ? 28 : 0);
-    const spouseItems = [
-      ...spouses.map((n) => ({ n, w: estWidth(n.display_name), h: estHeight(n.display_name) })),
-      ...(canEdit && spouses.length < 2 ? [{ n: null as Node | null, w: 72, h: 36 }] : []),
-    ];
-
-    // Vertical bands from content height
-    const pad = 16;
-    let y = pad;
-    const yGp = gpItems.length ? y : -999;
-    if (gpItems.length) y += Math.max(...gpItems.map((i) => i.h), 40) + 28;
-    const yPar = y;
-    y += Math.max(...parItems.map((i) => i.h), 40) + 36;
-    const yMid = y + 8;
-    y += 52;
-    const yChild = y;
-    y += Math.max(...chItems.map((i) => i.h), 40) + 28;
-    const yGc = gcItems.length ? y : -999;
-    if (gcItems.length) y += Math.max(...gcItems.map((i) => i.h), 40) + 16;
-    const contentH = y + pad;
-
-    // Provisional center X = 0, pack then shift
-    const gpXs = packCenters(gpItems.map((i) => i.w), 14, 0);
-    const parXs = packCenters(parItems.map((i) => i.w), 14, 0);
-    const chXs = packCenters(chItems.map((i) => i.w), 14, 0);
-    const gcXs = packCenters(gcItems.map((i) => i.w), 14, 0);
-
-    // Spouse to the right of centre
-    let spouseStart = centreW / 2 + 28;
-    const spouseXs: number[] = [];
-    spouseItems.forEach((s, i) => {
-      spouseXs.push(spouseStart + s.w / 2);
-      spouseStart += s.w + 14;
-    });
-
-    const allX = [
-      ...gpXs,
-      ...parXs,
-      ...chXs,
-      ...gcXs,
-      0,
-      ...spouseXs,
-      ...gpItems.map((it, i) => gpXs[i] - it.w / 2),
-      ...gpItems.map((it, i) => gpXs[i] + it.w / 2),
-      ...parItems.map((it, i) => parXs[i] - it.w / 2),
-      ...parItems.map((it, i) => parXs[i] + it.w / 2),
-      ...chItems.map((it, i) => chXs[i] - it.w / 2),
-      ...chItems.map((it, i) => chXs[i] + it.w / 2),
-      ...gcItems.map((it, i) => gcXs[i] - it.w / 2),
-      ...gcItems.map((it, i) => gcXs[i] + it.w / 2),
-      -centreW / 2,
-      centreW / 2,
-      ...spouseItems.map((it, i) => spouseXs[i] + it.w / 2),
-    ];
-    const minX = Math.min(...allX, -80);
-    const maxX = Math.max(...allX, 80);
-    const margin = 24;
-    const W = maxX - minX + margin * 2;
-    const shift = -minX + margin;
-    const cx = shift; // centre at 0 + shift
-
-    const mapX = (x: number) => x + shift;
-
-    return {
-      W,
-      H: contentH,
-      cx,
-      yGp,
-      yPar,
-      yMid,
-      yChild,
-      yGc,
-      centreW,
-      gpItems,
-      parItems,
-      chItems,
-      gcItems,
-      spouseItems,
-      gpXs: gpXs.map(mapX),
-      parXs: parXs.map(mapX),
-      chXs: chXs.map(mapX),
-      gcXs: gcXs.map(mapX),
-      spouseXs: spouseXs.map(mapX),
-      parents,
-      children,
-      grandparents,
-      grandchildren,
-    };
-  }, [tree, canEdit]);
-
-  const line = "#E8A317";
-
-  const TagBtn = ({
-    n,
-    extra,
-    style,
-  }: {
-    n: Node;
-    extra?: string;
-    style: React.CSSProperties;
-  }) => (
+  const Tag = ({ n }: { n: Node }) => (
     <button
       type="button"
       onClick={() => setSelected(n)}
-      className="absolute z-10 -translate-x-1/2 text-center"
-      style={style}
+      className="text-center m-1 max-w-[46%]"
     >
       <span
         className={`inline-block px-2.5 py-1.5 rounded-lg shadow-sm text-[12px] font-semibold leading-snug text-center border break-words whitespace-normal ${
           n.user_id
-            ? "bg-amber-400 text-white border-amber-500"
-            : "bg-white text-gray-800 border-amber-200"
+            ? "bg-amber-400/90 text-white border-amber-500/50"
+            : "bg-white/90 text-gray-800 border-white/60"
         }`}
-        style={{ maxWidth: estWidth(n.display_name) }}
       >
         {n.display_name}
       </span>
-      <span className="block text-[9px] text-amber-800/80 mt-0.5 leading-tight whitespace-nowrap">
-        {extra || lbl(lang, n.relation, n.gender)}
+      <span className="block text-[9px] text-gray-600/80 mt-0.5 leading-tight">
+        {lbl(lang, n.relation, n.gender)}
         {n.age != null ? ` · ${n.age}` : ""}
       </span>
     </button>
   );
 
+  const GenBand = ({
+    bg,
+    label,
+    children,
+  }: {
+    bg: string;
+    label: string;
+    children: React.ReactNode;
+  }) => (
+    <div
+      className="mx-3 my-1.5 rounded-2xl px-2 py-3 border border-white/40"
+      style={{ background: bg }}
+    >
+      <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500/80 text-center mb-2">
+        {label}
+      </p>
+      <div className="flex flex-wrap justify-center items-start gap-0">{children}</div>
+    </div>
+  );
+
   return (
-    <div className="flex flex-col min-h-[70vh] bg-[#fafafa] relative">
+    <div className="flex flex-col min-h-[70vh] bg-[#f7f7f8] relative">
       {isSA && !isOwner && (
         <button
           type="button"
@@ -427,183 +300,69 @@ function VanshawaliInner() {
         </button>
       )}
 
-      <div className="px-4 pt-3 pb-1 flex items-center justify-between shrink-0">
+      <div className="px-4 pt-3 pb-2 flex items-center justify-between shrink-0">
         <p className="text-sm font-semibold text-gray-800 pl-14 sm:pl-0">
           {lang === "hi" ? "वंशावली" : "Vanshawali"}
         </p>
-        <p className="text-[10px] text-gray-400">
-          {canEdit ? "Edit · swipe if wide" : "View only · swipe if wide"}
-        </p>
+        <p className="text-[10px] text-gray-400">{canEdit ? "Edit mode" : "View only"}</p>
       </div>
 
       {loading && <p className="text-center text-gray-400 py-20">Loading…</p>}
 
-      {!loading && tree && layout && (
-        <div className="flex-1 overflow-auto pb-36">
-          <div
-            className="relative mx-auto"
-            style={{ width: layout.W, height: layout.H, minWidth: "100%" }}
-          >
-            <svg
-              className="absolute inset-0 pointer-events-none"
-              width={layout.W}
-              height={layout.H}
-            >
-              {layout.gpItems.map((it, i) => {
-                const pi = layout.parents.findIndex((p) => p.id === it.n.via_parent_id);
-                const px = pi >= 0 ? layout.parXs[pi] : layout.cx;
-                return (
-                  <path
-                    key={`gpl-${it.n.id}`}
-                    d={curve(px, layout.yPar - 4, layout.gpXs[i], layout.yGp + 20)}
-                    fill="none"
-                    stroke={line}
-                    strokeWidth={2.2}
-                    strokeLinecap="round"
-                  />
-                );
-              })}
-              {layout.parItems.map((it, i) => {
-                if (it.kind === "add") {
-                  return (
-                    <path
-                      key="par-add-line"
-                      d={curve(layout.cx, layout.yMid - 16, layout.parXs[i], layout.yPar + 12)}
-                      fill="none"
-                      stroke={line}
-                      strokeWidth={2}
-                      strokeDasharray="4 3"
-                      opacity={0.45}
-                    />
-                  );
-                }
-                return (
-                  <path
-                    key={`pl-${it.n!.id}`}
-                    d={curve(layout.cx, layout.yMid - 16, layout.parXs[i], layout.yPar + 12)}
-                    fill="none"
-                    stroke={line}
-                    strokeWidth={2.4}
-                    strokeLinecap="round"
-                  />
-                );
-              })}
-              {layout.spouseItems.map((it, i) => (
-                <path
-                  key={`sl-${i}`}
-                  d={`M${layout.cx + layout.centreW / 2} ${layout.yMid} C${layout.cx + layout.centreW / 2 + 20} ${layout.yMid - 8}, ${layout.spouseXs[i] - 20} ${layout.yMid + 8}, ${layout.spouseXs[i] - it.w / 2} ${layout.yMid}`}
-                  fill="none"
-                  stroke={line}
-                  strokeWidth={2.2}
-                />
-              ))}
-              {layout.chItems.map((it, i) => {
-                if (it.kind === "add") {
-                  return (
-                    <path
-                      key="ch-add-line"
-                      d={curve(layout.cx, layout.yMid + 16, layout.chXs[i], layout.yChild - 4)}
-                      fill="none"
-                      stroke={line}
-                      strokeWidth={2}
-                      strokeDasharray="4 3"
-                      opacity={0.45}
-                    />
-                  );
-                }
-                return (
-                  <path
-                    key={`cl-${it.n!.id}`}
-                    d={curve(layout.cx, layout.yMid + 16, layout.chXs[i], layout.yChild - 4)}
-                    fill="none"
-                    stroke={line}
-                    strokeWidth={2.4}
-                    strokeLinecap="round"
-                  />
-                );
-              })}
-              {layout.gcItems.map((it, i) => {
-                const ci = layout.children.findIndex((c) => c.id === it.n.via_child_id);
-                const px = ci >= 0 ? layout.chXs[ci] : layout.cx;
-                return (
-                  <path
-                    key={`gcl-${it.n.id}`}
-                    d={curve(px, layout.yChild + 24, layout.gcXs[i], layout.yGc - 4)}
-                    fill="none"
-                    stroke={line}
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                  />
-                );
-              })}
-            </svg>
+      {!loading && tree && (
+        <div className="flex-1 overflow-y-auto overflow-x-hidden pb-36">
+          {/* UP generations: farthest first */}
+          {[...levelsUp].reverse().map((level, revIdx) => {
+            const depth = levelsUp.length - 1 - revIdx;
+            const bg = GEN_UP[depth % GEN_UP.length];
+            return (
+              <GenBand key={`up-${depth}`} bg={bg} label={genLabel(lang, "up", depth)}>
+                {level.map((n) => (
+                  <div key={n.id} className="flex flex-col items-center">
+                    <Tag n={n} />
+                    {canEdit && (
+                      <button
+                        type="button"
+                        className="w-5 h-5 mb-1 rounded-full bg-white/70 text-violet-600 flex items-center justify-center border border-violet-200"
+                        title="Add parent of this person"
+                        onClick={() => openAdd("father", n.id)}
+                      >
+                        <Plus size={10} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </GenBand>
+            );
+          })}
 
-            {/* GP */}
-            {layout.gpItems.map((it, i) => (
-              <TagBtn
-                key={it.n.id}
-                n={it.n}
-                extra={
-                  it.n.relation === "mother"
-                    ? L.grandmother || "Grandmother"
-                    : L.grandfather || "Grandfather"
+          {/* Add parents at centre's parent level */}
+          {canEdit && (
+            <div className="flex justify-center my-1">
+              <button
+                type="button"
+                onClick={() =>
+                  openAdd(
+                    (levelsUp[0] || []).some((p) => p.relation === "father")
+                      ? "mother"
+                      : "father"
+                  )
                 }
-                style={{ left: layout.gpXs[i], top: layout.yGp }}
-              />
-            ))}
+                className="text-[11px] border border-dashed border-violet-300 bg-violet-50/80 px-3 py-1 rounded-full text-violet-700"
+              >
+                + {L.father} / {L.mother}
+              </button>
+            </div>
+          )}
 
-            {/* Parents */}
-            {layout.parItems.map((it, i) =>
-              it.kind === "add" ? (
-                <button
-                  key="par-add"
-                  type="button"
-                  onClick={() =>
-                    openAdd(
-                      (tree.parents || []).some((p) => p.relation === "father")
-                        ? "mother"
-                        : "father"
-                    )
-                  }
-                  className="absolute z-10 -translate-x-1/2"
-                  style={{ left: layout.parXs[i], top: layout.yPar + 4 }}
-                >
-                  <span className="inline-flex items-center gap-0.5 text-[11px] border border-dashed border-amber-300 bg-amber-50 px-2 py-1 rounded-lg text-gray-500">
-                    <Plus size={12} /> Parent
-                  </span>
-                </button>
-              ) : (
-                <div key={it.n!.id}>
-                  <TagBtn n={it.n!} style={{ left: layout.parXs[i], top: layout.yPar }} />
-                  {canEdit && (
-                    <button
-                      type="button"
-                      className="absolute z-10 w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center -translate-x-1/2"
-                      style={{
-                        left: layout.parXs[i],
-                        top: layout.yPar + it.h - 6,
-                      }}
-                      title="Grandparent"
-                      onClick={() => openAdd("father", it.n!.id)}
-                    >
-                      <Plus size={10} />
-                    </button>
-                  )}
-                </div>
-              )
-            )}
-
-            {/* Centre */}
+          {/* SELF + spouse */}
+          <GenBand bg={GEN_SELF} label={genLabel(lang, "self", 0)}>
             <button
               type="button"
               onClick={() => setSelected(tree.centre)}
-              className="absolute z-20 -translate-x-1/2 -translate-y-1/2 text-center"
-              style={{ left: layout.cx, top: layout.yMid }}
+              className="m-1 text-center max-w-[70%]"
             >
-              <span
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 text-white text-[13px] font-bold shadow-md leading-snug text-left"
-                style={{ maxWidth: layout.centreW + 8 }}
-              >
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 text-white text-[13px] font-bold shadow leading-snug">
                 {tree.centre.photo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -612,80 +371,65 @@ function VanshawaliInner() {
                     className="w-6 h-6 rounded-full object-cover shrink-0"
                   />
                 ) : null}
-                <span className="break-words whitespace-normal">{tree.centre.display_name}</span>
+                <span className="break-words whitespace-normal text-left">
+                  {tree.centre.display_name}
+                </span>
               </span>
-              <span className="block text-[9px] text-emerald-600 font-medium mt-0.5">{L.self}</span>
+              <span className="block text-[9px] text-emerald-700 font-medium mt-0.5">{L.self}</span>
             </button>
-
-            {/* Spouses */}
-            {layout.spouseItems.map((it, i) =>
-              it.n ? (
-                <TagBtn
-                  key={it.n.id}
-                  n={it.n}
-                  extra={L.spouse}
-                  style={{ left: layout.spouseXs[i], top: layout.yMid - 18 }}
-                />
-              ) : (
-                <button
-                  key="sp-add"
-                  type="button"
-                  onClick={() => openAdd("spouse")}
-                  className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
-                  style={{ left: layout.spouseXs[i], top: layout.yMid }}
-                >
-                  <span className="text-[11px] border border-dashed border-amber-300 bg-amber-50 px-2 py-1 rounded-lg text-gray-500">
-                    + {L.spouse}
-                  </span>
-                </button>
-              )
-            )}
-
-            {/* Children */}
-            {layout.chItems.map((it, i) =>
-              it.kind === "add" ? (
-                <button
-                  key="ch-add"
-                  type="button"
-                  onClick={() => openAdd("child")}
-                  className="absolute z-10 -translate-x-1/2"
-                  style={{ left: layout.chXs[i], top: layout.yChild + 4 }}
-                >
-                  <span className="inline-flex items-center gap-0.5 text-[11px] border border-dashed border-amber-300 bg-amber-50 px-2 py-1 rounded-lg text-gray-500">
-                    <Plus size={12} /> {L.child}
-                  </span>
-                </button>
-              ) : (
-                <div key={it.n!.id}>
-                  <TagBtn n={it.n!} style={{ left: layout.chXs[i], top: layout.yChild }} />
-                  {canEdit && (
-                    <button
-                      type="button"
-                      className="absolute z-10 w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center -translate-x-1/2"
-                      style={{ left: layout.chXs[i], top: layout.yChild + it.h - 8 }}
-                      onClick={() => openAdd("child", it.n!.id)}
-                    >
-                      <Plus size={10} />
-                    </button>
-                  )}
-                </div>
-              )
-            )}
-
-            {/* Grandchildren */}
-            {layout.gcItems.map((it, i) => (
-              <TagBtn
-                key={it.n.id}
-                n={it.n}
-                extra={L.grandchild || "Grandchild"}
-                style={{ left: layout.gcXs[i], top: layout.yGc }}
-              />
+            {(tree.spouses || []).map((n) => (
+              <Tag key={n.id} n={n} />
             ))}
-          </div>
+            {canEdit && (tree.spouses || []).length < 2 && (
+              <button
+                type="button"
+                onClick={() => openAdd("spouse")}
+                className="m-1 text-[11px] border border-dashed border-amber-400 bg-white/70 px-2 py-1 rounded-lg text-amber-800"
+              >
+                + {L.spouse}
+              </button>
+            )}
+          </GenBand>
+
+          {/* DOWN generations */}
+          {levelsDown.map((level, depth) => {
+            const bg = GEN_DOWN[depth % GEN_DOWN.length];
+            return (
+              <GenBand key={`down-${depth}`} bg={bg} label={genLabel(lang, "down", depth)}>
+                {level.map((n) => (
+                  <div key={n.id} className="flex flex-col items-center">
+                    <Tag n={n} />
+                    {canEdit && (
+                      <button
+                        type="button"
+                        className="w-5 h-5 mb-1 rounded-full bg-white/70 text-emerald-700 flex items-center justify-center border border-emerald-200"
+                        title="Add child of this person"
+                        onClick={() => openAdd("child", n.id)}
+                      >
+                        <Plus size={10} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </GenBand>
+            );
+          })}
+
+          {canEdit && (
+            <div className="flex justify-center my-2">
+              <button
+                type="button"
+                onClick={() => openAdd("child")}
+                className="text-[11px] border border-dashed border-emerald-400 bg-emerald-50/80 px-3 py-1 rounded-full text-emerald-800"
+              >
+                + {L.child}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* ADD sheet */}
+      {/* ADD */}
       {draft && canEdit && (
         <div
           className="fixed inset-0 z-50 bg-black/30 flex items-end sm:items-center justify-center"
@@ -708,7 +452,7 @@ function VanshawaliInner() {
                 {lang === "hi" ? "रिश्ता" : "Relationship"}
               </label>
               <select
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
+                className="w-full px-3 py-2.5 rounded-xl border text-sm"
                 value={draft.relation}
                 onChange={(e) => setDraft({ ...draft, relation: e.target.value })}
               >
@@ -721,8 +465,8 @@ function VanshawaliInner() {
             <div className="relative">
               <Search size={14} className="absolute left-3 top-3 text-gray-400" />
               <input
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50 outline-none focus:border-amber-400"
-                placeholder={lang === "hi" ? "Member search…" : "Search registered member…"}
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl border text-sm bg-gray-50"
+                placeholder={lang === "hi" ? "Member search…" : "Search registered…"}
                 value={q}
                 onChange={(e) => {
                   setQ(e.target.value);
@@ -737,9 +481,7 @@ function VanshawaliInner() {
                   <li key={h.id}>
                     <button
                       type="button"
-                      className={`w-full text-left px-3 py-2 text-sm hover:bg-amber-50 ${
-                        draft.member_user_id === h.id ? "bg-amber-50" : ""
-                      }`}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50"
                       onClick={() => {
                         setDraft({ ...draft, member_user_id: h.id, name: h.full_name });
                         setQ(h.full_name);
@@ -747,9 +489,6 @@ function VanshawaliInner() {
                       }}
                     >
                       <span className="font-medium">{h.full_name}</span>
-                      {h.native_village && (
-                        <span className="text-[10px] text-gray-400 ml-2">{h.native_village}</span>
-                      )}
                     </button>
                   </li>
                 ))}
@@ -759,7 +498,7 @@ function VanshawaliInner() {
               <>
                 <input
                   className="w-full px-3 py-2.5 rounded-xl border text-sm"
-                  placeholder={lang === "hi" ? "नाम (full)" : "Full name"}
+                  placeholder={lang === "hi" ? "पूरा नाम" : "Full name"}
                   value={draft.name}
                   onChange={(e) =>
                     setDraft({ ...draft, name: e.target.value, member_user_id: null })
@@ -767,7 +506,7 @@ function VanshawaliInner() {
                 />
                 <input
                   className="w-full px-3 py-2.5 rounded-xl border text-sm"
-                  placeholder="Birth year (optional)"
+                  placeholder="Birth year"
                   inputMode="numeric"
                   value={draft.birth_year}
                   onChange={(e) =>
@@ -778,11 +517,6 @@ function VanshawaliInner() {
                   }
                 />
               </>
-            )}
-            {draft.member_user_id && (
-              <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-2 py-1.5">
-                ✓ Linked member
-              </p>
             )}
             <button
               type="button"
@@ -809,7 +543,6 @@ function VanshawaliInner() {
             <p className="text-xs text-gray-500 mb-2">
               {lbl(lang, selected.relation, selected.gender)}
               {selected.age != null ? ` · ${selected.age} yrs` : ""}
-              {selected.user_id ? " · Registered" : " · Manual"}
             </p>
             {selected.user_id && (
               <>
