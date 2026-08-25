@@ -157,6 +157,33 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     link_id: row.link.id,
   });
 
+  // Grandparents: parents of each parent
+  const grandparents: { person: Person; relation: string; link: Link; via_parent_id: string }[] = [];
+  for (const par of parents) {
+    for (const l of store.links) {
+      if (!showLink(l)) continue;
+      if ((l.relation === "father" || l.relation === "mother") && l.to_id === par.person.id) {
+        const g = byId(l.from_id);
+        if (g) grandparents.push({ person: g, relation: l.relation, link: l, via_parent_id: par.person.id });
+      }
+    }
+  }
+
+  // Grandchildren: children of each child
+  const grandchildren: { person: Person; relation: string; link: Link; via_child_id: string }[] = [];
+  for (const ch of children) {
+    for (const l of store.links) {
+      if (!showLink(l)) continue;
+      if (l.relation === "child" && l.from_id === ch.person.id) {
+        const g = byId(l.to_id);
+        if (g) grandchildren.push({ person: g, relation: "child", link: l, via_child_id: ch.person.id });
+      } else if ((l.relation === "father" || l.relation === "mother") && l.from_id === ch.person.id) {
+        const g = byId(l.to_id);
+        if (g) grandchildren.push({ person: g, relation: "child", link: l, via_child_id: ch.person.id });
+      }
+    }
+  }
+
   return {
     centre: {
       id: centre.id,
@@ -173,6 +200,8 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     parents: parents.map(mapNode),
     spouses: spouses.map(mapNode),
     children: children.map(mapNode),
+    grandparents: grandparents.map((row) => ({ ...mapNode(row), via_parent_id: row.via_parent_id })),
+    grandchildren: grandchildren.map((row) => ({ ...mapNode(row), via_child_id: row.via_child_id })),
   };
 }
 
@@ -202,7 +231,9 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     tree,
     pending_count: pending.length,
-    can_edit: session.userId === userId || isStaff,
+    can_edit: session.userId === userId || session.role === "super_admin",
+    is_owner: session.userId === userId,
+    is_super_admin: session.role === "super_admin",
   });
 }
 
@@ -215,6 +246,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
   const store = await loadStore(supabase);
   const isStaff = ["core_committee", "super_admin"].includes(session.role);
+  const isSA = session.role === "super_admin";
 
   if (action === "verify" || action === "reject") {
     const linkId = body.link_id;
@@ -245,9 +277,9 @@ export async function POST(request: NextRequest) {
       link.from_id === centre.id ||
       link.to_id === centre.id;
     const allowed =
-      isStaff ||
-      link.proposed_by === session.userId ||
-      (centre?.user_id === session.userId && touches);
+      isSA ||
+      (centre?.user_id === session.userId && touches) ||
+      (link.proposed_by === session.userId && !centre);
     if (!allowed) return NextResponse.json({ error: "Not allowed to remove" }, { status: 403 });
     store.links = store.links.filter((l) => l.id !== linkId);
     // prune orphan ghosts (no user_id, no remaining links)
@@ -265,13 +297,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
-  // add relative
-  const centreUserId = body.centre_user_id || session.userId;
-  if (centreUserId !== session.userId && !isStaff) {
-    return NextResponse.json({ error: "Only own tree (or staff)" }, { status: 403 });
+  // add relative — centre by user id OR vansh person id (extend branch)
+  let centre: Person;
+  if (body.centre_person_id) {
+    const found = store.persons.find((p) => p.id === String(body.centre_person_id));
+    if (!found) return NextResponse.json({ error: "Centre person not found" }, { status: 404 });
+    // only owner of linked user or SA
+    if (found.user_id && found.user_id !== session.userId && !isSA) {
+      return NextResponse.json({ error: "Only own tree (or Super Admin)" }, { status: 403 });
+    }
+    if (!found.user_id && !isSA) {
+      // ghost: allow if editor owns the root tree being viewed
+      const rootUser = String(body.root_user_id || session.userId);
+      if (rootUser !== session.userId && !isSA) {
+        return NextResponse.json({ error: "Only own tree (or Super Admin)" }, { status: 403 });
+      }
+    }
+    centre = found;
+  } else {
+    const centreUserId = body.centre_user_id || session.userId;
+    if (centreUserId !== session.userId && !isSA) {
+      return NextResponse.json({ error: "Only own tree (or Super Admin)" }, { status: 403 });
+    }
+    centre = await ensurePersonForUser(store, supabase, centreUserId);
   }
-
-  const centre = await ensurePersonForUser(store, supabase, centreUserId);
   const relation = String(body.relation || "").toLowerCase() as Link["relation"];
   if (!["father", "mother", "spouse", "child"].includes(relation)) {
     return NextResponse.json({ error: "relation: father|mother|spouse|child" }, { status: 400 });
