@@ -247,7 +247,7 @@ function VanshawaliInner() {
   const nGpSlots = grandparents.length;
   const nGcSlots = grandchildren.length;
 
-  const gap = 96;
+  const gap = 118;
   const cx = W / 2;
 
   // Vertical bands (no overlap)
@@ -275,10 +275,10 @@ function VanshawaliInner() {
     <button
       type="button"
       onClick={() => setSelected(n)}
-      className="text-center max-w-[92px]"
+      className="text-center max-w-[140px]"
     >
       <span
-        className={`inline-block px-2 py-1 rounded-lg shadow-sm text-[11px] font-semibold truncate max-w-[92px] border ${
+        className={`inline-block px-2.5 py-1.5 rounded-lg shadow-sm text-[12px] font-semibold leading-snug text-center border break-words whitespace-normal ${
           n.user_id
             ? "bg-amber-400 text-white border-amber-500"
             : "bg-white text-gray-800 border-amber-200"
@@ -286,7 +286,7 @@ function VanshawaliInner() {
       >
         {n.display_name}
       </span>
-      <span className="block text-[8px] text-amber-800/70 mt-0.5 leading-tight">
+      <span className="block text-[9px] text-amber-800/80 mt-0.5 leading-tight">
         {extra || lbl(lang, n.relation, n.gender)}
         {n.age != null ? ` · ${n.age}` : ""}
       </span>
@@ -479,12 +479,12 @@ function VanshawaliInner() {
               style={{ left: "50%", top: yMid }}
             >
               <button type="button" onClick={() => setSelected(tree.centre)} className="text-center">
-                <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-400 text-white text-[12px] font-bold shadow-md max-w-[130px]">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 text-white text-[13px] font-bold shadow-md max-w-[180px]">
                   {tree.centre.photo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={tree.centre.photo_url} alt="" className="w-5 h-5 rounded-full object-cover" />
+                    <img src={tree.centre.photo_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
                   ) : null}
-                  <span className="truncate">{tree.centre.display_name}</span>
+                  <span className="text-left leading-snug break-words whitespace-normal">{tree.centre.display_name}</span>
                 </span>
                 <span className="block text-[9px] text-emerald-600 font-medium mt-0.5">{L.self}</span>
               </button>
@@ -578,11 +578,27 @@ function VanshawaliInner() {
           >
             <div className="flex justify-between items-center">
               <p className="font-bold text-gray-900">
-                + {lbl(lang, draft.relation === "child" ? "child" : draft.relation)}
+                {lang === "hi" ? "रिश्तेदार जोड़ें" : "Add relative"}
               </p>
               <button type="button" onClick={() => setDraft(null)}>
                 <X size={18} className="text-gray-400" />
               </button>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-medium text-gray-500 mb-1 block">
+                {lang === "hi" ? "रिश्ता (Relationship)" : "Relationship"}
+              </label>
+              <select
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:border-amber-400"
+                value={draft.relation}
+                onChange={(e) => setDraft({ ...draft, relation: e.target.value })}
+              >
+                <option value="father">{L.father}</option>
+                <option value="mother">{L.mother}</option>
+                <option value="spouse">{L.spouse}</option>
+                <option value="child">{L.child}</option>
+              </select>
             </div>
 
             <div className="relative">
