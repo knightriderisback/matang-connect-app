@@ -88,6 +88,14 @@ function curve(x1: number, y1: number, x2: number, y2: number) {
   return `M${x1} ${y1} C${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`;
 }
 
+/** End of line: male → left edge, female → right edge, else centre */
+function anchorX(cx: number, w: number, gender?: string | null) {
+  const g = (gender || "").toLowerCase();
+  if (g === "female" || g === "f") return cx + w / 2 - 2;
+  if (g === "male" || g === "m") return cx - w / 2 + 2;
+  return cx;
+}
+
 function nameW(name: string, max = 148) {
   return Math.min(max, Math.max(56, Math.round(Math.max((name || "?").length, 3) * 7.4 + 24)));
 }
@@ -166,7 +174,7 @@ function packSmart(
 function mildTilt(i: number, count: number) {
   if (count < 2) return 0;
   const mid = (count - 1) / 2;
-  return Math.max(-6, Math.min(6, (i - mid) * 2.2));
+  return Math.max(-8, Math.min(8, (i - mid) * 2.8));
 }
 
 function VanshawaliInner() {
@@ -366,6 +374,7 @@ function VanshawaliInner() {
     ? { x: clampX(cx, 48, W, pad), row: 0 }
     : { x: cx, row: 0 };
   const parentXById = new Map(parentsSorted.map((p, i) => [p.id, parXs[i]]));
+  const parentWById = new Map(parentsSorted.map((p) => [p.id, nameW(p.display_name)]));
   const parentRowById = new Map(parentsSorted.map((p, i) => [p.id, parRows[i]]));
   const parMaxRow = 0;
 
@@ -433,6 +442,7 @@ function VanshawaliInner() {
   const chRows = children.map((_, i) => chPack[i].row);
   const chAdd = canEdit ? chPack[children.length] : { x: cx, row: 0 };
   const childXById = new Map(children.map((c, i) => [c.id, chXs[i]]));
+  const childWById = new Map(children.map((c) => [c.id, nameW(c.display_name)]));
   const chMaxRow = Math.max(0, ...chPack.map((p) => p.row));
 
   type GcPos = { n: Node; x: number; row: number };
@@ -485,8 +495,8 @@ function VanshawaliInner() {
       <span
         className={`inline-block px-2.5 py-1.5 rounded-lg shadow-sm text-[12px] font-semibold leading-snug border whitespace-nowrap ${
           n.user_id
-            ? "bg-amber-400/75 text-white border-amber-500/50"
-            : "bg-white/70 text-gray-800 border-amber-200/60 backdrop-blur-[2px]"
+            ? "bg-amber-400/55 text-white border-amber-500/40"
+            : "bg-white/45 text-gray-800 border-amber-200/50 backdrop-blur-[3px]"
         }`}
       >
         {n.display_name}
@@ -535,10 +545,11 @@ function VanshawaliInner() {
                 const px = parentXById.get(n.via_parent_id || "") ?? centreX;
                 const gy = yGpBase + row * subRowH;
                 const py = yPar + (parentRowById.get(n.via_parent_id || "") ?? 0) * subRowH;
+                const endX = anchorX(x, nameW(n.display_name), n.gender);
                 return (
                   <path
                     key={`gpl-${n.id}`}
-                    d={curve(px, py - 6, x, gy + 16)}
+                    d={curve(px, py - 6, endX, gy + 16)}
                     fill="none"
                     stroke={line}
                     strokeWidth={2.2}
@@ -547,12 +558,12 @@ function VanshawaliInner() {
                 );
               })}
               {parentsSorted.map((p, i) => {
-                const px = parXs[i];
                 const py = yPar + parRows[i] * subRowH;
+                const endX = anchorX(parXs[i], nameW(p.display_name), p.gender);
                 return (
                   <path
                     key={`pl-${p.id}`}
-                    d={curve(centreX, yMid - 16, px, py + 18)}
+                    d={curve(centreX, yMid - 16, endX, py + 18)}
                     fill="none"
                     stroke={line}
                     strokeWidth={2.3}
@@ -560,17 +571,7 @@ function VanshawaliInner() {
                   />
                 );
               })}
-              {canEdit && (
-                <path
-                  d={curve(centreX, yMid - 16, parAdd.x, yPar + parAdd.row * subRowH + 18)}
-                  fill="none"
-                  stroke={line}
-                  strokeWidth={2}
-                  strokeDasharray="4 3"
-                  opacity={0.4}
-                />
-              )}
-              {spousePositions.map((sp, i) => (
+{spousePositions.map((sp, i) => (
                 <path
                   key={`sl-${i}`}
                   d={`M${centreX + centreW / 2} ${yMid} L${sp.x - sp.w / 2} ${yMid}`}
@@ -583,24 +584,19 @@ function VanshawaliInner() {
               {children.map((c, i) => (
                 <path
                   key={`cl-${c.id}`}
-                  d={curve(centreX, yMid + 16, chXs[i], yChild + chRows[i] * subRowH - 4)}
+                  d={curve(
+                    centreX,
+                    yMid + 16,
+                    anchorX(chXs[i], nameW(c.display_name), c.gender),
+                    yChild + chRows[i] * subRowH - 4
+                  )}
                   fill="none"
                   stroke={line}
                   strokeWidth={2.3}
                   strokeLinecap="round"
                 />
               ))}
-              {canEdit && (
-                <path
-                  d={curve(centreX, yMid + 16, chAdd.x, yChild + chAdd.row * subRowH - 4)}
-                  fill="none"
-                  stroke={line}
-                  strokeWidth={2}
-                  strokeDasharray="4 3"
-                  opacity={0.4}
-                />
-              )}
-              {gcPositions.map(({ n, x, row }) => {
+{gcPositions.map(({ n, x, row }) => {
                 const px = childXById.get(n.via_child_id || "") ?? centreX;
                 return (
                   <path
@@ -643,19 +639,7 @@ function VanshawaliInner() {
                 style={{ left: parXs[i], top: yPar + parRows[i] * subRowH - 4 }}
               >
                 <Tag n={n} />
-                {canEdit && (
-                  <button
-                    type="button"
-                    className="mt-0.5 mx-auto flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-700"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openAdd("father", n.id);
-                    }}
-                  >
-                    <Plus size={10} />
-                  </button>
-                )}
-              </div>
+</div>
             ))}
             {canEdit && (
               <button
@@ -677,7 +661,7 @@ function VanshawaliInner() {
               style={{ left: centreX, top: yMid }}
             >
               <button type="button" onClick={() => setSelected(tree.centre)} className="text-center">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400/85 text-white text-[13px] font-bold shadow-md whitespace-nowrap backdrop-blur-[1px]">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400/65 text-white text-[13px] font-bold shadow-md whitespace-nowrap backdrop-blur-[1px]">
                   {tree.centre.photo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={tree.centre.photo_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
@@ -697,57 +681,16 @@ function VanshawaliInner() {
                 <Tag n={n} extra={L.spouse} />
               </div>
             ))}
-            {canEdit && spouses.length < 2 && (
-              <button
-                type="button"
-                onClick={() => openAdd("spouse")}
-                className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
-                style={{
-                  left: clampX(centreX + centreW / 2 + 40, 64, W, pad),
-                  top: yMid,
-                }}
-              >
-                <span className="text-[10px] border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded text-gray-500 whitespace-nowrap">
-                  + {L.spouse}
-                </span>
-              </button>
-            )}
-
-            {children.map((n, i) => (
+{children.map((n, i) => (
               <div
                 key={n.id}
                 className="absolute z-10 -translate-x-1/2"
                 style={{ left: chXs[i], top: yChild + chRows[i] * subRowH - 4 }}
               >
                 <Tag n={n} />
-                {canEdit && (
-                  <button
-                    type="button"
-                    className="mt-0.5 mx-auto flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-700"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openAdd("child", n.id);
-                    }}
-                  >
-                    <Plus size={10} />
-                  </button>
-                )}
-              </div>
+</div>
             ))}
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => openAdd("child")}
-                className="absolute z-10 -translate-x-1/2"
-                style={{ left: chAdd.x, top: yChild + chAdd.row * subRowH + 4 }}
-              >
-                <span className="text-[10px] border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded text-gray-500">
-                  + {L.child}
-                </span>
-              </button>
-            )}
-
-            {gcPositions.map(({ n, x, row }) => (
+{gcPositions.map(({ n, x, row }) => (
               <div
                 key={n.id}
                 className="absolute z-10 -translate-x-1/2"
@@ -922,6 +865,56 @@ function VanshawaliInner() {
                   <User size={16} className="text-amber-500" /> Profile / info
                 </button>
               </>
+            )}
+            {canEdit && (
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
+                onClick={() => {
+                  const isSelf = selected.id === tree?.centre.id || selected.relation === "self";
+                  if (isSelf) {
+                    openAdd("child");
+                  } else {
+                    // extend from this person: parent if ancestor-ish, else child
+                    const rel =
+                      selected.relation === "father" ||
+                      selected.relation === "mother" ||
+                      selected.relation === "grandfather" ||
+                      selected.relation === "grandmother"
+                        ? "father"
+                        : "child";
+                    openAdd(rel, selected.id);
+                  }
+                  setSelected(null);
+                }}
+              >
+                <Plus size={16} className="text-amber-500" />{" "}
+                {lang === "hi" ? "Member जोड़ें" : "Add member"}
+              </button>
+            )}
+            {canEdit && selected.relation === "self" && (
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
+                onClick={() => {
+                  openAdd("father");
+                  setSelected(null);
+                }}
+              >
+                <Plus size={16} className="text-amber-500" /> {L.father} / {L.mother}
+              </button>
+            )}
+            {canEdit && selected.relation === "self" && (
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
+                onClick={() => {
+                  openAdd("spouse");
+                  setSelected(null);
+                }}
+              >
+                <Plus size={16} className="text-amber-500" /> {L.spouse}
+              </button>
             )}
             {canEdit && selected.relation !== "self" && selected.link_id && (
               <button
