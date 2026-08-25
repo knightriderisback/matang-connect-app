@@ -1,10 +1,14 @@
 "use client";
 /**
- * Vertical 2-way mind-map — no overlap, search registered members,
- * multi-gen, edit only owner or SA (left Edit toggle).
+ * VANSHAWALI — LOCKED CORE (do not replace mechanism)
+ * Mind-map system stays: centre · parents up · children down · spouse side ·
+ * curves · add/remove/search · owner/SA edit.
+ * Only allowed changes: placement polish, colours, options UI.
+ * Rules: no bubble off left/right; vertical scroll OK; full names;
+ * lines must attach to exact node centres end-to-end.
  */
 import { FeatureGate } from "@/components/shared/FeatureGate";
-import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
+import { useCallback, useEffect, useMemo, useState, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
@@ -84,12 +88,23 @@ function curve(x1: number, y1: number, x2: number, y2: number) {
   return `M${x1} ${y1} C${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`;
 }
 
-function slotXs(count: number, cx: number, gap = 88) {
-  if (count <= 0) return [] as number[];
-  if (count === 1) return [cx];
-  const span = gap * (count - 1);
-  const start = cx - span / 2;
-  return Array.from({ length: count }, (_, i) => start + i * gap);
+function nameW(name: string, max = 148) {
+  return Math.min(max, Math.max(56, Math.round(Math.max((name || "?").length, 3) * 7.4 + 24)));
+}
+
+/** Even slots inside [pad, W-pad], never outside screen */
+function slotXsInView(count: number, W: number, pad = 12): number[] {
+  if (count <= 0) return [];
+  if (count === 1) return [W / 2];
+  const usable = W - pad * 2;
+  const step = usable / (count - 1);
+  return Array.from({ length: count }, (_, i) => pad + i * step);
+}
+
+/** Clamp centre-x so bubble of width w stays fully inside [pad, W-pad] */
+function clampX(x: number, w: number, W: number, pad = 10) {
+  const half = w / 2;
+  return Math.max(pad + half, Math.min(W - pad - half, x));
 }
 
 function VanshawaliInner() {
@@ -99,6 +114,8 @@ function VanshawaliInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rootId = searchParams.get("user") || user?.id || "";
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [vw, setVw] = useState(360);
 
   const [tree, setTree] = useState<Tree | null>(null);
   const [loading, setLoading] = useState(true);
@@ -123,6 +140,16 @@ function VanshawaliInner() {
 
   const L = useMemo(() => REL[lang] || REL.en, [lang]);
   const canEdit = apiCanEdit && (isOwner || (isSA && saEditMode));
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const measure = () => setVw(Math.max(300, el.clientWidth));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [tree]);
 
   const load = useCallback(() => {
     if (!rootId) return;
@@ -234,34 +261,56 @@ function VanshawaliInner() {
     setHits([]);
   };
 
-  // Layout
-  const W = 400;
+  // Layout — LOCKED mind-map geometry (viewport-safe)
   const parents = tree?.parents || [];
   const spouses = tree?.spouses || [];
   const children = tree?.children || [];
   const grandparents = tree?.grandparents || [];
   const grandchildren = tree?.grandchildren || [];
 
-  const nParentSlots = parents.length + (canEdit ? 1 : 0);
-  const nChildSlots = children.length + (canEdit ? 1 : 0);
-  const nGpSlots = grandparents.length;
-  const nGcSlots = grandchildren.length;
-
-  const gap = 118;
+  const W = vw;
+  const pad = 12;
   const cx = W / 2;
 
-  // Vertical bands (no overlap)
-  const yGp = 28;
-  const yPar = grandparents.length || canEdit ? 110 : 36;
-  const yMid = yPar + 100;
-  const yChild = yMid + 100;
-  const yGc = yChild + 95;
-  const H = (grandchildren.length ? yGc : yChild) + 90;
+  const nParentSlots = Math.max(parents.length + (canEdit ? 1 : 0), 1);
+  const nChildSlots = Math.max(children.length + (canEdit ? 1 : 0), 1);
+  const nGpSlots = Math.max(grandparents.length, 1);
+  const nGcSlots = Math.max(grandchildren.length, 1);
 
-  const gpXs = slotXs(Math.max(nGpSlots, 1), cx, gap);
-  const parXs = slotXs(Math.max(nParentSlots, 1), cx, gap);
-  const chXs = slotXs(Math.max(nChildSlots, 1), cx, gap);
-  const gcXs = slotXs(Math.max(nGcSlots, 1), cx, gap);
+  // Adaptive vertical spacing (full names need height)
+  const yGp = grandparents.length ? 36 : -80;
+  const yPar = grandparents.length ? 120 : 40;
+  const yMid = yPar + 108;
+  const yChild = yMid + 108;
+  const yGc = grandchildren.length ? yChild + 100 : -80;
+  const H = (grandchildren.length ? yGc : yChild) + 100;
+
+  let gpXs = slotXsInView(grandparents.length || 0, W, pad);
+  let parXs = slotXsInView(nParentSlots, W, pad);
+  let chXs = slotXsInView(nChildSlots, W, pad);
+  let gcXs = slotXsInView(grandchildren.length || 0, W, pad);
+
+  // Clamp each slot by estimated bubble width so nothing clips left/right
+  gpXs = gpXs.map((x, i) => clampX(x, nameW(grandparents[i]?.display_name || ""), W, pad));
+  parXs = parXs.map((x, i) => {
+    if (i < parents.length) return clampX(x, nameW(parents[i].display_name), W, pad);
+    return clampX(x, 56, W, pad); // add slot
+  });
+  chXs = chXs.map((x, i) => {
+    if (i < children.length) return clampX(x, nameW(children[i].display_name), W, pad);
+    return clampX(x, 56, W, pad);
+  });
+  gcXs = gcXs.map((x, i) => clampX(x, nameW(grandchildren[i]?.display_name || ""), W, pad));
+
+  const centreW = nameW(tree?.centre.display_name || "Self", 170);
+  const centreX = clampX(cx, centreW, W, pad);
+
+  // Spouse to the right of centre, clamped
+  const spousePositions = spouses.map((s, i) => {
+    const w = nameW(s.display_name);
+    const raw = centreX + centreW / 2 + 16 + w / 2 + i * (w + 12);
+    return { x: clampX(raw, w, W, pad), w };
+  });
 
   const line = "#E8A317";
 
@@ -272,13 +321,9 @@ function VanshawaliInner() {
     n: Node;
     extra?: string;
   }) => (
-    <button
-      type="button"
-      onClick={() => setSelected(n)}
-      className="text-center max-w-[140px]"
-    >
+    <button type="button" onClick={() => setSelected(n)} className="text-center">
       <span
-        className={`inline-block px-2.5 py-1.5 rounded-lg shadow-sm text-[12px] font-semibold leading-snug text-center border break-words whitespace-normal ${
+        className={`inline-block px-2.5 py-1.5 rounded-lg shadow-sm text-[12px] font-semibold leading-snug border whitespace-nowrap ${
           n.user_id
             ? "bg-amber-400 text-white border-amber-500"
             : "bg-white text-gray-800 border-amber-200"
@@ -286,7 +331,7 @@ function VanshawaliInner() {
       >
         {n.display_name}
       </span>
-      <span className="block text-[9px] text-amber-800/80 mt-0.5 leading-tight">
+      <span className="block text-[9px] text-amber-800/80 mt-0.5 leading-tight whitespace-nowrap">
         {extra || lbl(lang, n.relation, n.gender)}
         {n.age != null ? ` · ${n.age}` : ""}
       </span>
@@ -323,22 +368,22 @@ function VanshawaliInner() {
       {loading && <p className="text-center text-gray-400 py-20">Loading…</p>}
 
       {!loading && tree && (
-        <div className="flex-1 overflow-auto px-2 pb-36">
-          <div className="relative mx-auto" style={{ width: "100%", maxWidth: 420, height: H }}>
+        <div ref={wrapRef} className="flex-1 overflow-y-auto overflow-x-hidden pb-36 w-full">
+          <div className="relative mx-auto" style={{ width: W, height: H }}>
             <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              viewBox={`0 0 ${W} ${H}`}
-              preserveAspectRatio="xMidYMid meet"
+              className="absolute inset-0 pointer-events-none"
+              width={W}
+              height={H}
             >
-              {/* GP -> parents */}
+              {/* GP → parent (exact via_parent_id) */}
               {grandparents.map((g, i) => {
                 const gx = gpXs[i] ?? cx;
                 const pi = parents.findIndex((p) => p.id === g.via_parent_id);
-                const px = pi >= 0 ? parXs[pi] ?? cx : cx;
+                const px = pi >= 0 ? parXs[pi] ?? centreX : centreX;
                 return (
                   <path
                     key={`gpl-${g.id}`}
-                    d={curve(px, yPar - 8, gx, yGp + 20)}
+                    d={curve(px, yPar - 6, gx, yGp + 18)}
                     fill="none"
                     stroke={line}
                     strokeWidth={2.2}
@@ -346,87 +391,90 @@ function VanshawaliInner() {
                   />
                 );
               })}
-              {/* parents -> centre */}
+              {/* Parents → centre */}
               {parents.map((_, i) => (
                 <path
                   key={`pl-${i}`}
-                  d={curve(cx, yMid - 18, parXs[i] ?? cx, yPar + 22)}
+                  d={curve(centreX, yMid - 16, parXs[i] ?? centreX, yPar + 20)}
                   fill="none"
                   stroke={line}
-                  strokeWidth={2.4}
+                  strokeWidth={2.3}
                   strokeLinecap="round"
                 />
               ))}
               {canEdit && nParentSlots > parents.length && (
                 <path
-                  d={curve(cx, yMid - 18, parXs[parents.length] ?? cx, yPar + 22)}
+                  d={curve(centreX, yMid - 16, parXs[parents.length] ?? centreX, yPar + 20)}
                   fill="none"
                   stroke={line}
                   strokeWidth={2}
                   strokeDasharray="4 3"
-                  opacity={0.5}
+                  opacity={0.45}
                 />
               )}
-              {/* spouse */}
-              {spouses.map((_, i) => (
+              {/* Spouse — horizontal from centre edge */}
+              {spousePositions.map((sp, i) => (
                 <path
                   key={`sl-${i}`}
-                  d={`M${cx + 36} ${yMid} C${cx + 60} ${yMid - 10}, ${cx + 90} ${yMid + 10}, ${cx + 108 + i * 8} ${yMid}`}
+                  d={`M${centreX + centreW / 2} ${yMid} L${sp.x - sp.w / 2} ${yMid}`}
                   fill="none"
                   stroke={line}
                   strokeWidth={2.2}
+                  strokeLinecap="round"
                 />
               ))}
-              {/* centre -> children */}
+              {/* Centre → children */}
               {children.map((_, i) => (
                 <path
                   key={`cl-${i}`}
-                  d={curve(cx, yMid + 18, chXs[i] ?? cx, yChild - 6)}
+                  d={curve(centreX, yMid + 16, chXs[i] ?? centreX, yChild - 4)}
                   fill="none"
                   stroke={line}
-                  strokeWidth={2.4}
+                  strokeWidth={2.3}
                   strokeLinecap="round"
                 />
               ))}
               {canEdit && nChildSlots > children.length && (
                 <path
-                  d={curve(cx, yMid + 18, chXs[children.length] ?? cx, yChild - 6)}
+                  d={curve(centreX, yMid + 16, chXs[children.length] ?? centreX, yChild - 4)}
                   fill="none"
                   stroke={line}
                   strokeWidth={2}
                   strokeDasharray="4 3"
-                  opacity={0.5}
+                  opacity={0.45}
                 />
               )}
-              {/* children -> grandchildren */}
+              {/* Child → grandchild (via_child_id) */}
               {grandchildren.map((g, i) => {
-                const gx = gcXs[i] ?? cx;
+                const gx = gcXs[i] ?? centreX;
                 const ci = children.findIndex((c) => c.id === g.via_child_id);
-                const px = ci >= 0 ? chXs[ci] ?? cx : cx;
+                const px = ci >= 0 ? chXs[ci] ?? centreX : centreX;
                 return (
                   <path
                     key={`gcl-${g.id}`}
-                    d={curve(px, yChild + 22, gx, yGc - 6)}
+                    d={curve(px, yChild + 22, gx, yGc - 4)}
                     fill="none"
                     stroke={line}
-                    strokeWidth={2}
+                    strokeWidth={2.1}
                     strokeLinecap="round"
                   />
                 );
               })}
             </svg>
 
-            {/* Grandparents row */}
+            {/* Grandparents */}
             {grandparents.map((n, i) => (
               <div
                 key={n.id}
-                className="absolute -translate-x-1/2 z-10"
-                style={{ left: `${((gpXs[i] ?? cx) / W) * 100}%`, top: yGp - 4 }}
+                className="absolute z-10 -translate-x-1/2"
+                style={{ left: gpXs[i] ?? cx, top: yGp - 4 }}
               >
                 <Tag
                   n={n}
                   extra={
-                    n.relation === "mother" ? L.grandmother || "Grandmother" : L.grandfather || "Grandfather"
+                    n.relation === "mother"
+                      ? L.grandmother || "Grandmother"
+                      : L.grandfather || "Grandfather"
                   }
                 />
               </div>
@@ -436,14 +484,14 @@ function VanshawaliInner() {
             {parents.map((n, i) => (
               <div
                 key={n.id}
-                className="absolute -translate-x-1/2 z-10"
-                style={{ left: `${((parXs[i] ?? cx) / W) * 100}%`, top: yPar - 4 }}
+                className="absolute z-10 -translate-x-1/2"
+                style={{ left: parXs[i] ?? cx, top: yPar - 4 }}
               >
                 <Tag n={n} />
                 {canEdit && (
                   <button
                     type="button"
-                    className="mt-0.5 mx-auto flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-700 text-[9px]"
+                    className="mt-0.5 mx-auto flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-700"
                     title="Add grandparent"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -461,11 +509,8 @@ function VanshawaliInner() {
                 onClick={() =>
                   openAdd(parents.some((p) => p.relation === "father") ? "mother" : "father")
                 }
-                className="absolute z-10 -translate-x-1/2 flex items-center gap-0.5"
-                style={{
-                  left: `${((parXs[parents.length] ?? cx) / W) * 100}%`,
-                  top: yPar + 4,
-                }}
+                className="absolute z-10 -translate-x-1/2"
+                style={{ left: parXs[parents.length] ?? cx, top: yPar + 4 }}
               >
                 <span className="text-[10px] text-gray-400 border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded">
                   +
@@ -476,15 +521,19 @@ function VanshawaliInner() {
             {/* Centre */}
             <div
               className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
-              style={{ left: "50%", top: yMid }}
+              style={{ left: centreX, top: yMid }}
             >
               <button type="button" onClick={() => setSelected(tree.centre)} className="text-center">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 text-white text-[13px] font-bold shadow-md max-w-[180px]">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 text-white text-[13px] font-bold shadow-md whitespace-nowrap">
                   {tree.centre.photo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={tree.centre.photo_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                    <img
+                      src={tree.centre.photo_url}
+                      alt=""
+                      className="w-6 h-6 rounded-full object-cover shrink-0"
+                    />
                   ) : null}
-                  <span className="text-left leading-snug break-words whitespace-normal">{tree.centre.display_name}</span>
+                  {tree.centre.display_name}
                 </span>
                 <span className="block text-[9px] text-emerald-600 font-medium mt-0.5">{L.self}</span>
               </button>
@@ -494,8 +543,8 @@ function VanshawaliInner() {
             {spouses.map((n, i) => (
               <div
                 key={n.id}
-                className="absolute z-10 -translate-y-1/2"
-                style={{ left: `${((cx + 100 + i * 8) / W) * 100}%`, top: yMid }}
+                className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
+                style={{ left: spousePositions[i]?.x ?? centreX, top: yMid }}
               >
                 <Tag n={n} extra={L.spouse} />
               </div>
@@ -504,10 +553,18 @@ function VanshawaliInner() {
               <button
                 type="button"
                 onClick={() => openAdd("spouse")}
-                className="absolute z-10 -translate-y-1/2"
-                style={{ left: `${((cx + 100) / W) * 100}%`, top: yMid }}
+                className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
+                style={{
+                  left: clampX(
+                    centreX + centreW / 2 + 40,
+                    64,
+                    W,
+                    pad
+                  ),
+                  top: yMid,
+                }}
               >
-                <span className="text-[10px] border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded text-gray-500">
+                <span className="text-[10px] border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded text-gray-500 whitespace-nowrap">
                   + {L.spouse}
                 </span>
               </button>
@@ -517,8 +574,8 @@ function VanshawaliInner() {
             {children.map((n, i) => (
               <div
                 key={n.id}
-                className="absolute -translate-x-1/2 z-10"
-                style={{ left: `${((chXs[i] ?? cx) / W) * 100}%`, top: yChild - 4 }}
+                className="absolute z-10 -translate-x-1/2"
+                style={{ left: chXs[i] ?? cx, top: yChild - 4 }}
               >
                 <Tag n={n} />
                 {canEdit && (
@@ -541,10 +598,7 @@ function VanshawaliInner() {
                 type="button"
                 onClick={() => openAdd("child")}
                 className="absolute z-10 -translate-x-1/2"
-                style={{
-                  left: `${((chXs[children.length] ?? cx) / W) * 100}%`,
-                  top: yChild + 4,
-                }}
+                style={{ left: chXs[children.length] ?? cx, top: yChild + 4 }}
               >
                 <span className="text-[10px] border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded text-gray-500">
                   + {L.child}
@@ -556,8 +610,8 @@ function VanshawaliInner() {
             {grandchildren.map((n, i) => (
               <div
                 key={n.id}
-                className="absolute -translate-x-1/2 z-10"
-                style={{ left: `${((gcXs[i] ?? cx) / W) * 100}%`, top: yGc - 4 }}
+                className="absolute z-10 -translate-x-1/2"
+                style={{ left: gcXs[i] ?? cx, top: yGc - 4 }}
               >
                 <Tag n={n} extra={L.grandchild || "Grandchild"} />
               </div>
