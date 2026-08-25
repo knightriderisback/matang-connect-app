@@ -107,6 +107,41 @@ function clampX(x: number, w: number, W: number, pad = 10) {
   return Math.max(pad + half, Math.min(W - pad - half, x));
 }
 
+/**
+ * Pack bubbles left-to-right with real widths — zero overlap.
+ * Then shift group to preferCx (or center of W).
+ */
+function packNoOverlap(
+  widths: number[],
+  W: number,
+  pad = 12,
+  gap = 8,
+  preferCx?: number
+): number[] {
+  const n = widths.length;
+  if (n === 0) return [];
+  if (n === 1) return [clampX(preferCx ?? W / 2, widths[0], W, pad)];
+
+  const xs: number[] = [];
+  let cursor = pad;
+  for (let i = 0; i < n; i++) {
+    const half = widths[i] / 2;
+    const x = cursor + half;
+    xs.push(x);
+    cursor = x + half + gap;
+  }
+  const used = cursor - gap - pad;
+  const targetCx = preferCx ?? W / 2;
+  const groupCx = pad + used / 2;
+  let shift = targetCx - groupCx;
+  // keep inside after shift
+  const left = xs[0] - widths[0] / 2 + shift;
+  const right = xs[n - 1] + widths[n - 1] / 2 + shift;
+  if (left < pad) shift += pad - left;
+  if (right > W - pad) shift -= right - (W - pad);
+  return xs.map((x) => x + shift);
+}
+
 function VanshawaliInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
@@ -261,7 +296,7 @@ function VanshawaliInner() {
     setHits([]);
   };
 
-  // Layout — LOCKED mind-map geometry (viewport-safe)
+  // Layout — LOCKED mind-map + zero-overlap pack
   const parents = tree?.parents || [];
   const spouses = tree?.spouses || [];
   const children = tree?.children || [];
@@ -269,46 +304,116 @@ function VanshawaliInner() {
   const grandchildren = tree?.grandchildren || [];
 
   const W = vw;
-  const pad = 12;
+  const pad = 10;
+  const gap = 8;
   const cx = W / 2;
 
-  const nParentSlots = Math.max(parents.length + (canEdit ? 1 : 0), 1);
-  const nChildSlots = Math.max(children.length + (canEdit ? 1 : 0), 1);
-  const nGpSlots = Math.max(grandparents.length, 1);
-  const nGcSlots = Math.max(grandchildren.length, 1);
-
-  // Adaptive vertical spacing (full names need height)
-  const yGp = grandparents.length ? 36 : -80;
-  const yPar = grandparents.length ? 120 : 40;
-  const yMid = yPar + 108;
-  const yChild = yMid + 108;
-  const yGc = grandchildren.length ? yChild + 100 : -80;
-  const H = (grandchildren.length ? yGc : yChild) + 100;
-
-  let gpXs = slotXsInView(grandparents.length || 0, W, pad);
-  let parXs = slotXsInView(nParentSlots, W, pad);
-  let chXs = slotXsInView(nChildSlots, W, pad);
-  let gcXs = slotXsInView(grandchildren.length || 0, W, pad);
-
-  // Clamp each slot by estimated bubble width so nothing clips left/right
-  gpXs = gpXs.map((x, i) => clampX(x, nameW(grandparents[i]?.display_name || ""), W, pad));
-  parXs = parXs.map((x, i) => {
-    if (i < parents.length) return clampX(x, nameW(parents[i].display_name), W, pad);
-    return clampX(x, 56, W, pad); // add slot
+  // Sort parents: father left, mother right
+  const parentsSorted = [...parents].sort((a, b) => {
+    const ra = a.relation === "father" ? 0 : a.relation === "mother" ? 1 : 2;
+    const rb = b.relation === "father" ? 0 : b.relation === "mother" ? 1 : 2;
+    return ra - rb;
   });
-  chXs = chXs.map((x, i) => {
-    if (i < children.length) return clampX(x, nameW(children[i].display_name), W, pad);
-    return clampX(x, 56, W, pad);
-  });
-  gcXs = gcXs.map((x, i) => clampX(x, nameW(grandchildren[i]?.display_name || ""), W, pad));
+
+  // Parent X from real widths
+  const parWidths = parentsSorted.map((p) => nameW(p.display_name));
+  if (canEdit) parWidths.push(48);
+  const parXsRaw = packNoOverlap(parWidths, W, pad, gap, cx);
+  const parXs = parentsSorted.map((_, i) => parXsRaw[i]);
+  const parAddX = canEdit ? parXsRaw[parentsSorted.length] : cx;
+
+  // Map original parents index → sorted for lines if needed
+  const parentXById = new Map(parentsSorted.map((p, i) => [p.id, parXs[i]]));
+
+  // Grandparents: group under their parent column — pack within column, stack if needed
+  type GpPos = { n: Node; x: number; y: number };
+  const gpPositions: GpPos[] = [];
+  let gpRows = 0;
+  if (grandparents.length) {
+    const byVia = new Map<string, Node[]>();
+    grandparents.forEach((g) => {
+      const k = g.via_parent_id || "_";
+      if (!byVia.has(k)) byVia.set(k, []);
+      byVia.get(k)!.push(g);
+    });
+    byVia.forEach((list, via) => {
+      const sorted = [...list].sort((a, b) => {
+        const ra = a.relation === "father" ? 0 : 1;
+        const rb = b.relation === "father" ? 0 : 1;
+        return ra - rb;
+      });
+      const baseX = parentXById.get(via) ?? cx;
+      const widths = sorted.map((n) => nameW(n.display_name));
+      const total = widths.reduce((s, w) => s + w, 0) + gap * (sorted.length - 1);
+      // if fits around baseX in one row
+      if (total <= W - pad * 2) {
+        const xs = packNoOverlap(widths, W, pad, gap, baseX);
+        sorted.forEach((n, i) => {
+          gpPositions.push({ n, x: xs[i], y: 0 });
+        });
+        gpRows = Math.max(gpRows, 1);
+      } else {
+        // stack each on own row under column
+        sorted.forEach((n, i) => {
+          gpPositions.push({
+            n,
+            x: clampX(baseX, nameW(n.display_name), W, pad),
+            y: i,
+          });
+        });
+        gpRows = Math.max(gpRows, sorted.length);
+      }
+    });
+  }
+
+  const rowH = 52;
+  const yGpBase = gpPositions.length ? 28 : -80;
+  const yPar = gpPositions.length ? yGpBase + gpRows * rowH + 28 : 36;
+  const yMid = yPar + 100;
+  const yChild = yMid + 100;
+
+  // Children under centre
+  const chWidths = children.map((c) => nameW(c.display_name));
+  if (canEdit) chWidths.push(48);
+  const chXsRaw = packNoOverlap(chWidths, W, pad, gap, cx);
+  const chXs = children.map((_, i) => chXsRaw[i]);
+  const chAddX = canEdit ? chXsRaw[children.length] : cx;
+  const childXById = new Map(children.map((c, i) => [c.id, chXs[i]]));
+
+  // Grandchildren under their parent child
+  type GcPos = { n: Node; x: number };
+  const gcPositions: GcPos[] = [];
+  if (grandchildren.length) {
+    const byVia = new Map<string, Node[]>();
+    grandchildren.forEach((g) => {
+      const k = g.via_child_id || "_";
+      if (!byVia.has(k)) byVia.set(k, []);
+      byVia.get(k)!.push(g);
+    });
+    byVia.forEach((list, via) => {
+      const baseX = childXById.get(via) ?? cx;
+      const widths = list.map((n) => nameW(n.display_name));
+      const xs = packNoOverlap(widths, W, pad, gap, baseX);
+      list.forEach((n, i) => gcPositions.push({ n, x: xs[i] }));
+    });
+  }
+
+  const yGc = gcPositions.length ? yChild + 96 : -80;
+  const H = (gcPositions.length ? yGc : yChild) + 90;
 
   const centreW = nameW(tree?.centre.display_name || "Self", 170);
-  const centreX = clampX(cx, centreW, W, pad);
+  // leave room for spouse on right
+  const spouseW0 = spouses[0] ? nameW(spouses[0].display_name) : 0;
+  const centreX = clampX(
+    spouses.length ? cx - (spouseW0 + 20) / 2 : cx,
+    centreW,
+    W,
+    pad
+  );
 
-  // Spouse to the right of centre, clamped
   const spousePositions = spouses.map((s, i) => {
     const w = nameW(s.display_name);
-    const raw = centreX + centreW / 2 + 16 + w / 2 + i * (w + 12);
+    const raw = centreX + centreW / 2 + 14 + w / 2 + i * (w + 10);
     return { x: clampX(raw, w, W, pad), w };
   });
 
@@ -370,20 +475,15 @@ function VanshawaliInner() {
       {!loading && tree && (
         <div ref={wrapRef} className="flex-1 overflow-y-auto overflow-x-hidden pb-36 w-full">
           <div className="relative mx-auto" style={{ width: W, height: H }}>
-            <svg
-              className="absolute inset-0 pointer-events-none"
-              width={W}
-              height={H}
-            >
-              {/* GP → parent (exact via_parent_id) */}
-              {grandparents.map((g, i) => {
-                const gx = gpXs[i] ?? cx;
-                const pi = parents.findIndex((p) => p.id === g.via_parent_id);
-                const px = pi >= 0 ? parXs[pi] ?? centreX : centreX;
+            <svg className="absolute inset-0 pointer-events-none" width={W} height={H}>
+              {/* GP → parent */}
+              {gpPositions.map(({ n, x, y }) => {
+                const px = parentXById.get(n.via_parent_id || "") ?? centreX;
+                const gy = yGpBase + y * rowH;
                 return (
                   <path
-                    key={`gpl-${g.id}`}
-                    d={curve(px, yPar - 6, gx, yGp + 18)}
+                    key={`gpl-${n.id}`}
+                    d={curve(px, yPar - 6, x, gy + 18)}
                     fill="none"
                     stroke={line}
                     strokeWidth={2.2}
@@ -392,27 +492,30 @@ function VanshawaliInner() {
                 );
               })}
               {/* Parents → centre */}
-              {parents.map((_, i) => (
+              {parentsSorted.map((p) => {
+                const px = parentXById.get(p.id) ?? centreX;
+                return (
+                  <path
+                    key={`pl-${p.id}`}
+                    d={curve(centreX, yMid - 16, px, yPar + 20)}
+                    fill="none"
+                    stroke={line}
+                    strokeWidth={2.3}
+                    strokeLinecap="round"
+                  />
+                );
+              })}
+              {canEdit && (
                 <path
-                  key={`pl-${i}`}
-                  d={curve(centreX, yMid - 16, parXs[i] ?? centreX, yPar + 20)}
-                  fill="none"
-                  stroke={line}
-                  strokeWidth={2.3}
-                  strokeLinecap="round"
-                />
-              ))}
-              {canEdit && nParentSlots > parents.length && (
-                <path
-                  d={curve(centreX, yMid - 16, parXs[parents.length] ?? centreX, yPar + 20)}
+                  d={curve(centreX, yMid - 16, parAddX, yPar + 20)}
                   fill="none"
                   stroke={line}
                   strokeWidth={2}
                   strokeDasharray="4 3"
-                  opacity={0.45}
+                  opacity={0.4}
                 />
               )}
-              {/* Spouse — horizontal from centre edge */}
+              {/* Spouse horizontal */}
               {spousePositions.map((sp, i) => (
                 <path
                   key={`sl-${i}`}
@@ -424,9 +527,9 @@ function VanshawaliInner() {
                 />
               ))}
               {/* Centre → children */}
-              {children.map((_, i) => (
+              {children.map((c, i) => (
                 <path
-                  key={`cl-${i}`}
+                  key={`cl-${c.id}`}
                   d={curve(centreX, yMid + 16, chXs[i] ?? centreX, yChild - 4)}
                   fill="none"
                   stroke={line}
@@ -434,25 +537,23 @@ function VanshawaliInner() {
                   strokeLinecap="round"
                 />
               ))}
-              {canEdit && nChildSlots > children.length && (
+              {canEdit && (
                 <path
-                  d={curve(centreX, yMid + 16, chXs[children.length] ?? centreX, yChild - 4)}
+                  d={curve(centreX, yMid + 16, chAddX, yChild - 4)}
                   fill="none"
                   stroke={line}
                   strokeWidth={2}
                   strokeDasharray="4 3"
-                  opacity={0.45}
+                  opacity={0.4}
                 />
               )}
-              {/* Child → grandchild (via_child_id) */}
-              {grandchildren.map((g, i) => {
-                const gx = gcXs[i] ?? centreX;
-                const ci = children.findIndex((c) => c.id === g.via_child_id);
-                const px = ci >= 0 ? chXs[ci] ?? centreX : centreX;
+              {/* Child → GC */}
+              {gcPositions.map(({ n, x }) => {
+                const px = childXById.get(n.via_child_id || "") ?? centreX;
                 return (
                   <path
-                    key={`gcl-${g.id}`}
-                    d={curve(px, yChild + 22, gx, yGc - 4)}
+                    key={`gcl-${n.id}`}
+                    d={curve(px, yChild + 22, x, yGc - 4)}
                     fill="none"
                     stroke={line}
                     strokeWidth={2.1}
@@ -462,12 +563,11 @@ function VanshawaliInner() {
               })}
             </svg>
 
-            {/* Grandparents */}
-            {grandparents.map((n, i) => (
+            {gpPositions.map(({ n, x, y }) => (
               <div
                 key={n.id}
                 className="absolute z-10 -translate-x-1/2"
-                style={{ left: gpXs[i] ?? cx, top: yGp - 4 }}
+                style={{ left: x, top: yGpBase + y * rowH - 4 }}
               >
                 <Tag
                   n={n}
@@ -480,19 +580,17 @@ function VanshawaliInner() {
               </div>
             ))}
 
-            {/* Parents */}
-            {parents.map((n, i) => (
+            {parentsSorted.map((n) => (
               <div
                 key={n.id}
                 className="absolute z-10 -translate-x-1/2"
-                style={{ left: parXs[i] ?? cx, top: yPar - 4 }}
+                style={{ left: parentXById.get(n.id) ?? cx, top: yPar - 4 }}
               >
                 <Tag n={n} />
                 {canEdit && (
                   <button
                     type="button"
                     className="mt-0.5 mx-auto flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-700"
-                    title="Add grandparent"
                     onClick={(e) => {
                       e.stopPropagation();
                       openAdd("father", n.id);
@@ -507,18 +605,17 @@ function VanshawaliInner() {
               <button
                 type="button"
                 onClick={() =>
-                  openAdd(parents.some((p) => p.relation === "father") ? "mother" : "father")
+                  openAdd(parentsSorted.some((p) => p.relation === "father") ? "mother" : "father")
                 }
                 className="absolute z-10 -translate-x-1/2"
-                style={{ left: parXs[parents.length] ?? cx, top: yPar + 4 }}
+                style={{ left: parAddX, top: yPar + 4 }}
               >
-                <span className="text-[10px] text-gray-400 border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded">
+                <span className="text-[10px] border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded">
                   +
                 </span>
               </button>
             )}
 
-            {/* Centre */}
             <div
               className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
               style={{ left: centreX, top: yMid }}
@@ -527,11 +624,7 @@ function VanshawaliInner() {
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 text-white text-[13px] font-bold shadow-md whitespace-nowrap">
                   {tree.centre.photo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={tree.centre.photo_url}
-                      alt=""
-                      className="w-6 h-6 rounded-full object-cover shrink-0"
-                    />
+                    <img src={tree.centre.photo_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
                   ) : null}
                   {tree.centre.display_name}
                 </span>
@@ -539,7 +632,6 @@ function VanshawaliInner() {
               </button>
             </div>
 
-            {/* Spouse */}
             {spouses.map((n, i) => (
               <div
                 key={n.id}
@@ -555,12 +647,7 @@ function VanshawaliInner() {
                 onClick={() => openAdd("spouse")}
                 className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
                 style={{
-                  left: clampX(
-                    centreX + centreW / 2 + 40,
-                    64,
-                    W,
-                    pad
-                  ),
+                  left: clampX(centreX + centreW / 2 + 40, 64, W, pad),
                   top: yMid,
                 }}
               >
@@ -570,7 +657,6 @@ function VanshawaliInner() {
               </button>
             )}
 
-            {/* Children */}
             {children.map((n, i) => (
               <div
                 key={n.id}
@@ -582,7 +668,6 @@ function VanshawaliInner() {
                   <button
                     type="button"
                     className="mt-0.5 mx-auto flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-700"
-                    title="Add grandchild"
                     onClick={(e) => {
                       e.stopPropagation();
                       openAdd("child", n.id);
@@ -598,7 +683,7 @@ function VanshawaliInner() {
                 type="button"
                 onClick={() => openAdd("child")}
                 className="absolute z-10 -translate-x-1/2"
-                style={{ left: chXs[children.length] ?? cx, top: yChild + 4 }}
+                style={{ left: chAddX, top: yChild + 4 }}
               >
                 <span className="text-[10px] border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded text-gray-500">
                   + {L.child}
@@ -606,12 +691,11 @@ function VanshawaliInner() {
               </button>
             )}
 
-            {/* Grandchildren */}
-            {grandchildren.map((n, i) => (
+            {gcPositions.map(({ n, x }) => (
               <div
                 key={n.id}
                 className="absolute z-10 -translate-x-1/2"
-                style={{ left: gcXs[i] ?? cx, top: yGc - 4 }}
+                style={{ left: x, top: yGc - 4 }}
               >
                 <Tag n={n} extra={L.grandchild || "Grandchild"} />
               </div>
