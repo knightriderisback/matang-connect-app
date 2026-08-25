@@ -307,7 +307,12 @@ function VanshawaliInner() {
 
     // UP levels farthest first
     for (let d = levelsUp.length - 1; d >= 0; d--) {
-      const level = levelsUp[d];
+      const level = [...levelsUp[d]].sort((a, b) => {
+        const ra = a.relation === "father" ? 0 : a.relation === "mother" ? 1 : 2;
+        const rb = b.relation === "father" ? 0 : b.relation === "mother" ? 1 : 2;
+        if (ra !== rb) return ra - rb;
+        return (a.via_id || "").localeCompare(b.via_id || "");
+      });
       const items: { n: Node | null; w: number; kind: "node" | "add" }[] = level.map((n) => ({
         n,
         w: nameWidth(n.display_name),
@@ -326,11 +331,7 @@ function VanshawaliInner() {
           w: it.w,
           kind: it.kind,
           gen: -(d + 1),
-          style: it.n?.user_id
-            ? BUBBLE_UP[d % BUBBLE_UP.length]
-            : it.n
-              ? BUBBLE_MANUAL
-              : BUBBLE_MANUAL,
+          style: BUBBLE_UP[d % BUBBLE_UP.length],
         });
       });
       y += (maxRow + 1) * subRowH + gapY;
@@ -379,7 +380,7 @@ function VanshawaliInner() {
         w,
         kind: "node",
         gen: 0,
-        style: n.user_id ? BUBBLE_UP[0] : BUBBLE_MANUAL,
+        style: BUBBLE_UP[0], // spouse — soft violet
       });
       spX = x + w / 2 + 12;
     });
@@ -418,11 +419,7 @@ function VanshawaliInner() {
           w: it.w,
           kind: it.kind,
           gen: d + 1,
-          style: it.n?.user_id
-            ? BUBBLE_DOWN[d % BUBBLE_DOWN.length]
-            : it.n
-              ? BUBBLE_MANUAL
-              : BUBBLE_MANUAL,
+          style: BUBBLE_DOWN[d % BUBBLE_DOWN.length],
         });
       });
       y += (maxRow + 1) * subRowH + gapY;
@@ -455,9 +452,9 @@ function VanshawaliInner() {
       const from = parent || centreP;
       lines.push({
         x1: from.x,
-        y1: from.y + (p.gen > 0 ? 14 : -14),
+        y1: from.y + (p.gen > 0 ? 18 : -18),
         x2: p.x,
-        y2: p.y + (p.gen > 0 ? -10 : 14),
+        y2: p.y + (p.gen > 0 ? -16 : 16),
       });
     });
     // spouses to centre
