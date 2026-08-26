@@ -1151,7 +1151,6 @@ function VanshawaliInner() {
                   className="inline-flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-[13px] font-bold whitespace-nowrap backdrop-blur-[2px] border"
                   style={{
                     background: GEN_STYLE.self.bg,
-                    borderColor: GEN_STYLE.self.border,
                     color: GEN_STYLE.self.text,
                     borderColor: marriedIdSet.has(tree.centre.id)
                       ? "rgba(52,211,153,0.85)"
