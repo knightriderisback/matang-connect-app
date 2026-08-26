@@ -894,13 +894,13 @@ function VanshawaliInner() {
 
   if (tree) {
     const so = tree.spouses_of || {};
-    // centre spouses
+    // centre ↔ spouses (explicit)
     spouses.forEach((s) => {
       const sp = posById.get(s.id);
       const c = posById.get(tree.centre.id);
       if (sp && c) pushCouple({ id: tree.centre.id, ...c }, { id: s.id, ...sp });
     });
-    // all other spouses_of
+    // every spouses_of entry (any generation)
     for (const [ownerId, list] of Object.entries(so)) {
       const op = posById.get(ownerId);
       if (!op) continue;
@@ -910,6 +910,26 @@ function VanshawaliInner() {
         pushCouple({ id: ownerId, ...op }, { id: s.id, ...sp });
       }
     }
+    // Father + Mother of same child = vivah (even without spouse link in store)
+    const pairParents = (nodes: Node[]) => {
+      const f = nodes.find((n) => n.relation === "father");
+      const m = nodes.find((n) => n.relation === "mother");
+      if (!f || !m) return;
+      const fp = posById.get(f.id);
+      const mp = posById.get(m.id);
+      if (fp && mp) pushCouple({ id: f.id, ...fp }, { id: m.id, ...mp });
+    };
+    pairParents(parents);
+    // each ancestor level: group by via, pair father+mother
+    levelsUp.forEach((lvl) => {
+      const byVia = new Map<string, Node[]>();
+      lvl.forEach((n) => {
+        const k = n.via_id || n.via_parent_id || "_";
+        if (!byVia.has(k)) byVia.set(k, []);
+        byVia.get(k)!.push(n);
+      });
+      byVia.forEach((list) => pairParents(list));
+    });
   }
 
   const line = "#E8A317";
@@ -925,9 +945,7 @@ function VanshawaliInner() {
     gen?: keyof typeof GEN_STYLE;
   }) => {
     const st = GEN_STYLE[gen] || GEN_STYLE.up1;
-    const marry = marriedIdSet.has(n.id)
-      ? `, 0 0 0 2px rgba(110,231,183,0.55)`
-      : "";
+    const isMarried = marriedIdSet.has(n.id);
     const rel = extra || lbl(lang, n.relation, n.gender);
     const born = formatBirth(n);
     return (
@@ -936,9 +954,13 @@ function VanshawaliInner() {
           className="inline-flex flex-col items-center px-2.5 py-1 rounded-lg text-[12px] font-semibold leading-tight border whitespace-nowrap backdrop-blur-[3px]"
           style={{
             background: st.bg,
-            borderColor: st.border,
             color: st.text,
-            boxShadow: BUBBLE_3D + marry,
+            borderColor: isMarried ? "rgba(52,211,153,0.9)" : st.border,
+            borderStyle: isMarried ? "dashed" : "solid",
+            borderWidth: isMarried ? 2 : 1,
+            boxShadow: isMarried
+              ? `${BUBBLE_3D}, 0 0 0 1px rgba(110,231,183,0.25)`
+              : BUBBLE_3D,
           }}
         >
           <span style={{ textShadow: NAMEPLATE }}>{n.display_name}</span>
@@ -1058,13 +1080,13 @@ function VanshawaliInner() {
                   className="inline-flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-[13px] font-bold whitespace-nowrap backdrop-blur-[2px] border"
                   style={{
                     background: GEN_STYLE.self.bg,
-                    borderColor: GEN_STYLE.self.border,
                     color: GEN_STYLE.self.text,
-                    boxShadow:
-                      BUBBLE_3D +
-                      (marriedIdSet.has(tree.centre.id)
-                        ? ", 0 0 0 2px rgba(110,231,183,0.55)"
-                        : ""),
+                    borderColor: marriedIdSet.has(tree.centre.id)
+                      ? "rgba(52,211,153,0.9)"
+                      : GEN_STYLE.self.border,
+                    borderStyle: marriedIdSet.has(tree.centre.id) ? "dashed" : "solid",
+                    borderWidth: marriedIdSet.has(tree.centre.id) ? 2 : 1,
+                    boxShadow: BUBBLE_3D,
                   }}
                 >
                   <span className="inline-flex items-center gap-1.5">
