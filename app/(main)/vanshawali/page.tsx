@@ -207,11 +207,7 @@ const GEN_STYLE: Record<string, { bg: string; border: string; text: string }> = 
   },
 };
 const BUBBLE_3D =
-  "0 2px 4px rgba(0,0,0,0.10), 0 8px 18px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.55)";
-const BUBBLE_GLOW =
-  "0 0 0 3px rgba(255,255,255,0.55), 0 0 18px 4px rgba(212, 175, 55, 0.22)";
-const MARRY_GLOW =
-  "0 0 0 2px rgba(110,231,183,0.35), 0 0 14px 3px rgba(52,211,153,0.25)";
+  "0 2px 4px rgba(0,0,0,0.12), 0 6px 14px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.55)";
 /** Name-plate: embossed letter feel */
 const NAMEPLATE =
   "0 1px 0 rgba(255,255,255,0.65), 0 -1px 0 rgba(0,0,0,0.12)";
@@ -559,8 +555,8 @@ function VanshawaliInner() {
   const gap = 10;
   const cx = W / 2;
   const midGate = W / 2;
-  const subRowH = 58;
-  const levelGap = 44;
+  const subRowH = 52;
+  const levelGap = 28;
 
   type Placed = {
     n: Node;
@@ -766,7 +762,7 @@ function VanshawaliInner() {
     : -80;
   const gcMaxRow = 0;
 
-  let H = yCursor + 48;
+  const H = yCursor + 48;
 
   // Spouses of parents / children / GP (not only centre)
   const spousesOf = tree?.spouses_of || {};
@@ -794,7 +790,7 @@ function VanshawaliInner() {
       if (x + w / 2 > W - pad - 2) {
         x = clampX(owner.x - owner.w / 2 - 12 - w / 2 - i * (w + 8), w, W, pad);
       }
-      const top = owner.top + (i % 2 === 0 ? 0 : 12);
+      const top = owner.top;
       const pl: Placed = { n: { ...s, relation: "spouse" }, x, top, w, genKey: "spouse" };
       extraSpousePlaced.push(pl);
       placed.push(pl);
@@ -811,7 +807,7 @@ function VanshawaliInner() {
       const w = nameW(s.display_name);
       const x = clampX(cursorX - w / 2, w, W, pad);
       cursorX = x - w / 2 - 12;
-      const top = yMid - 20 - 8;
+      const top = yMid - 20;
       const pl: Placed = {
         n: { ...s, relation: "sibling" },
         x,
@@ -824,96 +820,7 @@ function VanshawaliInner() {
     });
   }
 
-
-  // —— Global no-overlap resolve (stagger rows OK) ——
-  {
-    const GAP_X = 14;
-    const GAP_Y = 10;
-    const BH = BUBBLE_H + 18; // name + relation
-    type Box = { id: string; x: number; top: number; w: number };
-    const boxes: Box[] = [];
-    if (tree) {
-      const c = posById.get(tree.centre.id);
-      if (c) boxes.push({ id: tree.centre.id, x: c.x, top: c.top, w: c.w });
-    }
-    placed.forEach((pl) => {
-      boxes.push({ id: pl.n.id, x: pl.x, top: pl.top, w: pl.w });
-    });
-    // iterative push
-    for (let iter = 0; iter < 24; iter++) {
-      let moved = false;
-      for (let i = 0; i < boxes.length; i++) {
-        for (let j = i + 1; j < boxes.length; j++) {
-          const a = boxes[i];
-          const b = boxes[j];
-          const ax0 = a.x - a.w / 2;
-          const ax1 = a.x + a.w / 2;
-          const bx0 = b.x - b.w / 2;
-          const bx1 = b.x + b.w / 2;
-          const ay0 = a.top;
-          const ay1 = a.top + BH;
-          const by0 = b.top;
-          const by1 = b.top + BH;
-          const overlapX = ax0 < bx1 + GAP_X && bx0 < ax1 + GAP_X;
-          const overlapY = ay0 < by1 + GAP_Y && by0 < ay1 + GAP_Y;
-          if (!overlapX || !overlapY) continue;
-          // prefer horizontal push if same-ish row, else vertical
-          const sameRow = Math.abs(a.top - b.top) < BH * 0.55;
-          if (sameRow) {
-            const mid = (a.x + b.x) / 2;
-            const need = (a.w + b.w) / 2 + GAP_X;
-            if (a.x <= b.x) {
-              a.x = Math.max(pad + a.w / 2, mid - need / 2);
-              b.x = Math.min(W - pad - b.w / 2, mid + need / 2);
-            } else {
-              b.x = Math.max(pad + b.w / 2, mid - need / 2);
-              a.x = Math.min(W - pad - a.w / 2, mid + need / 2);
-            }
-            // if still overlap horizontally, stagger vertically
-            const still =
-              a.x - a.w / 2 < b.x + b.w / 2 + GAP_X &&
-              b.x - b.w / 2 < a.x + a.w / 2 + GAP_X;
-            if (still) {
-              if (a.top <= b.top) b.top = a.top + BH + GAP_Y;
-              else a.top = b.top + BH + GAP_Y;
-            }
-          } else {
-            if (a.top <= b.top) b.top = Math.max(b.top, a.top + BH + GAP_Y);
-            else a.top = Math.max(a.top, b.top + BH + GAP_Y);
-          }
-          moved = true;
-        }
-      }
-      if (!moved) break;
-    }
-    // write back
-    boxes.forEach((b) => {
-      const prev = posById.get(b.id);
-      if (prev) posById.set(b.id, { x: b.x, top: b.top, w: prev.w });
-    });
-    placed.forEach((pl) => {
-      const p = posById.get(pl.n.id);
-      if (p) {
-        pl.x = p.x;
-        pl.top = p.top;
-      }
-    });
-    // centre
-    if (tree) {
-      const c = posById.get(tree.centre.id);
-      if (c) {
-        // keep centreX/yMid used by render — update centre visual via posById only for lines
-      }
-    }
-    let maxBottom = H;
-    boxes.forEach((b) => {
-      maxBottom = Math.max(maxBottom, b.top + BH + 28);
-    });
-    H = maxBottom;
-  }
-
-
-    // Blood lines: each placed node (not centre) to via parent/child
+  // Blood lines: each placed node (not centre) to via parent/child
   placed.forEach((pl) => {
     const via = pl.n.via_id || pl.n.via_parent_id || pl.n.via_child_id;
     let parentPos = via ? posById.get(via) : undefined;
@@ -955,7 +862,7 @@ function VanshawaliInner() {
         x2: end.x,
         y2: end.y,
         key: `scl-${sp.id}-${c.id}`,
-      }); // dual-parent; drawn thinner via key prefix
+      });
     });
   });
 
@@ -1018,7 +925,9 @@ function VanshawaliInner() {
     gen?: keyof typeof GEN_STYLE;
   }) => {
     const st = GEN_STYLE[gen] || GEN_STYLE.up1;
-    const isMarried = marriedIdSet.has(n.id);
+    const marry = marriedIdSet.has(n.id)
+      ? `, 0 0 0 2px rgba(110,231,183,0.55)`
+      : "";
     const rel = extra || lbl(lang, n.relation, n.gender);
     const born = formatBirth(n);
     return (
@@ -1027,11 +936,9 @@ function VanshawaliInner() {
           className="inline-flex flex-col items-center px-2.5 py-1 rounded-lg text-[12px] font-semibold leading-tight border whitespace-nowrap backdrop-blur-[3px]"
           style={{
             background: st.bg,
-            borderColor: isMarried ? "rgba(52,211,153,0.85)" : st.border,
-            borderStyle: isMarried ? "dashed" : "solid",
-            borderWidth: isMarried ? 2 : 1,
+            borderColor: st.border,
             color: st.text,
-            boxShadow: isMarried ? `${BUBBLE_3D}, ${MARRY_GLOW}` : `${BUBBLE_3D}, ${BUBBLE_GLOW}`,
+            boxShadow: BUBBLE_3D + marry,
           }}
         >
           <span style={{ textShadow: NAMEPLATE }}>{n.display_name}</span>
@@ -1045,7 +952,7 @@ function VanshawaliInner() {
   };
 
   return (
-    <div className="flex flex-col min-h-[70vh] relative" style={{ background: "linear-gradient(180deg, #f7f3ea 0%, #f3f6f8 45%, #eef2f6 100%)" }}>
+    <div className="flex flex-col min-h-[70vh] bg-[#fafafa] relative">
       <style>{`
         @keyframes goldTravel {
           to { stroke-dashoffset: -48; }
@@ -1123,9 +1030,9 @@ function VanshawaliInner() {
                   d={curve(ln.x1, ln.y1, ln.x2, ln.y2)}
                   fill="none"
                   stroke={line}
-                  strokeWidth={ln.key.startsWith("scl-") ? 1.6 : 2.2}
+                  strokeWidth={2.4}
                   strokeLinecap="round"
-                  opacity={ln.key.startsWith("scl-") ? 0.55 : 0.92}
+                  className="vansh-gold-line"
                 />
               ))}
             </svg>
@@ -1144,22 +1051,20 @@ function VanshawaliInner() {
             {/* Centre */}
             <div
               className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
-              style={{ left: posById.get(tree.centre.id)?.x ?? centreX, top: (posById.get(tree.centre.id)?.top ?? yMid - 20) + 20 }}
+              style={{ left: centreX, top: yMid }}
             >
               <button type="button" onClick={() => setSelected(tree.centre)} className="text-center">
                 <span
                   className="inline-flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-[13px] font-bold whitespace-nowrap backdrop-blur-[2px] border"
                   style={{
                     background: GEN_STYLE.self.bg,
+                    borderColor: GEN_STYLE.self.border,
                     color: GEN_STYLE.self.text,
-                    borderColor: marriedIdSet.has(tree.centre.id)
-                      ? "rgba(52,211,153,0.85)"
-                      : GEN_STYLE.self.border,
-                    borderStyle: marriedIdSet.has(tree.centre.id) ? "dashed" : "solid",
-                    borderWidth: marriedIdSet.has(tree.centre.id) ? 2 : 1,
-                    boxShadow: marriedIdSet.has(tree.centre.id)
-                      ? `${BUBBLE_3D}, ${MARRY_GLOW}`
-                      : `${BUBBLE_3D}, ${BUBBLE_GLOW}`,
+                    boxShadow:
+                      BUBBLE_3D +
+                      (marriedIdSet.has(tree.centre.id)
+                        ? ", 0 0 0 2px rgba(110,231,183,0.55)"
+                        : ""),
                   }}
                 >
                   <span className="inline-flex items-center gap-1.5">
@@ -1185,19 +1090,15 @@ function VanshawaliInner() {
             </div>
 
             {/* Spouses */}
-            {spouses.map((n) => {
-              const pos = posById.get(n.id);
-              if (!pos) return null;
-              return (
-                <div
-                  key={n.id}
-                  className="absolute z-10 -translate-x-1/2"
-                  style={{ left: pos.x, top: pos.top }}
-                >
-                  <Tag n={n} extra={L.spouse} gen="spouse" />
-                </div>
-              );
-            })}
+            {spouses.map((n, i) => (
+              <div
+                key={n.id}
+                className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
+                style={{ left: spousePositions[i]?.x ?? centreX, top: yMid }}
+              >
+                <Tag n={n} extra={L.spouse} gen="spouse" />
+              </div>
+            ))}
           </div>
         </div>
       )}
