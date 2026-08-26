@@ -64,6 +64,8 @@ type Tree = {
   children: Node[];
   grandparents?: Node[];
   grandchildren?: Node[];
+  siblings?: Node[];
+  spouses_of?: Record<string, Node[]>;
   levels_up?: Node[][];
   levels_down?: Node[][];
 };
@@ -81,6 +83,9 @@ const REL: Record<string, Record<string, string>> = {
     father: "Father",
     mother: "Mother",
     spouse: "Spouse",
+    sibling: "Sibling",
+    brother: "Brother",
+    sister: "Sister",
     child: "Child",
     son: "Son",
     daughter: "Daughter",
@@ -93,6 +98,9 @@ const REL: Record<string, Record<string, string>> = {
     father: "पिता",
     mother: "माता",
     spouse: "जीवनसाथी",
+    sibling: "भाई/बहन",
+    brother: "भाई",
+    sister: "बहन",
     child: "संतान",
     son: "पुत्र",
     daughter: "पुत्री",
@@ -191,6 +199,11 @@ const GEN_STYLE: Record<string, { bg: string; border: string; text: string }> = 
     bg: "rgba(244, 114, 182, 0.32)",
     border: "rgba(236, 72, 153, 0.35)",
     text: "#831843",
+  },
+  sibling: {
+    bg: "rgba(129, 140, 248, 0.34)",
+    border: "rgba(99, 102, 241, 0.4)",
+    text: "#312e81",
   },
 };
 const BUBBLE_3D =
@@ -751,6 +764,62 @@ function VanshawaliInner() {
 
   const H = yCursor + 48;
 
+  // Spouses of parents / children / GP (not only centre)
+  const spousesOf = tree?.spouses_of || {};
+  const centreSpouseIds = new Set((tree?.spouses || []).map((s) => s.id));
+  const extraSpousePlaced: Placed[] = [];
+  const usedSpouseIds = new Set<string>([...centreSpouseIds, tree?.centre.id || ""]);
+
+  for (const [ownerId, list] of Object.entries(spousesOf)) {
+    if (ownerId === tree?.centre.id) continue; // centre spouses already placed
+    const owner = posById.get(ownerId);
+    if (!owner) continue;
+    list.forEach((s, i) => {
+      if (usedSpouseIds.has(s.id)) return;
+      // skip if already in levels as blood relative
+      if (posById.has(s.id)) {
+        // still marriage pair via pushCouple later
+        return;
+      }
+      usedSpouseIds.add(s.id);
+      const w = nameW(s.display_name);
+      // place to the right of owner, stack if multiple
+      let x = owner.x + owner.w / 2 + 12 + w / 2 + i * (w + 8);
+      x = clampX(x, w, W, pad);
+      // if overflows, try left
+      if (x + w / 2 > W - pad - 2) {
+        x = clampX(owner.x - owner.w / 2 - 12 - w / 2 - i * (w + 8), w, W, pad);
+      }
+      const top = owner.top;
+      const pl: Placed = { n: { ...s, relation: "spouse" }, x, top, w, genKey: "spouse" };
+      extraSpousePlaced.push(pl);
+      placed.push(pl);
+      posById.set(s.id, { x, top, w });
+    });
+  }
+
+  // Siblings of self — same band as centre, to the left of self
+  const siblings = tree?.siblings || [];
+  if (siblings.length && tree) {
+    let cursorX = centreX - centreW / 2 - 14;
+    siblings.forEach((s) => {
+      if (posById.has(s.id)) return;
+      const w = nameW(s.display_name);
+      const x = clampX(cursorX - w / 2, w, W, pad);
+      cursorX = x - w / 2 - 12;
+      const top = yMid - 20;
+      const pl: Placed = {
+        n: { ...s, relation: "sibling" },
+        x,
+        top,
+        w,
+        genKey: "sibling",
+      };
+      placed.push(pl);
+      posById.set(s.id, { x, top, w });
+    });
+  }
+
   // Blood lines: each placed node (not centre) to via parent/child
   placed.forEach((pl) => {
     const via = pl.n.via_id || pl.n.via_parent_id || pl.n.via_child_id;
@@ -797,7 +866,7 @@ function VanshawaliInner() {
     });
   });
 
-  // EXTRA: marriage pairs only (layout/bubbles unchanged)
+  // EXTRA: marriage pairs — every husband–wife from spouses_of + centre
   type MPair = {
     ax: number; ay: number; aw: number;
     bx: number; by: number; bw: number;
@@ -809,6 +878,11 @@ function VanshawaliInner() {
     a: { id: string; x: number; top: number; w: number },
     b: { id: string; x: number; top: number; w: number }
   ) => {
+    if (a.id === b.id) return;
+    const key = [a.id, b.id].sort().join("|");
+    if ((pushCouple as any)._seen?.has(key)) return;
+    if (!(pushCouple as any)._seen) (pushCouple as any)._seen = new Set();
+    (pushCouple as any)._seen.add(key);
     marriagePairs.push({
       ax: a.x, ay: a.top, aw: a.w,
       bx: b.x, by: b.top, bw: b.w,
@@ -819,43 +893,23 @@ function VanshawaliInner() {
   };
 
   if (tree) {
-    spouses.forEach((s, i) => {
-      const sp = spousePositions[i];
-      if (!sp) return;
-      pushCouple(
-        { id: tree.centre.id, x: centreX, top: yMid - 20, w: centreW },
-        { id: s.id, x: sp.x, top: yMid - 20, w: sp.w }
-      );
+    const so = tree.spouses_of || {};
+    // centre spouses
+    spouses.forEach((s) => {
+      const sp = posById.get(s.id);
+      const c = posById.get(tree.centre.id);
+      if (sp && c) pushCouple({ id: tree.centre.id, ...c }, { id: s.id, ...sp });
     });
-    const f = parentsSorted.find((p) => p.relation === "father");
-    const m = parentsSorted.find((p) => p.relation === "mother");
-    if (f && m) {
-      const fi = parentsSorted.indexOf(f);
-      const mi = parentsSorted.indexOf(m);
-      pushCouple(
-        { id: f.id, x: parXs[fi], top: yPar + parRows[fi] * subRowH - 4, w: nameW(f.display_name) },
-        { id: m.id, x: parXs[mi], top: yPar + parRows[mi] * subRowH - 4, w: nameW(m.display_name) }
-      );
+    // all other spouses_of
+    for (const [ownerId, list] of Object.entries(so)) {
+      const op = posById.get(ownerId);
+      if (!op) continue;
+      for (const s of list) {
+        const sp = posById.get(s.id);
+        if (!sp) continue;
+        pushCouple({ id: ownerId, ...op }, { id: s.id, ...sp });
+      }
     }
-    // GP couples: same via_parent_id + father+mother relations
-    const gpByVia = new Map<string, typeof grandparents>();
-    grandparents.forEach((g) => {
-      const k = g.via_parent_id || "_";
-      if (!gpByVia.has(k)) gpByVia.set(k, []);
-      gpByVia.get(k)!.push(g);
-    });
-    gpByVia.forEach((list) => {
-      const gf = list.find((g) => g.relation === "father" || resolveSex(g.gender, g.relation) === "M");
-      const gm = list.find((g) => g.relation === "mother" || resolveSex(g.gender, g.relation) === "F");
-      if (!gf || !gm) return;
-      const pa = gpPositions.find((p) => p.n.id === gf.id);
-      const pb = gpPositions.find((p) => p.n.id === gm.id);
-      if (!pa || !pb) return;
-      pushCouple(
-        { id: gf.id, x: pa.x, top: yGpBase + pa.row * subRowH - 4, w: nameW(gf.display_name) },
-        { id: gm.id, x: pb.x, top: yGpBase + pb.row * subRowH - 4, w: nameW(gm.display_name) }
-      );
-    });
   }
 
   const line = "#E8A317";
@@ -1350,6 +1404,30 @@ function VanshawaliInner() {
                   }}
                 >
                   <Plus size={16} className="text-amber-500" /> {L.child}
+                </button>
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
+                  onClick={() => {
+                    // Sibling = another child of same parent
+                    const father = (tree?.parents || []).find((x) => x.relation === "father");
+                    const mother = (tree?.parents || []).find((x) => x.relation === "mother");
+                    const parentId = father?.id || mother?.id;
+                    if (!parentId) {
+                      toast(
+                        lang === "hi"
+                          ? "पहले पिता/माता जोड़ें, फिर भाई-बहन"
+                          : "Add father/mother first, then sibling",
+                        "error"
+                      );
+                      return;
+                    }
+                    openAdd("child", parentId);
+                    setSelected(null);
+                  }}
+                >
+                  <Plus size={16} className="text-amber-500" />{" "}
+                  {lang === "hi" ? "भाई / बहन" : "Brother / Sister"}
                 </button>
               </>
             )}

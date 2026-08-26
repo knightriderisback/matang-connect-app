@@ -221,6 +221,40 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
   const grandchildren = levels_down[1] || [];
   const spouses = spousesOf(centre.id);
 
+  // Spouses of EVERY tree member (parents, kids, GP…) so they can show + marry-link
+  const allTreeIds = new Set<string>([centre.id]);
+  for (const lvl of levels_up) for (const r of lvl) allTreeIds.add(r.person.id);
+  for (const lvl of levels_down) for (const r of lvl) allTreeIds.add(r.person.id);
+  for (const s of spouses) allTreeIds.add(s.person.id);
+
+  const spouses_of: Record<string, ReturnType<typeof mapNode>[]> = {};
+  for (const id of allTreeIds) {
+    const sp = spousesOf(id);
+    if (sp.length) {
+      spouses_of[id] = sp.map((row) => ({
+        ...mapNode(row),
+        via_id: id,
+        relation: "spouse",
+      }));
+      for (const row of sp) allTreeIds.add(row.person.id);
+    }
+  }
+
+  // Siblings of centre = other children of either parent (not centre)
+  const siblingSeen = new Set<string>([centre.id]);
+  const siblingRows: Row[] = [];
+  for (const par of parents) {
+    for (const row of childrenOf(par.person.id)) {
+      if (siblingSeen.has(row.person.id)) continue;
+      siblingSeen.add(row.person.id);
+      siblingRows.push({
+        ...row,
+        relation: "sibling",
+        via_id: par.person.id,
+      });
+    }
+  }
+
   return {
     centre: {
       id: centre.id,
@@ -246,6 +280,12 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
       ...mapNode(row),
       via_child_id: row.via_id,
     })),
+    siblings: siblingRows.map((row) => ({
+      ...mapNode(row),
+      relation: "sibling",
+      via_id: row.via_id,
+    })),
+    spouses_of,
     /** Infinite gens for auto canvas */
     levels_up: levels_up.map((lvl) =>
       lvl.map((row) => ({ ...mapNode(row), via_id: row.via_id, via_parent_id: row.via_id }))
