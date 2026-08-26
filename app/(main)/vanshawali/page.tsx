@@ -134,7 +134,7 @@ function resolveSex(
 }
 
 /** Measured bubble body (~px-2.5 py-1.5 + 12px text) */
-const BUBBLE_H = 34;
+const BUBBLE_H = 42;
 
 /** Soft generation fills (transparent) + 3D shadow */
 const GEN_STYLE: Record<string, { bg: string; border: string; text: string }> = {
@@ -176,6 +176,9 @@ const GEN_STYLE: Record<string, { bg: string; border: string; text: string }> = 
 };
 const BUBBLE_3D =
   "0 2px 4px rgba(0,0,0,0.12), 0 6px 14px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.55)";
+/** Name-plate: embossed letter feel */
+const NAMEPLATE =
+  "0 1px 0 rgba(255,255,255,0.65), 0 -1px 0 rgba(0,0,0,0.12)";
 
 /** Pull line endpoints INSIDE the bubble so no hairline gap remains */
 const IN = 10;
@@ -317,6 +320,14 @@ function VanshawaliInner() {
     birth_year: string;
     member_user_id: string | null;
   } | null>(null);
+  const [editDraft, setEditDraft] = useState<{
+    person_id: string;
+    link_id?: string;
+    name: string;
+    birth_year: string;
+    gender: string;
+    relation: string;
+  } | null>(null);
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
@@ -401,6 +412,41 @@ function VanshawaliInner() {
       setQ("");
       setHits([]);
       load();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveEdit = async () => {
+    if (!editDraft) return;
+    if (!editDraft.name.trim()) {
+      toast("Name required", "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/vanshawali", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "edit",
+          person_id: editDraft.person_id,
+          link_id: editDraft.link_id || undefined,
+          display_name: editDraft.name.trim(),
+          birth_year: editDraft.birth_year || null,
+          gender: editDraft.gender || null,
+          relation: editDraft.relation || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Edit failed", "error");
+        return;
+      }
+      setEditDraft(null);
+      setSelected(null);
+      load();
+      toast(lang === "hi" ? "सेव हो गया" : "Saved", "success");
     } finally {
       setSaving(false);
     }
@@ -673,10 +719,12 @@ function VanshawaliInner() {
     const marry = marriedIdSet.has(n.id)
       ? `, 0 0 0 2px rgba(110,231,183,0.55)`
       : "";
+    const rel = extra || lbl(lang, n.relation, n.gender);
+    const age = n.age != null ? ` · ${n.age}` : "";
     return (
       <button type="button" onClick={() => setSelected(n)} className="text-center">
         <span
-          className="inline-block px-2.5 py-1.5 rounded-lg text-[12px] font-semibold leading-snug border whitespace-nowrap backdrop-blur-[3px]"
+          className="inline-flex flex-col items-center px-2.5 py-1 rounded-lg text-[12px] font-semibold leading-tight border whitespace-nowrap backdrop-blur-[3px]"
           style={{
             background: st.bg,
             borderColor: st.border,
@@ -684,11 +732,11 @@ function VanshawaliInner() {
             boxShadow: BUBBLE_3D + marry,
           }}
         >
-          {n.display_name}
-        </span>
-        <span className="block text-[9px] text-gray-500 mt-0.5 leading-tight whitespace-nowrap">
-          {extra || lbl(lang, n.relation, n.gender)}
-          {n.age != null ? ` · ${n.age}` : ""}
+          <span style={{ textShadow: NAMEPLATE }}>{n.display_name}</span>
+          <span className="text-[9px] font-medium opacity-80 mt-0.5" style={{ textShadow: NAMEPLATE }}>
+            {rel}
+            {age}
+          </span>
         </span>
       </button>
     );
@@ -696,6 +744,15 @@ function VanshawaliInner() {
 
   return (
     <div className="flex flex-col min-h-[70vh] bg-[#fafafa] relative">
+      <style>{`
+        @keyframes goldTravel {
+          to { stroke-dashoffset: -48; }
+        }
+        .vansh-gold-line {
+          stroke-dasharray: 10 8;
+          animation: goldTravel 1.8s linear infinite;
+        }
+      `}</style>
       {/* SA edit toggle — left corner */}
       {isSA && !isOwner && (
         <button
@@ -749,8 +806,9 @@ function VanshawaliInner() {
                     d={d}
                     fill="none"
                     stroke={marryLine}
-                    strokeWidth={2.5}
+                    strokeWidth={2.4}
                     strokeLinecap="round"
+                    strokeDasharray="6 5"
                     opacity={0.9}
                   />
                 );
@@ -770,6 +828,7 @@ function VanshawaliInner() {
                     stroke={line}
                     strokeWidth={2.5}
                     strokeLinecap="round"
+                    className="vansh-gold-line"
                   />
                 );
               })}
@@ -793,6 +852,7 @@ function VanshawaliInner() {
                     stroke={line}
                     strokeWidth={2.5}
                     strokeLinecap="round"
+                    className="vansh-gold-line"
                   />
                 );
               })}
@@ -816,6 +876,7 @@ function VanshawaliInner() {
                     stroke={line}
                     strokeWidth={2.5}
                     strokeLinecap="round"
+                    className="vansh-gold-line"
                   />
                 );
               })}
@@ -846,6 +907,7 @@ function VanshawaliInner() {
                     stroke={line}
                     strokeWidth={2.5}
                     strokeLinecap="round"
+                    className="vansh-gold-line"
                   />
                 );
               })}
@@ -888,7 +950,7 @@ function VanshawaliInner() {
             >
               <button type="button" onClick={() => setSelected(tree.centre)} className="text-center">
                 <span
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-bold whitespace-nowrap backdrop-blur-[2px] border"
+                  className="inline-flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-[13px] font-bold whitespace-nowrap backdrop-blur-[2px] border"
                   style={{
                     background: GEN_STYLE.self.bg,
                     borderColor: GEN_STYLE.self.border,
@@ -900,13 +962,17 @@ function VanshawaliInner() {
                         : ""),
                   }}
                 >
-                  {tree.centre.photo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={tree.centre.photo_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
-                  ) : null}
-                  {tree.centre.display_name}
+                  <span className="inline-flex items-center gap-1.5">
+                    {tree.centre.photo_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={tree.centre.photo_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                    ) : null}
+                    <span style={{ textShadow: NAMEPLATE }}>{tree.centre.display_name}</span>
+                  </span>
+                  <span className="text-[9px] font-medium opacity-80" style={{ textShadow: NAMEPLATE }}>
+                    {L.self}
+                  </span>
                 </span>
-                <span className="block text-[9px] text-emerald-600 font-medium mt-0.5">{L.self}</span>
               </button>
             </div>
 
@@ -1064,6 +1130,73 @@ function VanshawaliInner() {
         </div>
       )}
 
+
+      {editDraft && canEdit && (
+        <div
+          className="fixed inset-0 z-50 bg-black/30 flex items-end sm:items-center justify-center"
+          onClick={() => setEditDraft(null)}
+        >
+          <div
+            className="w-full max-w-sm mx-3 mb-6 bg-white rounded-3xl p-4 shadow-2xl space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center">
+              <p className="font-bold">{lang === "hi" ? "एडिट" : "Edit person"}</p>
+              <button type="button" onClick={() => setEditDraft(null)}>
+                <X size={18} className="text-gray-400" />
+              </button>
+            </div>
+            <input
+              className="w-full px-3 py-2.5 rounded-xl border text-sm"
+              placeholder="Full name"
+              value={editDraft.name}
+              onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })}
+            />
+            <input
+              className="w-full px-3 py-2.5 rounded-xl border text-sm"
+              placeholder="Birth year"
+              inputMode="numeric"
+              value={editDraft.birth_year}
+              onChange={(e) =>
+                setEditDraft({
+                  ...editDraft,
+                  birth_year: e.target.value.replace(/\D/g, "").slice(0, 4),
+                })
+              }
+            />
+            <select
+              className="w-full px-3 py-2.5 rounded-xl border text-sm"
+              value={editDraft.gender}
+              onChange={(e) => setEditDraft({ ...editDraft, gender: e.target.value })}
+            >
+              <option value="">Gender</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+            {editDraft.link_id && (
+              <select
+                className="w-full px-3 py-2.5 rounded-xl border text-sm"
+                value={editDraft.relation}
+                onChange={(e) => setEditDraft({ ...editDraft, relation: e.target.value })}
+              >
+                <option value="father">{L.father}</option>
+                <option value="mother">{L.mother}</option>
+                <option value="spouse">{L.spouse}</option>
+                <option value="child">{L.child}</option>
+              </select>
+            )}
+            <button
+              type="button"
+              disabled={saving}
+              onClick={saveEdit}
+              className="w-full py-3 rounded-2xl bg-amber-400 text-white text-sm font-bold"
+            >
+              {saving ? "…" : lang === "hi" ? "सेव" : "Save"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Node actions */}
       {selected && (
         <div
@@ -1167,6 +1300,26 @@ function VanshawaliInner() {
                   {lang === "hi" ? "रिश्तेदार जोड़ें" : "Add relative"}
                 </button>
               )}
+            {canEdit && selected.relation !== "self" && (
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
+                onClick={() => {
+                  setEditDraft({
+                    person_id: selected.id,
+                    link_id: selected.link_id,
+                    name: selected.display_name,
+                    birth_year: selected.birth_year ? String(selected.birth_year) : "",
+                    gender: selected.gender || "",
+                    relation: selected.relation || "child",
+                  });
+                  setSelected(null);
+                }}
+              >
+                <Pencil size={16} className="text-amber-500" />{" "}
+                {lang === "hi" ? "एडिट" : "Edit"}
+              </button>
+            )}
             {canEdit && selected.relation !== "self" && selected.link_id && (
               <button
                 type="button"

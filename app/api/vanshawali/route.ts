@@ -298,6 +298,45 @@ export async function POST(request: NextRequest) {
   }
 
   // add relative — centre by user id OR vansh person id (extend branch)
+
+  if (action === "edit") {
+    const personId = String(body.person_id || "");
+    const person = store.persons.find((p) => p.id === personId);
+    if (!person) return NextResponse.json({ error: "Person not found" }, { status: 404 });
+    // only ghost (manual) names editable freely; registered keep linked name unless SA
+    const allowed =
+      isSA ||
+      person.created_by === session.userId ||
+      (!person.user_id && store.links.some((l) => {
+        const other = l.from_id === personId ? l.to_id : l.to_id === personId ? l.from_id : null;
+        if (!other) return false;
+        const o = store.persons.find((p) => p.id === other);
+        return o?.user_id === session.userId;
+      }));
+    if (!allowed) return NextResponse.json({ error: "Not allowed to edit" }, { status: 403 });
+    if (body.display_name != null) {
+      const name = String(body.display_name).trim();
+      if (name) person.display_name = name;
+    }
+    if (body.birth_year !== undefined) {
+      const by = body.birth_year ? parseInt(String(body.birth_year), 10) : null;
+      person.birth_year = by && !isNaN(by) ? by : null;
+    }
+    if (body.gender !== undefined) {
+      person.gender = body.gender || null;
+    }
+    if (body.relation && body.link_id) {
+      const link = store.links.find((l) => l.id === String(body.link_id));
+      const rel = String(body.relation).toLowerCase();
+      if (link && ["father", "mother", "spouse", "child"].includes(rel)) {
+        link.relation = rel as Link["relation"];
+      }
+    }
+    await saveStore(supabase, store, session.userId);
+    return NextResponse.json({ success: true, person });
+  }
+
+
   let centre: Person;
   if (body.centre_person_id) {
     const found = store.persons.find((p) => p.id === String(body.centre_person_id));
