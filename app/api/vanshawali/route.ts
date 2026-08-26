@@ -228,7 +228,7 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
   for (const s of spouses) allTreeIds.add(s.person.id);
 
   const spouses_of: Record<string, ReturnType<typeof mapNode>[]> = {};
-  for (const id of allTreeIds) {
+  for (const id of Array.from(allTreeIds)) {
     const sp = spousesOf(id);
     if (sp.length) {
       spouses_of[id] = sp.map((row) => ({
