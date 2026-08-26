@@ -768,7 +768,7 @@ function VanshawaliInner() {
   const spousesOf = tree?.spouses_of || {};
   const centreSpouseIds = new Set((tree?.spouses || []).map((s) => s.id));
   const extraSpousePlaced: Placed[] = [];
-  const usedSpouseIds = new Set<string>([...centreSpouseIds, tree?.centre.id || ""]);
+  const usedSpouseIds = new Set<string>(Array.from(centreSpouseIds).concat(tree?.centre.id || ""));
 
   for (const [ownerId, list] of Object.entries(spousesOf)) {
     if (ownerId === tree?.centre.id) continue; // centre spouses already placed
