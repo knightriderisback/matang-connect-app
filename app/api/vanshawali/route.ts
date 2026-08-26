@@ -10,6 +10,8 @@ type Person = {
   display_name: string;
   gender?: string | null;
   birth_year?: number | null;
+  /** ISO date YYYY-MM-DD when full DOB known */
+  birth_date?: string | null;
   gotra?: string | null;
   photo_url?: string | null;
   created_by?: string;
@@ -149,6 +151,7 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     display_name: row.person.display_name,
     gender: row.person.gender,
     birth_year: row.person.birth_year,
+    birth_date: row.person.birth_date || null,
     age: ageFromYear(row.person.birth_year),
     photo_url: row.person.photo_url,
     relation: row.relation,
@@ -191,6 +194,7 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
       display_name: centre.display_name,
       gender: centre.gender,
       birth_year: centre.birth_year,
+      birth_date: centre.birth_date || null,
       age: ageFromYear(centre.birth_year),
       photo_url: centre.photo_url,
       relation: "self",
@@ -322,6 +326,14 @@ export async function POST(request: NextRequest) {
       const by = body.birth_year ? parseInt(String(body.birth_year), 10) : null;
       person.birth_year = by && !isNaN(by) ? by : null;
     }
+    if (body.birth_date !== undefined) {
+      const bd = body.birth_date ? String(body.birth_date).slice(0, 10) : null;
+      person.birth_date = bd || null;
+      if (bd && /^\d{4}/.test(bd)) {
+        const y = parseInt(bd.slice(0, 4), 10);
+        if (!isNaN(y)) person.birth_year = y;
+      }
+    }
     if (body.gender !== undefined) {
       person.gender = body.gender || null;
     }
@@ -371,13 +383,19 @@ export async function POST(request: NextRequest) {
   } else {
     const name = String(body.display_name || "").trim();
     if (!name) return NextResponse.json({ error: "Name required" }, { status: 400 });
-    const birth_year = body.birth_year ? parseInt(String(body.birth_year), 10) : null;
+    const birth_date = body.birth_date ? String(body.birth_date).slice(0, 10) : null;
+    let birth_year = body.birth_year ? parseInt(String(body.birth_year), 10) : null;
+    if (birth_date && /^\d{4}/.test(birth_date)) {
+      const y = parseInt(birth_date.slice(0, 4), 10);
+      if (!isNaN(y)) birth_year = y;
+    }
     other = {
       id: uid(),
       user_id: null,
       display_name: name,
       gender: body.gender || null,
       birth_year: birth_year && !isNaN(birth_year) ? birth_year : null,
+      birth_date: birth_date || null,
       gotra: body.gotra || null,
       created_by: session.userId,
       created_at: new Date().toISOString(),
@@ -423,6 +441,65 @@ export async function POST(request: NextRequest) {
   }
 
   store.links.push(link);
+
+  // Dual-parent: child belongs with spouse(s) too — Indian family logic
+  if (relation === "child") {
+    const spouseLinks = store.links.filter(
+      (l) =>
+        l.relation === "spouse" &&
+        (l.from_id === centre.id || l.to_id === centre.id) &&
+        (l.status === "verified" || l.proposed_by === session.userId || isStaff)
+    );
+    for (const sl of spouseLinks) {
+      const spouseId = sl.from_id === centre.id ? sl.to_id : sl.from_id;
+      if (spouseId === other.id) continue;
+      const already = store.links.some(
+        (l) =>
+          l.relation === "child" &&
+          l.from_id === spouseId &&
+          l.to_id === other.id
+      );
+      if (already) continue;
+      store.links.push({
+        id: uid(),
+        from_id: spouseId,
+        to_id: other.id,
+        relation: "child",
+        status,
+        proposed_by: session.userId,
+        created_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  // If adding spouse to someone who already has children, link new spouse → those children
+  if (relation === "spouse") {
+    const kids = store.links.filter(
+      (l) =>
+        l.relation === "child" &&
+        l.from_id === centre.id &&
+        (l.status === "verified" || l.proposed_by === session.userId || isStaff)
+    );
+    for (const kl of kids) {
+      const already = store.links.some(
+        (l) =>
+          l.relation === "child" &&
+          l.from_id === other.id &&
+          l.to_id === kl.to_id
+      );
+      if (already) continue;
+      store.links.push({
+        id: uid(),
+        from_id: other.id,
+        to_id: kl.to_id,
+        relation: "child",
+        status,
+        proposed_by: session.userId,
+        created_at: new Date().toISOString(),
+      });
+    }
+  }
+
   await saveStore(supabase, store, session.userId);
 
   return NextResponse.json({ success: true, person: other, link });

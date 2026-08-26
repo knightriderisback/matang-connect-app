@@ -46,6 +46,7 @@ type Node = {
   display_name: string;
   gender?: string | null;
   birth_year?: number | null;
+  birth_date?: string | null;
   age?: number | null;
   photo_url?: string | null;
   relation: string;
@@ -97,6 +98,21 @@ const REL: Record<string, Record<string, string>> = {
     grandchild: "पोता/पोती",
   },
 };
+
+function formatBirth(n: {
+  birth_date?: string | null;
+  birth_year?: number | null;
+}) {
+  if (n.birth_date && /^\d{4}-\d{2}-\d{2}/.test(n.birth_date)) {
+    const [y, m, d] = n.birth_date.split("-").map((x) => parseInt(x, 10));
+    if (y && m && d) {
+      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      return `${d} ${months[m - 1]} ${y}`;
+    }
+  }
+  if (n.birth_year && n.birth_year > 1800 && n.birth_year < 2100) return String(n.birth_year);
+  return "";
+}
 
 function lbl(lang: string, key: string, gender?: string | null) {
   const L = REL[lang] || REL.en;
@@ -318,6 +334,7 @@ function VanshawaliInner() {
     centre_person_id?: string;
     name: string;
     birth_year: string;
+    birth_date: string;
     member_user_id: string | null;
   } | null>(null);
   const [editDraft, setEditDraft] = useState<{
@@ -325,6 +342,7 @@ function VanshawaliInner() {
     link_id?: string;
     name: string;
     birth_year: string;
+    birth_date: string;
     gender: string;
     relation: string;
   } | null>(null);
@@ -400,6 +418,7 @@ function VanshawaliInner() {
           relation: draft.relation,
           display_name: draft.name.trim() || undefined,
           birth_year: draft.birth_year || null,
+          birth_date: draft.birth_date || null,
           member_user_id: draft.member_user_id || null,
         }),
       });
@@ -434,6 +453,7 @@ function VanshawaliInner() {
           link_id: editDraft.link_id || undefined,
           display_name: editDraft.name.trim(),
           birth_year: editDraft.birth_year || null,
+          birth_date: editDraft.birth_date || null,
           gender: editDraft.gender || null,
           relation: editDraft.relation || undefined,
         }),
@@ -485,6 +505,7 @@ function VanshawaliInner() {
       centre_person_id: centrePersonId,
       name: "",
       birth_year: "",
+      birth_date: "",
       member_user_id: null,
     });
     setQ("");
@@ -720,7 +741,7 @@ function VanshawaliInner() {
       ? `, 0 0 0 2px rgba(110,231,183,0.55)`
       : "";
     const rel = extra || lbl(lang, n.relation, n.gender);
-    const age = n.age != null ? ` · ${n.age}` : "";
+    const born = formatBirth(n);
     return (
       <button type="button" onClick={() => setSelected(n)} className="text-center">
         <span
@@ -735,7 +756,7 @@ function VanshawaliInner() {
           <span style={{ textShadow: NAMEPLATE }}>{n.display_name}</span>
           <span className="text-[9px] font-medium opacity-80 mt-0.5" style={{ textShadow: NAMEPLATE }}>
             {rel}
-            {age}
+            {born ? ` · ${born}` : ""}
           </span>
         </span>
       </button>
@@ -879,6 +900,35 @@ function VanshawaliInner() {
                     className="vansh-gold-line"
                   />
                 );
+              })}
+              {spouses.map((sp, si) => {
+                const spos = spousePositions[si];
+                if (!spos) return null;
+                const sTop = yMid - 20;
+                return children.map((c, i) => {
+                  const chTop = yChild + chRows[i] * subRowH - 4;
+                  const start = undock(spos.x, sTop, "down");
+                  const end = dock(
+                    chXs[i],
+                    chTop,
+                    nameW(c.display_name),
+                    "up",
+                    c.gender,
+                    c.relation
+                  );
+                  return (
+                    <path
+                      key={`scl-${sp.id}-${c.id}`}
+                      d={curve(start.x, start.y, end.x, end.y)}
+                      fill="none"
+                      stroke={line}
+                      strokeWidth={2.2}
+                      strokeLinecap="round"
+                      className="vansh-gold-line"
+                      opacity={0.85}
+                    />
+                  );
+                });
               })}
 {gcPositions.map(({ n, x, row }) => {
                 const via = n.via_child_id || "";
@@ -1097,15 +1147,30 @@ function VanshawaliInner() {
                   value={draft.name}
                   onChange={(e) => setDraft({ ...draft, name: e.target.value, member_user_id: null })}
                 />
+                <label className="text-[11px] text-gray-500">Date of birth</label>
+                <input
+                  type="date"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm"
+                  value={draft.birth_date || ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setDraft({
+                      ...draft,
+                      birth_date: v,
+                      birth_year: v ? v.slice(0, 4) : draft.birth_year,
+                    });
+                  }}
+                />
                 <input
                   className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm"
-                  placeholder="Birth year (optional)"
+                  placeholder="Or birth year only"
                   inputMode="numeric"
-                  value={draft.birth_year}
+                  value={draft.birth_date ? "" : draft.birth_year}
                   onChange={(e) =>
                     setDraft({
                       ...draft,
                       birth_year: e.target.value.replace(/\D/g, "").slice(0, 4),
+                      birth_date: "",
                     })
                   }
                 />
@@ -1152,15 +1217,30 @@ function VanshawaliInner() {
               value={editDraft.name}
               onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })}
             />
+            <label className="text-[11px] text-gray-500">Date of birth</label>
+            <input
+              type="date"
+              className="w-full px-3 py-2.5 rounded-xl border text-sm"
+              value={editDraft.birth_date}
+              onChange={(e) => {
+                const v = e.target.value;
+                setEditDraft({
+                  ...editDraft,
+                  birth_date: v,
+                  birth_year: v ? v.slice(0, 4) : editDraft.birth_year,
+                });
+              }}
+            />
             <input
               className="w-full px-3 py-2.5 rounded-xl border text-sm"
-              placeholder="Birth year"
+              placeholder="Or birth year only"
               inputMode="numeric"
-              value={editDraft.birth_year}
+              value={editDraft.birth_date ? "" : editDraft.birth_year}
               onChange={(e) =>
                 setEditDraft({
                   ...editDraft,
                   birth_year: e.target.value.replace(/\D/g, "").slice(0, 4),
+                  birth_date: "",
                 })
               }
             />
@@ -1210,7 +1290,7 @@ function VanshawaliInner() {
             <p className="font-bold text-gray-900">{selected.display_name}</p>
             <p className="text-xs text-gray-500 mb-2">
               {lbl(lang, selected.relation, selected.gender)}
-              {selected.age != null ? ` · ${selected.age} yrs` : ""}
+              {formatBirth(selected) ? ` · ${formatBirth(selected)}` : ""}
               {selected.user_id ? " · Registered" : " · Manual"}
             </p>
             {selected.user_id && (
@@ -1283,22 +1363,34 @@ function VanshawaliInner() {
             )}
             {canEdit &&
               !(selected.id === tree?.centre.id || selected.relation === "self") && (
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
-                  onClick={() => {
-                    const isAncestor =
-                      selected.relation === "father" ||
-                      selected.relation === "mother" ||
-                      selected.relation === "grandfather" ||
-                      selected.relation === "grandmother";
-                    openAdd(isAncestor ? "father" : "child", selected.id);
-                    setSelected(null);
-                  }}
-                >
-                  <Plus size={16} className="text-amber-500" />{" "}
-                  {lang === "hi" ? "रिश्तेदार जोड़ें" : "Add relative"}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
+                    onClick={() => {
+                      openAdd("spouse", selected.id);
+                      setSelected(null);
+                    }}
+                  >
+                    <Plus size={16} className="text-amber-500" /> {L.spouse}
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
+                    onClick={() => {
+                      const isAncestor =
+                        selected.relation === "father" ||
+                        selected.relation === "mother" ||
+                        selected.relation === "grandfather" ||
+                        selected.relation === "grandmother";
+                      openAdd(isAncestor ? "father" : "child", selected.id);
+                      setSelected(null);
+                    }}
+                  >
+                    <Plus size={16} className="text-amber-500" />{" "}
+                    {lang === "hi" ? "रिश्तेदार जोड़ें" : "Add relative"}
+                  </button>
+                </>
               )}
             {canEdit && selected.relation !== "self" && (
               <button
@@ -1310,6 +1402,7 @@ function VanshawaliInner() {
                     link_id: selected.link_id,
                     name: selected.display_name,
                     birth_year: selected.birth_year ? String(selected.birth_year) : "",
+                    birth_date: selected.birth_date || "",
                     gender: selected.gender || "",
                     relation: selected.relation || "child",
                   });
