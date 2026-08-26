@@ -104,48 +104,16 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     isStaff ||
     centre.user_id === viewerId;
 
-  const links = store.links.filter(
-    (l) =>
-      showLink(l) &&
-      (l.from_id === centre.id || l.to_id === centre.id || /* parent of centre */ true)
-  );
-
   const byId = (id: string) => store.persons.find((p) => p.id === id);
 
-  // Parents: link where to_id = centre and relation father/mother
-  // OR from_id = centre relation child means centre is child of from? We use:
-  // father: from=father, to=child
-  // mother: from=mother, to=child
-  // spouse: bidirectional from/to
-  // child: from=parent, to=child
+  type Row = {
+    person: Person;
+    relation: string;
+    link: Link;
+    via_id?: string;
+  };
 
-  const parents: { person: Person; relation: string; link: Link }[] = [];
-  const spouses: { person: Person; relation: string; link: Link }[] = [];
-  const children: { person: Person; relation: string; link: Link }[] = [];
-
-  for (const l of store.links) {
-    if (!showLink(l)) continue;
-    if (l.relation === "father" && l.to_id === centre.id) {
-      const p = byId(l.from_id);
-      if (p) parents.push({ person: p, relation: "father", link: l });
-    } else if (l.relation === "mother" && l.to_id === centre.id) {
-      const p = byId(l.from_id);
-      if (p) parents.push({ person: p, relation: "mother", link: l });
-    } else if (l.relation === "spouse" && (l.from_id === centre.id || l.to_id === centre.id)) {
-      const otherId = l.from_id === centre.id ? l.to_id : l.from_id;
-      const p = byId(otherId);
-      if (p) spouses.push({ person: p, relation: "spouse", link: l });
-    } else if (l.relation === "child" && l.from_id === centre.id) {
-      const p = byId(l.to_id);
-      if (p) children.push({ person: p, relation: "child", link: l });
-    } else if ((l.relation === "father" || l.relation === "mother") && l.from_id === centre.id) {
-      // centre is parent
-      const p = byId(l.to_id);
-      if (p) children.push({ person: p, relation: "child", link: l });
-    }
-  }
-
-  const mapNode = (row: { person: Person; relation: string; link: Link }) => ({
+  const mapNode = (row: Row) => ({
     id: row.person.id,
     user_id: row.person.user_id,
     display_name: row.person.display_name,
@@ -158,34 +126,100 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     status: row.link.status,
     gotra: row.person.gotra,
     link_id: row.link.id,
+    via_id: row.via_id,
+    via_parent_id: row.via_id,
+    via_child_id: row.via_id,
   });
 
-  // Grandparents: parents of each parent
-  const grandparents: { person: Person; relation: string; link: Link; via_parent_id: string }[] = [];
-  for (const par of parents) {
+  /** Parents of personId */
+  function parentsOf(personId: string): Row[] {
+    const out: Row[] = [];
     for (const l of store.links) {
       if (!showLink(l)) continue;
-      if ((l.relation === "father" || l.relation === "mother") && l.to_id === par.person.id) {
-        const g = byId(l.from_id);
-        if (g) grandparents.push({ person: g, relation: l.relation, link: l, via_parent_id: par.person.id });
+      if ((l.relation === "father" || l.relation === "mother") && l.to_id === personId) {
+        const p = byId(l.from_id);
+        if (p) out.push({ person: p, relation: l.relation, link: l, via_id: personId });
       }
     }
+    return out;
   }
 
-  // Grandchildren: children of each child
-  const grandchildren: { person: Person; relation: string; link: Link; via_child_id: string }[] = [];
-  for (const ch of children) {
+  /** Children of personId */
+  function childrenOf(personId: string): Row[] {
+    const out: Row[] = [];
+    const seen = new Set<string>();
     for (const l of store.links) {
       if (!showLink(l)) continue;
-      if (l.relation === "child" && l.from_id === ch.person.id) {
-        const g = byId(l.to_id);
-        if (g) grandchildren.push({ person: g, relation: "child", link: l, via_child_id: ch.person.id });
-      } else if ((l.relation === "father" || l.relation === "mother") && l.from_id === ch.person.id) {
-        const g = byId(l.to_id);
-        if (g) grandchildren.push({ person: g, relation: "child", link: l, via_child_id: ch.person.id });
+      let childId: string | null = null;
+      if (l.relation === "child" && l.from_id === personId) childId = l.to_id;
+      else if ((l.relation === "father" || l.relation === "mother") && l.from_id === personId)
+        childId = l.to_id;
+      if (!childId || seen.has(childId)) continue;
+      seen.add(childId);
+      const p = byId(childId);
+      if (p) out.push({ person: p, relation: "child", link: l, via_id: personId });
+    }
+    return out;
+  }
+
+  function spousesOf(personId: string): Row[] {
+    const out: Row[] = [];
+    for (const l of store.links) {
+      if (!showLink(l)) continue;
+      if (l.relation !== "spouse") continue;
+      if (l.from_id !== personId && l.to_id !== personId) continue;
+      const otherId = l.from_id === personId ? l.to_id : l.from_id;
+      const p = byId(otherId);
+      if (p) out.push({ person: p, relation: "spouse", link: l });
+    }
+    return out;
+  }
+
+  // levels_up[0] = parents, [1] = grandparents, ...
+  const levels_up: Row[][] = [];
+  let frontier = [centre.id];
+  const seenUp = new Set<string>([centre.id]);
+  for (let depth = 0; depth < 12; depth++) {
+    const next: Row[] = [];
+    const nextIds: string[] = [];
+    for (const id of frontier) {
+      for (const row of parentsOf(id)) {
+        if (seenUp.has(row.person.id)) continue;
+        seenUp.add(row.person.id);
+        next.push(row);
+        nextIds.push(row.person.id);
       }
     }
+    if (!next.length) break;
+    levels_up.push(next);
+    frontier = nextIds;
   }
+
+  // levels_down[0] = children, [1] = grandchildren, ...
+  const levels_down: Row[][] = [];
+  frontier = [centre.id];
+  const seenDown = new Set<string>([centre.id]);
+  for (let depth = 0; depth < 12; depth++) {
+    const next: Row[] = [];
+    const nextIds: string[] = [];
+    for (const id of frontier) {
+      for (const row of childrenOf(id)) {
+        if (seenDown.has(row.person.id)) continue;
+        seenDown.add(row.person.id);
+        next.push(row);
+        nextIds.push(row.person.id);
+      }
+    }
+    if (!next.length) break;
+    levels_down.push(next);
+    frontier = nextIds;
+  }
+
+  const parents = levels_up[0] || [];
+  const grandparents = levels_up[1] || [];
+  const children = levels_down[0] || [];
+  const grandchildren = levels_down[1] || [];
+  const spouses = spousesOf(centre.id);
 
   return {
     centre: {
@@ -201,11 +235,24 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
       status: "verified",
       gotra: centre.gotra,
     },
-    parents: parents.map(mapNode),
     spouses: spouses.map(mapNode),
+    parents: parents.map(mapNode),
     children: children.map(mapNode),
-    grandparents: grandparents.map((row) => ({ ...mapNode(row), via_parent_id: row.via_parent_id })),
-    grandchildren: grandchildren.map((row) => ({ ...mapNode(row), via_child_id: row.via_child_id })),
+    grandparents: grandparents.map((row) => ({
+      ...mapNode(row),
+      via_parent_id: row.via_id,
+    })),
+    grandchildren: grandchildren.map((row) => ({
+      ...mapNode(row),
+      via_child_id: row.via_id,
+    })),
+    /** Infinite gens for auto canvas */
+    levels_up: levels_up.map((lvl) =>
+      lvl.map((row) => ({ ...mapNode(row), via_id: row.via_id, via_parent_id: row.via_id }))
+    ),
+    levels_down: levels_down.map((lvl) =>
+      lvl.map((row) => ({ ...mapNode(row), via_id: row.via_id, via_child_id: row.via_id }))
+    ),
   };
 }
 

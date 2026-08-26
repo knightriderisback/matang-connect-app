@@ -63,6 +63,8 @@ type Tree = {
   children: Node[];
   grandparents?: Node[];
   grandchildren?: Node[];
+  levels_up?: Node[][];
+  levels_down?: Node[][];
 };
 
 type SearchHit = {
@@ -512,155 +514,286 @@ function VanshawaliInner() {
     setHits([]);
   };
 
-  // Layout — LOCKED mind-map; smart multi-row, no overlap, full names
-  const parents = tree?.parents || [];
+  // Layout — auto canvas: levels_up / levels_down extend height; no overlap
+  const levelsUp: Node[][] =
+    tree?.levels_up && tree.levels_up.length
+      ? tree.levels_up
+      : [
+          ...(tree?.parents?.length ? [tree.parents] : []),
+          ...(tree?.grandparents?.length ? [tree.grandparents] : []),
+        ].filter((l) => l.length);
+  const levelsDown: Node[][] =
+    tree?.levels_down && tree.levels_down.length
+      ? tree.levels_down
+      : [
+          ...(tree?.children?.length ? [tree.children] : []),
+          ...(tree?.grandchildren?.length ? [tree.grandchildren] : []),
+        ].filter((l) => l.length);
+
+  const parents = levelsUp[0] || tree?.parents || [];
   const spouses = tree?.spouses || [];
-  const children = tree?.children || [];
-  const grandparents = tree?.grandparents || [];
-  const grandchildren = tree?.grandchildren || [];
+  const children = levelsDown[0] || tree?.children || [];
+  const grandparents = levelsUp[1] || tree?.grandparents || [];
+  const grandchildren = levelsDown[1] || tree?.grandchildren || [];
 
   const W = vw;
   const pad = 10;
   const gap = 10;
   const cx = W / 2;
-  const midGate = W / 2; // hard split L/R — father left, mother right
-  const subRowH = 48;
+  const midGate = W / 2;
+  const subRowH = 52;
+  const levelGap = 28;
 
+  type Placed = {
+    n: Node;
+    x: number;
+    top: number;
+    w: number;
+    genKey: keyof typeof GEN_STYLE;
+    side?: "L" | "R";
+  };
+  const placed: Placed[] = [];
+  const posById = new Map<string, { x: number; top: number; w: number }>();
+  const linesBlood: { x1: number; y1: number; x2: number; y2: number; key: string }[] = [];
+
+  let yCursor = 16;
+
+  // —— UP levels: farthest first (top of canvas) ——
+  const upTops: number[] = [];
+  for (let di = levelsUp.length - 1; di >= 0; di--) {
+    const level = levelsUp[di];
+    const genKey = (di === 0 ? "up1" : di === 1 ? "up2" : "up3") as keyof typeof GEN_STYLE;
+    // sort father-side left: prefer father relation first within via groups
+    const sorted = [...level].sort((a, b) => {
+      const va = a.via_id || a.via_parent_id || "";
+      const vb = b.via_id || b.via_parent_id || "";
+      if (va !== vb) return va.localeCompare(vb);
+      const ra = a.relation === "father" ? 0 : a.relation === "mother" ? 1 : 2;
+      const rb = b.relation === "father" ? 0 : b.relation === "mother" ? 1 : 2;
+      return ra - rb;
+    });
+
+    // For parents (di===0): father left half, mother right half
+    if (di === 0) {
+      const fathers = sorted.filter((n) => n.relation === "father");
+      const mothers = sorted.filter((n) => n.relation === "mother");
+      const other = sorted.filter((n) => n.relation !== "father" && n.relation !== "mother");
+      const placeHalf = (list: Node[], side: "L" | "R") => {
+        if (!list.length) return 0;
+        const lo = side === "L" ? pad : midGate + 12;
+        const hi = side === "L" ? midGate - 12 : W - pad;
+        const widths = list.map((n) => nameW(n.display_name));
+        const pack = packSmart(widths, W, pad, gap, (lo + hi) / 2, lo, hi);
+        let maxR = 0;
+        list.forEach((n, i) => {
+          const top = yCursor + pack[i].row * subRowH;
+          maxR = Math.max(maxR, pack[i].row);
+          const w = widths[i];
+          placed.push({ n, x: pack[i].x, top, w, genKey, side });
+          posById.set(n.id, { x: pack[i].x, top, w });
+        });
+        return maxR;
+      };
+      const r1 = placeHalf(fathers, "L");
+      const r2 = placeHalf(mothers, "R");
+      const r3 = placeHalf(other, "L");
+      const maxR = Math.max(r1, r2, r3);
+      upTops[di] = yCursor;
+      yCursor += (maxR + 1) * subRowH + levelGap;
+    } else {
+      // Higher ancestors: group by via, pack near parent column
+      const byVia = new Map<string, Node[]>();
+      sorted.forEach((n) => {
+        const k = n.via_id || n.via_parent_id || "_";
+        if (!byVia.has(k)) byVia.set(k, []);
+        byVia.get(k)!.push(n);
+      });
+      let maxR = 0;
+      // First pass: if parent not placed yet (we're going top-down farthest first),
+      // parent is lower — use prefer cx; second pass after parents won't work top-down.
+      // So pack full width smart for this level.
+      const widths = sorted.map((n) => nameW(n.display_name));
+      const pack = packSmart(widths, W, pad, gap, cx);
+      sorted.forEach((n, i) => {
+        const top = yCursor + pack[i].row * subRowH;
+        maxR = Math.max(maxR, pack[i].row);
+        const w = widths[i];
+        placed.push({ n, x: pack[i].x, top, w, genKey });
+        posById.set(n.id, { x: pack[i].x, top, w });
+      });
+      upTops[di] = yCursor;
+      yCursor += (maxR + 1) * subRowH + levelGap;
+    }
+  }
+
+  // Parents Y for marriage / lines compatibility
   const parentsSorted = [...parents].sort((a, b) => {
     const ra = a.relation === "father" ? 0 : a.relation === "mother" ? 1 : 2;
     const rb = b.relation === "father" ? 0 : b.relation === "mother" ? 1 : 2;
     return ra - rb;
   });
-
-  // Parents: father left half, mother right half (aligned under GP sides)
-  const parXs: number[] = [];
-  const parRows: number[] = [];
-  parentsSorted.forEach((p) => {
-    const w = nameW(p.display_name);
-    if (p.relation === "father") {
-      const pack = packSmart([w], W, pad, gap, (pad + midGate) / 2, pad, midGate);
-      parXs.push(pack[0].x);
-      parRows.push(0);
-    } else if (p.relation === "mother") {
-      const pack = packSmart([w], W, pad, gap, (midGate + W - pad) / 2, midGate, W - pad);
-      parXs.push(pack[0].x);
-      parRows.push(0);
-    } else {
-      const pack = packSmart([w], W, pad, gap, cx);
-      parXs.push(pack[0].x);
-      parRows.push(0);
-    }
-  });
-  const parAdd = canEdit
-    ? { x: clampX(cx, 48, W, pad), row: 0 }
-    : { x: cx, row: 0 };
-  const parentXById = new Map(parentsSorted.map((p, i) => [p.id, parXs[i]]));
-  const parentWById = new Map(parentsSorted.map((p) => [p.id, nameW(p.display_name)]));
-  const parentRowById = new Map(parentsSorted.map((p, i) => [p.id, parRows[i]]));
+  const parXs = parentsSorted.map((p) => posById.get(p.id)?.x ?? cx);
+  const parRows = parentsSorted.map(() => 0);
+  const yPar = parentsSorted.length
+    ? Math.min(...parentsSorted.map((p) => posById.get(p.id)?.top ?? yCursor))
+    : yCursor;
+  const parentXById = new Map(parentsSorted.map((p) => [p.id, posById.get(p.id)?.x ?? cx]));
+  const parentRowById = new Map(parentsSorted.map((p) => [p.id, 0]));
   const parMaxRow = 0;
+  const parAdd = { x: cx, row: 0 };
 
-  // Grandparents STRICT: father-side ONLY left half, mother-side ONLY right half
-  // Never share one full-width row (prevents cross-overlap)
-  type GpPos = { n: Node; x: number; row: number; tilt: number };
-  const gpPositions: GpPos[] = [];
-  const midX = W / 2;
-  const gutter = 14;
-  if (grandparents.length) {
-    const fatherId = parentsSorted.find((p) => p.relation === "father")?.id;
-    const motherId = parentsSorted.find((p) => p.relation === "mother")?.id;
-
-    const fatherSide: Node[] = [];
-    const motherSide: Node[] = [];
-    grandparents.forEach((g) => {
-      if (fatherId && g.via_parent_id === fatherId) fatherSide.push(g);
-      else if (motherId && g.via_parent_id === motherId) motherSide.push(g);
-      else if (fatherSide.length <= motherSide.length) fatherSide.push(g);
-      else motherSide.push(g);
-    });
-
-    const placeSide = (list: Node[], side: "L" | "R") => {
-      if (!list.length) return;
-      const sorted = [...list].sort((a, b) => {
-        const ra = a.relation === "father" ? 0 : 1;
-        const rb = b.relation === "father" ? 0 : 1;
-        return ra - rb;
-      });
-      const gutter = 12;
-      const lo = side === "L" ? pad : midGate + gutter;
-      const hi = side === "L" ? midGate - gutter : W - pad;
-      const prefer = side === "L" ? (lo + hi) / 2 - 8 : (lo + hi) / 2 + 8;
-      const widths = sorted.map((n) => nameW(n.display_name));
-      const pack = packSmart(widths, W, pad, gap, prefer, lo, hi);
-      sorted.forEach((n, i) => {
-        gpPositions.push({
-          n,
-          x: pack[i].x,
-          row: pack[i].row,
-          tilt: mildTilt(i, sorted.length) + (side === "L" ? -3 : 3),
-        });
-      });
-    };
-
-    placeSide(fatherSide, "L");
-    placeSide(motherSide, "R");
-  }
-  const gpMaxRow = gpPositions.length
-    ? Math.max(...gpPositions.map((g) => g.row))
-    : -1;
-
-  // Self = vertical visual centre: more top room for ancestors, balanced bottom
-  const yGpBase = gpPositions.length ? 20 : -80;
-  const gpBlockH = gpPositions.length ? (gpMaxRow + 1) * subRowH + 16 : 0;
-  const yPar = gpPositions.length ? yGpBase + gpBlockH + 20 : 28;
-  // Push self lower so it sits near vertical mid of the tree block
-  const yMid = yPar + parMaxRow * subRowH + 120;
-  const yChild = yMid + 110;
-
-  const chWidths = children.map((c) => nameW(c.display_name));
-  if (canEdit) chWidths.push(48);
-  const chPack = packSmart(chWidths, W, pad, gap, cx);
-  const chXs = children.map((_, i) => chPack[i].x);
-  const chRows = children.map((_, i) => chPack[i].row);
-  const chAdd = canEdit ? chPack[children.length] : { x: cx, row: 0 };
-  const childXById = new Map(children.map((c, i) => [c.id, chXs[i]]));
-  const childWById = new Map(children.map((c) => [c.id, nameW(c.display_name)]));
-  const chMaxRow = Math.max(0, ...chPack.map((p) => p.row));
-
-  type GcPos = { n: Node; x: number; row: number };
-  const gcPositions: GcPos[] = [];
-  if (grandchildren.length) {
-    const widths = grandchildren.map((n) => nameW(n.display_name));
-    // pack all GC; prefer under their parents' mean
-    const prefer =
-      grandchildren
-        .map((g) => childXById.get(g.via_child_id || "") ?? cx)
-        .reduce((s, x, _, a) => s + x / a.length, 0) || cx;
-    const pack = packSmart(widths, W, pad, gap, prefer);
-    grandchildren.forEach((n, i) => {
-      gcPositions.push({ n, x: pack[i].x, row: pack[i].row });
-    });
-  }
-  const gcMaxRow = gcPositions.length
-    ? Math.max(...gcPositions.map((g) => g.row))
-    : -1;
-
-  const yGcBase = gcPositions.length ? yChild + chMaxRow * subRowH + 88 : -80;
-  const H =
-    (gcPositions.length ? yGcBase + (gcMaxRow + 1) * subRowH : yChild + chMaxRow * subRowH) +
-    80;
-
+  // —— Centre + spouses ——
   const centreW = nameW(tree?.centre.display_name || "Self", 170);
   const spouseW0 = spouses[0] ? nameW(spouses[0].display_name) : 0;
+  const yMid = yCursor + 24;
   const centreX = clampX(
     spouses.length ? cx - (spouseW0 + 16) / 2 : cx,
     centreW,
     W,
     pad
   );
+  if (tree) {
+    posById.set(tree.centre.id, { x: centreX, top: yMid - 20, w: centreW });
+  }
   const spousePositions = spouses.map((s, i) => {
     const w = nameW(s.display_name);
     const raw = centreX + centreW / 2 + 14 + w / 2 + i * (w + 10);
-    return { x: clampX(raw, w, W, pad), w };
+    const x = clampX(raw, w, W, pad);
+    posById.set(s.id, { x, top: yMid - 20, w });
+    return { x, w };
+  });
+  yCursor = yMid + 56;
+
+  // —— DOWN levels ——
+  const downTops: number[] = [];
+  for (let di = 0; di < levelsDown.length; di++) {
+    const level = levelsDown[di];
+    const genKey = (di === 0 ? "down1" : "down2") as keyof typeof GEN_STYLE;
+    const sorted = [...level];
+    // Group by via for column preference
+    const byVia = new Map<string, Node[]>();
+    sorted.forEach((n) => {
+      const k = n.via_id || n.via_child_id || (di === 0 ? tree?.centre.id || "_" : "_");
+      if (!byVia.has(k)) byVia.set(k, []);
+      byVia.get(k)!.push(n);
+    });
+    let maxR = 0;
+    const levelPlaced: { n: Node; x: number; row: number; w: number }[] = [];
+    byVia.forEach((list, via) => {
+      const prefer = posById.get(via)?.x ?? cx;
+      const widths = list.map((n) => nameW(n.display_name));
+      const pack = packSmart(widths, W, pad, gap, prefer);
+      list.forEach((n, i) => {
+        maxR = Math.max(maxR, pack[i].row);
+        levelPlaced.push({ n, x: pack[i].x, row: pack[i].row, w: widths[i] });
+      });
+    });
+    // Resolve horizontal overlaps across groups on same row
+    const byRow = new Map<number, typeof levelPlaced>();
+    levelPlaced.forEach((p) => {
+      if (!byRow.has(p.row)) byRow.set(p.row, []);
+      byRow.get(p.row)!.push(p);
+    });
+    byRow.forEach((rowItems) => {
+      rowItems.sort((a, b) => a.x - b.x);
+      for (let i = 1; i < rowItems.length; i++) {
+        const prev = rowItems[i - 1];
+        const cur = rowItems[i];
+        const minX = prev.x + prev.w / 2 + gap + cur.w / 2;
+        if (cur.x < minX) cur.x = minX;
+      }
+      // shift left if overflow
+      const last = rowItems[rowItems.length - 1];
+      const overflow = last.x + last.w / 2 - (W - pad);
+      if (overflow > 0) {
+        rowItems.forEach((it) => {
+          it.x = Math.max(pad + it.w / 2, it.x - overflow);
+        });
+      }
+    });
+    levelPlaced.forEach((p) => {
+      const top = yCursor + p.row * subRowH;
+      placed.push({ n: p.n, x: p.x, top, w: p.w, genKey });
+      posById.set(p.n.id, { x: p.x, top, w: p.w });
+    });
+    downTops[di] = yCursor;
+    yCursor += (maxR + 1) * subRowH + levelGap;
+  }
+
+  const chXs = children.map((c) => posById.get(c.id)?.x ?? cx);
+  const chRows = children.map(() => 0);
+  const chMaxRow = 0;
+  const yChild = children.length
+    ? Math.min(...children.map((c) => posById.get(c.id)?.top ?? yCursor))
+    : yCursor;
+  const childXById = new Map(children.map((c) => [c.id, posById.get(c.id)?.x ?? cx]));
+  const childWById = new Map(children.map((c) => [c.id, nameW(c.display_name)]));
+  const chAdd = { x: cx, row: 0 };
+
+  // GP/GC compat for marriage pairs
+  const gpPositions = (levelsUp[1] || []).map((n) => {
+    const p = posById.get(n.id);
+    return { n, x: p?.x ?? cx, row: 0, tilt: 0 };
+  });
+  const yGpBase = gpPositions.length
+    ? Math.min(...gpPositions.map((g) => posById.get(g.n.id)?.top ?? 20))
+    : -80;
+  const gpMaxRow = 0;
+  const gcPositions = (levelsDown[1] || []).map((n) => {
+    const p = posById.get(n.id);
+    return { n, x: p?.x ?? cx, row: 0 };
+  });
+  const yGcBase = gcPositions.length
+    ? Math.min(...gcPositions.map((g) => posById.get(g.n.id)?.top ?? yCursor))
+    : -80;
+  const gcMaxRow = 0;
+
+  const H = yCursor + 48;
+
+  // Blood lines: each placed node (not centre) to via parent/child
+  placed.forEach((pl) => {
+    const via = pl.n.via_id || pl.n.via_parent_id || pl.n.via_child_id;
+    let parentPos = via ? posById.get(via) : undefined;
+    // parents connect to centre
+    if (!parentPos && parents.some((p) => p.id === pl.n.id) && tree) {
+      parentPos = posById.get(tree.centre.id);
+    }
+    // children of centre
+    if (!parentPos && children.some((c) => c.id === pl.n.id) && tree) {
+      parentPos = posById.get(tree.centre.id);
+    }
+    if (!parentPos) return;
+    const childIsBelow = pl.top > parentPos.top;
+    if (childIsBelow) {
+      // parent above → child below
+      const start = undock(parentPos.x, parentPos.top, "down");
+      const end = dock(pl.x, pl.top, pl.w, "up", pl.n.gender, pl.n.relation);
+      linesBlood.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y, key: `b-${pl.n.id}` });
+    } else {
+      // ancestor above → parent below
+      const start = undock(parentPos.x, parentPos.top, "up");
+      const end = dock(pl.x, pl.top, pl.w, "down", pl.n.gender, pl.n.relation);
+      linesBlood.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y, key: `b-${pl.n.id}` });
+    }
+  });
+
+  // Spouse → centre children dual-parent visual
+  spouses.forEach((sp) => {
+    const spos = posById.get(sp.id);
+    if (!spos) return;
+    children.forEach((c) => {
+      const cp = posById.get(c.id);
+      if (!cp) return;
+      const start = undock(spos.x, spos.top, "down");
+      const end = dock(cp.x, cp.top, cp.w, "up", c.gender, c.relation);
+      linesBlood.push({
+        x1: start.x,
+        y1: start.y,
+        x2: end.x,
+        y2: end.y,
+        key: `scl-${sp.id}-${c.id}`,
+      });
+    });
   });
 
   // EXTRA: marriage pairs only (layout/bubbles unchanged)
@@ -807,17 +940,18 @@ function VanshawaliInner() {
                         <svg className="absolute inset-0 pointer-events-none" width={W} height={H}>
               {/* EXTRA marriage bonds — light green, couples only */}
               {marriagePairs.map((mp, i) => {
-                const left = mp.ax <= mp.bx
-                  ? { x: mp.ax, y: mp.ay, w: mp.aw }
-                  : { x: mp.bx, y: mp.by, w: mp.bw };
-                const right = mp.ax <= mp.bx
-                  ? { x: mp.bx, y: mp.by, w: mp.bw }
-                  : { x: mp.ax, y: mp.ay, w: mp.aw };
+                const left =
+                  mp.ax <= mp.bx
+                    ? { x: mp.ax, y: mp.ay, w: mp.aw }
+                    : { x: mp.bx, y: mp.by, w: mp.bw };
+                const right =
+                  mp.ax <= mp.bx
+                    ? { x: mp.bx, y: mp.by, w: mp.bw }
+                    : { x: mp.ax, y: mp.ay, w: mp.aw };
                 const y1 = left.y + BUBBLE_H / 2;
                 const y2 = right.y + BUBBLE_H / 2;
                 const x1 = left.x + left.w / 2 - IN;
                 const x2 = right.x - right.w / 2 + IN;
-                // Mind-map style branch curve (slight arch)
                 const midX = (x1 + x2) / 2;
                 const arch = Math.min(18, Math.abs(x2 - x1) * 0.12 + 8);
                 const d = `M${x1} ${y1} C${midX} ${y1 - arch}, ${midX} ${y2 - arch}, ${x2} ${y2}`;
@@ -834,166 +968,32 @@ function VanshawaliInner() {
                   />
                 );
               })}
-
-              {gpPositions.map(({ n, x, row }) => {
-                const px = parentXById.get(n.via_parent_id || "") ?? centreX;
-                const pTop = yPar + (parentRowById.get(n.via_parent_id || "") ?? 0) * subRowH - 4;
-                const gTop = yGpBase + row * subRowH - 4;
-                const start = undock(px, pTop, "up");
-                const end = dock(x, gTop, nameW(n.display_name), "down", n.gender, n.relation);
-                return (
-                  <path
-                    key={`gpl-${n.id}`}
-                    d={curve(start.x, start.y, end.x, end.y)}
-                    fill="none"
-                    stroke={line}
-                    strokeWidth={2.5}
-                    strokeLinecap="round"
-                    className="vansh-gold-line"
-                  />
-                );
-              })}
-              {parentsSorted.map((p, i) => {
-                const pTop = yPar + parRows[i] * subRowH - 4;
-                const cTop = yMid - 20; // centre tag is translateY(-50%); bubble sits upper half
-                const start = undock(centreX, cTop, "up");
-                const end = dock(
-                  parXs[i],
-                  pTop,
-                  nameW(p.display_name),
-                  "down",
-                  p.gender,
-                  p.relation
-                );
-                return (
-                  <path
-                    key={`pl-${p.id}`}
-                    d={curve(start.x, start.y, end.x, end.y)}
-                    fill="none"
-                    stroke={line}
-                    strokeWidth={2.5}
-                    strokeLinecap="round"
-                    className="vansh-gold-line"
-                  />
-                );
-              })}
-{children.map((c, i) => {
-                const cTop = yMid - 20;
-                const chTop = yChild + chRows[i] * subRowH - 4;
-                const start = undock(centreX, cTop, "down");
-                const end = dock(
-                  chXs[i],
-                  chTop,
-                  nameW(c.display_name),
-                  "up",
-                  c.gender,
-                  c.relation
-                );
-                return (
-                  <path
-                    key={`cl-${c.id}`}
-                    d={curve(start.x, start.y, end.x, end.y)}
-                    fill="none"
-                    stroke={line}
-                    strokeWidth={2.5}
-                    strokeLinecap="round"
-                    className="vansh-gold-line"
-                  />
-                );
-              })}
-              {spouses.map((sp, si) => {
-                const spos = spousePositions[si];
-                if (!spos) return null;
-                const sTop = yMid - 20;
-                return children.map((c, i) => {
-                  const chTop = yChild + chRows[i] * subRowH - 4;
-                  const start = undock(spos.x, sTop, "down");
-                  const end = dock(
-                    chXs[i],
-                    chTop,
-                    nameW(c.display_name),
-                    "up",
-                    c.gender,
-                    c.relation
-                  );
-                  return (
-                    <path
-                      key={`scl-${sp.id}-${c.id}`}
-                      d={curve(start.x, start.y, end.x, end.y)}
-                      fill="none"
-                      stroke={line}
-                      strokeWidth={2.2}
-                      strokeLinecap="round"
-                      className="vansh-gold-line"
-                      opacity={0.85}
-                    />
-                  );
-                });
-              })}
-{gcPositions.map(({ n, x, row }) => {
-                const via = n.via_child_id || "";
-                const px = childXById.get(via) ?? centreX;
-                // find child row
-                const ci = children.findIndex((c) => c.id === via);
-                const chTop =
-                  ci >= 0
-                    ? yChild + chRows[ci] * subRowH - 4
-                    : yChild - 4;
-                const gTop = yGcBase + row * subRowH - 4;
-                const start = undock(px, chTop, "down");
-                const end = dock(
-                  x,
-                  gTop,
-                  nameW(n.display_name),
-                  "up",
-                  n.gender,
-                  n.relation
-                );
-                return (
-                  <path
-                    key={`gcl-${n.id}`}
-                    d={curve(start.x, start.y, end.x, end.y)}
-                    fill="none"
-                    stroke={line}
-                    strokeWidth={2.5}
-                    strokeLinecap="round"
-                    className="vansh-gold-line"
-                  />
-                );
-              })}
+              {/* Blood / parent–child — auto for all levels */}
+              {linesBlood.map((ln) => (
+                <path
+                  key={ln.key}
+                  d={curve(ln.x1, ln.y1, ln.x2, ln.y2)}
+                  fill="none"
+                  stroke={line}
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                  className="vansh-gold-line"
+                />
+              ))}
             </svg>
 
-            {gpPositions.map(({ n, x, row, tilt }) => (
+            {/* All relative bubbles (auto levels) */}
+            {placed.map((pl) => (
               <div
-                key={n.id}
+                key={pl.n.id}
                 className="absolute z-10 -translate-x-1/2"
-                style={{
-                  left: x,
-                  top: yGpBase + row * subRowH - 4,
-                  transform: `translateX(-50%) rotate(${tilt}deg)`,
-                }}
+                style={{ left: pl.x, top: pl.top }}
               >
-                <Tag
-                  n={n}
-                  gen="up2"
-                  extra={
-                    n.relation === "mother"
-                      ? L.grandmother || "Grandmother"
-                      : L.grandfather || "Grandfather"
-                  }
-                />
+                <Tag n={pl.n} gen={pl.genKey} />
               </div>
             ))}
 
-            {parentsSorted.map((n, i) => (
-              <div
-                key={n.id}
-                className="absolute z-10 -translate-x-1/2"
-                style={{ left: parXs[i], top: yPar + parRows[i] * subRowH - 4 }}
-              >
-                <Tag n={n} gen="up1" />
-</div>
-            ))}
+            {/* Centre */}
             <div
               className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
               style={{ left: centreX, top: yMid }}
@@ -1015,17 +1015,26 @@ function VanshawaliInner() {
                   <span className="inline-flex items-center gap-1.5">
                     {tree.centre.photo_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={tree.centre.photo_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                      <img
+                        src={tree.centre.photo_url}
+                        alt=""
+                        className="w-6 h-6 rounded-full object-cover shrink-0"
+                      />
                     ) : null}
                     <span style={{ textShadow: NAMEPLATE }}>{tree.centre.display_name}</span>
                   </span>
-                  <span className="text-[9px] font-medium opacity-80" style={{ textShadow: NAMEPLATE }}>
+                  <span
+                    className="text-[9px] font-medium opacity-80"
+                    style={{ textShadow: NAMEPLATE }}
+                  >
                     {L.self}
+                    {formatBirth(tree.centre) ? ` · ${formatBirth(tree.centre)}` : ""}
                   </span>
                 </span>
               </button>
             </div>
 
+            {/* Spouses */}
             {spouses.map((n, i) => (
               <div
                 key={n.id}
@@ -1033,24 +1042,6 @@ function VanshawaliInner() {
                 style={{ left: spousePositions[i]?.x ?? centreX, top: yMid }}
               >
                 <Tag n={n} extra={L.spouse} gen="spouse" />
-              </div>
-            ))}
-{children.map((n, i) => (
-              <div
-                key={n.id}
-                className="absolute z-10 -translate-x-1/2"
-                style={{ left: chXs[i], top: yChild + chRows[i] * subRowH - 4 }}
-              >
-                <Tag n={n} gen="down1" />
-</div>
-            ))}
-{gcPositions.map(({ n, x, row }) => (
-              <div
-                key={n.id}
-                className="absolute z-10 -translate-x-1/2"
-                style={{ left: x, top: yGcBase + row * subRowH - 4 }}
-              >
-                <Tag n={n} extra={L.grandchild || "Grandchild"} gen="down2" />
               </div>
             ))}
           </div>
