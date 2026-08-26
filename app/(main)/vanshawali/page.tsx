@@ -52,6 +52,7 @@ type Node = {
   relation: string;
   status?: string;
   link_id?: string;
+  via_id?: string;
   via_parent_id?: string;
   via_child_id?: string;
 };
