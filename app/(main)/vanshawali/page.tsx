@@ -1228,13 +1228,15 @@ function VanshawaliInner() {
           stroke-dasharray: 10 8;
           animation: goldTravel 1.8s linear infinite;
         }
-        @keyframes sibPulse {
-          0%, 100% { opacity: 0.55; stroke: #FDE047; }
-          50% { opacity: 1; stroke: #FFF176; }
+        @keyframes sibTravel {
+          to { stroke-dashoffset: -120; }
         }
-        .vansh-sib-line {
+        .vansh-sib-base {
           stroke-dasharray: none;
-          animation: sibPulse 2.4s ease-in-out infinite;
+        }
+        .vansh-sib-travel {
+          stroke-dasharray: 14 106;
+          animation: sibTravel 1.4s linear infinite;
         }
       `}</style>
       {/* SA edit toggle — left corner */}
@@ -1405,21 +1407,31 @@ function VanshawaliInner() {
                     className="vansh-gold-line"
                   />
                 ))}
-              {/* Sibling yellow — clean U-curve, no glow */}
+              {/* Sibling yellow: solid base + visible traveling highlight */}
               {linesSibling.map((ln) => {
                 const midX = (ln.x1 + ln.x2) / 2;
                 const dip = Math.max(ln.y1, ln.y2) + 18;
                 const d = `M${ln.x1} ${ln.y1} Q${midX} ${dip} ${ln.x2} ${ln.y2}`;
                 return (
-                  <path
-                    key={ln.key}
-                    d={d}
-                    fill="none"
-                    stroke="#FFEB3B"
-                    strokeWidth={2.8}
-                    strokeLinecap="round"
-                    className="vansh-sib-line"
-                  />
+                  <g key={ln.key}>
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke="#F9A825"
+                      strokeWidth={2.4}
+                      strokeLinecap="round"
+                      opacity={0.85}
+                      className="vansh-sib-base"
+                    />
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke="#FFF59D"
+                      strokeWidth={3.2}
+                      strokeLinecap="round"
+                      className="vansh-sib-travel"
+                    />
+                  </g>
                 );
               })}
             </svg>
