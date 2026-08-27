@@ -1228,12 +1228,13 @@ function VanshawaliInner() {
           stroke-dasharray: 10 8;
           animation: goldTravel 1.8s linear infinite;
         }
-        @keyframes sibTravel {
-          to { stroke-dashoffset: -40; }
+        @keyframes sibPulse {
+          0%, 100% { opacity: 0.55; stroke: #FDE047; }
+          50% { opacity: 1; stroke: #FFF176; }
         }
         .vansh-sib-line {
-          stroke-dasharray: 8 6;
-          animation: sibTravel 2.2s linear infinite;
+          stroke-dasharray: none;
+          animation: sibPulse 2.4s ease-in-out infinite;
         }
       `}</style>
       {/* SA edit toggle — left corner */}
