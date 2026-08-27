@@ -211,13 +211,14 @@ const GEN_STYLE: Record<string, { bg: string; border: string; text: string }> = 
     text: "#831843",
   },
   sibling: {
-    bg: "rgba(129, 140, 248, 0.34)",
-    border: "rgba(99, 102, 241, 0.4)",
-    text: "#312e81",
+    /* acrylic yellow — self's brothers/sisters */
+    bg: "rgba(255, 235, 59, 0.55)",
+    border: "rgba(250, 204, 21, 0.75)",
+    text: "#713f12",
   },
 };
 const BUBBLE_3D =
-  "0 2px 4px rgba(0,0,0,0.12), 0 6px 14px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.55)";
+  "0 4px 6px rgba(0,0,0,0.1), 0 12px 28px rgba(0,0,0,0.14), 0 2px 0 rgba(255,255,255,0.5) inset";
 /** Name-plate: embossed letter feel */
 const NAMEPLATE =
   "0 1px 0 rgba(255,255,255,0.65), 0 -1px 0 rgba(0,0,0,0.12)";
@@ -439,6 +440,15 @@ function VanshawaliInner() {
       toast(lang === "hi" ? "Search ya name" : "Search or enter name", "error");
       return;
     }
+    if (draft.relation === "sibling" && !draft.centre_person_id) {
+      toast(
+        lang === "hi"
+          ? "भाई-बहन के लिए पहले माता/पिता जोड़ें"
+          : "Add father/mother first for brother/sister",
+        "error"
+      );
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/vanshawali", {
@@ -449,7 +459,7 @@ function VanshawaliInner() {
           centre_user_id: draft.centre_person_id ? undefined : rootId,
           centre_person_id: draft.centre_person_id || undefined,
           root_user_id: rootId,
-          relation: draft.relation,
+          relation: draft.relation === "sibling" ? "child" : draft.relation,
           display_name: draft.name.trim() || undefined,
           birth_year: draft.birth_year || null,
           birth_date: draft.birth_date || null,
@@ -1227,6 +1237,36 @@ function VanshawaliInner() {
         .vansh-gold-line {
           stroke-dasharray: 10 8;
           animation: goldTravel 1.8s linear infinite;
+          filter: drop-shadow(0 3px 3px rgba(0,0,0,0.18));
+        }
+        .vansh-sib-float {
+          filter: drop-shadow(0 3px 3px rgba(0,0,0,0.16));
+        }
+        .vansh-marry-float {
+          filter: drop-shadow(0 2px 2px rgba(0,0,0,0.12));
+        }
+        .vansh-logo-watermark {
+          position: absolute;
+          left: 50%;
+          top: 42%;
+          transform: translate(-50%, -50%);
+          width: min(58vw, 280px);
+          height: auto;
+          opacity: 0.07;
+          pointer-events: none;
+          z-index: 0;
+          user-select: none;
+        }
+        .vansh-logo-seal {
+          position: absolute;
+          right: 12px;
+          bottom: 108px;
+          width: 56px;
+          height: auto;
+          opacity: 0.12;
+          pointer-events: none;
+          z-index: 0;
+          user-select: none;
         }
         @keyframes sibTravel {
           to { stroke-dashoffset: -120; }
@@ -1255,13 +1295,53 @@ function VanshawaliInner() {
         </button>
       )}
 
-      <div className="px-4 pt-3 pb-1 flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-800 pl-14 sm:pl-0">
-          {lang === "hi" ? "वंशावली" : "Vanshawali"}
-        </p>
-        <p className="text-[10px] text-gray-400">
-          {canEdit ? "Edit mode" : "View only"}
-        </p>
+      <div className="px-4 pt-3 pb-2 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 pl-14 sm:pl-0">
+            <h1 className="text-lg font-extrabold tracking-wide text-amber-900">
+              {lang === "hi" ? "वंश-वृक्ष · वंशावली" : "Vansh-Vriksha · Vanshawali"}
+            </h1>
+            <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
+              {lang === "hi"
+                ? "आपके परिवार की पीढ़ियाँ — ऊपर पूर्वज, बीच में आप, नीचे संतान। हर रेखा एक रिश्ता है।"
+                : "Your family across generations — ancestors above, you at centre, children below. Every line is a living bond."}
+            </p>
+          </div>
+          <p className="text-[10px] text-gray-400 shrink-0 pt-1">
+            {canEdit ? "Edit mode" : "View only"}
+          </p>
+        </div>
+        {/* Legend / map key */}
+        <details className="rounded-xl border border-amber-100/80 bg-white/70 backdrop-blur-sm px-3 py-2 text-[10px] text-gray-600">
+          <summary className="cursor-pointer font-semibold text-amber-900 text-[11px]">
+            {lang === "hi" ? "रंग व रेखा गाइड (Legend)" : "Colour & line guide (Legend)"}
+          </summary>
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 pb-1">
+            <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(245,185,66,0.55)"}} />{lang==="hi"?"आप (Self)":"You (Self)"}</p>
+            <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(255,235,59,0.7)"}} />{lang==="hi"?"भाई / बहन":"Brother / Sister"}</p>
+            <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(244,114,182,0.45)"}} />{lang==="hi"?"पति / पत्नी":"Spouse"}</p>
+            <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(167,139,250,0.5)"}} />{lang==="hi"?"माता-पिता":"Parents"}</p>
+            <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(96,165,250,0.5)"}} />{lang==="hi"?"दादा-दादी / नाना-नानी":"Grandparents"}</p>
+            <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(52,211,153,0.5)"}} />{lang==="hi"?"संतान":"Children"}</p>
+            <p className="sm:col-span-2 flex items-center gap-2 pt-1 border-t border-amber-50 mt-1">
+              <span className="w-6 h-0.5 bg-amber-500 rounded" />
+              {lang==="hi"?"सुनहरी रेखा = रक्त / माता-पिता–संतान रिश्ता":"Gold line = blood / parent–child bond"}
+            </p>
+            <p className="sm:col-span-2 flex items-center gap-2">
+              <span className="w-6 h-0.5 bg-yellow-300 rounded" />
+              {lang==="hi"?"पीली रेखा = भाई-बहन का संबंध":"Yellow line = sibling bond"}
+            </p>
+            <p className="sm:col-span-2 flex items-center gap-2">
+              <span className="w-6 h-0.5 border-t-2 border-dashed border-emerald-400" />
+              {lang==="hi"?"हरी धराशायी रेखा = विवाह / पति-पत्नी":"Green dashed = marriage / spouse"}
+            </p>
+            <p className="sm:col-span-2 text-gray-400 pt-0.5">
+              {lang==="hi"
+                ? "टिप: बबल पर टैप → जोड़ें / हटाएँ / एडिट · पिंच या +/− से ज़ूम"
+                : "Tip: tap a bubble → add / remove / edit · pinch or +/− to zoom"}
+            </p>
+          </div>
+        </details>
       </div>
 
       {loading && <p className="text-center text-gray-400 py-20">Loading…</p>}
@@ -1272,6 +1352,11 @@ function VanshawaliInner() {
           className="flex-1 overflow-hidden pb-36 w-full relative touch-none"
           style={{ minHeight: "55vh" }}
         >
+          {/* A+B static logo: centre watermark + corner seal */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-float.png" alt="" className="vansh-logo-watermark" draggable={false} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-float.png" alt="" className="vansh-logo-seal" draggable={false} />
           {/* Zoom toolbar */}
           <div className="absolute bottom-28 right-3 z-30 flex flex-col items-center gap-1.5">
             <button
@@ -1313,7 +1398,7 @@ function VanshawaliInner() {
             </button>
           </div>
           <div
-            className="relative origin-top-left will-change-transform z-10"
+            className="relative origin-top-left will-change-transform z-10 contain-layout"
             style={{
               width: W,
               height: H,
@@ -1390,6 +1475,7 @@ function VanshawaliInner() {
                     strokeLinecap="round"
                     strokeDasharray="6 5"
                     opacity={0.9}
+                    className="vansh-marry-float"
                   />
                 );
               })}
@@ -1413,7 +1499,7 @@ function VanshawaliInner() {
                 const dip = Math.max(ln.y1, ln.y2) + 18;
                 const d = `M${ln.x1} ${ln.y1} Q${midX} ${dip} ${ln.x2} ${ln.y2}`;
                 return (
-                  <g key={ln.key}>
+                  <g key={ln.key} className="vansh-sib-float">
                     <path
                       d={d}
                       fill="none"
@@ -1569,6 +1655,7 @@ function VanshawaliInner() {
                 <option value="mother">{L.mother}</option>
                 <option value="spouse">{L.spouse}</option>
                 <option value="child">{L.child}</option>
+                <option value="sibling">{lang === "hi" ? "भाई / बहन" : "Brother / Sister"}</option>
               </select>
             </div>
 
@@ -1856,7 +1943,7 @@ function VanshawaliInner() {
                       );
                       return;
                     }
-                    openAdd("child", parentId);
+                    openAdd("sibling", parentId);
                     setSelected(null);
                   }}
                 >
