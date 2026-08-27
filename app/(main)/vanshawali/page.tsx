@@ -351,6 +351,16 @@ function VanshawaliInner() {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const pinchRef = useRef<{ dist: number; zoom: number } | null>(null);
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  /** Manual float positions — lines re-track from these */
+  const [floatPos, setFloatPos] = useState<Record<string, { x: number; top: number }>>({});
+  const bubbleDragRef = useRef<{
+    id: string;
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+    moved: boolean;
+  } | null>(null);
 
   const [tree, setTree] = useState<Tree | null>(null);
   const [loading, setLoading] = useState(true);
@@ -416,6 +426,7 @@ function VanshawaliInner() {
 
   useEffect(() => {
     load();
+    setFloatPos({});
   }, [load]);
 
   useEffect(() => {
@@ -956,6 +967,19 @@ function VanshawaliInner() {
   // room under centre row for sibling U-curves
   H = Math.max(H, yMid + BUBBLE_H + 36);
 
+  // Apply free-float drag overrides (lines track these)
+  Object.keys(floatPos).forEach((id) => {
+    const fp = floatPos[id];
+    if (!fp) return;
+    const cur = posById.get(id);
+    if (cur) posById.set(id, { x: fp.x, top: fp.top, w: cur.w });
+    const pl = placed.find((p) => p.n.id === id);
+    if (pl) {
+      pl.x = fp.x;
+      pl.top = fp.top;
+    }
+  });
+
   const linesBlood: { x1: number; y1: number; x2: number; y2: number; key: string }[] = [];
 
   // Blood lines: parent links
@@ -1248,25 +1272,49 @@ function VanshawaliInner() {
         .vansh-logo-watermark {
           position: absolute;
           left: 50%;
-          top: 42%;
+          top: 50%;
           transform: translate(-50%, -50%);
-          width: min(58vw, 280px);
-          height: auto;
-          opacity: 0.07;
+          width: min(92vw, 92vh);
+          height: min(92vw, 92vh);
+          max-width: 100%;
+          max-height: 100%;
+          object-fit: contain;
+          opacity: 0.08;
           pointer-events: none;
           z-index: 0;
           user-select: none;
         }
         .vansh-logo-seal {
           position: absolute;
-          right: 12px;
-          bottom: 108px;
-          width: 56px;
+          right: 10px;
+          bottom: 100px;
+          width: 48px;
           height: auto;
-          opacity: 0.12;
+          opacity: 0.11;
           pointer-events: none;
           z-index: 0;
           user-select: none;
+        }
+        .vansh-heading-plate {
+          display: inline-block;
+          padding: 6px 14px;
+          border-radius: 10px;
+          background: linear-gradient(180deg, #f6e27a 0%, #d4a017 45%, #b8860b 100%);
+          box-shadow:
+            0 2px 0 #8b6914,
+            0 4px 10px rgba(0,0,0,0.18),
+            inset 0 1px 0 rgba(255,255,255,0.55),
+            inset 0 -1px 0 rgba(0,0,0,0.15);
+          border: 1px solid rgba(146, 104, 16, 0.55);
+        }
+        .vansh-heading-plate h1 {
+          margin: 0;
+          font-size: 15px;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+          white-space: nowrap;
+          color: #3d2a00;
+          text-shadow: 0 1px 0 rgba(255,255,255,0.45), 0 -1px 0 rgba(0,0,0,0.2);
         }
         @keyframes sibTravel {
           to { stroke-dashoffset: -120; }
@@ -1295,50 +1343,50 @@ function VanshawaliInner() {
         </button>
       )}
 
-      <div className="px-4 pt-3 pb-2 space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 pl-14 sm:pl-0">
-            <h1 className="text-lg font-extrabold tracking-wide text-amber-900">
+      <div className="px-4 pt-3 pb-1 relative z-20">
+        <div className="flex items-center justify-between gap-2 pl-14 sm:pl-0">
+          <div className="vansh-heading-plate min-w-0">
+            <h1>
               {lang === "hi" ? "वंश-वृक्ष · वंशावली" : "Vansh-Vriksha · Vanshawali"}
             </h1>
-            <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
-              {lang === "hi"
-                ? "आपके परिवार की पीढ़ियाँ — ऊपर पूर्वज, बीच में आप, नीचे संतान। हर रेखा एक रिश्ता है।"
-                : "Your family across generations — ancestors above, you at centre, children below. Every line is a living bond."}
-            </p>
           </div>
-          <p className="text-[10px] text-gray-400 shrink-0 pt-1">
+          <p className="text-[10px] text-gray-400 shrink-0">
             {canEdit ? "Edit mode" : "View only"}
           </p>
         </div>
-        {/* Legend / map key */}
-        <details className="rounded-xl border border-amber-100/80 bg-white/70 backdrop-blur-sm px-3 py-2 text-[10px] text-gray-600">
-          <summary className="cursor-pointer font-semibold text-amber-900 text-[11px]">
-            {lang === "hi" ? "रंग व रेखा गाइड (Legend)" : "Colour & line guide (Legend)"}
+        <p className="text-[11px] text-gray-500 leading-snug mt-1.5 pl-14 sm:pl-0">
+          {lang === "hi"
+            ? "आपके परिवार की पीढ़ियाँ — ऊपर पूर्वज, बीच में आप, नीचे संतान। हर रेखा एक रिश्ता है।"
+            : "Your family across generations — ancestors above, you at centre, children below. Every line is a living bond."}
+        </p>
+        {/* Legend overlays — does not push tree layout */}
+        <details className="absolute right-3 top-3 z-40 max-w-[min(100%,280px)] rounded-xl border border-amber-200/40 bg-transparent px-2.5 py-1.5 text-[10px] text-gray-600">
+          <summary className="cursor-pointer font-semibold text-amber-900/90 text-[11px] list-none">
+            {lang === "hi" ? "◎ गाइड" : "◎ Guide"}
           </summary>
-          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 pb-1">
+          <div className="mt-2 grid grid-cols-1 gap-y-1.5 pb-1 bg-white/15 backdrop-blur-[2px] rounded-lg p-2">
             <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(245,185,66,0.55)"}} />{lang==="hi"?"आप (Self)":"You (Self)"}</p>
             <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(255,235,59,0.7)"}} />{lang==="hi"?"भाई / बहन":"Brother / Sister"}</p>
             <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(244,114,182,0.45)"}} />{lang==="hi"?"पति / पत्नी":"Spouse"}</p>
             <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(167,139,250,0.5)"}} />{lang==="hi"?"माता-पिता":"Parents"}</p>
             <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(96,165,250,0.5)"}} />{lang==="hi"?"दादा-दादी / नाना-नानी":"Grandparents"}</p>
             <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(52,211,153,0.5)"}} />{lang==="hi"?"संतान":"Children"}</p>
-            <p className="sm:col-span-2 flex items-center gap-2 pt-1 border-t border-amber-50 mt-1">
+            <p className="flex items-center gap-2 pt-1 border-t border-amber-50/50 mt-1">
               <span className="w-6 h-0.5 bg-amber-500 rounded" />
-              {lang==="hi"?"सुनहरी रेखा = रक्त / माता-पिता–संतान रिश्ता":"Gold line = blood / parent–child bond"}
+              {lang==="hi"?"सुनहरी = रक्त रिश्ता":"Gold = blood bond"}
             </p>
-            <p className="sm:col-span-2 flex items-center gap-2">
+            <p className="flex items-center gap-2">
               <span className="w-6 h-0.5 bg-yellow-300 rounded" />
-              {lang==="hi"?"पीली रेखा = भाई-बहन का संबंध":"Yellow line = sibling bond"}
+              {lang==="hi"?"पीली = भाई-बहन":"Yellow = siblings"}
             </p>
-            <p className="sm:col-span-2 flex items-center gap-2">
+            <p className="flex items-center gap-2">
               <span className="w-6 h-0.5 border-t-2 border-dashed border-emerald-400" />
-              {lang==="hi"?"हरी धराशायी रेखा = विवाह / पति-पत्नी":"Green dashed = marriage / spouse"}
+              {lang==="hi"?"हरी धराशायी = विवाह":"Green dashed = marriage"}
             </p>
-            <p className="sm:col-span-2 text-gray-400 pt-0.5">
+            <p className="text-gray-400 pt-0.5">
               {lang==="hi"
-                ? "टिप: बबल पर टैप → जोड़ें / हटाएँ / एडिट · पिंच या +/− से ज़ूम"
-                : "Tip: tap a bubble → add / remove / edit · pinch or +/− to zoom"}
+                ? "बबल खींचें = float · टैप = मेनू · पिंच = ज़ूम"
+                : "Drag bubble = float · tap = menu · pinch = zoom"}
             </p>
           </div>
         </details>
@@ -1545,12 +1593,47 @@ function VanshawaliInner() {
               return (
                 <div
                   key={pl.n.id}
-                  className="absolute z-10"
+                  className="absolute z-10 touch-none cursor-grab active:cursor-grabbing"
                   style={{
                     left: pl.x,
                     top: pl.top,
                     transform: `translateX(-50%)${tilt ? ` rotate(${tilt}deg)` : ""}`,
                     transformOrigin: "center center",
+                    filter: "drop-shadow(0 8px 12px rgba(0,0,0,0.18))",
+                  }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                    const pos = posById.get(pl.n.id);
+                    if (!pos) return;
+                    bubbleDragRef.current = {
+                      id: pl.n.id,
+                      startX: e.clientX,
+                      startY: e.clientY,
+                      origX: pos.x,
+                      origY: pos.top,
+                      moved: false,
+                    };
+                  }}
+                  onPointerMove={(e) => {
+                    const d = bubbleDragRef.current;
+                    if (!d || d.id !== pl.n.id) return;
+                    const dx = (e.clientX - d.startX) / zoom;
+                    const dy = (e.clientY - d.startY) / zoom;
+                    if (Math.abs(dx) + Math.abs(dy) > 4) d.moved = true;
+                    if (!d.moved) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setFloatPos((prev) => ({
+                      ...prev,
+                      [d.id]: { x: d.origX + dx, top: d.origY + dy },
+                    }));
+                  }}
+                  onPointerUp={(e) => {
+                    bubbleDragRef.current = null;
+                    try {
+                      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+                    } catch (_) {}
                   }}
                 >
                   <Tag
@@ -1570,13 +1653,52 @@ function VanshawaliInner() {
 
             {/* Centre */}
             <div
-              className="absolute z-20 -translate-x-1/2"
+              className="absolute z-20 touch-none cursor-grab active:cursor-grabbing"
               style={{
                 left: posById.get(tree.centre.id)?.x ?? centreX,
                 top: posById.get(tree.centre.id)?.top ?? yMid,
+                transform: "translateX(-50%)",
+                filter: "drop-shadow(0 10px 16px rgba(0,0,0,0.2))",
+              }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                const pos = posById.get(tree.centre.id);
+                if (!pos) return;
+                bubbleDragRef.current = {
+                  id: tree.centre.id,
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  origX: pos.x,
+                  origY: pos.top,
+                  moved: false,
+                };
+              }}
+              onPointerMove={(e) => {
+                const d = bubbleDragRef.current;
+                if (!d || d.id !== tree.centre.id) return;
+                const dx = (e.clientX - d.startX) / zoom;
+                const dy = (e.clientY - d.startY) / zoom;
+                if (Math.abs(dx) + Math.abs(dy) > 4) d.moved = true;
+                if (!d.moved) return;
+                e.preventDefault();
+                e.stopPropagation();
+                setFloatPos((prev) => ({
+                  ...prev,
+                  [d.id]: { x: d.origX + dx, top: d.origY + dy },
+                }));
+              }}
+              onPointerUp={(e) => {
+                const d = bubbleDragRef.current;
+                const wasDrag = d?.moved;
+                bubbleDragRef.current = null;
+                try {
+                  (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+                } catch (_) {}
+                if (!wasDrag) setSelected(tree.centre);
               }}
             >
-              <button type="button" onClick={() => setSelected(tree.centre)} className="text-center">
+              <button type="button" className="text-center pointer-events-none">
                 <span
                   className="inline-flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-[13px] font-bold whitespace-nowrap backdrop-blur-[2px] border"
                   style={{
