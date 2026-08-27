@@ -1365,10 +1365,10 @@ function VanshawaliInner() {
                     className="vansh-gold-line"
                   />
                 ))}
-              {/* Sibling neon yellow */}
+              {/* Sibling: same mind-map gold branch curve, neon yellow only */}
               <defs>
-                <filter id="sibNeon" x="-40%" y="-40%" width="180%" height="180%">
-                  <feGaussianBlur stdDeviation="2.2" result="b" />
+                <filter id="sibNeon" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="2.4" result="b" />
                   <feMerge>
                     <feMergeNode in="b" />
                     <feMergeNode in="SourceGraphic" />
@@ -1378,32 +1378,25 @@ function VanshawaliInner() {
               {linesBlood
                 .filter((ln) => ln.key.startsWith("sib"))
                 .map((ln) => {
-                  // mild tilt: left end slightly up, right end slightly down
-                  const dx = ln.x2 - ln.x1;
-                  const lift = Math.min(14, Math.abs(dx) * 0.08 + 6);
-                  const y1 = ln.y1 - lift * 0.35;
-                  const y2 = ln.y2 + lift * 0.35;
-                  const midX = (ln.x1 + ln.x2) / 2;
-                  const midY = (y1 + y2) / 2 - lift * 0.5;
-                  const d = `M${ln.x1} ${y1} Q${midX} ${midY} ${ln.x2} ${y2}`;
+                  const d = curve(ln.x1, ln.y1, ln.x2, ln.y2);
                   return (
                     <g key={ln.key} filter="url(#sibNeon)">
                       <path
                         d={d}
                         fill="none"
-                        stroke="rgba(255, 220, 50, 0.45)"
-                        strokeWidth={6}
+                        stroke="rgba(255, 213, 40, 0.4)"
+                        strokeWidth={5.5}
                         strokeLinecap="round"
                       />
                       <path
                         d={d}
                         fill="none"
                         stroke="#FFE566"
-                        strokeWidth={2.8}
+                        strokeWidth={2.6}
                         strokeLinecap="round"
                         style={{
                           filter:
-                            "drop-shadow(0 0 4px #FFD700) drop-shadow(0 0 10px rgba(255,200,0,0.85))",
+                            "drop-shadow(0 0 3px #FFD700) drop-shadow(0 0 8px rgba(255,200,0,0.9))",
                         }}
                       />
                     </g>
@@ -1414,11 +1407,20 @@ function VanshawaliInner() {
             {/* All relative bubbles (auto levels) */}
             {placed.map((pl) => {
               if (tree && pl.n.id === tree.centre.id) return null;
+              // OPPOSITE directions:
+              // Sibling: LEFT = upar (−) · RIGHT = neeche (+)
+              // Spouse:  LEFT = neeche (+) · RIGHT = upar (−)  ← opposite of sibling
               let tilt = 0;
+              const leftOfSelf = pl.x < centreX - 4;
+              const rightOfSelf = pl.x > centreX + 4;
               if (pl.n.relation === "sibling") {
-                tilt = pl.x < centreX ? -7 : 7;
+                if (leftOfSelf) tilt = -9;
+                else if (rightOfSelf) tilt = 9;
+                else tilt = -5;
               } else if (pl.n.relation === "spouse") {
-                tilt = pl.x >= centreX ? -8 : 8;
+                if (rightOfSelf) tilt = -10; // right upar
+                else if (leftOfSelf) tilt = 10; // left neeche
+                else tilt = -10; // default spouse sits right of self
               }
               return (
                 <div
