@@ -35,9 +35,11 @@
  *   +/− · Fit · Reset · pinch · 1-finger pan · Ctrl+wheel
  *   Scale 0.5–2.0 — does not change tree layout rules.
  *
- * SIBLINGS:
- *   Gold (yellow) branch between self ↔ siblings and siblings ↔ siblings.
- *   Add sibling = child of same parents; auto-links BOTH mother & father.
+ * SIBLINGS (auto, any generation):
+ *   Share ≥1 parent → neon yellow branch between them (bottom corners).
+ *   Parent → child = default gold branch.
+ *   New child under a parent auto-joins existing kids as siblings.
+ *   Add sibling = child of same parents; API links BOTH mother & father.
  * ═══════════════════════════════════════════════════════════════
  */
 import { FeatureGate } from "@/components/shared/FeatureGate";
@@ -987,23 +989,54 @@ function VanshawaliInner() {
     });
   });
 
-  // Sibling gold branches: self ↔ each sibling, and chain between siblings
-  if (tree && siblings.length) {
-    const selfPos = posById.get(tree.centre.id);
-    const sibPos = siblings
-      .map((s) => {
-        const p = posById.get(s.id);
-        return p ? { id: s.id, ...p, gender: s.gender, relation: s.relation } : null;
-      })
-      .filter(Boolean) as {
-      id: string;
-      x: number;
-      top: number;
-      w: number;
-      gender?: string | null;
-      relation: string;
-    }[];
-    // self ↔ sibling & sibling ↔ sibling — bottom corners (same branch curve)
+  /**
+   * SIBLING LOGIC (auto, any generation):
+   * A & B are siblings if they share ≥1 parent (father/mother/child links).
+   * • Neon yellow branch between every sibling pair (bottom corners)
+   * • Default gold branch parent → each child (if not already drawn)
+   * Adding a child under a parent auto-joins the sibling group with existing kids.
+   */
+  if (tree) {
+    const parentToKids = new Map<string, Set<string>>();
+    const addPC = (parentId: string, childId: string) => {
+      if (!parentId || !childId || parentId === childId) return;
+      if (!parentToKids.has(parentId)) parentToKids.set(parentId, new Set());
+      parentToKids.get(parentId)!.add(childId);
+    };
+
+    // Parents of centre → centre + listed siblings
+    parents.forEach((par) => {
+      addPC(par.id, tree.centre.id);
+      siblings.forEach((s) => addPC(par.id, s.id));
+    });
+    // Centre → own children; spouses → same children (dual-parent)
+    children.forEach((c) => {
+      addPC(tree.centre.id, c.id);
+      spouses.forEach((sp) => addPC(sp.id, c.id));
+    });
+    // levels_down: via_* is parent
+    levelsDown.forEach((lvl) => {
+      lvl.forEach((n) => {
+        const via = n.via_id || n.via_child_id;
+        if (via) addPC(via, n.id);
+      });
+    });
+    // levels_up: node is parent of via (child)
+    levelsUp.forEach((lvl) => {
+      lvl.forEach((n) => {
+        const via = n.via_id || n.via_parent_id;
+        if (via) addPC(n.id, via);
+      });
+    });
+    // spouses_of: if A is spouse of B and B has kids, both parent (already dual in API)
+    Object.entries(spousesOfMap).forEach(([ownerId, list]) => {
+      const kids = parentToKids.get(ownerId);
+      if (!kids) return;
+      list.forEach((sp) => {
+        Array.from(kids).forEach((kid) => addPC(sp.id, kid));
+      });
+    });
+
     const bottomCorner = (
       a: { x: number; top: number; w: number },
       b: { x: number; top: number; w: number },
@@ -1011,42 +1044,57 @@ function VanshawaliInner() {
     ) => {
       const left = a.x <= b.x ? a : b;
       const right = a.x <= b.x ? b : a;
-      // bottom-right of left bubble → bottom-left of right bubble
-      const x1 = left.x + left.w / 2 - IN;
-      const y1 = left.top + BUBBLE_H - IN;
-      const x2 = right.x - right.w / 2 + IN;
-      const y2 = right.top + BUBBLE_H - IN;
-      linesBlood.push({ x1, y1, x2, y2, key });
+      linesBlood.push({
+        x1: left.x + left.w / 2 - IN,
+        y1: left.top + BUBBLE_H - IN,
+        x2: right.x - right.w / 2 + IN,
+        y2: right.top + BUBBLE_H - IN,
+        key,
+      });
     };
-    if (selfPos) {
-      sibPos.forEach((s) => {
-        bottomCorner(selfPos, s, `sib-${tree.centre.id}-${s.id}`);
-      });
-    }
-    const sorted = [...sibPos].sort((a, b) => a.x - b.x);
-    for (let i = 0; i < sorted.length - 1; i++) {
-      bottomCorner(sorted[i], sorted[i + 1], `sib-${sorted[i].id}-${sorted[i + 1].id}`);
-    }
-  }
 
-  // Sibling → same parents (gold)
-  if (tree && siblings.length) {
-    parents.forEach((par) => {
-      const pp = posById.get(par.id);
-      if (!pp) return;
-      siblings.forEach((s) => {
-        const sp = posById.get(s.id);
-        if (!sp) return;
-        const start = undock(pp.x, pp.top, "down");
-        const end = dock(sp.x, sp.top, sp.w, "up", s.gender, s.relation);
-        linesBlood.push({
-          x1: start.x,
-          y1: start.y,
-          x2: end.x,
-          y2: end.y,
-          key: `sibp-${par.id}-${s.id}`,
+    // Union sibling groups: if A–B share parent1 and B–C share parent2, still pair via each parent group
+    const pairDrawn = new Set<string>();
+    parentToKids.forEach((kidSet, parentId) => {
+      const placedKids = Array.from(kidSet)
+        .map((id) => {
+          const pos = posById.get(id);
+          return pos ? { id, ...pos } : null;
+        })
+        .filter(Boolean) as { id: string; x: number; top: number; w: number }[];
+      if (placedKids.length < 2) return;
+
+      // Neon yellow between siblings (chain by x — covers full group)
+      const sorted = [...placedKids].sort((a, b) => a.x - b.x || a.top - b.top);
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const a = sorted[i];
+        const b = sorted[i + 1];
+        const pk = [a.id, b.id].sort().join("|");
+        if (pairDrawn.has(pk)) continue;
+        pairDrawn.add(pk);
+        bottomCorner(a, b, `sib-${a.id}-${b.id}`);
+      }
+
+      // Gold parent → child (for kids that skip blood, e.g. relation=sibling)
+      const pp = posById.get(parentId);
+      if (pp) {
+        placedKids.forEach((kid) => {
+          // skip if already have blood line b-kid from placement
+          const already = linesBlood.some(
+            (ln) => ln.key === `b-${kid.id}` || ln.key === `sibp-${parentId}-${kid.id}`
+          );
+          if (already) return;
+          const start = undock(pp.x, pp.top, "down");
+          const end = dock(kid.x, kid.top, kid.w, "up", null, "child");
+          linesBlood.push({
+            x1: start.x,
+            y1: start.y,
+            x2: end.x,
+            y2: end.y,
+            key: `sibp-${parentId}-${kid.id}`,
+          });
         });
-      });
+      }
     });
   }
 
