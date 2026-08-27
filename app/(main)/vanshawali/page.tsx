@@ -1219,7 +1219,7 @@ function VanshawaliInner() {
   };
 
   return (
-    <div className="flex flex-col min-h-[70vh] bg-[#faf6eb] relative">
+    <div className="flex flex-col min-h-[70vh] bg-[#fafafa] relative">
       <style>{`
         @keyframes goldTravel {
           to { stroke-dashoffset: -48; }
@@ -1237,55 +1237,6 @@ function VanshawaliInner() {
         .vansh-sib-travel {
           stroke-dasharray: 14 106;
           animation: sibTravel 1.4s linear infinite;
-        }
-        @keyframes vanshDustDrift {
-          0% { transform: translate(0, 0) scale(1); opacity: 0.5; }
-          50% { transform: translate(10px, -14px) scale(1.15); opacity: 0.95; }
-          100% { transform: translate(-8px, -22px) scale(0.9); opacity: 0.4; }
-        }
-        .vansh-gold-dust {
-          pointer-events: none;
-          position: absolute;
-          inset: 0;
-          z-index: 0;
-          overflow: hidden;
-          background-color: #faf6eb;
-          background-image:
-            radial-gradient(circle 2.5px at 6% 10%, rgba(234, 179, 8, 0.7), transparent 60%),
-            radial-gradient(circle 2px at 14% 24%, rgba(253, 224, 71, 0.75), transparent 60%),
-            radial-gradient(circle 3px at 22% 8%, rgba(245, 158, 11, 0.55), transparent 60%),
-            radial-gradient(circle 2px at 30% 32%, rgba(234, 179, 8, 0.65), transparent 60%),
-            radial-gradient(circle 2.5px at 40% 12%, rgba(253, 224, 71, 0.7), transparent 60%),
-            radial-gradient(circle 2px at 52% 28%, rgba(245, 158, 11, 0.6), transparent 60%),
-            radial-gradient(circle 3px at 62% 6%, rgba(234, 179, 8, 0.7), transparent 60%),
-            radial-gradient(circle 2px at 72% 22%, rgba(253, 224, 71, 0.65), transparent 60%),
-            radial-gradient(circle 2.5px at 84% 14%, rgba(245, 158, 11, 0.55), transparent 60%),
-            radial-gradient(circle 2px at 94% 30%, rgba(234, 179, 8, 0.7), transparent 60%),
-            radial-gradient(circle 2px at 8% 48%, rgba(253, 224, 71, 0.6), transparent 60%),
-            radial-gradient(circle 3px at 20% 58%, rgba(234, 179, 8, 0.65), transparent 60%),
-            radial-gradient(circle 2px at 34% 52%, rgba(245, 158, 11, 0.5), transparent 60%),
-            radial-gradient(circle 2.5px at 48% 68%, rgba(253, 224, 71, 0.7), transparent 60%),
-            radial-gradient(circle 2px at 60% 54%, rgba(234, 179, 8, 0.6), transparent 60%),
-            radial-gradient(circle 3px at 76% 64%, rgba(245, 158, 11, 0.55), transparent 60%),
-            radial-gradient(circle 2px at 90% 50%, rgba(253, 224, 71, 0.65), transparent 60%),
-            radial-gradient(circle 2.5px at 10% 78%, rgba(234, 179, 8, 0.7), transparent 60%),
-            radial-gradient(circle 2px at 28% 88%, rgba(253, 224, 71, 0.6), transparent 60%),
-            radial-gradient(circle 3px at 44% 82%, rgba(245, 158, 11, 0.55), transparent 60%),
-            radial-gradient(circle 2px at 58% 92%, rgba(234, 179, 8, 0.65), transparent 60%),
-            radial-gradient(circle 2.5px at 74% 86%, rgba(253, 224, 71, 0.7), transparent 60%),
-            radial-gradient(circle 2px at 88% 76%, rgba(245, 158, 11, 0.55), transparent 60%),
-            radial-gradient(circle 2px at 16% 40%, rgba(234, 179, 8, 0.5), transparent 60%),
-            radial-gradient(circle 2.5px at 68% 38%, rgba(253, 224, 71, 0.55), transparent 60%),
-            radial-gradient(circle 2px at 42% 42%, rgba(245, 158, 11, 0.45), transparent 60%),
-            radial-gradient(circle 3px at 96% 88%, rgba(234, 179, 8, 0.6), transparent 60%),
-            radial-gradient(circle 2px at 4% 62%, rgba(253, 224, 71, 0.55), transparent 60%);
-        }
-        .vansh-dust-speck {
-          position: absolute;
-          border-radius: 9999px;
-          background: radial-gradient(circle, #FDE047 0%, rgba(234, 179, 8, 0.85) 40%, transparent 72%);
-          box-shadow: 0 0 6px rgba(253, 224, 71, 0.7);
-          animation: vanshDustDrift 7s ease-in-out infinite alternate;
         }
       `}</style>
       {/* SA edit toggle — left corner */}
@@ -1321,39 +1272,6 @@ function VanshawaliInner() {
           className="flex-1 overflow-hidden pb-36 w-full relative touch-none"
           style={{ minHeight: "55vh" }}
         >
-          {/* Gold dust field — edges denser, centre softer */}
-          <div className="vansh-gold-dust" aria-hidden>
-            {[
-              { t: "6%", l: "8%", s: 5, d: "0s" },
-              { t: "12%", l: "72%", s: 4, d: "0.6s" },
-              { t: "20%", l: "28%", s: 6, d: "1.2s" },
-              { t: "28%", l: "88%", s: 4, d: "1.8s" },
-              { t: "36%", l: "14%", s: 5, d: "0.3s" },
-              { t: "44%", l: "52%", s: 4, d: "2.1s" },
-              { t: "52%", l: "78%", s: 6, d: "0.9s" },
-              { t: "60%", l: "22%", s: 5, d: "1.5s" },
-              { t: "68%", l: "64%", s: 4, d: "2.4s" },
-              { t: "76%", l: "10%", s: 5, d: "0.5s" },
-              { t: "84%", l: "42%", s: 6, d: "1.1s" },
-              { t: "90%", l: "82%", s: 4, d: "1.7s" },
-              { t: "16%", l: "48%", s: 5, d: "2.8s" },
-              { t: "70%", l: "36%", s: 4, d: "0.2s" },
-              { t: "40%", l: "90%", s: 5, d: "3s" },
-            ].map((p, i) => (
-              <span
-                key={i}
-                className="vansh-dust-speck"
-                style={{
-                  top: p.t,
-                  left: p.l,
-                  width: p.s,
-                  height: p.s,
-                  animationDelay: p.d,
-                  animationDuration: `${5 + (i % 5)}s`,
-                }}
-              />
-            ))}
-          </div>
           {/* Zoom toolbar */}
           <div className="absolute bottom-28 right-3 z-30 flex flex-col items-center gap-1.5">
             <button
