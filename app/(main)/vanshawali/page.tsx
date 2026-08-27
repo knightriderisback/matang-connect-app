@@ -38,7 +38,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
-import { Plus, Trash2, X, Focus, User, Pencil, Search } from "lucide-react";
+import { Plus, Trash2, X, Focus, User, Pencil, Search, ZoomIn, ZoomOut, Maximize2, Home } from "lucide-react";
 
 type Node = {
   id: string;
@@ -335,6 +335,11 @@ function VanshawaliInner() {
   const rootId = searchParams.get("user") || user?.id || "";
   const wrapRef = useRef<HTMLDivElement>(null);
   const [vw, setVw] = useState(360);
+  const [vh, setVh] = useState(480);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const pinchRef = useRef<{ dist: number; zoom: number } | null>(null);
+  const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
 
   const [tree, setTree] = useState<Tree | null>(null);
   const [loading, setLoading] = useState(true);
@@ -373,7 +378,10 @@ function VanshawaliInner() {
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const measure = () => setVw(Math.max(300, el.clientWidth));
+    const measure = () => {
+      setVw(Math.max(300, el.clientWidth));
+      setVh(Math.max(200, el.clientHeight));
+    };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
@@ -1037,6 +1045,28 @@ function VanshawaliInner() {
     });
   }
 
+  const ZOOM_MIN = 0.5;
+  const ZOOM_MAX = 2;
+  const ZOOM_STEP = 0.1;
+  const clampZoom = (z: number) =>
+    Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 10) / 10));
+  const zoomBy = (delta: number) => setZoom((z) => clampZoom(z + delta));
+  const fitAll = () => {
+    const padFit = 28;
+    const zx = (vw - padFit) / Math.max(W, 1);
+    const zy = (vh - padFit) / Math.max(H, 1);
+    const z = clampZoom(Math.min(zx, zy, 1));
+    setZoom(z);
+    setPan({
+      x: (vw - W * z) / 2,
+      y: Math.max(8, (vh - H * z) / 5),
+    });
+  };
+  const zoomReset = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
   const line = "#E8A317";
   const marryLine = "#6EE7B7"; // very light green
 
@@ -1117,8 +1147,101 @@ function VanshawaliInner() {
       {loading && <p className="text-center text-gray-400 py-20">Loading…</p>}
 
       {!loading && tree && (
-        <div ref={wrapRef} className="flex-1 overflow-y-auto overflow-x-auto pb-36 w-full">
-          <div className="relative mx-auto" style={{ width: W, height: H, minWidth: "100%" }}>
+        <div
+          ref={wrapRef}
+          className="flex-1 overflow-hidden pb-36 w-full relative touch-none"
+          style={{ minHeight: "55vh" }}
+        >
+          {/* Zoom toolbar */}
+          <div className="absolute bottom-28 right-3 z-30 flex flex-col items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => zoomBy(ZOOM_STEP)}
+              className="w-10 h-10 rounded-full bg-white/95 border border-amber-200 shadow-md flex items-center justify-center text-amber-700 active:scale-95"
+              aria-label="Zoom in"
+            >
+              <ZoomIn size={18} />
+            </button>
+            <span className="text-[10px] font-bold text-amber-800/80 bg-white/90 px-1.5 py-0.5 rounded-md border border-amber-100 tabular-nums">
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              type="button"
+              onClick={() => zoomBy(-ZOOM_STEP)}
+              className="w-10 h-10 rounded-full bg-white/95 border border-amber-200 shadow-md flex items-center justify-center text-amber-700 active:scale-95"
+              aria-label="Zoom out"
+            >
+              <ZoomOut size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={fitAll}
+              className="w-10 h-10 rounded-full bg-white/95 border border-amber-200 shadow-md flex items-center justify-center text-amber-700 active:scale-95"
+              aria-label="Fit all"
+              title="Fit"
+            >
+              <Maximize2 size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={zoomReset}
+              className="w-10 h-10 rounded-full bg-white/95 border border-amber-200 shadow-md flex items-center justify-center text-amber-700 active:scale-95"
+              aria-label="Reset 100%"
+              title="100%"
+            >
+              <Home size={16} />
+            </button>
+          </div>
+          <div
+            className="relative origin-top-left will-change-transform"
+            style={{
+              width: W,
+              height: H,
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: "0 0",
+            }}
+            onTouchStart={(e) => {
+              if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                pinchRef.current = { dist: Math.hypot(dx, dy), zoom };
+                dragRef.current = null;
+              } else if (e.touches.length === 1) {
+                dragRef.current = {
+                  x: e.touches[0].clientX,
+                  y: e.touches[0].clientY,
+                  panX: pan.x,
+                  panY: pan.y,
+                };
+              }
+            }}
+            onTouchMove={(e) => {
+              if (e.touches.length === 2 && pinchRef.current) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const d = Math.hypot(dx, dy);
+                const ratio = d / Math.max(1, pinchRef.current.dist);
+                setZoom(clampZoom(pinchRef.current.zoom * ratio));
+              } else if (e.touches.length === 1 && dragRef.current) {
+                const dx = e.touches[0].clientX - dragRef.current.x;
+                const dy = e.touches[0].clientY - dragRef.current.y;
+                setPan({
+                  x: dragRef.current.panX + dx,
+                  y: dragRef.current.panY + dy,
+                });
+              }
+            }}
+            onTouchEnd={() => {
+              pinchRef.current = null;
+              dragRef.current = null;
+            }}
+            onWheel={(e) => {
+              if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                zoomBy(e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP);
+              }
+            }}
+          >
                         <svg className="absolute inset-0 pointer-events-none" width={W} height={H}>
               {/* EXTRA marriage bonds — light green, couples only */}
               {marriagePairs.map((mp, i) => {
