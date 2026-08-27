@@ -1032,10 +1032,12 @@ function VanshawaliInner() {
     }
     // Explicit group: all direct children of centre
     if (children.length >= 2) {
-      parentToKids.set(
-        tree.centre.id,
-        new Set([...(parentToKids.get(tree.centre.id) || []), ...children.map((c) => c.id)])
-      );
+      {
+        const prev = parentToKids.get(tree.centre.id);
+        const merged = new Set<string>(prev ? Array.from(prev) : []);
+        children.forEach((c) => merged.add(c.id));
+        parentToKids.set(tree.centre.id, merged);
+      }
     }
 
     const bottomCorner = (
