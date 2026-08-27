@@ -1041,7 +1041,7 @@ function VanshawaliInner() {
       if (placedIds.has(s.id)) continue;
       // skip if already in centre siblings
       if ((tree?.siblings || []).some((x) => x.id === s.id)) continue;
-      const w = nameWidth(s.display_name);
+      const w = nameW(s.display_name);
       const side = i % 2 === 0 ? -1 : 1;
       const rank = Math.floor(i / 2) + 1;
       const x = owner.x + side * (owner.w / 2 + w / 2 + 16 + rank * 8);
