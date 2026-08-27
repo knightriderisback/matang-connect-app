@@ -529,22 +529,51 @@ export async function POST(request: NextRequest) {
 
   store.links.push(link);
 
-  // Dual-parent: child belongs with spouse(s) too — Indian family logic
+  // Dual-parent + co-parents: child belongs with spouse AND any co-parent
+  // (e.g. sibling of self → auto-link both father AND mother)
   if (relation === "child") {
-    const spouseLinks = store.links.filter(
-      (l) =>
-        l.relation === "spouse" &&
-        (l.from_id === centre.id || l.to_id === centre.id) &&
-        (l.status === "verified" || l.proposed_by === session.userId || isStaff)
-    );
-    for (const sl of spouseLinks) {
-      const spouseId = sl.from_id === centre.id ? sl.to_id : sl.from_id;
-      if (spouseId === other.id) continue;
+    const coParentIds = new Set<string>();
+    // 1) spouses of centre
+    for (const l of store.links) {
+      if (l.relation !== "spouse") continue;
+      if (l.from_id !== centre.id && l.to_id !== centre.id) continue;
+      if (!(l.status === "verified" || l.proposed_by === session.userId || isStaff)) continue;
+      coParentIds.add(l.from_id === centre.id ? l.to_id : l.from_id);
+    }
+    // 2) other parents of existing children of centre (mother when adding via father, etc.)
+    for (const l of store.links) {
+      if (l.relation !== "child" || l.from_id !== centre.id) continue;
+      if (!(l.status === "verified" || l.proposed_by === session.userId || isStaff)) continue;
+      const kidId = l.to_id;
+      for (const pl of store.links) {
+        if (pl.to_id !== kidId) continue;
+        if (pl.relation !== "father" && pl.relation !== "mother" && pl.relation !== "child")
+          continue;
+        const pid = pl.relation === "child" ? pl.from_id : pl.from_id;
+        if (pl.relation === "father" || pl.relation === "mother") {
+          if (pl.from_id !== centre.id) coParentIds.add(pl.from_id);
+        }
+      }
+    }
+    // 3) if centre is father/mother of someone, their co-parent on same child
+    for (const l of store.links) {
+      if ((l.relation === "father" || l.relation === "mother") && l.from_id === centre.id) {
+        const kidId = l.to_id;
+        for (const pl of store.links) {
+          if (pl.to_id !== kidId) continue;
+          if (pl.relation !== "father" && pl.relation !== "mother") continue;
+          if (pl.from_id !== centre.id) coParentIds.add(pl.from_id);
+        }
+      }
+    }
+    for (const spouseId of Array.from(coParentIds)) {
+      if (spouseId === other.id || spouseId === centre.id) continue;
       const already = store.links.some(
         (l) =>
-          l.relation === "child" &&
-          l.from_id === spouseId &&
-          l.to_id === other.id
+          (l.relation === "child" && l.from_id === spouseId && l.to_id === other.id) ||
+          ((l.relation === "father" || l.relation === "mother") &&
+            l.from_id === spouseId &&
+            l.to_id === other.id)
       );
       if (already) continue;
       store.links.push({

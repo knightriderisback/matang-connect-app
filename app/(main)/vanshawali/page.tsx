@@ -30,6 +30,14 @@
  *   between husband–wife only (same inward zero-gap rule).
  *   Pairs: self–spouse, father–mother, each GP couple (dada–dadi /
  *   nana–nani), and any child–spouse when present.
+ *
+ * ZOOM / PAN (LOCKED feature set):
+ *   +/− · Fit · Reset · pinch · 1-finger pan · Ctrl+wheel
+ *   Scale 0.5–2.0 — does not change tree layout rules.
+ *
+ * SIBLINGS:
+ *   Gold (yellow) branch between self ↔ siblings and siblings ↔ siblings.
+ *   Add sibling = child of same parents; auto-links BOTH mother & father.
  * ═══════════════════════════════════════════════════════════════
  */
 import { FeatureGate } from "@/components/shared/FeatureGate";
@@ -978,6 +986,76 @@ function VanshawaliInner() {
       });
     });
   });
+
+  // Sibling gold branches: self ↔ each sibling, and chain between siblings
+  if (tree && siblings.length) {
+    const selfPos = posById.get(tree.centre.id);
+    const sibPos = siblings
+      .map((s) => {
+        const p = posById.get(s.id);
+        return p ? { id: s.id, ...p, gender: s.gender, relation: s.relation } : null;
+      })
+      .filter(Boolean) as {
+      id: string;
+      x: number;
+      top: number;
+      w: number;
+      gender?: string | null;
+      relation: string;
+    }[];
+    // self to each sibling (side-to-side mind-map curve)
+    if (selfPos) {
+      sibPos.forEach((s) => {
+        const left = selfPos.x <= s.x ? selfPos : s;
+        const right = selfPos.x <= s.x ? s : selfPos;
+        const y1 = left.top + BUBBLE_H / 2;
+        const y2 = right.top + BUBBLE_H / 2;
+        const x1 = left.x + left.w / 2 - IN;
+        const x2 = right.x - right.w / 2 + IN;
+        linesBlood.push({
+          x1,
+          y1,
+          x2,
+          y2,
+          key: `sib-${tree.centre.id}-${s.id}`,
+        });
+      });
+    }
+    // between siblings (sorted by x)
+    const sorted = [...sibPos].sort((a, b) => a.x - b.x);
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const a = sorted[i];
+      const b = sorted[i + 1];
+      linesBlood.push({
+        x1: a.x + a.w / 2 - IN,
+        y1: a.top + BUBBLE_H / 2,
+        x2: b.x - b.w / 2 + IN,
+        y2: b.top + BUBBLE_H / 2,
+        key: `sib-${a.id}-${b.id}`,
+      });
+    }
+  }
+
+  // Sibling → same parents (gold)
+  if (tree && siblings.length) {
+    parents.forEach((par) => {
+      const pp = posById.get(par.id);
+      if (!pp) return;
+      siblings.forEach((s) => {
+        const sp = posById.get(s.id);
+        if (!sp) return;
+        const start = undock(pp.x, pp.top, "down");
+        const end = dock(sp.x, sp.top, sp.w, "up", s.gender, s.relation);
+        linesBlood.push({
+          x1: start.x,
+          y1: start.y,
+          x2: end.x,
+          y2: end.y,
+          key: `sibp-${par.id}-${s.id}`,
+        });
+      });
+    });
+  }
 
   // EXTRA: marriage pairs — every husband–wife from spouses_of + centre
   type MPair = {
