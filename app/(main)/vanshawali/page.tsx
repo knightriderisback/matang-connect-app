@@ -345,6 +345,8 @@ function VanshawaliInner() {
   const searchParams = useSearchParams();
   const rootId = searchParams.get("user") || user?.id || "";
   const wrapRef = useRef<HTMLDivElement>(null);
+  const selfLayoutRef = useRef({ x: 180, y: 200 });
+  const didCenterRef = useRef(false);
   const [vw, setVw] = useState(360);
   const [vh, setVh] = useState(480);
   const [zoom, setZoom] = useState(1);
@@ -422,8 +424,6 @@ function VanshawaliInner() {
         setApiCanEdit(!!d.can_edit);
         setIsSA(!!d.is_super_admin);
         setIsOwner(!!d.is_owner);
-        setPan({ x: 0, y: 0 });
-        setZoom(1);
       })
       .catch(() => toast("Load failed", "error"))
       .finally(() => setLoading(false));
@@ -434,6 +434,7 @@ function VanshawaliInner() {
     setArrangeMode(false);
     setMoveTargetId(null);
     setMovePromptId(null);
+    didCenterRef.current = false;
     if (typeof window !== "undefined" && rootId) {
       try {
         const raw = localStorage.getItem(`vansh-float-${rootId}`);
@@ -444,6 +445,20 @@ function VanshawaliInner() {
       }
     } else setFloatPos({});
   }, [load, rootId]);
+
+  // Open page → Self always screen centre
+  useEffect(() => {
+    if (loading || !tree) {
+      didCenterRef.current = false;
+      return;
+    }
+    if (didCenterRef.current) return;
+    if (vw < 40 || vh < 40) return;
+    didCenterRef.current = true;
+    const { x, y } = selfLayoutRef.current;
+    setZoom(1);
+    setPan({ x: vw / 2 - x, y: vh / 2 - y });
+  }, [loading, tree, vw, vh]);
 
   const saveArrangement = () => {
     if (typeof window !== "undefined" && rootId) {
@@ -1024,6 +1039,11 @@ function VanshawaliInner() {
     }
   });
 
+  if (tree) {
+    const sp = posById.get(tree.centre.id);
+    if (sp) selfLayoutRef.current = { x: sp.x, y: sp.top + BUBBLE_H / 2 };
+  }
+
   const linesBlood: { x1: number; y1: number; x2: number; y2: number; key: string }[] = [];
 
   // Blood lines: parent links
@@ -1238,21 +1258,43 @@ function VanshawaliInner() {
   const ZOOM_STEP = 0.1;
   const clampZoom = (z: number) =>
     Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 10) / 10));
-  const zoomBy = (delta: number) => setZoom((z) => clampZoom(z + delta));
+
+  /** Self screen-centre (page open / Home) */
+  const centerSelfOnScreen = (z = 1) => {
+    const sid = tree?.centre.id;
+    const fp = sid ? floatPos[sid] : undefined;
+    const sx = fp?.x ?? centreX;
+    const sy = (fp?.top ?? yMid) + BUBBLE_H / 2;
+    setZoom(z);
+    setPan({
+      x: vw / 2 - sx * z,
+      y: vh / 2 - sy * z,
+    });
+  };
+
+  /** Zoom keeping focal point (screen coords inside wrap) fixed */
+  const zoomAt = (nextZ: number, focalX: number, focalY: number) => {
+    const z1 = Math.max(zoom, 0.001);
+    const z2 = clampZoom(nextZ);
+    setPan((p) => ({
+      x: focalX - ((focalX - p.x) / z1) * z2,
+      y: focalY - ((focalY - p.y) / z1) * z2,
+    }));
+    setZoom(z2);
+  };
+
+  const zoomBy = (delta: number) => {
+    zoomAt(zoom + delta, vw / 2, vh / 2);
+  };
   const fitAll = () => {
     const padFit = 28;
     const zx = (vw - padFit) / Math.max(W, 1);
     const zy = (vh - padFit) / Math.max(H, 1);
     const z = clampZoom(Math.min(zx, zy, 1));
-    setZoom(z);
-    setPan({
-      x: (vw - W * z) / 2,
-      y: Math.max(8, (vh - H * z) / 5),
-    });
+    centerSelfOnScreen(z);
   };
   const zoomReset = () => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
+    centerSelfOnScreen(1);
   };
 
   const line = "#E8A317";
@@ -1530,13 +1572,34 @@ function VanshawaliInner() {
               transformOrigin: "0 0",
             }}
             onTouchStart={(e) => {
-              // Tree stays fixed — only pinch-to-zoom (no 1-finger pan)
+              const rect = wrapRef.current?.getBoundingClientRect();
               if (e.touches.length === 2) {
                 const dx = e.touches[0].clientX - e.touches[1].clientX;
                 const dy = e.touches[0].clientY - e.touches[1].clientY;
-                pinchRef.current = { dist: Math.hypot(dx, dy), zoom };
+                const midX =
+                  (e.touches[0].clientX + e.touches[1].clientX) / 2 -
+                  (rect?.left ?? 0);
+                const midY =
+                  (e.touches[0].clientY + e.touches[1].clientY) / 2 -
+                  (rect?.top ?? 0);
+                (pinchRef as { current: any }).current = {
+                  dist: Math.hypot(dx, dy),
+                  zoom,
+                  midX,
+                  midY,
+                  panX: pan.x,
+                  panY: pan.y,
+                };
+                dragRef.current = null;
+              } else if (e.touches.length === 1 && !moveTargetId) {
+                // 4-direction scroll (not while pinning a bubble)
+                dragRef.current = {
+                  x: e.touches[0].clientX,
+                  y: e.touches[0].clientY,
+                  panX: pan.x,
+                  panY: pan.y,
+                };
               }
-              dragRef.current = null;
             }}
             onTouchMove={(e) => {
               if (e.touches.length === 2 && pinchRef.current) {
@@ -1544,19 +1607,70 @@ function VanshawaliInner() {
                 const dx = e.touches[0].clientX - e.touches[1].clientX;
                 const dy = e.touches[0].clientY - e.touches[1].clientY;
                 const d = Math.hypot(dx, dy);
-                const ratio = d / Math.max(1, pinchRef.current.dist);
-                setZoom(clampZoom(pinchRef.current.zoom * ratio));
+                const pr = pinchRef.current as {
+                  dist: number;
+                  zoom: number;
+                  midX?: number;
+                  midY?: number;
+                  panX?: number;
+                  panY?: number;
+                };
+                const ratio = d / Math.max(1, pr.dist);
+                const z2 = clampZoom(pr.zoom * ratio);
+                const midX = pr.midX ?? vw / 2;
+                const midY = pr.midY ?? vh / 2;
+                const p0x = pr.panX ?? pan.x;
+                const p0y = pr.panY ?? pan.y;
+                const z1 = Math.max(pr.zoom, 0.001);
+                setZoom(z2);
+                setPan({
+                  x: midX - ((midX - p0x) / z1) * z2,
+                  y: midY - ((midY - p0y) / z1) * z2,
+                });
+              } else if (e.touches.length === 1 && dragRef.current && !moveTargetId) {
+                const dx = e.touches[0].clientX - dragRef.current.x;
+                const dy = e.touches[0].clientY - dragRef.current.y;
+                setPan({
+                  x: dragRef.current.panX + dx,
+                  y: dragRef.current.panY + dy,
+                });
               }
             }}
             onTouchEnd={() => {
               pinchRef.current = null;
               dragRef.current = null;
             }}
+            onPointerDown={(e) => {
+              // Desktop / mouse pan (not on bubble; bubbles stopPropagation)
+              if (e.pointerType === "touch") return;
+              if (moveTargetId) return;
+              if (e.button !== 0) return;
+              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+              dragRef.current = {
+                x: e.clientX,
+                y: e.clientY,
+                panX: pan.x,
+                panY: pan.y,
+              };
+            }}
+            onPointerMove={(e) => {
+              if (e.pointerType === "touch") return;
+              if (!dragRef.current || moveTargetId) return;
+              setPan({
+                x: dragRef.current.panX + (e.clientX - dragRef.current.x),
+                y: dragRef.current.panY + (e.clientY - dragRef.current.y),
+              });
+            }}
+            onPointerUp={() => {
+              if (moveTargetId) return;
+              dragRef.current = null;
+            }}
             onWheel={(e) => {
-              if (e.ctrlKey || e.metaKey) {
-                e.preventDefault();
-                zoomBy(e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP);
-              }
+              e.preventDefault();
+              const rect = wrapRef.current?.getBoundingClientRect();
+              const fx = e.clientX - (rect?.left ?? 0);
+              const fy = e.clientY - (rect?.top ?? 0);
+              zoomAt(zoom + (e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP), fx, fy);
             }}
           >
                         <svg className="absolute inset-0 pointer-events-none" width={W} height={H}>
