@@ -1407,8 +1407,8 @@ function VanshawaliInner() {
                     key={ln.key}
                     d={d}
                     fill="none"
-                    stroke="#EAB308"
-                    strokeWidth={2.6}
+                    stroke="#FFEB3B"
+                    strokeWidth={2.8}
                     strokeLinecap="round"
                   />
                 );
