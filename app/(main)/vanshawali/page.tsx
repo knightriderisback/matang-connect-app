@@ -75,6 +75,7 @@ type Tree = {
   grandparents?: Node[];
   grandchildren?: Node[];
   siblings?: Node[];
+  siblings_of?: Record<string, Node[]>;
   spouses_of?: Record<string, Node[]>;
   levels_up?: Node[][];
   levels_down?: Node[][];
@@ -1026,6 +1027,31 @@ function VanshawaliInner() {
   // room under centre row for sibling U-curves
   H = Math.max(H, yMid + BUBBLE_H + 36);
 
+  // Place siblings of non-self members (e.g. father's brother = uncle)
+  const sibOf = tree?.siblings_of || {};
+  const placedIds = new Set(placed.map((p) => p.n.id));
+  if (tree) placedIds.add(tree.centre.id);
+  for (const [ownerId, list] of Object.entries(sibOf)) {
+    if (ownerId === tree?.centre.id) continue; // centre siblings already placed
+    const owner = posById.get(ownerId);
+    if (!owner) continue;
+    const genKey = (placed.find((p) => p.n.id === ownerId)?.genKey || "up1") as keyof typeof GEN_STYLE;
+    let i = 0;
+    for (const s of list) {
+      if (placedIds.has(s.id)) continue;
+      // skip if already in centre siblings
+      if ((tree?.siblings || []).some((x) => x.id === s.id)) continue;
+      const w = nameWidth(s.display_name);
+      const side = i % 2 === 0 ? -1 : 1;
+      const rank = Math.floor(i / 2) + 1;
+      const x = owner.x + side * (owner.w / 2 + w / 2 + 16 + rank * 8);
+      const top = owner.top + (i % 3) * 6;
+      placeNode({ ...s, relation: "sibling", via_id: ownerId }, x, top, "sibling");
+      placedIds.add(s.id);
+      i++;
+    }
+  }
+
   // Apply free-float drag overrides (lines track these)
   Object.keys(floatPos).forEach((id) => {
     const fp = floatPos[id];
@@ -1368,15 +1394,8 @@ function VanshawaliInner() {
         }
         .vansh-logo-watermark {
           position: absolute;
-          left: 0;
-          right: 0;
-          top: 0;
-          bottom: 0;
-          margin: auto;
-          width: min(88vw, 70vh);
-          height: min(88vw, 70vh);
           object-fit: contain;
-          opacity: 0.09;
+          opacity: 0.1;
           pointer-events: none;
           z-index: 0;
           user-select: none;
@@ -1518,11 +1537,6 @@ function VanshawaliInner() {
           className="flex-1 overflow-hidden pb-36 w-full relative touch-none"
           style={{ minHeight: "55vh" }}
         >
-          {/* A+B static logo: centre watermark + corner seal */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-float.png" alt="" className="vansh-logo-watermark" draggable={false} />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-float.png" alt="" className="vansh-logo-seal" draggable={false} />
           {/* Zoom toolbar */}
           <div className="absolute bottom-28 right-3 z-30 flex flex-col items-center gap-1.5">
             <button
@@ -1673,7 +1687,33 @@ function VanshawaliInner() {
               zoomAt(zoom + (e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP), fx, fy);
             }}
           >
-                        <svg className="absolute inset-0 pointer-events-none" width={W} height={H}>
+            {/* Logo: canvas centre, scales with tree size, pans with tree */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo-float.png"
+              alt=""
+              className="vansh-logo-watermark"
+              draggable={false}
+              style={{
+                left: W / 2,
+                top: H / 2,
+                width: Math.min(W, H) * 0.72,
+                height: Math.min(W, H) * 0.72,
+                transform: "translate(-50%, -50%)",
+              }}
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo-float.png"
+              alt=""
+              className="vansh-logo-seal"
+              draggable={false}
+              style={{
+                left: W - 56,
+                top: H - 56,
+              }}
+            />
+            <svg className="absolute inset-0 pointer-events-none" width={W} height={H}>
               {/* EXTRA marriage bonds — light green, couples only */}
               {marriagePairs.map((mp, i) => {
                 const left =
@@ -2314,7 +2354,6 @@ function VanshawaliInner() {
                   type="button"
                   className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
                   onClick={() => {
-                    // Sibling = another child of same parent
                     const father = (tree?.parents || []).find((x) => x.relation === "father");
                     const mother = (tree?.parents || []).find((x) => x.relation === "mother");
                     const parentId = father?.id || mother?.id;
@@ -2353,17 +2392,86 @@ function VanshawaliInner() {
                     type="button"
                     className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
                     onClick={() => {
+                      openAdd("child", selected.id);
+                      setSelected(null);
+                    }}
+                  >
+                    <Plus size={16} className="text-amber-500" /> {L.child}
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
+                    onClick={() => {
+                      // Sibling OF selected = child of selected's parent (not of selected!)
+                      const pid = selected.id;
+                      let parentId: string | undefined;
+                      // parents of centre
+                      if (pid === tree?.centre.id) {
+                        parentId = (tree?.parents || []).find((x) => x.relation === "father")?.id
+                          || (tree?.parents || []).find((x) => x.relation === "mother")?.id;
+                      } else {
+                        // grandparents / levels_up nodes whose via is this person = parents of this person
+                        for (const lvl of tree?.levels_up || []) {
+                          for (const n of lvl) {
+                            if (
+                              (n.relation === "father" || n.relation === "mother") &&
+                              (n.via_id === pid || n.via_parent_id === pid)
+                            ) {
+                              parentId = n.id;
+                              break;
+                            }
+                          }
+                          if (parentId) break;
+                        }
+                        // selected is child of centre
+                        if (!parentId && (tree?.children || []).some((c) => c.id === pid)) {
+                          parentId = tree?.centre.id;
+                        }
+                        // selected is grandchild — via_child chain
+                        if (!parentId) {
+                          for (const lvl of tree?.levels_down || []) {
+                            for (const n of lvl) {
+                              if (n.id === pid && (n.via_id || n.via_child_id)) {
+                                parentId = n.via_id || n.via_child_id || undefined;
+                              }
+                            }
+                          }
+                        }
+                      }
+                      if (!parentId) {
+                        toast(
+                          lang === "hi"
+                            ? "इस व्यक्ति के माता/पिता पहले जोड़ें, तब भाई-बहन"
+                            : "Add this person's parents first, then brother/sister",
+                          "error"
+                        );
+                        return;
+                      }
+                      openAdd("sibling", parentId);
+                      setSelected(null);
+                    }}
+                  >
+                    <Plus size={16} className="text-amber-500" />{" "}
+                    {lang === "hi" ? "भाई / बहन (इसी के)" : "Brother / Sister (of this person)"}
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
+                    onClick={() => {
                       const isAncestor =
                         selected.relation === "father" ||
                         selected.relation === "mother" ||
                         selected.relation === "grandfather" ||
-                        selected.relation === "grandmother";
+                        selected.relation === "grandmother" ||
+                        (tree?.levels_up || []).some((lvl) =>
+                          lvl.some((n) => n.id === selected.id)
+                        );
                       openAdd(isAncestor ? "father" : "child", selected.id);
                       setSelected(null);
                     }}
                   >
                     <Plus size={16} className="text-amber-500" />{" "}
-                    {lang === "hi" ? "रिश्तेदार जोड़ें" : "Add relative"}
+                    {lang === "hi" ? "माता/पिता जोड़ें" : "Add parent"}
                   </button>
                 </>
               )}

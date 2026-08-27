@@ -255,6 +255,28 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     }
   }
 
+  // Siblings of ANY tree person (uncle/aunt etc. when adding brother of father)
+  const siblings_of: Record<string, ReturnType<typeof mapNode>[]> = {};
+  for (const id of Array.from(allTreeIds)) {
+    const pParents = parentsOf(id);
+    if (!pParents.length) continue;
+    const seen = new Set<string>([id]);
+    const rows: ReturnType<typeof mapNode>[] = [];
+    for (const par of pParents) {
+      for (const row of childrenOf(par.person.id)) {
+        if (seen.has(row.person.id)) continue;
+        seen.add(row.person.id);
+        // skip if already the centre's direct sibling list only for centre — still include in siblings_of
+        rows.push({
+          ...mapNode({ ...row, relation: "sibling", via_id: par.person.id }),
+          relation: "sibling",
+          via_id: par.person.id,
+        });
+      }
+    }
+    if (rows.length) siblings_of[id] = rows;
+  }
+
   return {
     centre: {
       id: centre.id,
@@ -285,6 +307,7 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
       relation: "sibling",
       via_id: row.via_id,
     })),
+    siblings_of,
     spouses_of,
     /** Infinite gens for auto canvas */
     levels_up: levels_up.map((lvl) =>
