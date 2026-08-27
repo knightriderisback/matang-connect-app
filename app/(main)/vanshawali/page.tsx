@@ -351,8 +351,11 @@ function VanshawaliInner() {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const pinchRef = useRef<{ dist: number; zoom: number } | null>(null);
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
-  /** Manual float positions — lines re-track from these */
+  /** Pinned float positions (Arrange → Move → pin) */
   const [floatPos, setFloatPos] = useState<Record<string, { x: number; top: number }>>({});
+  const [arrangeMode, setArrangeMode] = useState(false);
+  const [moveTargetId, setMoveTargetId] = useState<string | null>(null);
+  const [movePromptId, setMovePromptId] = useState<string | null>(null);
   const bubbleDragRef = useRef<{
     id: string;
     startX: number;
@@ -419,6 +422,8 @@ function VanshawaliInner() {
         setApiCanEdit(!!d.can_edit);
         setIsSA(!!d.is_super_admin);
         setIsOwner(!!d.is_owner);
+        setPan({ x: 0, y: 0 });
+        setZoom(1);
       })
       .catch(() => toast("Load failed", "error"))
       .finally(() => setLoading(false));
@@ -426,8 +431,47 @@ function VanshawaliInner() {
 
   useEffect(() => {
     load();
-    setFloatPos({});
-  }, [load]);
+    setArrangeMode(false);
+    setMoveTargetId(null);
+    setMovePromptId(null);
+    if (typeof window !== "undefined" && rootId) {
+      try {
+        const raw = localStorage.getItem(`vansh-float-${rootId}`);
+        if (raw) setFloatPos(JSON.parse(raw));
+        else setFloatPos({});
+      } catch {
+        setFloatPos({});
+      }
+    } else setFloatPos({});
+  }, [load, rootId]);
+
+  const saveArrangement = () => {
+    if (typeof window !== "undefined" && rootId) {
+      try {
+        localStorage.setItem(`vansh-float-${rootId}`, JSON.stringify(floatPos));
+      } catch (_) {}
+    }
+    setArrangeMode(false);
+    setMoveTargetId(null);
+    setMovePromptId(null);
+    toast(lang === "hi" ? "व्यवस्था सेव हो गई" : "Arrangement saved", "success");
+  };
+
+  const toggleArrange = () => {
+    if (arrangeMode) {
+      saveArrangement();
+    } else {
+      setArrangeMode(true);
+      setMoveTargetId(null);
+      setMovePromptId(null);
+      toast(
+        lang === "hi"
+          ? "Arrange ON — बबल टैप → Move → खींचकर पिन"
+          : "Arrange ON — tap bubble → Move → drag to pin",
+        "success"
+      );
+    }
+  };
 
   useEffect(() => {
     if (!draft || q.trim().length < 2) {
@@ -1228,7 +1272,18 @@ function VanshawaliInner() {
     const rel = extra || lbl(lang, n.relation, n.gender);
     const born = formatBirth(n);
     return (
-      <button type="button" onClick={() => setSelected(n)} className="text-center">
+      <button
+        type="button"
+        onClick={() => {
+          if (arrangeMode) {
+            setMovePromptId(n.id);
+            setSelected(null);
+            return;
+          }
+          setSelected(n);
+        }}
+        className="text-center"
+      >
         <span
           className="inline-flex flex-col items-center px-2.5 py-1 rounded-lg text-[12px] font-semibold leading-tight border whitespace-nowrap backdrop-blur-[3px]"
           style={{
@@ -1271,15 +1326,15 @@ function VanshawaliInner() {
         }
         .vansh-logo-watermark {
           position: absolute;
-          left: 50%;
-          top: 50%;
-          transform: translate(-50%, -50%);
-          width: min(92vw, 92vh);
-          height: min(92vw, 92vh);
-          max-width: 100%;
-          max-height: 100%;
+          left: 0;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          margin: auto;
+          width: min(88vw, 70vh);
+          height: min(88vw, 70vh);
           object-fit: contain;
-          opacity: 0.08;
+          opacity: 0.09;
           pointer-events: none;
           z-index: 0;
           user-select: none;
@@ -1328,20 +1383,41 @@ function VanshawaliInner() {
         }
       `}</style>
       {/* SA edit toggle — left corner */}
-      {isSA && !isOwner && (
-        <button
-          type="button"
-          onClick={() => setSaEditMode((v) => !v)}
-          className={`absolute top-3 left-3 z-30 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold shadow border ${
-            saEditMode
-              ? "bg-amber-400 text-white border-amber-500"
-              : "bg-white text-gray-600 border-gray-200"
-          }`}
-        >
-          <Pencil size={12} />
-          {saEditMode ? "Edit ON" : "Edit"}
-        </button>
-      )}
+      <div className="absolute top-3 left-3 z-30 flex flex-col gap-1.5">
+        {isSA && !isOwner && (
+          <button
+            type="button"
+            onClick={() => setSaEditMode((v) => !v)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold shadow border ${
+              saEditMode
+                ? "bg-amber-400 text-white border-amber-500"
+                : "bg-white/90 text-gray-600 border-gray-200"
+            }`}
+          >
+            <Pencil size={12} />
+            {saEditMode ? "Edit ON" : "Edit"}
+          </button>
+        )}
+        {(canEdit || isOwner || isSA) && (
+          <button
+            type="button"
+            onClick={toggleArrange}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold shadow border ${
+              arrangeMode
+                ? "bg-emerald-500 text-white border-emerald-600"
+                : "bg-white/90 text-gray-600 border-gray-200"
+            }`}
+          >
+            {arrangeMode
+              ? lang === "hi"
+                ? "✓ Save"
+                : "✓ Save"
+              : lang === "hi"
+                ? "Arrange"
+                : "Arrange"}
+          </button>
+        )}
+      </div>
 
       <div className="px-4 pt-3 pb-1 relative z-20">
         <div className="flex items-center justify-between gap-2 pl-14 sm:pl-0">
@@ -1454,34 +1530,22 @@ function VanshawaliInner() {
               transformOrigin: "0 0",
             }}
             onTouchStart={(e) => {
+              // Tree stays fixed — only pinch-to-zoom (no 1-finger pan)
               if (e.touches.length === 2) {
                 const dx = e.touches[0].clientX - e.touches[1].clientX;
                 const dy = e.touches[0].clientY - e.touches[1].clientY;
                 pinchRef.current = { dist: Math.hypot(dx, dy), zoom };
-                dragRef.current = null;
-              } else if (e.touches.length === 1) {
-                dragRef.current = {
-                  x: e.touches[0].clientX,
-                  y: e.touches[0].clientY,
-                  panX: pan.x,
-                  panY: pan.y,
-                };
               }
+              dragRef.current = null;
             }}
             onTouchMove={(e) => {
               if (e.touches.length === 2 && pinchRef.current) {
+                e.preventDefault();
                 const dx = e.touches[0].clientX - e.touches[1].clientX;
                 const dy = e.touches[0].clientY - e.touches[1].clientY;
                 const d = Math.hypot(dx, dy);
                 const ratio = d / Math.max(1, pinchRef.current.dist);
                 setZoom(clampZoom(pinchRef.current.zoom * ratio));
-              } else if (e.touches.length === 1 && dragRef.current) {
-                const dx = e.touches[0].clientX - dragRef.current.x;
-                const dy = e.touches[0].clientY - dragRef.current.y;
-                setPan({
-                  x: dragRef.current.panX + dx,
-                  y: dragRef.current.panY + dy,
-                });
               }
             }}
             onTouchEnd={() => {
@@ -1593,15 +1657,26 @@ function VanshawaliInner() {
               return (
                 <div
                   key={pl.n.id}
-                  className="absolute z-10 touch-none cursor-grab active:cursor-grabbing"
+                  className={`absolute z-10 touch-none ${
+                    arrangeMode && moveTargetId === pl.n.id
+                      ? "cursor-grab active:cursor-grabbing"
+                      : "cursor-pointer"
+                  }`}
                   style={{
                     left: pl.x,
                     top: pl.top,
                     transform: `translateX(-50%)${tilt ? ` rotate(${tilt}deg)` : ""}`,
                     transformOrigin: "center center",
-                    filter: "drop-shadow(0 8px 12px rgba(0,0,0,0.18))",
+                    filter:
+                      moveTargetId === pl.n.id
+                        ? "drop-shadow(0 10px 18px rgba(16,185,129,0.45))"
+                        : "drop-shadow(0 8px 12px rgba(0,0,0,0.18))",
+                    outline:
+                      moveTargetId === pl.n.id ? "2px dashed rgba(16,185,129,0.7)" : undefined,
+                    outlineOffset: 4,
                   }}
                   onPointerDown={(e) => {
+                    if (!(arrangeMode && moveTargetId === pl.n.id)) return;
                     e.stopPropagation();
                     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
                     const pos = posById.get(pl.n.id);
@@ -1617,10 +1692,10 @@ function VanshawaliInner() {
                   }}
                   onPointerMove={(e) => {
                     const d = bubbleDragRef.current;
-                    if (!d || d.id !== pl.n.id) return;
+                    if (!d || d.id !== pl.n.id || moveTargetId !== pl.n.id) return;
                     const dx = (e.clientX - d.startX) / zoom;
                     const dy = (e.clientY - d.startY) / zoom;
-                    if (Math.abs(dx) + Math.abs(dy) > 4) d.moved = true;
+                    if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true;
                     if (!d.moved) return;
                     e.preventDefault();
                     e.stopPropagation();
@@ -1630,37 +1705,85 @@ function VanshawaliInner() {
                     }));
                   }}
                   onPointerUp={(e) => {
+                    const d = bubbleDragRef.current;
                     bubbleDragRef.current = null;
                     try {
                       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
                     } catch (_) {}
+                    if (d?.moved && moveTargetId === pl.n.id) {
+                      // pinned at drop
+                      setMoveTargetId(null);
+                      setMovePromptId(null);
+                    }
                   }}
                 >
-                  <Tag
-                    n={pl.n}
-                    gen={pl.genKey}
-                    extra={
-                      pl.n.relation === "spouse"
-                        ? L.spouse
-                        : pl.n.relation === "sibling"
-                          ? L.sibling || "Sibling"
-                          : undefined
-                    }
-                  />
+                  <div
+                    onClick={(e) => {
+                      if (arrangeMode) {
+                        e.stopPropagation();
+                        setMovePromptId(pl.n.id);
+                        setSelected(null);
+                        return;
+                      }
+                    }}
+                  >
+                    <Tag
+                      n={pl.n}
+                      gen={pl.genKey}
+                      extra={
+                        pl.n.relation === "spouse"
+                          ? L.spouse
+                          : pl.n.relation === "sibling"
+                            ? L.sibling || "Sibling"
+                            : undefined
+                      }
+                    />
+                  </div>
+                  {arrangeMode && movePromptId === pl.n.id && moveTargetId !== pl.n.id && (
+                    <button
+                      type="button"
+                      className="absolute left-1/2 -translate-x-1/2 -top-9 z-50 px-3 py-1 rounded-full text-[11px] font-bold text-emerald-900 bg-white/70 border border-emerald-300/80 backdrop-blur-sm shadow-md"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMoveTargetId(pl.n.id);
+                        setMovePromptId(null);
+                      }}
+                    >
+                      {lang === "hi" ? "Move" : "Move"}
+                    </button>
+                  )}
+                  {arrangeMode && moveTargetId === pl.n.id && (
+                    <span className="absolute left-1/2 -translate-x-1/2 -bottom-7 z-50 px-2 py-0.5 rounded-full text-[9px] font-semibold text-emerald-800 bg-white/60 border border-emerald-200/70 backdrop-blur-sm">
+                      {lang === "hi" ? "खींचें · छोड़ें = पिन" : "Drag · release = pin"}
+                    </span>
+                  )}
                 </div>
               );
             })}
 
             {/* Centre */}
             <div
-              className="absolute z-20 touch-none cursor-grab active:cursor-grabbing"
+              className={`absolute z-20 touch-none ${
+                arrangeMode && moveTargetId === tree.centre.id
+                  ? "cursor-grab active:cursor-grabbing"
+                  : "cursor-pointer"
+              }`}
               style={{
                 left: posById.get(tree.centre.id)?.x ?? centreX,
                 top: posById.get(tree.centre.id)?.top ?? yMid,
                 transform: "translateX(-50%)",
-                filter: "drop-shadow(0 10px 16px rgba(0,0,0,0.2))",
+                filter:
+                  moveTargetId === tree.centre.id
+                    ? "drop-shadow(0 10px 18px rgba(16,185,129,0.45))"
+                    : "drop-shadow(0 10px 16px rgba(0,0,0,0.2))",
+                outline:
+                  moveTargetId === tree.centre.id
+                    ? "2px dashed rgba(16,185,129,0.7)"
+                    : undefined,
+                outlineOffset: 4,
               }}
               onPointerDown={(e) => {
+                if (!(arrangeMode && moveTargetId === tree.centre.id)) return;
                 e.stopPropagation();
                 (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
                 const pos = posById.get(tree.centre.id);
@@ -1676,10 +1799,10 @@ function VanshawaliInner() {
               }}
               onPointerMove={(e) => {
                 const d = bubbleDragRef.current;
-                if (!d || d.id !== tree.centre.id) return;
+                if (!d || d.id !== tree.centre.id || moveTargetId !== tree.centre.id) return;
                 const dx = (e.clientX - d.startX) / zoom;
                 const dy = (e.clientY - d.startY) / zoom;
-                if (Math.abs(dx) + Math.abs(dy) > 4) d.moved = true;
+                if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true;
                 if (!d.moved) return;
                 e.preventDefault();
                 e.stopPropagation();
@@ -1690,14 +1813,39 @@ function VanshawaliInner() {
               }}
               onPointerUp={(e) => {
                 const d = bubbleDragRef.current;
-                const wasDrag = d?.moved;
                 bubbleDragRef.current = null;
                 try {
                   (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
                 } catch (_) {}
-                if (!wasDrag) setSelected(tree.centre);
+                if (d?.moved && moveTargetId === tree.centre.id) {
+                  setMoveTargetId(null);
+                  setMovePromptId(null);
+                }
+              }}
+              onClick={() => {
+                if (arrangeMode) {
+                  setMovePromptId(tree.centre.id);
+                  setSelected(null);
+                  return;
+                }
+                setSelected(tree.centre);
               }}
             >
+              {arrangeMode &&
+                movePromptId === tree.centre.id &&
+                moveTargetId !== tree.centre.id && (
+                  <button
+                    type="button"
+                    className="absolute left-1/2 -translate-x-1/2 -top-9 z-50 px-3 py-1 rounded-full text-[11px] font-bold text-emerald-900 bg-white/70 border border-emerald-300/80 backdrop-blur-sm shadow-md"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMoveTargetId(tree.centre.id);
+                      setMovePromptId(null);
+                    }}
+                  >
+                    Move
+                  </button>
+                )}
               <button type="button" className="text-center pointer-events-none">
                 <span
                   className="inline-flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-[13px] font-bold whitespace-nowrap backdrop-blur-[2px] border"
