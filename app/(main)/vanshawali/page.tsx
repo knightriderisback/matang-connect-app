@@ -1397,36 +1397,20 @@ function VanshawaliInner() {
                     className="vansh-gold-line"
                   />
                 ))}
-              {/* Sibling neon yellow — U-curve under bubbles (always visible) */}
+              {/* Sibling yellow — clean U-curve, no glow */}
               {linesSibling.map((ln) => {
                 const midX = (ln.x1 + ln.x2) / 2;
                 const dip = Math.max(ln.y1, ln.y2) + 18;
                 const d = `M${ln.x1} ${ln.y1} Q${midX} ${dip} ${ln.x2} ${ln.y2}`;
                 return (
-                  <g key={ln.key}>
-                    <path
-                      d={d}
-                      fill="none"
-                      stroke="rgba(250, 204, 21, 0.45)"
-                      strokeWidth={8}
-                      strokeLinecap="round"
-                    />
-                    <path
-                      d={d}
-                      fill="none"
-                      stroke="#FACC15"
-                      strokeWidth={3.5}
-                      strokeLinecap="round"
-                      style={{ filter: "drop-shadow(0 0 6px #FDE047)" }}
-                    />
-                    <path
-                      d={d}
-                      fill="none"
-                      stroke="#FEF9C3"
-                      strokeWidth={1.4}
-                      strokeLinecap="round"
-                    />
-                  </g>
+                  <path
+                    key={ln.key}
+                    d={d}
+                    fill="none"
+                    stroke="#EAB308"
+                    strokeWidth={2.6}
+                    strokeLinecap="round"
+                  />
                 );
               })}
             </svg>
