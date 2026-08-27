@@ -528,7 +528,7 @@ function VanshawaliInner() {
     setHits([]);
   };
 
-  // Layout — auto canvas: levels_up / levels_down extend height; no overlap
+  // Layout — auto canvas, couple units, expand L/R, NO overlap
   const levelsUp: Node[][] =
     tree?.levels_up && tree.levels_up.length
       ? tree.levels_up
@@ -549,14 +549,14 @@ function VanshawaliInner() {
   const children = levelsDown[0] || tree?.children || [];
   const grandparents = levelsUp[1] || tree?.grandparents || [];
   const grandchildren = levelsDown[1] || tree?.grandchildren || [];
+  const spousesOfMap = tree?.spouses_of || {};
 
-  const W = vw;
-  const pad = 10;
-  const gap = 10;
-  const cx = W / 2;
-  const midGate = W / 2;
-  const subRowH = 52;
-  const levelGap = 28;
+  const pad = 16;
+  const gap = 16;
+  const coupleGap = 14;
+  const subRowH = 62;
+  const levelGap = 52;
+  const BH = BUBBLE_H + 20;
 
   type Placed = {
     n: Node;
@@ -568,79 +568,323 @@ function VanshawaliInner() {
   };
   const placed: Placed[] = [];
   const posById = new Map<string, { x: number; top: number; w: number }>();
-  const linesBlood: { x1: number; y1: number; x2: number; y2: number; key: string }[] = [];
 
-  let yCursor = 16;
+  /** Tentative width — grows if content needs more space (L/R extend) */
+  let contentW = Math.max(vw, 360);
+  const cx0 = () => contentW / 2;
 
-  // —— UP levels: farthest first (top of canvas) ——
-  const upTops: number[] = [];
+  const placeNode = (
+    n: Node,
+    x: number,
+    top: number,
+    genKey: keyof typeof GEN_STYLE
+  ) => {
+    const w = nameW(n.display_name);
+    const pl: Placed = { n, x, top, w, genKey };
+    placed.push(pl);
+    posById.set(n.id, { x, top, w });
+    return pl;
+  };
+
+  /** Pack list left-to-right starting at startX, return next X and max height rows */
+  const packRow = (
+    nodes: Node[],
+    startX: number,
+    top: number,
+    genKey: keyof typeof GEN_STYLE
+  ) => {
+    let x = startX;
+    nodes.forEach((n) => {
+      const w = nameW(n.display_name);
+      const cx = x + w / 2;
+      placeNode(n, cx, top, genKey);
+      x += w + gap;
+    });
+    return x;
+  };
+
+  /** Place couple: a left, b right, return unit centre and width */
+  const placeCouple = (
+    a: Node,
+    b: Node,
+    unitCx: number,
+    top: number,
+    genA: keyof typeof GEN_STYLE,
+    genB: keyof typeof GEN_STYLE
+  ) => {
+    const wa = nameW(a.display_name);
+    const wb = nameW(b.display_name);
+    const unitW = wa + coupleGap + wb;
+    const leftCx = unitCx - unitW / 2 + wa / 2;
+    const rightCx = unitCx + unitW / 2 - wb / 2;
+    placeNode(a, leftCx, top, genA);
+    placeNode(b, rightCx, top, genB);
+    return { unitCx, unitW, leftCx, rightCx };
+  };
+
+  let yCursor = 20;
+
+  // —— UP levels (farthest first) ——
   for (let di = levelsUp.length - 1; di >= 0; di--) {
     const level = levelsUp[di];
     const genKey = (di === 0 ? "up1" : di === 1 ? "up2" : "up3") as keyof typeof GEN_STYLE;
-    // sort father-side left: prefer father relation first within via groups
-    const sorted = [...level].sort((a, b) => {
-      const va = a.via_id || a.via_parent_id || "";
-      const vb = b.via_id || b.via_parent_id || "";
-      if (va !== vb) return va.localeCompare(vb);
-      const ra = a.relation === "father" ? 0 : a.relation === "mother" ? 1 : 2;
-      const rb = b.relation === "father" ? 0 : b.relation === "mother" ? 1 : 2;
-      return ra - rb;
+
+    // Group father+mother by via as couples; singles alone
+    const byVia = new Map<string, Node[]>();
+    level.forEach((n) => {
+      const k = n.via_id || n.via_parent_id || n.id;
+      if (!byVia.has(k)) byVia.set(k, []);
+      byVia.get(k)!.push(n);
     });
 
-    // For parents (di===0): father left half, mother right half
-    if (di === 0) {
-      const fathers = sorted.filter((n) => n.relation === "father");
-      const mothers = sorted.filter((n) => n.relation === "mother");
-      const other = sorted.filter((n) => n.relation !== "father" && n.relation !== "mother");
-      const placeHalf = (list: Node[], side: "L" | "R") => {
-        if (!list.length) return 0;
-        const lo = side === "L" ? pad : midGate + 12;
-        const hi = side === "L" ? midGate - 12 : W - pad;
-        const widths = list.map((n) => nameW(n.display_name));
-        const pack = packSmart(widths, W, pad, gap, (lo + hi) / 2, lo, hi);
-        let maxR = 0;
-        list.forEach((n, i) => {
-          const top = yCursor + pack[i].row * subRowH;
-          maxR = Math.max(maxR, pack[i].row);
-          const w = widths[i];
-          placed.push({ n, x: pack[i].x, top, w, genKey, side });
-          posById.set(n.id, { x: pack[i].x, top, w });
-        });
-        return maxR;
-      };
-      const r1 = placeHalf(fathers, "L");
-      const r2 = placeHalf(mothers, "R");
-      const r3 = placeHalf(other, "L");
-      const maxR = Math.max(r1, r2, r3);
-      upTops[di] = yCursor;
-      yCursor += (maxR + 1) * subRowH + levelGap;
-    } else {
-      // Higher ancestors: group by via, pack near parent column
-      const byVia = new Map<string, Node[]>();
-      sorted.forEach((n) => {
-        const k = n.via_id || n.via_parent_id || "_";
-        if (!byVia.has(k)) byVia.set(k, []);
-        byVia.get(k)!.push(n);
+    type Unit = { nodes: Node[]; w: number };
+    const units: Unit[] = [];
+    byVia.forEach((list) => {
+      const f = list.find((n) => n.relation === "father");
+      const m = list.find((n) => n.relation === "mother");
+      const rest = list.filter((n) => n !== f && n !== m);
+      if (f && m) {
+        const w = nameW(f.display_name) + coupleGap + nameW(m.display_name);
+        units.push({ nodes: [f, m], w });
+      } else {
+        list.forEach((n) => units.push({ nodes: [n], w: nameW(n.display_name) }));
+      }
+      rest.forEach((n) => {
+        if (!(f && m && (n === f || n === m))) {
+          /* already handled */
+        }
       });
-      let maxR = 0;
-      // First pass: if parent not placed yet (we're going top-down farthest first),
-      // parent is lower — use prefer cx; second pass after parents won't work top-down.
-      // So pack full width smart for this level.
-      const widths = sorted.map((n) => nameW(n.display_name));
-      const pack = packSmart(widths, W, pad, gap, cx);
-      sorted.forEach((n, i) => {
-        const top = yCursor + pack[i].row * subRowH;
-        maxR = Math.max(maxR, pack[i].row);
-        const w = widths[i];
-        placed.push({ n, x: pack[i].x, top, w, genKey });
-        posById.set(n.id, { x: pack[i].x, top, w });
-      });
-      upTops[di] = yCursor;
-      yCursor += (maxR + 1) * subRowH + levelGap;
-    }
+    });
+    // dedupe units by node ids
+    const seenU = new Set<string>();
+    const unitsClean: Unit[] = [];
+    units.forEach((u) => {
+      const key = u.nodes.map((n) => n.id).sort().join("|");
+      if (seenU.has(key)) return;
+      seenU.add(key);
+      unitsClean.push(u);
+    });
+
+    const totalW =
+      unitsClean.reduce((s, u) => s + u.w, 0) + gap * Math.max(0, unitsClean.length - 1);
+    contentW = Math.max(contentW, totalW + pad * 2);
+    let cursor = (contentW - totalW) / 2;
+    unitsClean.forEach((u) => {
+      const unitCx = cursor + u.w / 2;
+      if (u.nodes.length === 2) {
+        placeCouple(u.nodes[0], u.nodes[1], unitCx, yCursor, genKey, genKey);
+      } else {
+        placeNode(u.nodes[0], unitCx, yCursor, genKey);
+      }
+      cursor += u.w + gap;
+    });
+    yCursor += subRowH + levelGap;
   }
 
-  // Parents Y for marriage / lines compatibility
+  // —— Centre + spouse ——
+  const centreW = nameW(tree?.centre.display_name || "Self", 180);
+  const spousesList = spouses.slice();
+  let centreBandW = centreW;
+  spousesList.forEach((s) => {
+    centreBandW += coupleGap + nameW(s.display_name);
+  });
+  // siblings on left of centre
+  const siblings = tree?.siblings || [];
+  let sibW = 0;
+  siblings.forEach((s) => {
+    sibW += nameW(s.display_name) + gap;
+  });
+  contentW = Math.max(contentW, centreBandW + sibW + pad * 2 + 40);
+
+  const yMid = yCursor + 8;
+  let bandStart = (contentW - (centreBandW + sibW)) / 2;
+  // siblings left
+  siblings.forEach((s) => {
+    if (posById.has(s.id)) return;
+    const w = nameW(s.display_name);
+    placeNode({ ...s, relation: "sibling" }, bandStart + w / 2, yMid, "sibling");
+    bandStart += w + gap;
+  });
+  // centre
+  const centreX = bandStart + centreW / 2;
+  if (tree) {
+    placeNode(
+      { ...tree.centre, relation: "self" },
+      centreX,
+      yMid,
+      "self"
+    );
+  }
+  bandStart += centreW + coupleGap;
+  // centre spouses
+  const spousePositions: { x: number; w: number }[] = [];
+  spousesList.forEach((s) => {
+    const w = nameW(s.display_name);
+    const x = bandStart + w / 2;
+    placeNode({ ...s, relation: "spouse" }, x, yMid, "spouse");
+    spousePositions.push({ x, w });
+    bandStart += w + coupleGap;
+  });
+  yCursor = yMid + subRowH + levelGap;
+
+  // —— DOWN levels: each person + their spouses as a couple unit ——
+  for (let di = 0; di < levelsDown.length; di++) {
+    const level = levelsDown[di];
+    const genKey = (di === 0 ? "down1" : "down2") as keyof typeof GEN_STYLE;
+
+    type Unit = { main: Node; sps: Node[]; w: number; preferX: number };
+    const units: Unit[] = [];
+    const usedSp = new Set<string>();
+
+    level.forEach((n) => {
+      if (posById.has(n.id)) return;
+      const sps = (spousesOfMap[n.id] || []).filter(
+        (s) => !posById.has(s.id) && !usedSp.has(s.id)
+      );
+      sps.forEach((s) => usedSp.add(s.id));
+      let w = nameW(n.display_name);
+      sps.forEach((s) => {
+        w += coupleGap + nameW(s.display_name);
+      });
+      const via = n.via_id || n.via_child_id || tree?.centre.id || "";
+      const preferX = posById.get(via)?.x ?? contentW / 2;
+      units.push({ main: n, sps, w, preferX });
+    });
+
+    // sort by preferX so children stay under parent roughly
+    units.sort((a, b) => a.preferX - b.preferX);
+
+    const totalW =
+      units.reduce((s, u) => s + u.w, 0) + gap * Math.max(0, units.length - 1);
+    contentW = Math.max(contentW, totalW + pad * 2);
+
+    // distribute units centered under average prefer, but expand
+    let cursor = (contentW - totalW) / 2;
+    // if prefers pull layout, try weighted
+    if (units.length === 1) {
+      cursor = Math.max(pad, Math.min(contentW - pad - units[0].w, units[0].preferX - units[0].w / 2));
+    }
+
+    units.forEach((u) => {
+      const unitCx = cursor + u.w / 2;
+      if (u.sps.length === 0) {
+        placeNode(u.main, unitCx, yCursor, genKey);
+      } else {
+        // main then spouses to the right
+        let x = cursor;
+        const mw = nameW(u.main.display_name);
+        placeNode(u.main, x + mw / 2, yCursor, genKey);
+        x += mw + coupleGap;
+        u.sps.forEach((s) => {
+          const sw = nameW(s.display_name);
+          placeNode({ ...s, relation: "spouse", via_id: u.main.id }, x + sw / 2, yCursor, "spouse");
+          x += sw + coupleGap;
+        });
+      }
+      cursor += u.w + gap;
+    });
+    yCursor += subRowH + levelGap;
+  }
+
+  // Any remaining spouses_of not placed
+  Object.entries(spousesOfMap).forEach(([ownerId, list]) => {
+    const owner = posById.get(ownerId);
+    if (!owner) return;
+    list.forEach((s, i) => {
+      if (posById.has(s.id)) return;
+      const w = nameW(s.display_name);
+      const x = owner.x + owner.w / 2 + coupleGap + w / 2 + i * (w + gap);
+      placeNode({ ...s, relation: "spouse", via_id: ownerId }, x, owner.top, "spouse");
+      contentW = Math.max(contentW, x + w / 2 + pad);
+    });
+  });
+
+  // —— Global no-overlap resolve (may expand contentW) ——
+  {
+    type Box = { id: string; x: number; top: number; w: number };
+    const boxes: Box[] = placed.map((pl) => ({
+      id: pl.n.id,
+      x: pl.x,
+      top: pl.top,
+      w: pl.w,
+    }));
+    const GAP_X = 12;
+    const GAP_Y = 8;
+    for (let iter = 0; iter < 40; iter++) {
+      let moved = false;
+      for (let i = 0; i < boxes.length; i++) {
+        for (let j = i + 1; j < boxes.length; j++) {
+          const a = boxes[i];
+          const b = boxes[j];
+          const ax0 = a.x - a.w / 2;
+          const ax1 = a.x + a.w / 2;
+          const bx0 = b.x - b.w / 2;
+          const bx1 = b.x + b.w / 2;
+          const ay0 = a.top;
+          const ay1 = a.top + BH;
+          const by0 = b.top;
+          const by1 = b.top + BH;
+          if (ax0 >= bx1 + GAP_X || bx0 >= ax1 + GAP_X) continue;
+          if (ay0 >= by1 + GAP_Y || by0 >= ay1 + GAP_Y) continue;
+          const sameRow = Math.abs(a.top - b.top) < BH * 0.6;
+          if (sameRow) {
+            const need = (a.w + b.w) / 2 + GAP_X;
+            const mid = (a.x + b.x) / 2;
+            if (a.x <= b.x) {
+              a.x = mid - need / 2;
+              b.x = mid + need / 2;
+            } else {
+              b.x = mid - need / 2;
+              a.x = mid + need / 2;
+            }
+            // still overlap? stagger vertical
+            if (Math.abs(a.x - b.x) < need - 1) {
+              if (a.top <= b.top) b.top = a.top + BH + GAP_Y;
+              else a.top = b.top + BH + GAP_Y;
+            }
+          } else {
+            if (a.top <= b.top) b.top = Math.max(b.top, a.top + BH + GAP_Y);
+            else a.top = Math.max(a.top, b.top + BH + GAP_Y);
+          }
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+    // normalize: shift so min left >= pad, expand contentW
+    let minL = Infinity;
+    let maxR = 0;
+    let maxBottom = 0;
+    boxes.forEach((b) => {
+      minL = Math.min(minL, b.x - b.w / 2);
+      maxR = Math.max(maxR, b.x + b.w / 2);
+      maxBottom = Math.max(maxBottom, b.top + BH);
+    });
+    const shift = minL < pad ? pad - minL : 0;
+    boxes.forEach((b) => {
+      b.x += shift;
+    });
+    contentW = Math.max(contentW, maxR + shift + pad);
+    boxes.forEach((b) => {
+      posById.set(b.id, { x: b.x, top: b.top, w: b.w });
+    });
+    placed.forEach((pl) => {
+      const p = posById.get(pl.n.id);
+      if (p) {
+        pl.x = p.x;
+        pl.top = p.top;
+      }
+    });
+    yCursor = Math.max(yCursor, maxBottom + 32);
+  }
+
+  const W = contentW;
+  const cx = W / 2;
+  const centreX = posById.get(tree?.centre.id || "")?.x ?? cx;
+  const yMidPos = posById.get(tree?.centre.id || "")?.top ?? yMid;
+  // keep yMid variable for centre render: use actual
+  const yMidFinal = yMidPos + 20; // -translate-y-1/2 uses center of bubble
+
   const parentsSorted = [...parents].sort((a, b) => {
     const ra = a.relation === "father" ? 0 : a.relation === "mother" ? 1 : 2;
     const rb = b.relation === "father" ? 0 : b.relation === "mother" ? 1 : 2;
@@ -649,102 +893,21 @@ function VanshawaliInner() {
   const parXs = parentsSorted.map((p) => posById.get(p.id)?.x ?? cx);
   const parRows = parentsSorted.map(() => 0);
   const yPar = parentsSorted.length
-    ? Math.min(...parentsSorted.map((p) => posById.get(p.id)?.top ?? yCursor))
-    : yCursor;
+    ? Math.min(...parentsSorted.map((p) => posById.get(p.id)?.top ?? 0))
+    : 0;
   const parentXById = new Map(parentsSorted.map((p) => [p.id, posById.get(p.id)?.x ?? cx]));
   const parentRowById = new Map(parentsSorted.map((p) => [p.id, 0]));
   const parMaxRow = 0;
   const parAdd = { x: cx, row: 0 };
-
-  // —— Centre + spouses ——
-  const centreW = nameW(tree?.centre.display_name || "Self", 170);
-  const spouseW0 = spouses[0] ? nameW(spouses[0].display_name) : 0;
-  const yMid = yCursor + 24;
-  const centreX = clampX(
-    spouses.length ? cx - (spouseW0 + 16) / 2 : cx,
-    centreW,
-    W,
-    pad
-  );
-  if (tree) {
-    posById.set(tree.centre.id, { x: centreX, top: yMid - 20, w: centreW });
-  }
-  const spousePositions = spouses.map((s, i) => {
-    const w = nameW(s.display_name);
-    const raw = centreX + centreW / 2 + 14 + w / 2 + i * (w + 10);
-    const x = clampX(raw, w, W, pad);
-    posById.set(s.id, { x, top: yMid - 20, w });
-    return { x, w };
-  });
-  yCursor = yMid + 56;
-
-  // —— DOWN levels ——
-  const downTops: number[] = [];
-  for (let di = 0; di < levelsDown.length; di++) {
-    const level = levelsDown[di];
-    const genKey = (di === 0 ? "down1" : "down2") as keyof typeof GEN_STYLE;
-    const sorted = [...level];
-    // Group by via for column preference
-    const byVia = new Map<string, Node[]>();
-    sorted.forEach((n) => {
-      const k = n.via_id || n.via_child_id || (di === 0 ? tree?.centre.id || "_" : "_");
-      if (!byVia.has(k)) byVia.set(k, []);
-      byVia.get(k)!.push(n);
-    });
-    let maxR = 0;
-    const levelPlaced: { n: Node; x: number; row: number; w: number }[] = [];
-    byVia.forEach((list, via) => {
-      const prefer = posById.get(via)?.x ?? cx;
-      const widths = list.map((n) => nameW(n.display_name));
-      const pack = packSmart(widths, W, pad, gap, prefer);
-      list.forEach((n, i) => {
-        maxR = Math.max(maxR, pack[i].row);
-        levelPlaced.push({ n, x: pack[i].x, row: pack[i].row, w: widths[i] });
-      });
-    });
-    // Resolve horizontal overlaps across groups on same row
-    const byRow = new Map<number, typeof levelPlaced>();
-    levelPlaced.forEach((p) => {
-      if (!byRow.has(p.row)) byRow.set(p.row, []);
-      byRow.get(p.row)!.push(p);
-    });
-    byRow.forEach((rowItems) => {
-      rowItems.sort((a, b) => a.x - b.x);
-      for (let i = 1; i < rowItems.length; i++) {
-        const prev = rowItems[i - 1];
-        const cur = rowItems[i];
-        const minX = prev.x + prev.w / 2 + gap + cur.w / 2;
-        if (cur.x < minX) cur.x = minX;
-      }
-      // shift left if overflow
-      const last = rowItems[rowItems.length - 1];
-      const overflow = last.x + last.w / 2 - (W - pad);
-      if (overflow > 0) {
-        rowItems.forEach((it) => {
-          it.x = Math.max(pad + it.w / 2, it.x - overflow);
-        });
-      }
-    });
-    levelPlaced.forEach((p) => {
-      const top = yCursor + p.row * subRowH;
-      placed.push({ n: p.n, x: p.x, top, w: p.w, genKey });
-      posById.set(p.n.id, { x: p.x, top, w: p.w });
-    });
-    downTops[di] = yCursor;
-    yCursor += (maxR + 1) * subRowH + levelGap;
-  }
-
   const chXs = children.map((c) => posById.get(c.id)?.x ?? cx);
   const chRows = children.map(() => 0);
   const chMaxRow = 0;
   const yChild = children.length
-    ? Math.min(...children.map((c) => posById.get(c.id)?.top ?? yCursor))
-    : yCursor;
+    ? Math.min(...children.map((c) => posById.get(c.id)?.top ?? 0))
+    : 0;
   const childXById = new Map(children.map((c) => [c.id, posById.get(c.id)?.x ?? cx]));
   const childWById = new Map(children.map((c) => [c.id, nameW(c.display_name)]));
   const chAdd = { x: cx, row: 0 };
-
-  // GP/GC compat for marriage pairs
   const gpPositions = (levelsUp[1] || []).map((n) => {
     const p = posById.get(n.id);
     return { n, x: p?.x ?? cx, row: 0, tilt: 0 };
@@ -758,96 +921,39 @@ function VanshawaliInner() {
     return { n, x: p?.x ?? cx, row: 0 };
   });
   const yGcBase = gcPositions.length
-    ? Math.min(...gcPositions.map((g) => posById.get(g.n.id)?.top ?? yCursor))
+    ? Math.min(...gcPositions.map((g) => posById.get(g.n.id)?.top ?? 0))
     : -80;
   const gcMaxRow = 0;
 
-  const H = yCursor + 48;
+  let H = yCursor + 40;
 
-  // Spouses of parents / children / GP (not only centre)
-  const spousesOf = tree?.spouses_of || {};
-  const centreSpouseIds = new Set((tree?.spouses || []).map((s) => s.id));
-  const extraSpousePlaced: Placed[] = [];
-  const usedSpouseIds = new Set<string>(Array.from(centreSpouseIds).concat(tree?.centre.id || ""));
+  const linesBlood: { x1: number; y1: number; x2: number; y2: number; key: string }[] = [];
 
-  for (const [ownerId, list] of Object.entries(spousesOf)) {
-    if (ownerId === tree?.centre.id) continue; // centre spouses already placed
-    const owner = posById.get(ownerId);
-    if (!owner) continue;
-    list.forEach((s, i) => {
-      if (usedSpouseIds.has(s.id)) return;
-      // skip if already in levels as blood relative
-      if (posById.has(s.id)) {
-        // still marriage pair via pushCouple later
-        return;
-      }
-      usedSpouseIds.add(s.id);
-      const w = nameW(s.display_name);
-      // place to the right of owner, stack if multiple
-      let x = owner.x + owner.w / 2 + 12 + w / 2 + i * (w + 8);
-      x = clampX(x, w, W, pad);
-      // if overflows, try left
-      if (x + w / 2 > W - pad - 2) {
-        x = clampX(owner.x - owner.w / 2 - 12 - w / 2 - i * (w + 8), w, W, pad);
-      }
-      const top = owner.top;
-      const pl: Placed = { n: { ...s, relation: "spouse" }, x, top, w, genKey: "spouse" };
-      extraSpousePlaced.push(pl);
-      placed.push(pl);
-      posById.set(s.id, { x, top, w });
-    });
-  }
-
-  // Siblings of self — same band as centre, to the left of self
-  const siblings = tree?.siblings || [];
-  if (siblings.length && tree) {
-    let cursorX = centreX - centreW / 2 - 14;
-    siblings.forEach((s) => {
-      if (posById.has(s.id)) return;
-      const w = nameW(s.display_name);
-      const x = clampX(cursorX - w / 2, w, W, pad);
-      cursorX = x - w / 2 - 12;
-      const top = yMid - 20;
-      const pl: Placed = {
-        n: { ...s, relation: "sibling" },
-        x,
-        top,
-        w,
-        genKey: "sibling",
-      };
-      placed.push(pl);
-      posById.set(s.id, { x, top, w });
-    });
-  }
-
-  // Blood lines: each placed node (not centre) to via parent/child
+  // Blood lines: parent links
   placed.forEach((pl) => {
+    if (pl.n.relation === "spouse" || pl.n.relation === "sibling" || pl.n.relation === "self")
+      return;
     const via = pl.n.via_id || pl.n.via_parent_id || pl.n.via_child_id;
     let parentPos = via ? posById.get(via) : undefined;
-    // parents connect to centre
     if (!parentPos && parents.some((p) => p.id === pl.n.id) && tree) {
       parentPos = posById.get(tree.centre.id);
     }
-    // children of centre
     if (!parentPos && children.some((c) => c.id === pl.n.id) && tree) {
       parentPos = posById.get(tree.centre.id);
     }
     if (!parentPos) return;
-    const childIsBelow = pl.top > parentPos.top;
-    if (childIsBelow) {
-      // parent above → child below
+    if (pl.top > parentPos.top) {
       const start = undock(parentPos.x, parentPos.top, "down");
       const end = dock(pl.x, pl.top, pl.w, "up", pl.n.gender, pl.n.relation);
       linesBlood.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y, key: `b-${pl.n.id}` });
     } else {
-      // ancestor above → parent below
       const start = undock(parentPos.x, parentPos.top, "up");
       const end = dock(pl.x, pl.top, pl.w, "down", pl.n.gender, pl.n.relation);
       linesBlood.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y, key: `b-${pl.n.id}` });
     }
   });
 
-  // Spouse → centre children dual-parent visual
+  // Dual-parent: centre spouses → centre children only (less spaghetti)
   spouses.forEach((sp) => {
     const spos = posById.get(sp.id);
     if (!spos) return;
@@ -1012,8 +1118,8 @@ function VanshawaliInner() {
       {loading && <p className="text-center text-gray-400 py-20">Loading…</p>}
 
       {!loading && tree && (
-        <div ref={wrapRef} className="flex-1 overflow-y-auto overflow-x-hidden pb-36 w-full">
-          <div className="relative mx-auto" style={{ width: W, height: H }}>
+        <div ref={wrapRef} className="flex-1 overflow-y-auto overflow-x-auto pb-36 w-full">
+          <div className="relative mx-auto" style={{ width: W, height: H, minWidth: "100%" }}>
                         <svg className="absolute inset-0 pointer-events-none" width={W} height={H}>
               {/* EXTRA marriage bonds — light green, couples only */}
               {marriagePairs.map((mp, i) => {
@@ -1060,20 +1166,36 @@ function VanshawaliInner() {
             </svg>
 
             {/* All relative bubbles (auto levels) */}
-            {placed.map((pl) => (
-              <div
-                key={pl.n.id}
-                className="absolute z-10 -translate-x-1/2"
-                style={{ left: pl.x, top: pl.top }}
-              >
-                <Tag n={pl.n} gen={pl.genKey} />
-              </div>
-            ))}
+            {placed.map((pl) => {
+              if (tree && pl.n.id === tree.centre.id) return null;
+              return (
+                <div
+                  key={pl.n.id}
+                  className="absolute z-10 -translate-x-1/2"
+                  style={{ left: pl.x, top: pl.top }}
+                >
+                  <Tag
+                    n={pl.n}
+                    gen={pl.genKey}
+                    extra={
+                      pl.n.relation === "spouse"
+                        ? L.spouse
+                        : pl.n.relation === "sibling"
+                          ? L.sibling || "Sibling"
+                          : undefined
+                    }
+                  />
+                </div>
+              );
+            })}
 
             {/* Centre */}
             <div
-              className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
-              style={{ left: centreX, top: yMid }}
+              className="absolute z-20 -translate-x-1/2"
+              style={{
+                left: posById.get(tree.centre.id)?.x ?? centreX,
+                top: posById.get(tree.centre.id)?.top ?? yMid,
+              }}
             >
               <button type="button" onClick={() => setSelected(tree.centre)} className="text-center">
                 <span
@@ -1112,15 +1234,12 @@ function VanshawaliInner() {
             </div>
 
             {/* Spouses */}
-            {spouses.map((n, i) => (
-              <div
-                key={n.id}
-                className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
-                style={{ left: spousePositions[i]?.x ?? centreX, top: yMid }}
-              >
-                <Tag n={n} extra={L.spouse} gen="spouse" />
-              </div>
-            ))}
+            {spouses.map((n) => {
+              const pos = posById.get(n.id);
+              if (!pos) return null;
+              // skip if already drawn in placed.map
+              return null;
+            })}
           </div>
         </div>
       )}
