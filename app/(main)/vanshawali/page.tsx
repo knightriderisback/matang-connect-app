@@ -990,45 +990,32 @@ function VanshawaliInner() {
   });
 
   /**
-   * SIBLING LOGIC (auto, any generation):
-   * A & B are siblings if they share ≥1 parent (father/mother/child links).
-   * • Neon yellow branch between every sibling pair (bottom corners)
-   * • Default gold branch parent → each child (if not already drawn)
-   * Adding a child under a parent auto-joins the sibling group with existing kids.
+   * SIBLING LOGIC — auto any generation
+   * Share a parent → neon yellow between them (bottom corners).
+   * Parent→child stays default gold (sibp- / b- keys).
    */
   if (tree) {
     const parentToKids = new Map<string, Set<string>>();
-    const addPC = (parentId: string, childId: string) => {
+    const addPC = (parentId: string | null | undefined, childId: string | null | undefined) => {
       if (!parentId || !childId || parentId === childId) return;
       if (!parentToKids.has(parentId)) parentToKids.set(parentId, new Set());
       parentToKids.get(parentId)!.add(childId);
     };
 
-    // Parents of centre → centre + listed siblings
     parents.forEach((par) => {
       addPC(par.id, tree.centre.id);
       siblings.forEach((s) => addPC(par.id, s.id));
     });
-    // Centre → own children; spouses → same children (dual-parent)
     children.forEach((c) => {
       addPC(tree.centre.id, c.id);
       spouses.forEach((sp) => addPC(sp.id, c.id));
     });
-    // levels_down: via_* is parent
     levelsDown.forEach((lvl) => {
-      lvl.forEach((n) => {
-        const via = n.via_id || n.via_child_id;
-        if (via) addPC(via, n.id);
-      });
+      lvl.forEach((n) => addPC(n.via_id || n.via_child_id, n.id));
     });
-    // levels_up: node is parent of via (child)
     levelsUp.forEach((lvl) => {
-      lvl.forEach((n) => {
-        const via = n.via_id || n.via_parent_id;
-        if (via) addPC(n.id, via);
-      });
+      lvl.forEach((n) => addPC(n.id, n.via_id || n.via_parent_id));
     });
-    // spouses_of: if A is spouse of B and B has kids, both parent (already dual in API)
     Object.entries(spousesOfMap).forEach(([ownerId, list]) => {
       const kids = parentToKids.get(ownerId);
       if (!kids) return;
@@ -1037,6 +1024,20 @@ function VanshawaliInner() {
       });
     });
 
+    // Explicit group: centre + API siblings (even if parent map incomplete)
+    if (siblings.length) {
+      const g = new Set<string>([tree.centre.id, ...siblings.map((s) => s.id)]);
+      // attach under synthetic key so pair loop runs
+      parentToKids.set("__centre_sibs__", g);
+    }
+    // Explicit group: all direct children of centre
+    if (children.length >= 2) {
+      parentToKids.set(
+        tree.centre.id,
+        new Set([...(parentToKids.get(tree.centre.id) || []), ...children.map((c) => c.id)])
+      );
+    }
+
     const bottomCorner = (
       a: { x: number; top: number; w: number },
       b: { x: number; top: number; w: number },
@@ -1044,27 +1045,26 @@ function VanshawaliInner() {
     ) => {
       const left = a.x <= b.x ? a : b;
       const right = a.x <= b.x ? b : a;
+      // bottom edge corners — slightly inside bubble
       linesBlood.push({
         x1: left.x + left.w / 2 - IN,
-        y1: left.top + BUBBLE_H - IN,
+        y1: left.top + BUBBLE_H - 2,
         x2: right.x - right.w / 2 + IN,
-        y2: right.top + BUBBLE_H - IN,
+        y2: right.top + BUBBLE_H - 2,
         key,
       });
     };
 
-    // Union sibling groups: if A–B share parent1 and B–C share parent2, still pair via each parent group
     const pairDrawn = new Set<string>();
     parentToKids.forEach((kidSet, parentId) => {
       const placedKids = Array.from(kidSet)
         .map((id) => {
           const pos = posById.get(id);
-          return pos ? { id, ...pos } : null;
+          return pos ? { id, x: pos.x, top: pos.top, w: pos.w } : null;
         })
         .filter(Boolean) as { id: string; x: number; top: number; w: number }[];
       if (placedKids.length < 2) return;
 
-      // Neon yellow between siblings (chain by x — covers full group)
       const sorted = [...placedKids].sort((a, b) => a.x - b.x || a.top - b.top);
       for (let i = 0; i < sorted.length - 1; i++) {
         const a = sorted[i];
@@ -1075,26 +1075,25 @@ function VanshawaliInner() {
         bottomCorner(a, b, `sib-${a.id}-${b.id}`);
       }
 
-      // Gold parent → child (for kids that skip blood, e.g. relation=sibling)
+      // Gold parent → child for real parents only
+      if (parentId.startsWith("__")) continue;
       const pp = posById.get(parentId);
-      if (pp) {
-        placedKids.forEach((kid) => {
-          // skip if already have blood line b-kid from placement
-          const already = linesBlood.some(
-            (ln) => ln.key === `b-${kid.id}` || ln.key === `sibp-${parentId}-${kid.id}`
-          );
-          if (already) return;
-          const start = undock(pp.x, pp.top, "down");
-          const end = dock(kid.x, kid.top, kid.w, "up", null, "child");
-          linesBlood.push({
-            x1: start.x,
-            y1: start.y,
-            x2: end.x,
-            y2: end.y,
-            key: `sibp-${parentId}-${kid.id}`,
-          });
+      if (!pp) continue;
+      placedKids.forEach((kid) => {
+        const already = linesBlood.some(
+          (ln) => ln.key === `b-${kid.id}` || ln.key === `sibp-${parentId}-${kid.id}`
+        );
+        if (already) return;
+        const start = undock(pp.x, pp.top, "down");
+        const end = dock(kid.x, kid.top, kid.w, "up", null, "child");
+        linesBlood.push({
+          x1: start.x,
+          y1: start.y,
+          x2: end.x,
+          y2: end.y,
+          key: `sibp-${parentId}-${kid.id}`,
         });
-      }
+      });
     });
   }
 
@@ -1406,12 +1405,14 @@ function VanshawaliInner() {
                     className="vansh-gold-line"
                   />
                 ))}
-              {/* Sibling: same mind-map gold branch curve, neon yellow only */}
+              {/* Sibling neon yellow — same curve() as gold branches */}
               <defs>
-                <filter id="sibNeon" x="-50%" y="-50%" width="200%" height="200%">
-                  <feGaussianBlur stdDeviation="2.4" result="b" />
+                <filter id="sibNeon" x="-80%" y="-80%" width="260%" height="260%">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+                  <feFlood floodColor="#FFD700" floodOpacity="0.85" result="color" />
+                  <feComposite in="color" in2="blur" operator="in" result="glow" />
                   <feMerge>
-                    <feMergeNode in="b" />
+                    <feMergeNode in="glow" />
                     <feMergeNode in="SourceGraphic" />
                   </feMerge>
                 </filter>
@@ -1421,24 +1422,31 @@ function VanshawaliInner() {
                 .map((ln) => {
                   const d = curve(ln.x1, ln.y1, ln.x2, ln.y2);
                   return (
-                    <g key={ln.key} filter="url(#sibNeon)">
+                    <g key={ln.key}>
                       <path
                         d={d}
                         fill="none"
-                        stroke="rgba(255, 213, 40, 0.4)"
-                        strokeWidth={5.5}
+                        stroke="#FACC15"
+                        strokeWidth={7}
                         strokeLinecap="round"
+                        opacity={0.35}
+                        filter="url(#sibNeon)"
                       />
                       <path
                         d={d}
                         fill="none"
-                        stroke="#FFE566"
-                        strokeWidth={2.6}
+                        stroke="#FDE047"
+                        strokeWidth={3.2}
                         strokeLinecap="round"
-                        style={{
-                          filter:
-                            "drop-shadow(0 0 3px #FFD700) drop-shadow(0 0 8px rgba(255,200,0,0.9))",
-                        }}
+                        filter="url(#sibNeon)"
+                      />
+                      <path
+                        d={d}
+                        fill="none"
+                        stroke="#FFFBEB"
+                        strokeWidth={1.2}
+                        strokeLinecap="round"
+                        opacity={0.95}
                       />
                     </g>
                   );
