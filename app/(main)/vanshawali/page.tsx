@@ -1351,28 +1351,85 @@ function VanshawaliInner() {
                   />
                 );
               })}
-              {/* Blood / parent–child — auto for all levels */}
-              {linesBlood.map((ln) => (
-                <path
-                  key={ln.key}
-                  d={curve(ln.x1, ln.y1, ln.x2, ln.y2)}
-                  fill="none"
-                  stroke={line}
-                  strokeWidth={2.4}
-                  strokeLinecap="round"
-                  className="vansh-gold-line"
-                />
-              ))}
+              {/* Blood / parent–child */}
+              {linesBlood
+                .filter((ln) => !ln.key.startsWith("sib"))
+                .map((ln) => (
+                  <path
+                    key={ln.key}
+                    d={curve(ln.x1, ln.y1, ln.x2, ln.y2)}
+                    fill="none"
+                    stroke={line}
+                    strokeWidth={2.4}
+                    strokeLinecap="round"
+                    className="vansh-gold-line"
+                  />
+                ))}
+              {/* Sibling neon yellow */}
+              <defs>
+                <filter id="sibNeon" x="-40%" y="-40%" width="180%" height="180%">
+                  <feGaussianBlur stdDeviation="2.2" result="b" />
+                  <feMerge>
+                    <feMergeNode in="b" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              {linesBlood
+                .filter((ln) => ln.key.startsWith("sib"))
+                .map((ln) => {
+                  // mild tilt: left end slightly up, right end slightly down
+                  const dx = ln.x2 - ln.x1;
+                  const lift = Math.min(14, Math.abs(dx) * 0.08 + 6);
+                  const y1 = ln.y1 - lift * 0.35;
+                  const y2 = ln.y2 + lift * 0.35;
+                  const midX = (ln.x1 + ln.x2) / 2;
+                  const midY = (y1 + y2) / 2 - lift * 0.5;
+                  const d = `M${ln.x1} ${y1} Q${midX} ${midY} ${ln.x2} ${y2}`;
+                  return (
+                    <g key={ln.key} filter="url(#sibNeon)">
+                      <path
+                        d={d}
+                        fill="none"
+                        stroke="rgba(255, 220, 50, 0.45)"
+                        strokeWidth={6}
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d={d}
+                        fill="none"
+                        stroke="#FFE566"
+                        strokeWidth={2.8}
+                        strokeLinecap="round"
+                        style={{
+                          filter:
+                            "drop-shadow(0 0 4px #FFD700) drop-shadow(0 0 10px rgba(255,200,0,0.85))",
+                        }}
+                      />
+                    </g>
+                  );
+                })}
             </svg>
 
             {/* All relative bubbles (auto levels) */}
             {placed.map((pl) => {
               if (tree && pl.n.id === tree.centre.id) return null;
+              let tilt = 0;
+              if (pl.n.relation === "sibling") {
+                tilt = pl.x < centreX ? -7 : 7;
+              } else if (pl.n.relation === "spouse") {
+                tilt = pl.x >= centreX ? -8 : 8;
+              }
               return (
                 <div
                   key={pl.n.id}
-                  className="absolute z-10 -translate-x-1/2"
-                  style={{ left: pl.x, top: pl.top }}
+                  className="absolute z-10"
+                  style={{
+                    left: pl.x,
+                    top: pl.top,
+                    transform: `translateX(-50%)${tilt ? ` rotate(${tilt}deg)` : ""}`,
+                    transformOrigin: "center center",
+                  }}
                 >
                   <Tag
                     n={pl.n}
