@@ -1003,36 +1003,29 @@ function VanshawaliInner() {
       gender?: string | null;
       relation: string;
     }[];
-    // self to each sibling (side-to-side mind-map curve)
+    // self ↔ sibling & sibling ↔ sibling — bottom corners (same branch curve)
+    const bottomCorner = (
+      a: { x: number; top: number; w: number },
+      b: { x: number; top: number; w: number },
+      key: string
+    ) => {
+      const left = a.x <= b.x ? a : b;
+      const right = a.x <= b.x ? b : a;
+      // bottom-right of left bubble → bottom-left of right bubble
+      const x1 = left.x + left.w / 2 - IN;
+      const y1 = left.top + BUBBLE_H - IN;
+      const x2 = right.x - right.w / 2 + IN;
+      const y2 = right.top + BUBBLE_H - IN;
+      linesBlood.push({ x1, y1, x2, y2, key });
+    };
     if (selfPos) {
       sibPos.forEach((s) => {
-        const left = selfPos.x <= s.x ? selfPos : s;
-        const right = selfPos.x <= s.x ? s : selfPos;
-        const y1 = left.top + BUBBLE_H / 2;
-        const y2 = right.top + BUBBLE_H / 2;
-        const x1 = left.x + left.w / 2 - IN;
-        const x2 = right.x - right.w / 2 + IN;
-        linesBlood.push({
-          x1,
-          y1,
-          x2,
-          y2,
-          key: `sib-${tree.centre.id}-${s.id}`,
-        });
+        bottomCorner(selfPos, s, `sib-${tree.centre.id}-${s.id}`);
       });
     }
-    // between siblings (sorted by x)
     const sorted = [...sibPos].sort((a, b) => a.x - b.x);
     for (let i = 0; i < sorted.length - 1; i++) {
-      const a = sorted[i];
-      const b = sorted[i + 1];
-      linesBlood.push({
-        x1: a.x + a.w / 2 - IN,
-        y1: a.top + BUBBLE_H / 2,
-        x2: b.x - b.w / 2 + IN,
-        y2: b.top + BUBBLE_H / 2,
-        key: `sib-${a.id}-${b.id}`,
-      });
+      bottomCorner(sorted[i], sorted[i + 1], `sib-${sorted[i].id}-${sorted[i + 1].id}`);
     }
   }
 
@@ -1353,7 +1346,7 @@ function VanshawaliInner() {
               })}
               {/* Blood / parent–child */}
               {linesBlood
-                .filter((ln) => !ln.key.startsWith("sib"))
+                .filter((ln) => !ln.key.startsWith("sib-"))
                 .map((ln) => (
                   <path
                     key={ln.key}
@@ -1376,7 +1369,7 @@ function VanshawaliInner() {
                 </filter>
               </defs>
               {linesBlood
-                .filter((ln) => ln.key.startsWith("sib"))
+                .filter((ln) => ln.key.startsWith("sib-"))
                 .map((ln) => {
                   const d = curve(ln.x1, ln.y1, ln.x2, ln.y2);
                   return (
@@ -1414,13 +1407,15 @@ function VanshawaliInner() {
               const leftOfSelf = pl.x < centreX - 4;
               const rightOfSelf = pl.x > centreX + 4;
               if (pl.n.relation === "sibling") {
-                if (leftOfSelf) tilt = -9;
-                else if (rightOfSelf) tilt = 9;
-                else tilt = -5;
+                // LEFT = upar · RIGHT = neeche
+                if (leftOfSelf) tilt = 8;
+                else if (rightOfSelf) tilt = -8;
+                else tilt = 5;
               } else if (pl.n.relation === "spouse") {
-                if (rightOfSelf) tilt = -10; // right upar
-                else if (leftOfSelf) tilt = 10; // left neeche
-                else tilt = -10; // default spouse sits right of self
+                // opposite of sibling: RIGHT = upar · LEFT = neeche
+                if (rightOfSelf) tilt = 8;
+                else if (leftOfSelf) tilt = -8;
+                else tilt = 8; // spouse usually right of self → upar
               }
               return (
                 <div
