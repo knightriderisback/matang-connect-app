@@ -880,10 +880,9 @@ function VanshawaliInner() {
 
   const W = contentW;
   const cx = W / 2;
-  const centreX = posById.get(tree?.centre.id || "")?.x ?? cx;
+  // centreX already set during placement; refresh from pos after resolve
+  const centreXResolved = posById.get(tree?.centre.id || "")?.x ?? centreX;
   const yMidPos = posById.get(tree?.centre.id || "")?.top ?? yMid;
-  // keep yMid variable for centre render: use actual
-  const yMidFinal = yMidPos + 20; // -translate-y-1/2 uses center of bubble
 
   const parentsSorted = [...parents].sort((a, b) => {
     const ra = a.relation === "father" ? 0 : a.relation === "mother" ? 1 : 2;
