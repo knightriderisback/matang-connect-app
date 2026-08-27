@@ -1228,6 +1228,13 @@ function VanshawaliInner() {
           stroke-dasharray: 10 8;
           animation: goldTravel 1.8s linear infinite;
         }
+        @keyframes sibTravel {
+          to { stroke-dashoffset: -40; }
+        }
+        .vansh-sib-line {
+          stroke-dasharray: 8 6;
+          animation: sibTravel 2.2s linear infinite;
+        }
       `}</style>
       {/* SA edit toggle — left corner */}
       {isSA && !isOwner && (
@@ -1410,6 +1417,7 @@ function VanshawaliInner() {
                     stroke="#FFEB3B"
                     strokeWidth={2.8}
                     strokeLinecap="round"
+                    className="vansh-sib-line"
                   />
                 );
               })}
