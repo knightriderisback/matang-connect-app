@@ -943,6 +943,8 @@ function VanshawaliInner() {
   const gcMaxRow = 0;
 
   let H = yCursor + 40;
+  // room under centre row for sibling U-curves
+  H = Math.max(H, yMid + BUBBLE_H + 36);
 
   const linesBlood: { x1: number; y1: number; x2: number; y2: number; key: string }[] = [];
 
@@ -990,10 +992,11 @@ function VanshawaliInner() {
   });
 
   /**
-   * SIBLING LOGIC — auto any generation
-   * Share a parent → neon yellow between them (bottom corners).
-   * Parent→child stays default gold (sibp- / b- keys).
+   * SIBLING neon yellow — visible U-curve under bottom corners.
+   * Groups: centre+API siblings · any 2+ kids of same parent · placed relation=sibling.
    */
+  type SibLn = { x1: number; y1: number; x2: number; y2: number; key: string };
+  const linesSibling: SibLn[] = [];
   if (tree) {
     const parentToKids = new Map<string, Set<string>>();
     const addPC = (parentId: string | null | undefined, childId: string | null | undefined) => {
@@ -1001,7 +1004,6 @@ function VanshawaliInner() {
       if (!parentToKids.has(parentId)) parentToKids.set(parentId, new Set());
       parentToKids.get(parentId)!.add(childId);
     };
-
     parents.forEach((par) => {
       addPC(par.id, tree.centre.id);
       siblings.forEach((s) => addPC(par.id, s.id));
@@ -1016,48 +1018,40 @@ function VanshawaliInner() {
     levelsUp.forEach((lvl) => {
       lvl.forEach((n) => addPC(n.id, n.via_id || n.via_parent_id));
     });
-    Object.entries(spousesOfMap).forEach(([ownerId, list]) => {
-      const kids = parentToKids.get(ownerId);
-      if (!kids) return;
-      list.forEach((sp) => {
-        Array.from(kids).forEach((kid) => addPC(sp.id, kid));
-      });
+    // Centre row: self + every placed sibling bubble
+    const centreRow = new Set<string>([tree.centre.id]);
+    siblings.forEach((s) => centreRow.add(s.id));
+    placed.forEach((pl) => {
+      if (pl.n.relation === "sibling") centreRow.add(pl.n.id);
     });
+    parentToKids.set("__centre_row__", centreRow);
 
-    // Explicit group: centre + API siblings (even if parent map incomplete)
-    if (siblings.length) {
-      const g = new Set<string>([tree.centre.id, ...siblings.map((s) => s.id)]);
-      // attach under synthetic key so pair loop runs
-      parentToKids.set("__centre_sibs__", g);
-    }
-    // Explicit group: all direct children of centre
     if (children.length >= 2) {
-      {
-        const prev = parentToKids.get(tree.centre.id);
-        const merged = new Set<string>(prev ? Array.from(prev) : []);
-        children.forEach((c) => merged.add(c.id));
-        parentToKids.set(tree.centre.id, merged);
-      }
+      const merged = new Set<string>();
+      children.forEach((c) => merged.add(c.id));
+      parentToKids.set(tree.centre.id, merged);
     }
 
-    const bottomCorner = (
-      a: { x: number; top: number; w: number },
-      b: { x: number; top: number; w: number },
-      key: string
+    const pairDrawn = new Set<string>();
+    const pushSib = (
+      a: { id: string; x: number; top: number; w: number },
+      b: { id: string; x: number; top: number; w: number }
     ) => {
+      const pk = [a.id, b.id].sort().join("|");
+      if (pairDrawn.has(pk)) return;
+      pairDrawn.add(pk);
       const left = a.x <= b.x ? a : b;
       const right = a.x <= b.x ? b : a;
-      // bottom edge corners — slightly inside bubble
-      linesBlood.push({
-        x1: left.x + left.w / 2 - IN,
-        y1: left.top + BUBBLE_H - 2,
-        x2: right.x - right.w / 2 + IN,
-        y2: right.top + BUBBLE_H - 2,
-        key,
+      // bottom corners of bubbles
+      linesSibling.push({
+        x1: left.x,
+        y1: left.top + BUBBLE_H - 4,
+        x2: right.x,
+        y2: right.top + BUBBLE_H - 4,
+        key: `sib-${a.id}-${b.id}`,
       });
     };
 
-    const pairDrawn = new Set<string>();
     parentToKids.forEach((kidSet, parentId) => {
       const placedKids = Array.from(kidSet)
         .map((id) => {
@@ -1066,26 +1060,17 @@ function VanshawaliInner() {
         })
         .filter(Boolean) as { id: string; x: number; top: number; w: number }[];
       if (placedKids.length < 2) return;
-
       const sorted = [...placedKids].sort((a, b) => a.x - b.x || a.top - b.top);
       for (let i = 0; i < sorted.length - 1; i++) {
-        const a = sorted[i];
-        const b = sorted[i + 1];
-        const pk = [a.id, b.id].sort().join("|");
-        if (pairDrawn.has(pk)) continue;
-        pairDrawn.add(pk);
-        bottomCorner(a, b, `sib-${a.id}-${b.id}`);
+        pushSib(sorted[i], sorted[i + 1]);
       }
-
-      // Gold parent → child for real parents only
+      // gold parent→child for real parents (not synthetic keys)
       if (parentId.startsWith("__")) return;
       const pp = posById.get(parentId);
       if (!pp) return;
       placedKids.forEach((kid) => {
-        const already = linesBlood.some(
-          (ln) => ln.key === `b-${kid.id}` || ln.key === `sibp-${parentId}-${kid.id}`
-        );
-        if (already) return;
+        if (linesBlood.some((ln) => ln.key === `b-${kid.id}` || ln.key === `sibp-${parentId}-${kid.id}`))
+          return;
         const start = undock(pp.x, pp.top, "down");
         const end = dock(kid.x, kid.top, kid.w, "up", null, "child");
         linesBlood.push({
@@ -1097,6 +1082,11 @@ function VanshawaliInner() {
         });
       });
     });
+  }
+
+  if (linesSibling.length) {
+    const maxDip = Math.max(...linesSibling.map((l) => Math.max(l.y1, l.y2) + 24));
+    H = Math.max(H, maxDip);
   }
 
   // EXTRA: marriage pairs — every husband–wife from spouses_of + centre
@@ -1407,52 +1397,38 @@ function VanshawaliInner() {
                     className="vansh-gold-line"
                   />
                 ))}
-              {/* Sibling neon yellow — same curve() as gold branches */}
-              <defs>
-                <filter id="sibNeon" x="-80%" y="-80%" width="260%" height="260%">
-                  <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
-                  <feFlood floodColor="#FFD700" floodOpacity="0.85" result="color" />
-                  <feComposite in="color" in2="blur" operator="in" result="glow" />
-                  <feMerge>
-                    <feMergeNode in="glow" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
-              {linesBlood
-                .filter((ln) => ln.key.startsWith("sib-"))
-                .map((ln) => {
-                  const d = curve(ln.x1, ln.y1, ln.x2, ln.y2);
-                  return (
-                    <g key={ln.key}>
-                      <path
-                        d={d}
-                        fill="none"
-                        stroke="#FACC15"
-                        strokeWidth={7}
-                        strokeLinecap="round"
-                        opacity={0.35}
-                        filter="url(#sibNeon)"
-                      />
-                      <path
-                        d={d}
-                        fill="none"
-                        stroke="#FDE047"
-                        strokeWidth={3.2}
-                        strokeLinecap="round"
-                        filter="url(#sibNeon)"
-                      />
-                      <path
-                        d={d}
-                        fill="none"
-                        stroke="#FFFBEB"
-                        strokeWidth={1.2}
-                        strokeLinecap="round"
-                        opacity={0.95}
-                      />
-                    </g>
-                  );
-                })}
+              {/* Sibling neon yellow — U-curve under bubbles (always visible) */}
+              {linesSibling.map((ln) => {
+                const midX = (ln.x1 + ln.x2) / 2;
+                const dip = Math.max(ln.y1, ln.y2) + 18;
+                const d = `M${ln.x1} ${ln.y1} Q${midX} ${dip} ${ln.x2} ${ln.y2}`;
+                return (
+                  <g key={ln.key}>
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke="rgba(250, 204, 21, 0.45)"
+                      strokeWidth={8}
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke="#FACC15"
+                      strokeWidth={3.5}
+                      strokeLinecap="round"
+                      style={{ filter: "drop-shadow(0 0 6px #FDE047)" }}
+                    />
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke="#FEF9C3"
+                      strokeWidth={1.4}
+                      strokeLinecap="round"
+                    />
+                  </g>
+                );
+              })}
             </svg>
 
             {/* All relative bubbles (auto levels) */}
