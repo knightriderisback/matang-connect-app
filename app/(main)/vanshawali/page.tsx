@@ -1219,7 +1219,7 @@ function VanshawaliInner() {
   };
 
   return (
-    <div className="flex flex-col min-h-[70vh] bg-[#faf8f3] relative">
+    <div className="flex flex-col min-h-[70vh] bg-[#faf6eb] relative">
       <style>{`
         @keyframes goldTravel {
           to { stroke-dashoffset: -48; }
@@ -1239,9 +1239,9 @@ function VanshawaliInner() {
           animation: sibTravel 1.4s linear infinite;
         }
         @keyframes vanshDustDrift {
-          0% { transform: translate(0, 0); opacity: 0.15; }
-          50% { transform: translate(6px, -10px); opacity: 0.45; }
-          100% { transform: translate(-4px, -18px); opacity: 0.12; }
+          0% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+          50% { transform: translate(10px, -14px) scale(1.15); opacity: 0.95; }
+          100% { transform: translate(-8px, -22px) scale(0.9); opacity: 0.4; }
         }
         .vansh-gold-dust {
           pointer-events: none;
@@ -1249,37 +1249,43 @@ function VanshawaliInner() {
           inset: 0;
           z-index: 0;
           overflow: hidden;
-          background-color: #faf8f3;
+          background-color: #faf6eb;
           background-image:
-            radial-gradient(1.5px 1.5px at 8% 12%, rgba(234, 179, 8, 0.35), transparent),
-            radial-gradient(1px 1px at 18% 28%, rgba(253, 224, 71, 0.4), transparent),
-            radial-gradient(1.5px 1.5px at 28% 8%, rgba(245, 158, 11, 0.3), transparent),
-            radial-gradient(1px 1px at 42% 18%, rgba(234, 179, 8, 0.28), transparent),
-            radial-gradient(2px 2px at 55% 6%, rgba(253, 224, 71, 0.32), transparent),
-            radial-gradient(1px 1px at 68% 22%, rgba(234, 179, 8, 0.35), transparent),
-            radial-gradient(1.5px 1.5px at 82% 14%, rgba(245, 158, 11, 0.28), transparent),
-            radial-gradient(1px 1px at 92% 30%, rgba(253, 224, 71, 0.35), transparent),
-            radial-gradient(1px 1px at 12% 48%, rgba(234, 179, 8, 0.25), transparent),
-            radial-gradient(1.5px 1.5px at 22% 62%, rgba(253, 224, 71, 0.3), transparent),
-            radial-gradient(1px 1px at 38% 55%, rgba(245, 158, 11, 0.22), transparent),
-            radial-gradient(2px 2px at 48% 72%, rgba(234, 179, 8, 0.28), transparent),
-            radial-gradient(1px 1px at 62% 58%, rgba(253, 224, 71, 0.32), transparent),
-            radial-gradient(1.5px 1.5px at 78% 68%, rgba(234, 179, 8, 0.3), transparent),
-            radial-gradient(1px 1px at 88% 52%, rgba(245, 158, 11, 0.25), transparent),
-            radial-gradient(1px 1px at 6% 82%, rgba(253, 224, 71, 0.28), transparent),
-            radial-gradient(1.5px 1.5px at 32% 88%, rgba(234, 179, 8, 0.3), transparent),
-            radial-gradient(1px 1px at 58% 92%, rgba(245, 158, 11, 0.22), transparent),
-            radial-gradient(2px 2px at 74% 85%, rgba(253, 224, 71, 0.28), transparent),
-            radial-gradient(1px 1px at 94% 78%, rgba(234, 179, 8, 0.32), transparent),
-            radial-gradient(1px 1px at 15% 35%, rgba(253, 224, 71, 0.2), transparent),
-            radial-gradient(1px 1px at 70% 40%, rgba(234, 179, 8, 0.22), transparent),
-            radial-gradient(1.5px 1.5px at 45% 40%, rgba(245, 158, 11, 0.18), transparent);
+            radial-gradient(circle 2.5px at 6% 10%, rgba(234, 179, 8, 0.7), transparent 60%),
+            radial-gradient(circle 2px at 14% 24%, rgba(253, 224, 71, 0.75), transparent 60%),
+            radial-gradient(circle 3px at 22% 8%, rgba(245, 158, 11, 0.55), transparent 60%),
+            radial-gradient(circle 2px at 30% 32%, rgba(234, 179, 8, 0.65), transparent 60%),
+            radial-gradient(circle 2.5px at 40% 12%, rgba(253, 224, 71, 0.7), transparent 60%),
+            radial-gradient(circle 2px at 52% 28%, rgba(245, 158, 11, 0.6), transparent 60%),
+            radial-gradient(circle 3px at 62% 6%, rgba(234, 179, 8, 0.7), transparent 60%),
+            radial-gradient(circle 2px at 72% 22%, rgba(253, 224, 71, 0.65), transparent 60%),
+            radial-gradient(circle 2.5px at 84% 14%, rgba(245, 158, 11, 0.55), transparent 60%),
+            radial-gradient(circle 2px at 94% 30%, rgba(234, 179, 8, 0.7), transparent 60%),
+            radial-gradient(circle 2px at 8% 48%, rgba(253, 224, 71, 0.6), transparent 60%),
+            radial-gradient(circle 3px at 20% 58%, rgba(234, 179, 8, 0.65), transparent 60%),
+            radial-gradient(circle 2px at 34% 52%, rgba(245, 158, 11, 0.5), transparent 60%),
+            radial-gradient(circle 2.5px at 48% 68%, rgba(253, 224, 71, 0.7), transparent 60%),
+            radial-gradient(circle 2px at 60% 54%, rgba(234, 179, 8, 0.6), transparent 60%),
+            radial-gradient(circle 3px at 76% 64%, rgba(245, 158, 11, 0.55), transparent 60%),
+            radial-gradient(circle 2px at 90% 50%, rgba(253, 224, 71, 0.65), transparent 60%),
+            radial-gradient(circle 2.5px at 10% 78%, rgba(234, 179, 8, 0.7), transparent 60%),
+            radial-gradient(circle 2px at 28% 88%, rgba(253, 224, 71, 0.6), transparent 60%),
+            radial-gradient(circle 3px at 44% 82%, rgba(245, 158, 11, 0.55), transparent 60%),
+            radial-gradient(circle 2px at 58% 92%, rgba(234, 179, 8, 0.65), transparent 60%),
+            radial-gradient(circle 2.5px at 74% 86%, rgba(253, 224, 71, 0.7), transparent 60%),
+            radial-gradient(circle 2px at 88% 76%, rgba(245, 158, 11, 0.55), transparent 60%),
+            radial-gradient(circle 2px at 16% 40%, rgba(234, 179, 8, 0.5), transparent 60%),
+            radial-gradient(circle 2.5px at 68% 38%, rgba(253, 224, 71, 0.55), transparent 60%),
+            radial-gradient(circle 2px at 42% 42%, rgba(245, 158, 11, 0.45), transparent 60%),
+            radial-gradient(circle 3px at 96% 88%, rgba(234, 179, 8, 0.6), transparent 60%),
+            radial-gradient(circle 2px at 4% 62%, rgba(253, 224, 71, 0.55), transparent 60%);
         }
         .vansh-dust-speck {
           position: absolute;
           border-radius: 9999px;
-          background: radial-gradient(circle, rgba(253, 224, 71, 0.9) 0%, rgba(234, 179, 8, 0.2) 55%, transparent 70%);
-          animation: vanshDustDrift 9s ease-in-out infinite;
+          background: radial-gradient(circle, #FDE047 0%, rgba(234, 179, 8, 0.85) 40%, transparent 72%);
+          box-shadow: 0 0 6px rgba(253, 224, 71, 0.7);
+          animation: vanshDustDrift 7s ease-in-out infinite alternate;
         }
       `}</style>
       {/* SA edit toggle — left corner */}
@@ -1318,16 +1324,21 @@ function VanshawaliInner() {
           {/* Gold dust field — edges denser, centre softer */}
           <div className="vansh-gold-dust" aria-hidden>
             {[
-              { t: "8%", l: "10%", s: 3, d: "0s" },
-              { t: "18%", l: "78%", s: 2, d: "1.2s" },
-              { t: "32%", l: "22%", s: 2.5, d: "2.4s" },
-              { t: "48%", l: "88%", s: 3, d: "0.8s" },
-              { t: "62%", l: "14%", s: 2, d: "3.1s" },
-              { t: "72%", l: "55%", s: 2.5, d: "1.8s" },
-              { t: "84%", l: "30%", s: 3, d: "2.7s" },
-              { t: "12%", l: "48%", s: 2, d: "4s" },
-              { t: "55%", l: "68%", s: 2, d: "0.4s" },
-              { t: "90%", l: "72%", s: 2.5, d: "3.5s" },
+              { t: "6%", l: "8%", s: 5, d: "0s" },
+              { t: "12%", l: "72%", s: 4, d: "0.6s" },
+              { t: "20%", l: "28%", s: 6, d: "1.2s" },
+              { t: "28%", l: "88%", s: 4, d: "1.8s" },
+              { t: "36%", l: "14%", s: 5, d: "0.3s" },
+              { t: "44%", l: "52%", s: 4, d: "2.1s" },
+              { t: "52%", l: "78%", s: 6, d: "0.9s" },
+              { t: "60%", l: "22%", s: 5, d: "1.5s" },
+              { t: "68%", l: "64%", s: 4, d: "2.4s" },
+              { t: "76%", l: "10%", s: 5, d: "0.5s" },
+              { t: "84%", l: "42%", s: 6, d: "1.1s" },
+              { t: "90%", l: "82%", s: 4, d: "1.7s" },
+              { t: "16%", l: "48%", s: 5, d: "2.8s" },
+              { t: "70%", l: "36%", s: 4, d: "0.2s" },
+              { t: "40%", l: "90%", s: 5, d: "3s" },
             ].map((p, i) => (
               <span
                 key={i}
@@ -1338,7 +1349,7 @@ function VanshawaliInner() {
                   width: p.s,
                   height: p.s,
                   animationDelay: p.d,
-                  animationDuration: `${8 + (i % 4)}s`,
+                  animationDuration: `${5 + (i % 5)}s`,
                 }}
               />
             ))}
