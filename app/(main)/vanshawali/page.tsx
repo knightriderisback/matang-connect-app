@@ -1076,9 +1076,9 @@ function VanshawaliInner() {
       }
 
       // Gold parent → child for real parents only
-      if (parentId.startsWith("__")) continue;
+      if (parentId.startsWith("__")) return;
       const pp = posById.get(parentId);
-      if (!pp) continue;
+      if (!pp) return;
       placedKids.forEach((kid) => {
         const already = linesBlood.some(
           (ln) => ln.key === `b-${kid.id}` || ln.key === `sibp-${parentId}-${kid.id}`
