@@ -1086,12 +1086,12 @@ function VanshawaliInner() {
 
   const linesBlood: { x1: number; y1: number; x2: number; y2: number; key: string }[] = [];
 
-  // Blood lines (Self + Self-siblings skip; uncles still get gold from parent)
+  // Blood lines — skip ALL "sibling" nodes here (gold from correct parents in sibling-set block)
   const selfSibOnly = new Set<string>((tree?.siblings || []).map((s) => s.id));
   if (tree) selfSibOnly.add(tree.centre.id);
   placed.forEach((pl) => {
-    if (pl.n.relation === "spouse" || pl.n.relation === "self") return;
-    if (pl.n.relation === "sibling" && selfSibOnly.has(pl.n.id)) return;
+    if (pl.n.relation === "spouse" || pl.n.relation === "self" || pl.n.relation === "sibling")
+      return;
     const via = pl.n.via_id || pl.n.via_parent_id || pl.n.via_child_id;
     let parentPos = via ? posById.get(via) : undefined;
     if (!parentPos && parents.some((p) => p.id === pl.n.id) && tree) {
@@ -1185,13 +1185,12 @@ function VanshawaliInner() {
       const cp = posById.get(childId);
       if (!pp || !cp) return;
       const key = `sibp-${parentId}-${childId}`;
-      if (linesBlood.some((ln) => ln.key === key || ln.key === `b-${childId}`)) return;
-      const childBelow = cp.top >= pp.top;
+      if (linesBlood.some((ln) => ln.key === key)) return;
+      // Full bubble-to-bubble: centre of parent edge → centre of child edge
+      const childBelow = cp.top >= pp.top - 2;
       const start = undock(pp.x, pp.top, childBelow ? "down" : "up");
       const end = dock(cp.x, cp.top, cp.w, childBelow ? "up" : "down", null, "child");
-      // skip zero-length / NaN
       if (![start.x, start.y, end.x, end.y].every((n) => Number.isFinite(n))) return;
-      if (Math.hypot(end.x - start.x, end.y - start.y) < 4) return;
       linesBlood.push({
         x1: start.x,
         y1: start.y,
@@ -1208,41 +1207,38 @@ function VanshawaliInner() {
       selfGroup.forEach((cid) => goldParentChild(par.id, cid));
     });
 
-    // --- Group 2+: each owner in siblings_of (Father+uncles, GP+his brothers…) ---
+    // --- Group 2+: Father+uncles, GP+his brothers… ---
+    // Gold ONLY from DIRECT parents of the owner (shared parents of that sibling set)
+    // e.g. Father's brother → gold from Father's parents (your grandparents), NOT great-grandparents
     const so = tree.siblings_of || {};
-    for (const [ownerId, list] of Object.entries(so)) {
-      if (ownerId === tree.centre.id) continue;
-      const setIds = [ownerId, ...list.map((s) => s.id)];
-      linkSiblingSet(setIds);
+    const levels = tree.levels_up || [];
 
-      // Parents of this sibling set:
-      // 1) via_id on any sibling node (API parent)
-      // 2) levels_up nodes that parent the owner
-      const parentIds = new Set<string>();
-      for (const s of list) {
-        if (s.via_id) parentIds.add(s.via_id);
-        if (s.via_parent_id) parentIds.add(s.via_parent_id);
+    /** Direct parents of personId = nodes in levels_up whose via points to personId */
+    const directParentsOf = (personId: string): string[] => {
+      const ids: string[] = [];
+      if (personId === tree.centre.id) {
+        parents.forEach((p) => ids.push(p.id));
+        return ids;
       }
-      const levels = tree.levels_up || [];
-      for (let d = 0; d < levels.length; d++) {
-        if (!levels[d].some((n) => n.id === ownerId)) continue;
-        for (const n of levels[d + 1] || []) {
-          if (n.via_id === ownerId || n.via_parent_id === ownerId) parentIds.add(n.id);
-        }
-      }
-      // also any placed parent that lists owner as via child in levels_up
       for (const lvl of levels) {
         for (const n of lvl) {
-          if (
-            (n.relation === "father" || n.relation === "mother") &&
-            (n.via_id === ownerId || n.via_parent_id === ownerId)
-          ) {
-            parentIds.add(n.id);
+          if (n.via_id === personId || n.via_parent_id === personId) {
+            ids.push(n.id);
           }
         }
       }
+      return Array.from(new Set(ids));
+    };
 
-      Array.from(parentIds).forEach((pid) => {
+    for (const [ownerId, list] of Object.entries(so)) {
+      if (ownerId === tree.centre.id) continue;
+      const setIds = [ownerId, ...list.map((s) => s.id)];
+      // Yellow unchanged — between owner and their siblings
+      linkSiblingSet(setIds);
+
+      const parentIds = directParentsOf(ownerId);
+      // Gold: each direct parent → every member of this sibling set
+      parentIds.forEach((pid) => {
         setIds.forEach((cid) => goldParentChild(pid, cid));
       });
     }
