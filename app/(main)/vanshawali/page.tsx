@@ -347,6 +347,7 @@ function VanshawaliInner() {
   const rootId = searchParams.get("user") || user?.id || "";
   const wrapRef = useRef<HTMLDivElement>(null);
   const selfLayoutRef = useRef({ x: 180, y: 200 });
+  const canvasSizeRef = useRef({ W: 360, H: 480, cx: 180, cy: 240 });
   const didCenterRef = useRef(false);
   const [vw, setVw] = useState(360);
   const [vh, setVh] = useState(480);
@@ -447,7 +448,7 @@ function VanshawaliInner() {
     } else setFloatPos({});
   }, [load, rootId]);
 
-  // Open page → Self always screen centre
+  // Open page → zoom out so FULL tree fits every device
   useEffect(() => {
     if (loading || !tree) {
       didCenterRef.current = false;
@@ -455,10 +456,18 @@ function VanshawaliInner() {
     }
     if (didCenterRef.current) return;
     if (vw < 40 || vh < 40) return;
+    const { W: cW, H: cH } = canvasSizeRef.current;
+    if (cW < 10 || cH < 10) return;
     didCenterRef.current = true;
-    const { x, y } = selfLayoutRef.current;
-    setZoom(1);
-    setPan({ x: vw / 2 - x, y: vh / 2 - y });
+    const padFit = 36;
+    const zx = (vw - padFit) / Math.max(cW, 1);
+    const zy = (vh - padFit) / Math.max(cH, 1);
+    const z = Math.min(2.5, Math.max(0.18, Math.min(zx, zy, 1)));
+    setZoom(Math.round(z * 100) / 100);
+    setPan({
+      x: vw / 2 - (cW / 2) * z,
+      y: vh / 2 - (cH / 2) * z,
+    });
   }, [loading, tree, vw, vh]);
 
   const saveArrangement = () => {
@@ -1253,6 +1262,7 @@ function VanshawaliInner() {
     const maxDip = Math.max(...linesSibling.map((l) => Math.max(l.y1, l.y2) + 24));
     H = Math.max(H, maxDip);
   }
+  canvasSizeRef.current = { W, H, cx: W / 2, cy: H / 2 };
 
   // EXTRA: marriage pairs — every husband–wife from spouses_of + centre
   type MPair = {
@@ -1320,13 +1330,13 @@ function VanshawaliInner() {
     });
   }
 
-  const ZOOM_MIN = 0.5;
-  const ZOOM_MAX = 2;
+  const ZOOM_MIN = 0.18;
+  const ZOOM_MAX = 2.5;
   const ZOOM_STEP = 0.1;
   const clampZoom = (z: number) =>
-    Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 10) / 10));
+    Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 100) / 100));
 
-  /** Self screen-centre (page open / Home) */
+  /** Self screen-centre */
   const centerSelfOnScreen = (z = 1) => {
     const sid = tree?.centre.id;
     const fp = sid ? floatPos[sid] : undefined;
@@ -1336,6 +1346,20 @@ function VanshawaliInner() {
     setPan({
       x: vw / 2 - sx * z,
       y: vh / 2 - sy * z,
+    });
+  };
+
+  /** Fit entire tree in viewport (default on open) */
+  const fitTreeInView = (useW = W, useH = H) => {
+    const padFit = 36;
+    const zx = (vw - padFit) / Math.max(useW, 1);
+    const zy = (vh - padFit) / Math.max(useH, 1);
+    // zoom out enough to see all; never force zoom-in past 1 on open-fit
+    const z = clampZoom(Math.min(zx, zy, 1));
+    setZoom(z);
+    setPan({
+      x: vw / 2 - (useW / 2) * z,
+      y: vh / 2 - (useH / 2) * z,
     });
   };
 
@@ -1354,11 +1378,7 @@ function VanshawaliInner() {
     zoomAt(zoom + delta, vw / 2, vh / 2);
   };
   const fitAll = () => {
-    const padFit = 28;
-    const zx = (vw - padFit) / Math.max(W, 1);
-    const zy = (vh - padFit) / Math.max(H, 1);
-    const z = clampZoom(Math.min(zx, zy, 1));
-    centerSelfOnScreen(z);
+    fitTreeInView(W, H);
   };
   const zoomReset = () => {
     centerSelfOnScreen(1);
@@ -1771,8 +1791,8 @@ function VanshawaliInner() {
               style={{
                 left: W / 2,
                 top: H / 2,
-                width: Math.min(W, H) * 0.72,
-                height: Math.min(W, H) * 0.72,
+                width: Math.max(W, H) * 0.92,
+                height: Math.max(W, H) * 0.92,
                 transform: "translate(-50%, -50%)",
               }}
             />
