@@ -1048,11 +1048,14 @@ function VanshawaliInner() {
       const rank = Math.floor(i / 2) + 1;
       const x = owner.x + side * (owner.w / 2 + w / 2 + 20 + rank * 10);
       const top = owner.top + (side < 0 ? -4 : 4) * (rank % 2);
+      // via_id = real parent (from API), never the brother (owner)
+      const parentVia = s.via_id || s.via_parent_id || undefined;
       placeNode(
         {
           ...s,
           relation: "sibling",
-          via_id: s.via_id || s.via_parent_id || ownerId,
+          via_id: parentVia,
+          via_parent_id: parentVia,
         },
         x,
         top,
@@ -1129,43 +1132,13 @@ function VanshawaliInner() {
   });
 
   /**
-   * SIBLING neon yellow — visible U-curve under bottom corners.
-   * Groups: centre+API siblings · any 2+ kids of same parent · placed relation=sibling.
+   * Sibling connectivity (simple rules):
+   * - Yellow: between members of the SAME sibling set (Self+bros, Father+uncles, GP+his bros…)
+   * - Gold: from that set's parent(s) → each sibling (auto, like Self's parents → your bros)
    */
   type SibLn = { x1: number; y1: number; x2: number; y2: number; key: string };
   const linesSibling: SibLn[] = [];
   if (tree) {
-    const parentToKids = new Map<string, Set<string>>();
-    const addPC = (parentId: string | null | undefined, childId: string | null | undefined) => {
-      if (!parentId || !childId || parentId === childId) return;
-      if (!parentToKids.has(parentId)) parentToKids.set(parentId, new Set());
-      parentToKids.get(parentId)!.add(childId);
-    };
-    parents.forEach((par) => {
-      addPC(par.id, tree.centre.id);
-      siblings.forEach((s) => addPC(par.id, s.id));
-    });
-    children.forEach((c) => {
-      addPC(tree.centre.id, c.id);
-      spouses.forEach((sp) => addPC(sp.id, c.id));
-    });
-    levelsDown.forEach((lvl) => {
-      lvl.forEach((n) => addPC(n.via_id || n.via_child_id, n.id));
-    });
-    levelsUp.forEach((lvl) => {
-      lvl.forEach((n) => addPC(n.id, n.via_id || n.via_parent_id));
-    });
-    // Yellow centre row: ONLY Self + Self's brothers/sisters (never uncles)
-    const centreRow = new Set<string>([tree.centre.id]);
-    siblings.forEach((s) => centreRow.add(s.id));
-    parentToKids.set("__centre_row__", centreRow);
-
-    if (children.length >= 2) {
-      const merged = new Set<string>();
-      children.forEach((c) => merged.add(c.id));
-      parentToKids.set(tree.centre.id, merged);
-    }
-
     const pairDrawn = new Set<string>();
     const pushSib = (
       a: { id: string; x: number; top: number; w: number },
@@ -1176,7 +1149,6 @@ function VanshawaliInner() {
       pairDrawn.add(pk);
       const left = a.x <= b.x ? a : b;
       const right = a.x <= b.x ? b : a;
-      // bottom corners of bubbles
       linesSibling.push({
         x1: left.x,
         y1: left.top + BUBBLE_H - 4,
@@ -1186,36 +1158,99 @@ function VanshawaliInner() {
       });
     };
 
-    parentToKids.forEach((kidSet, parentId) => {
-      const placedKids = Array.from(kidSet)
-        .map((id) => {
-          const pos = posById.get(id);
-          return pos ? { id, x: pos.x, top: pos.top, w: pos.w } : null;
-        })
-        .filter(Boolean) as { id: string; x: number; top: number; w: number }[];
-      if (placedKids.length < 2) return;
-      const sorted = [...placedKids].sort((a, b) => a.x - b.x || a.top - b.top);
-      for (let i = 0; i < sorted.length - 1; i++) {
-        pushSib(sorted[i], sorted[i + 1]);
+    const posOf = (id: string) => {
+      const pos = posById.get(id);
+      return pos ? { id, x: pos.x, top: pos.top, w: pos.w } : null;
+    };
+
+    /** Yellow between every consecutive pair in a sibling set */
+    const linkSiblingSet = (ids: string[]) => {
+      const placedSet = ids.map(posOf).filter(Boolean) as {
+        id: string;
+        x: number;
+        top: number;
+        w: number;
+      }[];
+      if (placedSet.length < 2) return;
+      placedSet.sort((a, b) => a.x - b.x || a.top - b.top);
+      for (let i = 0; i < placedSet.length - 1; i++) {
+        pushSib(placedSet[i], placedSet[i + 1]);
       }
-      // gold parent→child for real parents (not synthetic keys)
-      if (parentId.startsWith("__")) return;
+    };
+
+    /** Gold parent → child if both placed and line not already drawn */
+    const goldParentChild = (parentId: string, childId: string) => {
+      if (!parentId || !childId || parentId === childId) return;
       const pp = posById.get(parentId);
-      if (!pp) return;
-      placedKids.forEach((kid) => {
-        if (linesBlood.some((ln) => ln.key === `b-${kid.id}` || ln.key === `sibp-${parentId}-${kid.id}`))
-          return;
-        const start = undock(pp.x, pp.top, "down");
-        const end = dock(kid.x, kid.top, kid.w, "up", null, "child");
-        linesBlood.push({
-          x1: start.x,
-          y1: start.y,
-          x2: end.x,
-          y2: end.y,
-          key: `sibp-${parentId}-${kid.id}`,
-        });
+      const cp = posById.get(childId);
+      if (!pp || !cp) return;
+      const key = `sibp-${parentId}-${childId}`;
+      if (linesBlood.some((ln) => ln.key === key || ln.key === `b-${childId}`)) return;
+      const childBelow = cp.top >= pp.top;
+      const start = undock(pp.x, pp.top, childBelow ? "down" : "up");
+      const end = dock(cp.x, cp.top, cp.w, childBelow ? "up" : "down", null, "child");
+      // skip zero-length / NaN
+      if (![start.x, start.y, end.x, end.y].every((n) => Number.isFinite(n))) return;
+      if (Math.hypot(end.x - start.x, end.y - start.y) < 4) return;
+      linesBlood.push({
+        x1: start.x,
+        y1: start.y,
+        x2: end.x,
+        y2: end.y,
+        key,
       });
+    };
+
+    // --- Group 1: Self + Self siblings ---
+    const selfGroup = [tree.centre.id, ...siblings.map((s) => s.id)];
+    linkSiblingSet(selfGroup);
+    parents.forEach((par) => {
+      selfGroup.forEach((cid) => goldParentChild(par.id, cid));
     });
+
+    // --- Group 2+: each owner in siblings_of (Father+uncles, GP+his brothers…) ---
+    const so = tree.siblings_of || {};
+    for (const [ownerId, list] of Object.entries(so)) {
+      if (ownerId === tree.centre.id) continue;
+      const setIds = [ownerId, ...list.map((s) => s.id)];
+      linkSiblingSet(setIds);
+
+      // Parents of this sibling set:
+      // 1) via_id on any sibling node (API parent)
+      // 2) levels_up nodes that parent the owner
+      const parentIds = new Set<string>();
+      for (const s of list) {
+        if (s.via_id) parentIds.add(s.via_id);
+        if (s.via_parent_id) parentIds.add(s.via_parent_id);
+      }
+      const levels = tree.levels_up || [];
+      for (let d = 0; d < levels.length; d++) {
+        if (!levels[d].some((n) => n.id === ownerId)) continue;
+        for (const n of levels[d + 1] || []) {
+          if (n.via_id === ownerId || n.via_parent_id === ownerId) parentIds.add(n.id);
+        }
+      }
+      // also any placed parent that lists owner as via child in levels_up
+      for (const lvl of levels) {
+        for (const n of lvl) {
+          if (
+            (n.relation === "father" || n.relation === "mother") &&
+            (n.via_id === ownerId || n.via_parent_id === ownerId)
+          ) {
+            parentIds.add(n.id);
+          }
+        }
+      }
+
+      Array.from(parentIds).forEach((pid) => {
+        setIds.forEach((cid) => goldParentChild(pid, cid));
+      });
+    }
+
+    // Own children sibling yellow (if 2+)
+    if (children.length >= 2) {
+      linkSiblingSet(children.map((c) => c.id));
+    }
   }
 
   if (linesSibling.length) {
