@@ -1036,40 +1036,65 @@ function VanshawaliInner() {
   // room under centre row for sibling U-curves
   H = Math.max(H, yMid + BUBBLE_H + 36);
 
-  // Place siblings of non-self (uncle/aunt): SAME gen colour as owner — NOT self yellow
+  // Place siblings of non-self members
+  // LOCK: only colour rule change for SELF GENERATION —
+  //   Self = self colour · Spouse = pink · Self siblings = yellow · Spouse siblings = yellow
+  // Uncles/aunts etc. keep owner generation colour (unchanged)
   const sibOf = tree?.siblings_of || {};
   const centreSibIds = new Set((tree?.siblings || []).map((s) => s.id));
   if (tree) centreSibIds.add(tree.centre.id);
+  const centreSpouseIds = new Set((spousesList || []).map((s) => s.id));
   const placedIds = new Set(placed.map((p) => p.n.id));
   if (tree) placedIds.add(tree.centre.id);
   for (const [ownerId, list] of Object.entries(sibOf)) {
-    if (ownerId === tree?.centre.id) continue;
+    if (ownerId === tree?.centre.id) continue; // centre siblings already on row
     const owner = posById.get(ownerId);
     if (!owner) continue;
     const ownerGen = (placed.find((p) => p.n.id === ownerId)?.genKey ||
       "up1") as keyof typeof GEN_STYLE;
+    // Spouse of centre → same generation as Self → yellow sibling colour
+    const isCentreSpouse = centreSpouseIds.has(ownerId);
+    const genForSib = isCentreSpouse ? ("sibling" as keyof typeof GEN_STYLE) : ownerGen;
     let i = 0;
     for (const s of list) {
       if (placedIds.has(s.id)) continue;
       if (centreSibIds.has(s.id)) continue;
       const w = nameW(s.display_name);
-      const side = i % 2 === 0 ? -1 : 1;
-      const rank = Math.floor(i / 2) + 1;
-      const x = owner.x + side * (owner.w / 2 + w / 2 + 20 + rank * 10);
-      const top = owner.top + (side < 0 ? -4 : 4) * (rank % 2);
-      // via_id = real parent (from API), never the brother (owner)
       const parentVia = s.via_id || s.via_parent_id || undefined;
-      placeNode(
-        {
-          ...s,
-          relation: "sibling",
-          via_id: parentVia,
-          via_parent_id: parentVia,
-        },
-        x,
-        top,
-        ownerGen
-      );
+      if (isCentreSpouse) {
+        // same row as Self/Spouse (yMid), to the right of spouse cluster
+        const side = i % 2 === 0 ? 1 : -1;
+        const rank = Math.floor(i / 2) + 1;
+        const x = owner.x + side * (owner.w / 2 + w / 2 + 18 + rank * 10);
+        placeNode(
+          {
+            ...s,
+            relation: "sibling",
+            via_id: parentVia,
+            via_parent_id: parentVia,
+          },
+          x,
+          yMid,
+          genForSib
+        );
+        contentW = Math.max(contentW, x + w / 2 + pad);
+      } else {
+        const side = i % 2 === 0 ? -1 : 1;
+        const rank = Math.floor(i / 2) + 1;
+        const x = owner.x + side * (owner.w / 2 + w / 2 + 20 + rank * 10);
+        const top = owner.top + (side < 0 ? -4 : 4) * (rank % 2);
+        placeNode(
+          {
+            ...s,
+            relation: "sibling",
+            via_id: parentVia,
+            via_parent_id: parentVia,
+          },
+          x,
+          top,
+          genForSib
+        );
+      }
       placedIds.add(s.id);
       i++;
     }
