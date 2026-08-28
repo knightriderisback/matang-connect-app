@@ -1513,8 +1513,8 @@ function VanshawaliInner() {
           animation: sibTravel 1.4s linear infinite;
         }
       `}</style>
-      {/* SA edit toggle — left corner */}
-      <div className="absolute top-3 left-3 z-30 flex flex-col gap-1.5">
+      {/* SA edit / Arrange — must sit ABOVE header (z-50) or clicks die */}
+      <div className="absolute top-3 left-3 z-[70] flex flex-col gap-1.5 pointer-events-auto">
         {isSA && !isOwner && (
           <button
             type="button"
@@ -1532,8 +1532,12 @@ function VanshawaliInner() {
         {(canEdit || isOwner || isSA) && (
           <button
             type="button"
-            onClick={toggleArrange}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold shadow border ${
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleArrange();
+            }}
+            className={`relative z-[70] flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold shadow border pointer-events-auto ${
               arrangeMode
                 ? "bg-emerald-500 text-white border-emerald-600"
                 : "bg-white/90 text-gray-600 border-gray-200"
@@ -1550,9 +1554,9 @@ function VanshawaliInner() {
         )}
       </div>
 
-      <div className="px-3 pt-2 pb-1 relative z-50">
-        {/* Heritage 3D gold letters — centre; room for side buttons */}
-        <div className="flex justify-center w-full relative z-50 px-14">
+      <div className="px-3 pt-2 pb-1 relative z-20 pointer-events-none">
+        {/* Heritage letters — centre; does not capture clicks over Arrange */}
+        <div className="flex justify-center w-full px-14">
           <div className="vansh-heritage" role="heading" aria-level={1}>
             <p className="vh-title">Vansh Vruksh</p>
             <p className="vh-sub">Vanshavali</p>
@@ -1567,7 +1571,7 @@ function VanshawaliInner() {
           {canEdit ? "Edit mode" : "View only"}
         </p>
         {/* Legend overlays — does not push tree layout */}
-        <details className="absolute right-2 top-2 z-[60] max-w-[min(100%,280px)] rounded-xl border border-amber-200/40 bg-transparent px-2.5 py-1.5 text-[10px] text-gray-600">
+        <details className="absolute right-2 top-2 z-[70] max-w-[min(100%,280px)] rounded-xl border border-amber-200/40 bg-transparent px-2.5 py-1.5 text-[10px] text-gray-600 pointer-events-auto">
           <summary className="cursor-pointer font-semibold text-amber-900/90 text-[11px] list-none">
             {lang === "hi" ? "◎ गाइड" : "◎ Guide"}
           </summary>
