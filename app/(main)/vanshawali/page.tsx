@@ -482,8 +482,8 @@ function VanshawaliInner() {
       setMovePromptId(null);
       toast(
         lang === "hi"
-          ? "Arrange ON — बबल पर टैप → खींचें → छोड़कर पिन"
-          : "Arrange ON — tap a bubble → drag → release to pin",
+          ? "Arrange ON — बबल टैप → Move → खींचकर पिन"
+          : "Arrange ON — tap bubble → Move → drag to pin",
         "success"
       );
     }
@@ -1383,16 +1383,10 @@ function VanshawaliInner() {
     return (
       <button
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
+        onClick={() => {
           if (arrangeMode) {
-            setMoveTargetId(n.id);
-            setMovePromptId(null);
+            setMovePromptId(n.id);
             setSelected(null);
-            toast(
-              lang === "hi" ? "खींचकर नई जगह · छोड़ें = पिन" : "Drag to place · release = pin",
-              "success"
-            );
             return;
           }
           setSelected(n);
@@ -1569,16 +1563,8 @@ function VanshawaliInner() {
             ? "आपके परिवार की पीढ़ियाँ — ऊपर पूर्वज, बीच में आप, नीचे संतान। हर रेखा एक रिश्ता है।"
             : "Your family across generations — ancestors above, you at centre, children below. Every line is a living bond."}
         </p>
-        <p className="text-[10px] text-center mt-0.5">
-          {arrangeMode ? (
-            <span className="text-emerald-600 font-semibold">
-              {lang === "hi"
-                ? "Arrange: बबल टैप → खींचें → छोड़ें = पिन"
-                : "Arrange: tap bubble → drag → release = pin"}
-            </span>
-          ) : (
-            <span className="text-gray-400">{canEdit ? "Edit mode" : "View only"}</span>
-          )}
+        <p className="text-[10px] text-gray-400 text-center mt-0.5">
+          {canEdit ? "Edit mode" : "View only"}
         </p>
         {/* Legend overlays — does not push tree layout */}
         <details className="absolute right-2 top-2 z-[60] max-w-[min(100%,280px)] rounded-xl border border-amber-200/40 bg-transparent px-2.5 py-1.5 text-[10px] text-gray-600">
@@ -1958,8 +1944,7 @@ function VanshawaliInner() {
                     onClick={(e) => {
                       if (arrangeMode) {
                         e.stopPropagation();
-                        setMoveTargetId(pl.n.id);
-                        setMovePromptId(null);
+                        setMovePromptId(pl.n.id);
                         setSelected(null);
                         return;
                       }
@@ -2060,11 +2045,9 @@ function VanshawaliInner() {
                   setMovePromptId(null);
                 }
               }}
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={() => {
                 if (arrangeMode) {
-                  setMoveTargetId(tree.centre.id);
-                  setMovePromptId(null);
+                  setMovePromptId(tree.centre.id);
                   setSelected(null);
                   return;
                 }
