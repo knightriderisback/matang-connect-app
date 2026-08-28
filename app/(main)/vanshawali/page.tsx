@@ -1027,26 +1027,37 @@ function VanshawaliInner() {
   // room under centre row for sibling U-curves
   H = Math.max(H, yMid + BUBBLE_H + 36);
 
-  // Place siblings of non-self members (e.g. father's brother = uncle)
+  // Place siblings of non-self (uncle/aunt): SAME gen colour as owner — NOT self yellow
   const sibOf = tree?.siblings_of || {};
+  const centreSibIds = new Set((tree?.siblings || []).map((s) => s.id));
+  if (tree) centreSibIds.add(tree.centre.id);
   const placedIds = new Set(placed.map((p) => p.n.id));
   if (tree) placedIds.add(tree.centre.id);
   for (const [ownerId, list] of Object.entries(sibOf)) {
-    if (ownerId === tree?.centre.id) continue; // centre siblings already placed
+    if (ownerId === tree?.centre.id) continue;
     const owner = posById.get(ownerId);
     if (!owner) continue;
-    const genKey = (placed.find((p) => p.n.id === ownerId)?.genKey || "up1") as keyof typeof GEN_STYLE;
+    const ownerGen = (placed.find((p) => p.n.id === ownerId)?.genKey ||
+      "up1") as keyof typeof GEN_STYLE;
     let i = 0;
     for (const s of list) {
       if (placedIds.has(s.id)) continue;
-      // skip if already in centre siblings
-      if ((tree?.siblings || []).some((x) => x.id === s.id)) continue;
+      if (centreSibIds.has(s.id)) continue;
       const w = nameW(s.display_name);
       const side = i % 2 === 0 ? -1 : 1;
       const rank = Math.floor(i / 2) + 1;
-      const x = owner.x + side * (owner.w / 2 + w / 2 + 16 + rank * 8);
-      const top = owner.top + (i % 3) * 6;
-      placeNode({ ...s, relation: "sibling", via_id: ownerId }, x, top, "sibling");
+      const x = owner.x + side * (owner.w / 2 + w / 2 + 20 + rank * 10);
+      const top = owner.top + (side < 0 ? -4 : 4) * (rank % 2);
+      placeNode(
+        {
+          ...s,
+          relation: "sibling",
+          via_id: s.via_id || s.via_parent_id || ownerId,
+        },
+        x,
+        top,
+        ownerGen
+      );
       placedIds.add(s.id);
       i++;
     }
@@ -1072,10 +1083,12 @@ function VanshawaliInner() {
 
   const linesBlood: { x1: number; y1: number; x2: number; y2: number; key: string }[] = [];
 
-  // Blood lines: parent links
+  // Blood lines (Self + Self-siblings skip; uncles still get gold from parent)
+  const selfSibOnly = new Set<string>((tree?.siblings || []).map((s) => s.id));
+  if (tree) selfSibOnly.add(tree.centre.id);
   placed.forEach((pl) => {
-    if (pl.n.relation === "spouse" || pl.n.relation === "sibling" || pl.n.relation === "self")
-      return;
+    if (pl.n.relation === "spouse" || pl.n.relation === "self") return;
+    if (pl.n.relation === "sibling" && selfSibOnly.has(pl.n.id)) return;
     const via = pl.n.via_id || pl.n.via_parent_id || pl.n.via_child_id;
     let parentPos = via ? posById.get(via) : undefined;
     if (!parentPos && parents.some((p) => p.id === pl.n.id) && tree) {
@@ -1142,12 +1155,9 @@ function VanshawaliInner() {
     levelsUp.forEach((lvl) => {
       lvl.forEach((n) => addPC(n.id, n.via_id || n.via_parent_id));
     });
-    // Centre row: self + every placed sibling bubble
+    // Yellow centre row: ONLY Self + Self's brothers/sisters (never uncles)
     const centreRow = new Set<string>([tree.centre.id]);
     siblings.forEach((s) => centreRow.add(s.id));
-    placed.forEach((pl) => {
-      if (pl.n.relation === "sibling") centreRow.add(pl.n.id);
-    });
     parentToKids.set("__centre_row__", centreRow);
 
     if (children.length >= 2) {
@@ -1797,8 +1807,7 @@ function VanshawaliInner() {
               let tilt = 0;
               const leftOfSelf = pl.x < centreX - 4;
               const rightOfSelf = pl.x > centreX + 4;
-              if (pl.n.relation === "sibling") {
-                // LEFT = upar · RIGHT = neeche
+              if (pl.n.relation === "sibling" && selfSibOnly.has(pl.n.id)) {
                 if (leftOfSelf) tilt = 8;
                 else if (rightOfSelf) tilt = -8;
                 else tilt = 5;
@@ -2402,32 +2411,43 @@ function VanshawaliInner() {
                     type="button"
                     className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
                     onClick={() => {
-                      // Sibling OF selected = child of selected's parent (not of selected!)
+                      // Sibling OF selected = child of selected's PARENTS
                       const pid = selected.id;
                       let parentId: string | undefined;
-                      // parents of centre
                       if (pid === tree?.centre.id) {
-                        parentId = (tree?.parents || []).find((x) => x.relation === "father")?.id
-                          || (tree?.parents || []).find((x) => x.relation === "mother")?.id;
+                        parentId =
+                          (tree?.parents || []).find((x) => x.relation === "father")?.id ||
+                          (tree?.parents || []).find((x) => x.relation === "mother")?.id;
                       } else {
-                        // grandparents / levels_up nodes whose via is this person = parents of this person
-                        for (const lvl of tree?.levels_up || []) {
-                          for (const n of lvl) {
-                            if (
-                              (n.relation === "father" || n.relation === "mother") &&
-                              (n.via_id === pid || n.via_parent_id === pid)
-                            ) {
+                        const levels = tree?.levels_up || [];
+                        for (let d = 0; d < levels.length; d++) {
+                          if (!levels[d].some((n) => n.id === pid)) continue;
+                          const next = levels[d + 1] || [];
+                          for (const n of next) {
+                            if (n.via_id === pid || n.via_parent_id === pid) {
                               parentId = n.id;
                               break;
                             }
                           }
                           if (parentId) break;
                         }
-                        // selected is child of centre
+                        if (!parentId) {
+                          for (const lvl of levels) {
+                            for (const n of lvl) {
+                              if (
+                                (n.relation === "father" || n.relation === "mother") &&
+                                (n.via_id === pid || n.via_parent_id === pid)
+                              ) {
+                                parentId = n.id;
+                                break;
+                              }
+                            }
+                            if (parentId) break;
+                          }
+                        }
                         if (!parentId && (tree?.children || []).some((c) => c.id === pid)) {
                           parentId = tree?.centre.id;
                         }
-                        // selected is grandchild — via_child chain
                         if (!parentId) {
                           for (const lvl of tree?.levels_down || []) {
                             for (const n of lvl) {
