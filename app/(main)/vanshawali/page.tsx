@@ -482,8 +482,8 @@ function VanshawaliInner() {
       setMovePromptId(null);
       toast(
         lang === "hi"
-          ? "Arrange ON — बबल टैप → Move → खींचकर पिन"
-          : "Arrange ON — tap bubble → Move → drag to pin",
+          ? "Arrange ON — बबल पर टैप → खींचें → छोड़कर पिन"
+          : "Arrange ON — tap a bubble → drag → release to pin",
         "success"
       );
     }
@@ -1383,10 +1383,16 @@ function VanshawaliInner() {
     return (
       <button
         type="button"
-        onClick={() => {
+        onClick={(e) => {
+          e.stopPropagation();
           if (arrangeMode) {
-            setMovePromptId(n.id);
+            setMoveTargetId(n.id);
+            setMovePromptId(null);
             setSelected(null);
+            toast(
+              lang === "hi" ? "खींचकर नई जगह · छोड़ें = पिन" : "Drag to place · release = pin",
+              "success"
+            );
             return;
           }
           setSelected(n);
@@ -1452,82 +1458,55 @@ function VanshawaliInner() {
           z-index: 0;
           user-select: none;
         }
-        .vansh-nameplate {
-          display: inline-flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 8px 18px 10px;
-          border-radius: 10px;
-          background:
-            linear-gradient(165deg, #f3d27a 0%, #e0b84a 22%, #c9961a 55%, #a67c0e 78%, #d4a84a 100%);
-          box-shadow:
-            0 1px 0 rgba(255,230,150,0.7) inset,
-            0 -2px 0 rgba(90,60,10,0.35) inset,
-            0 3px 0 #8a6914,
-            0 6px 14px rgba(0,0,0,0.22);
-          border: 1.5px solid #9a7420;
-          position: relative;
-          max-width: min(58vw, 220px);
+        /* Heritage 3D gold lettering — no plate */
+        .vansh-heritage {
+          text-align: center;
+          line-height: 1.05;
+          padding: 2px 8px;
         }
-        .vansh-nameplate::before,
-        .vansh-nameplate::after {
-          content: "";
-          position: absolute;
-          width: 14px;
-          height: 14px;
-          border-color: rgba(90, 55, 8, 0.45);
-          border-style: solid;
-          pointer-events: none;
-        }
-        .vansh-nameplate::before {
-          top: 5px; left: 5px;
-          border-width: 1.5px 0 0 1.5px;
-          border-radius: 4px 0 0 0;
-        }
-        .vansh-nameplate::after {
-          bottom: 5px; right: 5px;
-          border-width: 0 1.5px 1.5px 0;
-          border-radius: 0 0 4px 0;
-        }
-        .vansh-nameplate .np-title {
+        .vansh-heritage .vh-title {
           margin: 0;
-          font-size: 13px;
+          font-family: Georgia, "Times New Roman", "Palatino Linotype", serif;
+          font-size: clamp(1.15rem, 5.2vw, 1.55rem);
           font-weight: 800;
-          letter-spacing: 0.06em;
-          line-height: 1.15;
-          color: #2a1a00;
-          text-shadow: 0 1px 0 rgba(255,235,180,0.55), 0 -1px 0 rgba(0,0,0,0.18);
-          white-space: nowrap;
+          letter-spacing: 0.04em;
+          background: linear-gradient(
+            175deg,
+            #fff6d0 0%,
+            #ffe08a 18%,
+            #e8b84a 40%,
+            #c4921a 62%,
+            #8b6914 82%,
+            #f0d070 100%
+          );
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+          filter: drop-shadow(0 1px 0 #5c4010)
+            drop-shadow(0 2px 0 #3d2a08)
+            drop-shadow(0 3px 1px rgba(0,0,0,0.35));
         }
-        .vansh-nameplate .np-div {
-          width: 72%;
-          height: 1px;
-          margin: 4px 0 3px;
-          background: linear-gradient(90deg, transparent, #5c4010 20%, #5c4010 80%, transparent);
-          position: relative;
-          opacity: 0.75;
-        }
-        .vansh-nameplate .np-div::after {
-          content: "✦";
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          transform: translate(-50%, -50%);
-          font-size: 7px;
-          color: #4a3208;
-          background: transparent;
-          line-height: 1;
-        }
-        .vansh-nameplate .np-sub {
-          margin: 0;
-          font-size: 12px;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          line-height: 1.15;
-          color: #2a1a00;
-          text-shadow: 0 1px 0 rgba(255,235,180,0.55), 0 -1px 0 rgba(0,0,0,0.18);
-          white-space: nowrap;
+        .vansh-heritage .vh-sub {
+          margin: 2px 0 0;
+          font-family: Georgia, "Times New Roman", "Palatino Linotype", serif;
+          font-size: clamp(0.95rem, 4.2vw, 1.25rem);
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          background: linear-gradient(
+            175deg,
+            #fff8dc 0%,
+            #f0d060 30%,
+            #c9a227 55%,
+            #9a7010 80%,
+            #e8c860 100%
+          );
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+          filter: drop-shadow(0 1px 0 #5c4010)
+            drop-shadow(0 2px 0 #3d2a08)
+            drop-shadow(0 2px 1px rgba(0,0,0,0.3));
         }
         @keyframes sibTravel {
           to { stroke-dashoffset: -120; }
@@ -1578,12 +1557,11 @@ function VanshawaliInner() {
       </div>
 
       <div className="px-3 pt-2 pb-1 relative z-50">
-        {/* Compact gold nameplate (CSS) — centre; room for Edit / Arrange / Guide */}
+        {/* Heritage 3D gold letters — centre; room for side buttons */}
         <div className="flex justify-center w-full relative z-50 px-14">
-          <div className="vansh-nameplate" role="heading" aria-level={1}>
-            <p className="np-title">Vansh Vruksh</p>
-            <div className="np-div" aria-hidden />
-            <p className="np-sub">Vanshavali</p>
+          <div className="vansh-heritage" role="heading" aria-level={1}>
+            <p className="vh-title">Vansh Vruksh</p>
+            <p className="vh-sub">Vanshavali</p>
           </div>
         </div>
         <p className="text-[11px] text-gray-500 leading-snug mt-1.5 text-center px-2 max-w-md mx-auto">
@@ -1591,8 +1569,16 @@ function VanshawaliInner() {
             ? "आपके परिवार की पीढ़ियाँ — ऊपर पूर्वज, बीच में आप, नीचे संतान। हर रेखा एक रिश्ता है।"
             : "Your family across generations — ancestors above, you at centre, children below. Every line is a living bond."}
         </p>
-        <p className="text-[10px] text-gray-400 text-center mt-0.5">
-          {canEdit ? "Edit mode" : "View only"}
+        <p className="text-[10px] text-center mt-0.5">
+          {arrangeMode ? (
+            <span className="text-emerald-600 font-semibold">
+              {lang === "hi"
+                ? "Arrange: बबल टैप → खींचें → छोड़ें = पिन"
+                : "Arrange: tap bubble → drag → release = pin"}
+            </span>
+          ) : (
+            <span className="text-gray-400">{canEdit ? "Edit mode" : "View only"}</span>
+          )}
         </p>
         {/* Legend overlays — does not push tree layout */}
         <details className="absolute right-2 top-2 z-[60] max-w-[min(100%,280px)] rounded-xl border border-amber-200/40 bg-transparent px-2.5 py-1.5 text-[10px] text-gray-600">
@@ -1972,7 +1958,8 @@ function VanshawaliInner() {
                     onClick={(e) => {
                       if (arrangeMode) {
                         e.stopPropagation();
-                        setMovePromptId(pl.n.id);
+                        setMoveTargetId(pl.n.id);
+                        setMovePromptId(null);
                         setSelected(null);
                         return;
                       }
@@ -2073,9 +2060,11 @@ function VanshawaliInner() {
                   setMovePromptId(null);
                 }
               }}
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (arrangeMode) {
-                  setMovePromptId(tree.centre.id);
+                  setMoveTargetId(tree.centre.id);
+                  setMovePromptId(null);
                   setSelected(null);
                   return;
                 }
