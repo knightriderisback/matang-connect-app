@@ -470,12 +470,17 @@ function VanshawaliInner() {
     });
   }, [loading, tree, vw, vh]);
 
-  const saveArrangement = () => {
+  /** Persist pinned positions — stay until user moves again */
+  const persistFloat = (next: Record<string, { x: number; top: number }>) => {
     if (typeof window !== "undefined" && rootId) {
       try {
-        localStorage.setItem(`vansh-float-${rootId}`, JSON.stringify(floatPos));
+        localStorage.setItem(`vansh-float-${rootId}`, JSON.stringify(next));
       } catch (_) {}
     }
+  };
+
+  const saveArrangement = () => {
+    persistFloat(floatPos);
     setArrangeMode(false);
     setMoveTargetId(null);
     setMovePromptId(null);
@@ -907,9 +912,10 @@ function VanshawaliInner() {
     });
   });
 
-  // —— Global no-overlap resolve (may expand contentW) ——
+  // —— Global no-overlap resolve (pinned / arranged bubbles never auto-move) ——
   {
     type Box = { id: string; x: number; top: number; w: number };
+    const pinnedIds = new Set(Object.keys(floatPos));
     const boxes: Box[] = placed.map((pl) => ({
       id: pl.n.id,
       x: pl.x,
@@ -924,6 +930,8 @@ function VanshawaliInner() {
         for (let j = i + 1; j < boxes.length; j++) {
           const a = boxes[i];
           const b = boxes[j];
+          // User-arranged positions are locked until they Move again
+          if (pinnedIds.has(a.id) || pinnedIds.has(b.id)) continue;
           const ax0 = a.x - a.w / 2;
           const ax1 = a.x + a.w / 2;
           const bx0 = b.x - b.w / 2;
@@ -1983,7 +1991,14 @@ function VanshawaliInner() {
                       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
                     } catch (_) {}
                     if (d?.moved && moveTargetId === pl.n.id) {
-                      // pinned at drop
+                      const dx = (e.clientX - d.startX) / zoom;
+                      const dy = (e.clientY - d.startY) / zoom;
+                      const pos = { x: d.origX + dx, top: d.origY + dy };
+                      setFloatPos((prev) => {
+                        const next = { ...prev, [d.id]: pos };
+                        persistFloat(next);
+                        return next;
+                      });
                       setMoveTargetId(null);
                       setMovePromptId(null);
                     }
@@ -2090,6 +2105,14 @@ function VanshawaliInner() {
                   (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
                 } catch (_) {}
                 if (d?.moved && moveTargetId === tree.centre.id) {
+                  const dx = (e.clientX - d.startX) / zoom;
+                  const dy = (e.clientY - d.startY) / zoom;
+                  const pos = { x: d.origX + dx, top: d.origY + dy };
+                  setFloatPos((prev) => {
+                    const next = { ...prev, [d.id]: pos };
+                    persistFloat(next);
+                    return next;
+                  });
                   setMoveTargetId(null);
                   setMovePromptId(null);
                 }
