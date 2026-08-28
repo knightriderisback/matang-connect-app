@@ -1452,15 +1452,82 @@ function VanshawaliInner() {
           z-index: 0;
           user-select: none;
         }
-        .vansh-heading-plate-img {
-          display: block;
-          margin: 0 auto;
-          width: min(92vw, 420px);
-          height: auto;
-          object-fit: contain;
+        .vansh-nameplate {
+          display: inline-flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 8px 18px 10px;
+          border-radius: 10px;
+          background:
+            linear-gradient(165deg, #f3d27a 0%, #e0b84a 22%, #c9961a 55%, #a67c0e 78%, #d4a84a 100%);
+          box-shadow:
+            0 1px 0 rgba(255,230,150,0.7) inset,
+            0 -2px 0 rgba(90,60,10,0.35) inset,
+            0 3px 0 #8a6914,
+            0 6px 14px rgba(0,0,0,0.22);
+          border: 1.5px solid #9a7420;
+          position: relative;
+          max-width: min(58vw, 220px);
+        }
+        .vansh-nameplate::before,
+        .vansh-nameplate::after {
+          content: "";
+          position: absolute;
+          width: 14px;
+          height: 14px;
+          border-color: rgba(90, 55, 8, 0.45);
+          border-style: solid;
           pointer-events: none;
-          user-select: none;
-          filter: drop-shadow(0 4px 12px rgba(0,0,0,0.25));
+        }
+        .vansh-nameplate::before {
+          top: 5px; left: 5px;
+          border-width: 1.5px 0 0 1.5px;
+          border-radius: 4px 0 0 0;
+        }
+        .vansh-nameplate::after {
+          bottom: 5px; right: 5px;
+          border-width: 0 1.5px 1.5px 0;
+          border-radius: 0 0 4px 0;
+        }
+        .vansh-nameplate .np-title {
+          margin: 0;
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          line-height: 1.15;
+          color: #2a1a00;
+          text-shadow: 0 1px 0 rgba(255,235,180,0.55), 0 -1px 0 rgba(0,0,0,0.18);
+          white-space: nowrap;
+        }
+        .vansh-nameplate .np-div {
+          width: 72%;
+          height: 1px;
+          margin: 4px 0 3px;
+          background: linear-gradient(90deg, transparent, #5c4010 20%, #5c4010 80%, transparent);
+          position: relative;
+          opacity: 0.75;
+        }
+        .vansh-nameplate .np-div::after {
+          content: "✦";
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%);
+          font-size: 7px;
+          color: #4a3208;
+          background: transparent;
+          line-height: 1;
+        }
+        .vansh-nameplate .np-sub {
+          margin: 0;
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          line-height: 1.15;
+          color: #2a1a00;
+          text-shadow: 0 1px 0 rgba(255,235,180,0.55), 0 -1px 0 rgba(0,0,0,0.18);
+          white-space: nowrap;
         }
         @keyframes sibTravel {
           to { stroke-dashoffset: -120; }
@@ -1511,17 +1578,15 @@ function VanshawaliInner() {
       </div>
 
       <div className="px-3 pt-2 pb-1 relative z-50">
-        {/* Full gold plate — always centred, top layer, all devices */}
-        <div className="flex justify-center w-full relative z-50">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/vanshawali-plate.png"
-            alt="Vansh Vruksh · Vanshavali"
-            className="vansh-heading-plate-img"
-            draggable={false}
-          />
+        {/* Compact gold nameplate (CSS) — centre; room for Edit / Arrange / Guide */}
+        <div className="flex justify-center w-full relative z-50 px-14">
+          <div className="vansh-nameplate" role="heading" aria-level={1}>
+            <p className="np-title">Vansh Vruksh</p>
+            <div className="np-div" aria-hidden />
+            <p className="np-sub">Vanshavali</p>
+          </div>
         </div>
-        <p className="text-[11px] text-gray-500 leading-snug mt-2 text-center px-2 max-w-md mx-auto">
+        <p className="text-[11px] text-gray-500 leading-snug mt-1.5 text-center px-2 max-w-md mx-auto">
           {lang === "hi"
             ? "आपके परिवार की पीढ़ियाँ — ऊपर पूर्वज, बीच में आप, नीचे संतान। हर रेखा एक रिश्ता है।"
             : "Your family across generations — ancestors above, you at centre, children below. Every line is a living bond."}
