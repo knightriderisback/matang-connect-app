@@ -1154,22 +1154,51 @@ function VanshawaliInner() {
     }
   });
 
-  // Dual-parent: centre spouses → centre children only (less spaghetti)
-  spouses.forEach((sp) => {
-    const spos = posById.get(sp.id);
-    if (!spos) return;
-    children.forEach((c) => {
-      const cp = posById.get(c.id);
-      if (!cp) return;
-      const start = undock(spos.x, spos.top, "down");
-      const end = dock(cp.x, cp.top, cp.w, "up", c.gender, c.relation);
+  // Dual-parent (ALL generations): child of X → gold also from X's spouse(s)
+  // Same rule everywhere: add child under someone → auto blood from their spouse too
+  const spousesOfPerson = (personId: string): Node[] => {
+    if (!tree) return [];
+    if (personId === tree.centre.id) return spouses;
+    return (tree.spouses_of || {})[personId] || [];
+  };
+  const dualParentDrawn = new Set<string>();
+  const linkSpouseToChild = (parentId: string, childId: string) => {
+    spousesOfPerson(parentId).forEach((sp) => {
+      const key = `scl-${sp.id}-${childId}`;
+      if (dualParentDrawn.has(key) || linesBlood.some((ln) => ln.key === key)) return;
+      const spos = posById.get(sp.id);
+      const cp = posById.get(childId);
+      if (!spos || !cp) return;
+      dualParentDrawn.add(key);
+      const childBelow = cp.top >= spos.top - 2;
+      const start = undock(spos.x, spos.top, childBelow ? "down" : "up");
+      const end = dock(cp.x, cp.top, cp.w, childBelow ? "up" : "down", null, "child");
+      if (![start.x, start.y, end.x, end.y].every((n) => Number.isFinite(n))) return;
       linesBlood.push({
         x1: start.x,
         y1: start.y,
         x2: end.x,
         y2: end.y,
-        key: `scl-${sp.id}-${c.id}`,
+        key,
       });
+    });
+  };
+  // Centre children
+  children.forEach((c) => {
+    if (tree) linkSpouseToChild(tree.centre.id, c.id);
+  });
+  // Any placed node with via = parent (down/up children, not pure spouse tags)
+  placed.forEach((pl) => {
+    if (pl.n.relation === "spouse" || pl.n.relation === "self") return;
+    const via = pl.n.via_id || pl.n.via_parent_id || pl.n.via_child_id;
+    if (!via || via === pl.n.id) return;
+    linkSpouseToChild(via, pl.n.id);
+  });
+  // levels_down explicit parent links
+  levelsDown.forEach((lvl) => {
+    lvl.forEach((n) => {
+      const via = n.via_id || n.via_child_id;
+      if (via) linkSpouseToChild(via, n.id);
     });
   });
 
