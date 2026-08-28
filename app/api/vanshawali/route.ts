@@ -383,17 +383,15 @@ export async function POST(request: NextRequest) {
     const linkId = String(body.link_id || "");
     const link = store.links.find((l) => l.id === linkId);
     if (!link) return NextResponse.json({ error: "Link not found" }, { status: 404 });
+    const rootUser = String(body.root_user_id || session.userId);
+    const ownsTree = rootUser === session.userId || isSA;
     const centre = body.centre_person_id
       ? store.persons.find((p) => p.id === body.centre_person_id)
       : null;
-    const touches =
-      !centre ||
-      link.from_id === centre.id ||
-      link.to_id === centre.id;
     const allowed =
-      isSA ||
-      (centre?.user_id === session.userId && touches) ||
-      (link.proposed_by === session.userId && !centre);
+      ownsTree ||
+      centre?.user_id === session.userId ||
+      link.proposed_by === session.userId;
     if (!allowed) return NextResponse.json({ error: "Not allowed to remove" }, { status: 403 });
     store.links = store.links.filter((l) => l.id !== linkId);
     // prune orphan ghosts (no user_id, no remaining links)
@@ -417,9 +415,10 @@ export async function POST(request: NextRequest) {
     const personId = String(body.person_id || "");
     const person = store.persons.find((p) => p.id === personId);
     if (!person) return NextResponse.json({ error: "Person not found" }, { status: 404 });
-    // only ghost (manual) names editable freely; registered keep linked name unless SA
+    const rootUser = String(body.root_user_id || session.userId);
+    const ownsTree = rootUser === session.userId || isSA;
     const allowed =
-      isSA ||
+      ownsTree ||
       person.created_by === session.userId ||
       (!person.user_id && store.links.some((l) => {
         const other = l.from_id === personId ? l.to_id : l.to_id === personId ? l.from_id : null;
@@ -460,19 +459,14 @@ export async function POST(request: NextRequest) {
 
 
   let centre: Person;
+  // Tree owner (root profile) may edit ANY node in their vanshawali; SA always
+  const rootUser = String(body.root_user_id || body.centre_user_id || session.userId);
+  const ownsTree = rootUser === session.userId || isSA;
   if (body.centre_person_id) {
     const found = store.persons.find((p) => p.id === String(body.centre_person_id));
     if (!found) return NextResponse.json({ error: "Centre person not found" }, { status: 404 });
-    // only owner of linked user or SA
-    if (found.user_id && found.user_id !== session.userId && !isSA) {
+    if (!ownsTree) {
       return NextResponse.json({ error: "Only own tree (or Super Admin)" }, { status: 403 });
-    }
-    if (!found.user_id && !isSA) {
-      // ghost: allow if editor owns the root tree being viewed
-      const rootUser = String(body.root_user_id || session.userId);
-      if (rootUser !== session.userId && !isSA) {
-        return NextResponse.json({ error: "Only own tree (or Super Admin)" }, { status: 403 });
-      }
     }
     centre = found;
   } else {

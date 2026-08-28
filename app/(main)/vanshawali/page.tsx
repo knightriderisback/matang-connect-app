@@ -401,7 +401,9 @@ function VanshawaliInner() {
   const [saving, setSaving] = useState(false);
 
   const L = useMemo(() => REL[lang] || REL.en, [lang]);
-  const canEdit = apiCanEdit && (isOwner || (isSA && saEditMode));
+  // Profile owner always full edit on own vanshawali; SA needs Edit ON for others
+  const isOwnTree = isOwner || (!!user?.id && !!rootId && user.id === rootId);
+  const canEdit = isOwnTree || (isSA && saEditMode);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -578,6 +580,7 @@ function VanshawaliInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "edit",
+          root_user_id: rootId,
           person_id: editDraft.person_id,
           link_id: editDraft.link_id || undefined,
           display_name: editDraft.name.trim(),
@@ -613,6 +616,7 @@ function VanshawaliInner() {
           action: "remove",
           link_id: node.link_id,
           centre_person_id: tree?.centre.id,
+          root_user_id: rootId,
         }),
       });
       const data = await res.json();
@@ -1611,7 +1615,7 @@ function VanshawaliInner() {
             {saEditMode ? "Edit ON" : "Edit"}
           </button>
         )}
-        {(canEdit || isOwner || isSA) && (
+        {(canEdit || isOwnTree || isSA) && (
           <button
             type="button"
             onClick={(e) => {
