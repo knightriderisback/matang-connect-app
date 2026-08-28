@@ -1452,26 +1452,15 @@ function VanshawaliInner() {
           z-index: 0;
           user-select: none;
         }
-        .vansh-heading-plate {
-          display: inline-block;
-          padding: 6px 14px;
-          border-radius: 10px;
-          background: linear-gradient(180deg, #f6e27a 0%, #d4a017 45%, #b8860b 100%);
-          box-shadow:
-            0 2px 0 #8b6914,
-            0 4px 10px rgba(0,0,0,0.18),
-            inset 0 1px 0 rgba(255,255,255,0.55),
-            inset 0 -1px 0 rgba(0,0,0,0.15);
-          border: 1px solid rgba(146, 104, 16, 0.55);
-        }
-        .vansh-heading-plate h1 {
-          margin: 0;
-          font-size: 15px;
-          font-weight: 800;
-          letter-spacing: 0.04em;
-          white-space: nowrap;
-          color: #3d2a00;
-          text-shadow: 0 1px 0 rgba(255,255,255,0.45), 0 -1px 0 rgba(0,0,0,0.2);
+        .vansh-heading-plate-img {
+          display: block;
+          margin: 0 auto;
+          width: min(92vw, 420px);
+          height: auto;
+          object-fit: contain;
+          pointer-events: none;
+          user-select: none;
+          filter: drop-shadow(0 4px 12px rgba(0,0,0,0.25));
         }
         @keyframes sibTravel {
           to { stroke-dashoffset: -120; }
@@ -1521,24 +1510,27 @@ function VanshawaliInner() {
         )}
       </div>
 
-      <div className="px-4 pt-3 pb-1 relative z-20">
-        <div className="flex items-center justify-between gap-2 pl-14 sm:pl-0">
-          <div className="vansh-heading-plate min-w-0">
-            <h1>
-              {lang === "hi" ? "वंश-वृक्ष · वंशावली" : "Vansh-Vriksha · Vanshawali"}
-            </h1>
-          </div>
-          <p className="text-[10px] text-gray-400 shrink-0">
-            {canEdit ? "Edit mode" : "View only"}
-          </p>
+      <div className="px-3 pt-2 pb-1 relative z-50">
+        {/* Full gold plate — always centred, top layer, all devices */}
+        <div className="flex justify-center w-full relative z-50">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/vanshawali-plate.png"
+            alt="Vansh Vruksh · Vanshavali"
+            className="vansh-heading-plate-img"
+            draggable={false}
+          />
         </div>
-        <p className="text-[11px] text-gray-500 leading-snug mt-1.5 pl-14 sm:pl-0">
+        <p className="text-[11px] text-gray-500 leading-snug mt-2 text-center px-2 max-w-md mx-auto">
           {lang === "hi"
             ? "आपके परिवार की पीढ़ियाँ — ऊपर पूर्वज, बीच में आप, नीचे संतान। हर रेखा एक रिश्ता है।"
             : "Your family across generations — ancestors above, you at centre, children below. Every line is a living bond."}
         </p>
+        <p className="text-[10px] text-gray-400 text-center mt-0.5">
+          {canEdit ? "Edit mode" : "View only"}
+        </p>
         {/* Legend overlays — does not push tree layout */}
-        <details className="absolute right-3 top-3 z-40 max-w-[min(100%,280px)] rounded-xl border border-amber-200/40 bg-transparent px-2.5 py-1.5 text-[10px] text-gray-600">
+        <details className="absolute right-2 top-2 z-[60] max-w-[min(100%,280px)] rounded-xl border border-amber-200/40 bg-transparent px-2.5 py-1.5 text-[10px] text-gray-600">
           <summary className="cursor-pointer font-semibold text-amber-900/90 text-[11px] list-none">
             {lang === "hi" ? "◎ गाइड" : "◎ Guide"}
           </summary>
