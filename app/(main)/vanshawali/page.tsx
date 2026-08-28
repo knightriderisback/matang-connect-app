@@ -1218,25 +1218,31 @@ function VanshawaliInner() {
     }
   });
 
-  // Dual-parent (ALL generations): child of X → gold also from X's spouse(s)
-  // Same rule everywhere: add child under someone → auto blood from their spouse too
+  // Dual-parent ONLY for DESCENDANTS (children / down), never for parents / up
+  // Child of X → also gold from X's spouse. Father/mother of Self must NOT get spouse lines.
   const spousesOfPerson = (personId: string): Node[] => {
     if (!tree) return [];
     if (personId === tree.centre.id) return spouses;
     return (tree.spouses_of || {})[personId] || [];
   };
+  const isUpRelation = (rel?: string) =>
+    !!rel &&
+    ["father", "mother", "grandfather", "grandmother"].includes(rel);
   const dualParentDrawn = new Set<string>();
   const linkSpouseToChild = (parentId: string, childId: string) => {
+    const pp = posById.get(parentId);
+    const cp = posById.get(childId);
+    if (!pp || !cp) return;
+    // Child must sit below parent — blocks parent-of-self false dual lines
+    if (cp.top < pp.top - 2) return;
     spousesOfPerson(parentId).forEach((sp) => {
       const key = `scl-${sp.id}-${childId}`;
       if (dualParentDrawn.has(key) || linesBlood.some((ln) => ln.key === key)) return;
       const spos = posById.get(sp.id);
-      const cp = posById.get(childId);
-      if (!spos || !cp) return;
+      if (!spos) return;
       dualParentDrawn.add(key);
-      const childBelow = cp.top >= spos.top - 2;
-      const start = undock(spos.x, spos.top, childBelow ? "down" : "up");
-      const end = dock(cp.x, cp.top, cp.w, childBelow ? "up" : "down", null, "child");
+      const start = undock(spos.x, spos.top, "down");
+      const end = dock(cp.x, cp.top, cp.w, "up", null, "child");
       if (![start.x, start.y, end.x, end.y].every((n) => Number.isFinite(n))) return;
       linesBlood.push({
         x1: start.x,
@@ -1247,23 +1253,27 @@ function VanshawaliInner() {
       });
     });
   };
-  // Centre children
+  // Centre generation children only
   children.forEach((c) => {
     if (tree) linkSpouseToChild(tree.centre.id, c.id);
   });
-  // Any placed node with via = parent (down/up children, not pure spouse tags)
-  placed.forEach((pl) => {
-    if (pl.n.relation === "spouse" || pl.n.relation === "self") return;
-    const via = pl.n.via_id || pl.n.via_parent_id || pl.n.via_child_id;
-    if (!via || via === pl.n.id) return;
-    linkSpouseToChild(via, pl.n.id);
-  });
-  // levels_down explicit parent links
+  // levels_down only (grandchildren…): via = parent in the DOWN direction
   levelsDown.forEach((lvl) => {
     lvl.forEach((n) => {
+      if (isUpRelation(n.relation)) return;
       const via = n.via_id || n.via_child_id;
       if (via) linkSpouseToChild(via, n.id);
     });
+  });
+  // Other placed descendants tagged child (not father/mother/sibling/spouse)
+  placed.forEach((pl) => {
+    const rel = pl.n.relation || "";
+    if (rel === "spouse" || rel === "self" || rel === "sibling") return;
+    if (isUpRelation(rel)) return;
+    if (rel !== "child" && !rel.startsWith("child")) return;
+    const via = pl.n.via_id || pl.n.via_parent_id || pl.n.via_child_id;
+    if (!via || via === pl.n.id) return;
+    linkSpouseToChild(via, pl.n.id);
   });
 
   /**
