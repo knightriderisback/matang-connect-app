@@ -348,6 +348,7 @@ function VanshawaliInner() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const selfLayoutRef = useRef({ x: 180, y: 200 });
   const canvasSizeRef = useRef({ W: 360, H: 480, cx: 180, cy: 240 });
+  const placedLayoutRef = useRef<Record<string, { x: number; top: number }>>({});
   const didCenterRef = useRef(false);
   const [vw, setVw] = useState(360);
   const [vh, setVh] = useState(480);
@@ -471,6 +472,39 @@ function VanshawaliInner() {
       y: vh / 2 - (cH / 2) * z,
     });
   }, [loading, tree, vw, vh]);
+
+  // Auto-freeze all bubble positions — stay put until Arrange-move (survive delete/reload)
+  useEffect(() => {
+    if (loading || !tree) return;
+    const snap = placedLayoutRef.current;
+    const ids = Object.keys(snap);
+    if (!ids.length) return;
+    setFloatPos((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      ids.forEach((id) => {
+        if (!next[id] && snap[id]) {
+          next[id] = snap[id];
+          changed = true;
+        }
+      });
+      // drop positions for people no longer in tree
+      const live = new Set(ids);
+      Object.keys(next).forEach((id) => {
+        if (!live.has(id)) {
+          delete next[id];
+          changed = true;
+        }
+      });
+      if (!changed) return prev;
+      if (typeof window !== "undefined" && rootId) {
+        try {
+          localStorage.setItem(`vansh-float-${rootId}`, JSON.stringify(next));
+        } catch (_) {}
+      }
+      return next;
+    });
+  }, [loading, tree, rootId]);
 
   /** Persist pinned positions — stay until user moves again */
   const persistFloat = (next: Record<string, { x: number; top: number }>) => {
@@ -624,6 +658,19 @@ function VanshawaliInner() {
         toast(data.error || "Failed", "error");
         return;
       }
+      // Keep everyone else's place — only drop removed person pin
+      if (node.id) {
+        setFloatPos((prev) => {
+          const next = { ...prev };
+          delete next[node.id];
+          if (typeof window !== "undefined" && rootId) {
+            try {
+              localStorage.setItem(`vansh-float-${rootId}`, JSON.stringify(next));
+            } catch (_) {}
+          }
+          return next;
+        });
+      }
       setSelected(null);
       load();
     } finally {
@@ -697,9 +744,13 @@ function VanshawaliInner() {
     genKey: keyof typeof GEN_STYLE
   ) => {
     const w = nameW(n.display_name);
-    const pl: Placed = { n, x, top, w, genKey };
+    // Locked position until user Arrange-moves
+    const pinned = floatPos[n.id];
+    const fx = pinned ? pinned.x : x;
+    const ft = pinned ? pinned.top : top;
+    const pl: Placed = { n, x: fx, top: ft, w, genKey };
     placed.push(pl);
-    posById.set(n.id, { x, top, w });
+    posById.set(n.id, { x: fx, top: ft, w });
     return pl;
   };
 
@@ -1124,6 +1175,15 @@ function VanshawaliInner() {
       pl.top = fp.top;
     }
   });
+  // Snapshot for auto-freeze (delete must not reshuffle others)
+  {
+    const snapPos: Record<string, { x: number; top: number }> = {};
+    placed.forEach((pl) => {
+      snapPos[pl.n.id] = { x: pl.x, top: pl.top };
+    });
+    placedLayoutRef.current = snapPos;
+  }
+
 
   if (tree) {
     const sp = posById.get(tree.centre.id);
