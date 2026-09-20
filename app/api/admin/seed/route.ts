@@ -482,7 +482,6 @@ export async function POST() {
   }
 
   results.note =
-  results.note =
     "Demo logins: phone 9000000001 … 9000000050 · M-PIN 1234. Pending every 5th user. Re-run adds more rows (users upsert by phone).";
   return NextResponse.json({ success: true, results });
 }
