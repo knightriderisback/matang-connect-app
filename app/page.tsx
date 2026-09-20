@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
-import { LanguageToggleLight } from "@/components/shared/LanguageToggleLight";
+import { LanguageToggle } from "@/components/shared/LanguageToggle";
 
 export default function LandingPage() {
   const { t } = useI18n();
@@ -10,7 +10,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-matang-cream flex flex-col">
       <div className="p-4 flex justify-end">
-        <LanguageToggleLight />
+        <LanguageToggle variant="light" />
       </div>
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
         {/* eslint-disable-next-line @next/next/no-img-element */}
