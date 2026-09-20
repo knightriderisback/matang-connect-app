@@ -9,7 +9,19 @@ const LANGUAGES = [
   { code: "cg", label: "छग", full: "छत्तीसगढ़ी" },
 ];
 
-export function LanguageToggle() {
+const VARIANT_CLASSES: Record<"dark" | "light", string> = {
+  dark: "bg-white/15 hover:bg-white/25 border border-white/20 text-white",
+  light: "bg-matang-navy/5 border border-matang-navy/15 text-matang-navy",
+};
+
+/**
+ * Language switcher, used in two places with two looks:
+ *  - variant="dark"  → navy header (AppHeader) — default, unchanged behavior
+ *  - variant="light" → cream landing page
+ * (Previously two near-identical components: LanguageToggle + LanguageToggleLight.
+ * Merged into one on 2026-09-20 — same LANGUAGES list, same cycling logic, just themed.)
+ */
+export function LanguageToggle({ variant = "dark" }: { variant?: "dark" | "light" }) {
   const { lang, setLang } = useI18n();
   const current = LANGUAGES.find((l) => l.code === lang) || LANGUAGES[0];
   const next = () => {
@@ -22,7 +34,7 @@ export function LanguageToggle() {
     <button
       onClick={next}
       title={`Language: ${current.full} (tap to switch)`}
-      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all active:scale-95"
+      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-semibold backdrop-blur-sm transition-all active:scale-95 ${VARIANT_CLASSES[variant]}`}
     >
       <Languages size={14} />
       <span>{current.label}</span>
