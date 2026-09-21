@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, STAFF_ROLES } from "@/lib/auth/getSession";
+import { STAFF_ROLES } from "@/lib/auth/getSession";
+import { requireAuth } from "@/lib/auth/requireAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
-  if (!STAFF_ROLES.includes(session.role as any)) {
-    return NextResponse.json(
-      { error: "Scan is only for volunteer, core committee and super admin" },
-      { status: 403 }
-    );
-  }
+  const auth = await requireAuth(STAFF_ROLES);
+  if (!auth.session) return auth.response;
 
   const q = request.nextUrl.searchParams.get("q")?.trim();
   if (!q) return NextResponse.json({ error: "Query required" }, { status: 400 });
