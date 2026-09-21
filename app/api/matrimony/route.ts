@@ -1,6 +1,6 @@
 /** LOCKED — Matrimony API */
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/getSession";
+import { requireAuth } from "@/lib/auth/requireAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const STORE_KEY = "matrimony_profiles_store";
@@ -41,8 +41,9 @@ async function attachNames(supabase: any, profiles: any[]) {
 }
 
 export async function GET(request: NextRequest) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.session) return auth.response;
+  const session = auth.session;
   const gender = request.nextUrl.searchParams.get("gender");
   const supabase = createAdminClient();
 
@@ -101,8 +102,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.session) return auth.response;
+  const session = auth.session;
   const body = await request.json().catch(() => ({}));
   if (!body.gender) {
     return NextResponse.json({ error: "Gender required" }, { status: 400 });
@@ -211,8 +213,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE() {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.session) return auth.response;
+  const session = auth.session;
   const supabase = createAdminClient();
   await supabase
     .from("matrimony_profiles")
