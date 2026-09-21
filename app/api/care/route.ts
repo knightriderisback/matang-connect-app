@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, STAFF_ROLES } from "@/lib/auth/getSession";
+import { STAFF_ROLES } from "@/lib/auth/getSession";
+import { requireAuth } from "@/lib/auth/requireAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const CARE_TYPES = ["medical", "elderly", "disability", "financial", "educational", "other"] as const;
@@ -7,8 +8,8 @@ const URGENCIES = ["low", "normal", "high", "emergency"] as const;
 const STATUSES = ["open", "in_progress", "completed", "declined"] as const;
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.session) return auth.response;
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("care_requests")
@@ -36,8 +37,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.session) return auth.response;
+  const session = auth.session;
   const body = await request.json();
 
   let care_type = String(body.care_type || body.request_type || "other").toLowerCase();
@@ -81,8 +83,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.session) return auth.response;
+  const session = auth.session;
   const { id, status, assigned_to, notes } = await request.json();
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
