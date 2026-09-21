@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, STAFF_ROLES } from "@/lib/auth/getSession";
+import { STAFF_ROLES } from "@/lib/auth/getSession";
+import { requireAuth } from "@/lib/auth/requireAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /** Live schema: kosh_transactions + sahyog_kosh_contributions (no kosh_entries) */
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.session) return auth.response;
   const supabase = createAdminClient();
 
   const { data: transactions, error: txErr } = await supabase
@@ -96,10 +97,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session || !STAFF_ROLES.includes(session.role as any)) {
-    return NextResponse.json({ error: "Staff only" }, { status: 403 });
-  }
+  const auth = await requireAuth(STAFF_ROLES);
+  if (!auth.session) return auth.response;
+  const session = auth.session;
   const body = await request.json();
   const supabase = createAdminClient();
 
