@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/getSession";
+import { requireAuth } from "@/lib/auth/requireAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TITLE_OPTIONS } from "@/lib/titles";
 import { parseStaticCityId } from "@/lib/indiaLocations";
@@ -68,8 +68,9 @@ async function ensureTitleDefs(supabase: ReturnType<typeof createAdminClient>) {
 }
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.session) return auth.response;
+  const session = auth.session;
   const supabase = createAdminClient();
 
   try {
@@ -128,10 +129,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session || !["core_committee", "super_admin"].includes(session.role)) {
-    return NextResponse.json({ error: "Committee / Super Admin only" }, { status: 403 });
-  }
+  const auth = await requireAuth(["core_committee", "super_admin"]);
+  if (!auth.session) return auth.response;
+  const session = auth.session;
   const { title_key, user_id, city_id, term_start, term_end } = await request.json();
   if (!title_key || !user_id) {
     return NextResponse.json({ error: "title_key and user_id required" }, { status: 400 });
@@ -227,10 +227,8 @@ async function logHistory(
 }
 
 export async function DELETE(request: NextRequest) {
-  const session = await getSession();
-  if (!session || !["core_committee", "super_admin"].includes(session.role)) {
-    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
-  }
+  const auth = await requireAuth(["core_committee", "super_admin"]);
+  if (!auth.session) return auth.response;
   const { id } = await request.json();
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
   const supabase = createAdminClient();
