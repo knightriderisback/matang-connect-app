@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, STAFF_ROLES } from "@/lib/auth/getSession";
+import { STAFF_ROLES } from "@/lib/auth/getSession";
+import { requireAuth } from "@/lib/auth/requireAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { festivalsForYear, hasVerifiedYear, VERIFIED_YEARS } from "@/lib/hinduFestivals2026";
 
@@ -47,8 +48,9 @@ async function writeVerifiedCache(supabase: any, cache: VerifiedCache) {
 }
 
 export async function GET(request: NextRequest) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.session) return auth.response;
+  const session = auth.session;
   const supabase = createAdminClient();
 
   const year = Number(request.nextUrl.searchParams.get("year")) || new Date().getFullYear();
@@ -139,8 +141,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.session) return auth.response;
+  const session = auth.session;
 
   const body = await request.json().catch(() => ({}));
   const supabase = createAdminClient();
@@ -231,10 +234,8 @@ export async function POST(request: NextRequest) {
 
 
 export async function PATCH(request: NextRequest) {
-  const session = await getSession();
-  if (!session || !STAFF_ROLES.includes(session.role as any)) {
-    return NextResponse.json({ error: "Staff only" }, { status: 403 });
-  }
+  const auth = await requireAuth(STAFF_ROLES);
+  if (!auth.session) return auth.response;
   const body = await request.json().catch(() => ({}));
   const id = body.id;
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
@@ -279,10 +280,8 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const session = await getSession();
-  if (!session || !STAFF_ROLES.includes(session.role as any)) {
-    return NextResponse.json({ error: "Staff only" }, { status: 403 });
-  }
+  const auth = await requireAuth(STAFF_ROLES);
+  if (!auth.session) return auth.response;
   const id = request.nextUrl.searchParams.get("id") || (await request.json().catch(() => ({}))).id;
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
   const supabase = createAdminClient();
