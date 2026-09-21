@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/getSession";
+import { requireAuth } from "@/lib/auth/requireAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 function ageFromDob(dob?: string | null): number | null {
@@ -14,10 +14,9 @@ function ageFromDob(dob?: string | null): number | null {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  const auth = await requireAuth();
+  if (!auth.session) return auth.response;
+  const session = auth.session;
 
   const body = await request.json();
   const family = body.family || {};
