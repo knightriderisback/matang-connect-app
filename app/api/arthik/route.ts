@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, STAFF_ROLES } from "@/lib/auth/getSession";
+import { STAFF_ROLES } from "@/lib/auth/getSession";
+import { requireAuth } from "@/lib/auth/requireAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.session) return auth.response;
+  const session = auth.session;
   const supabase = createAdminClient();
   let q = supabase
     .from("arthik_schemes")
@@ -20,10 +22,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session || !STAFF_ROLES.includes(session.role as any)) {
-    return NextResponse.json({ error: "Staff only" }, { status: 403 });
-  }
+  const auth = await requireAuth(STAFF_ROLES);
+  if (!auth.session) return auth.response;
+  const session = auth.session;
   const body = await request.json();
   if (!body.title || !body.body) {
     return NextResponse.json({ error: "Title and body required" }, { status: 400 });
