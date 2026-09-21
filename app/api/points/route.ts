@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, STAFF_ROLES } from "@/lib/auth/getSession";
+import { STAFF_ROLES } from "@/lib/auth/getSession";
+import { requireAuth } from "@/lib/auth/requireAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const BADGE_THRESHOLDS = [
@@ -82,8 +83,9 @@ async function appendAwardLog(
 }
 
 export async function GET(request: NextRequest) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.session) return auth.response;
+  const session = auth.session;
   const supabase = createAdminClient();
 
   if (request.nextUrl.searchParams.get("users") === "1") {
@@ -222,14 +224,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
   // Award only core committee / super admin — volunteers cannot give points
-  if (!session || !["core_committee", "super_admin"].includes(session.role)) {
-    return NextResponse.json(
-      { error: "Only Core Committee / Super Admin can award points" },
-      { status: 403 }
-    );
-  }
+  const auth = await requireAuth(["core_committee", "super_admin"]);
+  if (!auth.session) return auth.response;
+  const session = auth.session;
   const body = await request.json().catch(() => ({}));
   const user_id = body.user_id || body.userId;
   const points = body.points;
