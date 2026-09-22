@@ -16,9 +16,9 @@ export default function Vanshawali3D({rootId,onClose}:{rootId:string;onClose:()=
  useEffect(()=>{let ok=true;setLoading(true);fetch("/api/vanshawali?userId="+encodeURIComponent(rootId),{cache:"no-store"}).then(r=>r.json()).then(d=>{if(!ok)return;if(!d.tree)throw Error(d.error||"Family tree unavailable");setTree(d.tree)}).catch(e=>ok&&setError(e.message||"Could not load family tree")).finally(()=>ok&&setLoading(false));return()=>{ok=false}},[rootId]);
  useEffect(()=>{if(!host.current||!tree)return;let dead=false,clean=()=>{};(async()=>{try{
  // @ts-ignore
- const THREE:any=await import(/* webpackIgnore: true */"https://esm.sh/three@0.180.0");
+ const THREE:any=await (new Function("u","return import(u)"))("https://esm.sh/three@0.180.0");
  // @ts-ignore
- const {GLTFLoader}:any=await import(/* webpackIgnore: true */"https://esm.sh/three@0.180.0/examples/jsm/loaders/GLTFLoader.js?deps=three@0.180.0");
+ const {GLTFLoader}:any=await (new Function("u","return import(u)"))("https://esm.sh/three@0.180.0/examples/jsm/loaders/GLTFLoader.js?deps=three@0.180.0");
  if(dead||!host.current)return;const el=host.current,scene=new THREE.Scene();scene.background=new THREE.Color(0x07111f);scene.fog=new THREE.FogExp2(0x07111f,.018);
  const cam=new THREE.PerspectiveCamera(42,el.clientWidth/Math.max(1,el.clientHeight),.1,500);cam.position.set(0,7,24);
  const ren=new THREE.WebGLRenderer({antialias:true,powerPreference:"high-performance"});ren.setPixelRatio(Math.min(devicePixelRatio||1,1.75));ren.setSize(el.clientWidth,el.clientHeight,false);ren.outputColorSpace=THREE.SRGBColorSpace;ren.shadowMap.enabled=true;el.appendChild(ren.domElement);
