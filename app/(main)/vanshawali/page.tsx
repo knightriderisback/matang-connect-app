@@ -49,6 +49,7 @@ import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { Plus, Trash2, X, Focus, User, Pencil, Search, ZoomIn, ZoomOut, Maximize2, Home } from "lucide-react";
+import Vanshawali3D from "@/components/vanshawali/Vanshawali3D";
 
 type Node = {
   id: string;
@@ -377,6 +378,7 @@ function VanshawaliInner() {
   const [isOwner, setIsOwner] = useState(false);
   const [saEditMode, setSaEditMode] = useState(false);
   const [selected, setSelected] = useState<Node | null>(null);
+  const [show3D, setShow3D] = useState(false);
 
   // add form
   const [draft, setDraft] = useState<{
@@ -1689,7 +1691,15 @@ function VanshawaliInner() {
           animation: sibTravel 1.4s linear infinite;
         }
       `}</style>
+      {show3D && <Vanshawali3D rootId={rootId} onClose={() => setShow3D(false)} />}
+
       {/* SA edit / Arrange — must sit ABOVE header (z-50) or clicks die */}
+      <div className="absolute top-3 right-3 z-[70] pointer-events-auto">
+        <button type="button" onClick={() => setShow3D(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold shadow border bg-slate-900 text-cyan-200 border-cyan-400/40 hover:bg-slate-800">
+          ✦ 3D Vansh Vruksh
+        </button>
+      </div>
+
       <div className="absolute top-3 left-3 z-[70] flex flex-col gap-1.5 pointer-events-auto">
         {isSA && !isOwner && (
           <button
