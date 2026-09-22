@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { allIndiaCityOptions } from "@/lib/indiaLocations";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     let data: any[] | null = null;
