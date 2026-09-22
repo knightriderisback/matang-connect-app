@@ -51,12 +51,32 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   const session = await getSession();
-  if (!session || !STAFF_ROLES.includes(session.role as any)) {
-    return NextResponse.json({ error: "Staff only" }, { status: 403 });
-  }
+  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const { id, status } = await request.json();
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
   const supabase = createAdminClient();
+
+  const { data: job, error: jobErr } = await supabase
+    .from("jobs")
+    .select("id, posted_by, city_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (jobErr || !job) {
+    return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  }
+
+  const isPoster = job.posted_by === session.userId;
+  const isSA = session.role === "super_admin";
+  const isStaffInCity =
+    STAFF_ROLES.includes(session.role as any) &&
+    session.cityId &&
+    (!job.city_id || job.city_id === session.cityId);
+
+  if (!isSA && !isPoster && !isStaffInCity) {
+    return NextResponse.json({ error: "Not authorized to modify this job" }, { status: 403 });
+  }
+
   const { error } = await supabase
     .from("jobs")
     .update({ status: status || "closed" })

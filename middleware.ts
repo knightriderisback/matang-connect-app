@@ -11,7 +11,6 @@ export async function middleware(request: NextRequest) {
   // Static assets & public files — never auth-gate these
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
     pathname === "/favicon.ico" ||
     pathname === "/manifest.json" ||
     pathname === "/manifest.webmanifest" ||
@@ -28,6 +27,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Public API endpoints that don't need user session
+  const PUBLIC_API_ROUTES = [
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/logout",
+    "/api/cities",
+    "/api/public/member",
+  ];
+
+  if (PUBLIC_API_ROUTES.includes(pathname)) {
+    return NextResponse.next();
+  }
+
   // Public marketing + history + public Digital ID cards /u/MATANG-xxx
   if (PUBLIC_ROUTES.includes(pathname) || pathname.startsWith("/u/")) {
     return NextResponse.next();
@@ -37,6 +49,9 @@ export async function middleware(request: NextRequest) {
   const session = token ? await verifySessionToken(token) : null;
 
   if (!session) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized. Valid session token required." }, { status: 401 });
+    }
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);

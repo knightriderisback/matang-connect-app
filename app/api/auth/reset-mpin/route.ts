@@ -3,6 +3,7 @@ import { getSession, STAFF_ROLES } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
 import bcrypt from "bcryptjs";
 import { writeAuditLog } from "@/lib/audit";
+import { resetAccountLockout } from "@/lib/auth/rateLimit";
 
 export async function POST(request: NextRequest) {
   const session = await getSession();
@@ -18,35 +19,85 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "userId and 4-digit newMpin required" }, { status: 400 });
   }
 
+  if (userId === session.userId) {
+    return NextResponse.json(
+      { error: "Use change-mpin to change your own M-PIN" },
+      { status: 400 }
+    );
+  }
+
   const supabase = createAdminClient();
 
-  if (session.role === "core_committee") {
-    const { data: target } = await supabase
+  if (session.role !== "super_admin") {
+    if (!session.cityId) {
+      return NextResponse.json(
+        { error: "Staff must have an assigned city to reset member M-PIN" },
+        { status: 403 }
+      );
+    }
+
+    const { data: target, error: targetErr } = await supabase
       .from("users")
-      .select("city_id")
+      .select("id, role, city_id")
       .eq("id", userId)
       .maybeSingle();
-    if (!target || target.city_id !== session.cityId) {
-      return NextResponse.json({ error: "Not authorized for this user" }, { status: 403 });
+
+    if (targetErr || !target) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (target.city_id !== session.cityId) {
+      return NextResponse.json({ error: "Not authorized for this user's city" }, { status: 403 });
+    }
+
+    if (session.role === "core_committee") {
+      if (target.role === "super_admin" || target.role === "core_committee") {
+        return NextResponse.json(
+          { error: "Core Committee cannot reset M-PIN for committee or super admin accounts" },
+          { status: 403 }
+        );
+      }
+    } else if (session.role === "volunteer") {
+      if (target.role !== "normal") {
+        return NextResponse.json(
+          { error: "Volunteers can only reset M-PIN for regular members" },
+          { status: 403 }
+        );
+      }
     }
   }
 
   const hash = await bcrypt.hash(newMpin, 10);
+  let updatedUser = null;
   const { data, error } = await supabase
     .from("users")
-    .update({ m_pin_hash: hash })
+    .update({ m_pin_hash: hash, failed_mpin_attempts: 0, mpin_locked_until: null })
     .eq("id", userId)
     .select("id, full_name")
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: "Reset failed: " + error.message }, { status: 500 });
+    const fallback = await supabase
+      .from("users")
+      .update({ m_pin_hash: hash })
+      .eq("id", userId)
+      .select("id, full_name")
+      .maybeSingle();
+    if (fallback.error) {
+      return NextResponse.json({ error: "Reset failed: " + fallback.error.message }, { status: 500 });
+    }
+    updatedUser = fallback.data;
+  } else {
+    updatedUser = data;
   }
-  if (!data) {
+
+  if (!updatedUser) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  await resetAccountLockout(supabase, userId);
+
   await writeAuditLog({ actorId: session.userId, action: "reset_mpin", targetId: userId });
 
-  return NextResponse.json({ success: true, user: data });
+  return NextResponse.json({ success: true, user: updatedUser });
 }

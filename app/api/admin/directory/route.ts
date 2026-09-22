@@ -9,7 +9,10 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
-  const all = request.nextUrl.searchParams.get("all") === "1" || session.role === "super_admin";
+  const canSeeAll =
+    request.nextUrl.searchParams.get("all") === "1" &&
+    ["core_committee", "super_admin"].includes(session.role);
+  const all = canSeeAll || session.role === "super_admin";
 
   const fullSelect =
     "id, full_name, phone, native_village, role, qr_code_id, verification_status, city_id, photo_url, gender, blood_group, education_level, occupation, about, address, cities(name), families(education_summary, employment_status, address, needs, family_members(name, relation, age, blood_group, occupation))";
@@ -23,20 +26,33 @@ export async function GET(request: NextRequest) {
   if (!all) {
     query = query.eq("verification_status", "verified");
   }
-  if (session.role !== "super_admin" && session.cityId) {
-    query = query.eq("city_id", session.cityId);
+  if (session.role !== "super_admin") {
+    if (session.cityId) {
+      query = query.eq("city_id", session.cityId);
+    } else {
+      return NextResponse.json({ users: [] });
+    }
   }
 
   let { data, error } = await query;
 
   if (error) {
-    const fallback = await supabase
+    let fallbackQuery = supabase
       .from("users")
       .select(
         "id, full_name, phone, native_village, role, verification_status, city_id, photo_url, cities(name), families(education_summary, employment_status, family_members(name, relation, age))"
       )
       .order("full_name", { ascending: true })
       .limit(500);
+
+    if (!all) {
+      fallbackQuery = fallbackQuery.eq("verification_status", "verified");
+    }
+    if (session.role !== "super_admin") {
+      fallbackQuery = fallbackQuery.eq("city_id", session.cityId);
+    }
+
+    const fallback = await fallbackQuery;
     data = fallback.data as any;
     error = fallback.error;
   }

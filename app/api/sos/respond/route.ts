@@ -76,6 +76,13 @@ export async function POST(request: NextRequest) {
   }
   const st = ALLOWED.includes(status as any) ? status : "interested";
 
+  if ((st === "fake" || st === "cancelled") && !["core_committee", "super_admin"].includes(session.role)) {
+    return NextResponse.json(
+      { error: "Only Core Committee / Super Admin can mark alerts as fake or cancelled" },
+      { status: 403 }
+    );
+  }
+
   const supabase = createAdminClient();
 
   // Load responder profile for display

@@ -15,8 +15,12 @@ export async function GET() {
     .eq("verification_status", "pending")
     .order("created_at", { ascending: true });
 
-  if (session.role === "core_committee" && session.cityId) {
-    query = query.eq("city_id", session.cityId);
+  if (session.role !== "super_admin") {
+    if (session.cityId) {
+      query = query.eq("city_id", session.cityId);
+    } else {
+      return NextResponse.json({ users: [] });
+    }
   }
 
   const { data, error } = await query;
@@ -37,10 +41,24 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  if (session.role === "core_committee") {
-    const { data: target } = await supabase.from("users").select("city_id").eq("id", userId).single();
-    if (!target || target.city_id !== session.cityId) {
+  if (session.role !== "super_admin") {
+    if (!session.cityId) {
+      return NextResponse.json({ error: "Staff must have an assigned city" }, { status: 403 });
+    }
+    const { data: target, error: targetErr } = await supabase
+      .from("users")
+      .select("id, role, city_id")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (targetErr || !target) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    if (target.city_id !== session.cityId) {
       return NextResponse.json({ error: "Not authorized for this user's city" }, { status: 403 });
+    }
+    if (target.role === "super_admin" || (session.role === "volunteer" && target.role !== "normal")) {
+      return NextResponse.json({ error: "Not authorized to modify this user" }, { status: 403 });
     }
   }
 

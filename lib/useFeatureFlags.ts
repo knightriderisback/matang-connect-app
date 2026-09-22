@@ -1,33 +1,26 @@
 "use client";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { DEFAULTS, FeatureFlags, isModuleVisible } from "./featureFlags";
+import { DEFAULTS, FeatureFlags, isModuleVisible, MODULE_FLAG } from "./featureFlags";
 import type { FeatureRoleMatrix } from "./featureRoleMatrix";
 
-/**
- * /api/flags = legacy stages (fallback)
- * /api/modules = Supabase get_my_modules (primary when available)
- * can(key): SA always true; if modules loaded → list.includes; else legacy
- */
 export function useFeatureFlags(role?: string | null) {
   const [flags, setFlags] = useState<FeatureFlags>(DEFAULTS);
   const [matrix, setMatrix] = useState<FeatureRoleMatrix | null>(null);
+  const [effective, setEffective] = useState<Record<string, boolean> | null>(null);
   const [modules, setModules] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   const applyFlags = useCallback((d: any) => {
     if (d?.flags) setFlags({ ...DEFAULTS, ...d.flags });
     if (d?.matrix && typeof d.matrix === "object") setMatrix(d.matrix);
+    if (d?.effective && typeof d.effective === "object") setEffective(d.effective);
+    if (Array.isArray(d?.memberModules)) setModules(d.memberModules.map(String));
   }, []);
 
   const applyModules = useCallback((d: any) => {
     if (!d) return;
     if (Array.isArray(d.modules)) {
       setModules(d.modules.map(String));
-      return;
-    }
-    if (d.modules === null && d.error) {
-      // RPC failed — keep null so can() uses legacy
-      setModules(null);
       return;
     }
   }, []);
@@ -39,11 +32,7 @@ export function useFeatureFlags(role?: string | null) {
         .then((d) => applyFlags(d))
         .catch(() => {}),
       fetch("/api/modules", { credentials: "include", cache: "no-store" })
-        .then(async (r) => {
-          const d = await r.json().catch(() => null);
-          if (!r.ok) return { modules: null, error: d?.error };
-          return d;
-        })
+        .then((r) => (r.ok ? r.json() : null))
         .then((d) => applyModules(d))
         .catch(() => {}),
     ]).finally(() => setLoading(false));
@@ -60,11 +49,7 @@ export function useFeatureFlags(role?: string | null) {
         })
         .catch(() => {});
       fetch("/api/modules", { credentials: "include", cache: "no-store" })
-        .then(async (r) => {
-          const d = await r.json().catch(() => null);
-          if (!r.ok) return { modules: null, error: d?.error };
-          return d;
-        })
+        .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
           if (!cancelled) applyModules(d);
         })
@@ -73,13 +58,7 @@ export function useFeatureFlags(role?: string | null) {
     load();
     const t = setTimeout(() => {
       if (!cancelled) setLoading(false);
-    }, 50);
-    Promise.all([]).finally(() => {
-      // flags/modules settle
-      setTimeout(() => {
-        if (!cancelled) setLoading(false);
-      }, 800);
-    });
+    }, 100);
 
     const onFocus = () => load();
     window.addEventListener("focus", onFocus);
@@ -94,22 +73,34 @@ export function useFeatureFlags(role?: string | null) {
   }, [role, applyFlags, applyModules]);
 
   const can = useMemo(() => {
-    return (moduleKey: string) => {
+    return (moduleOrFlag: string) => {
       if (role === "super_admin") return true;
 
-      // Primary: Supabase module list when successfully loaded
-      if (modules !== null) {
-        return modules.includes(moduleKey);
+      // Check effective map first
+      if (effective && typeof effective === "object") {
+        if (moduleOrFlag in effective) {
+          return effective[moduleOrFlag] !== false;
+        }
+        const fk = MODULE_FLAG[moduleOrFlag];
+        if (fk && fk in effective) {
+          return effective[fk] !== false;
+        }
       }
 
-      // Fallback: legacy feature flags / matrix
-      return isModuleVisible(moduleKey, flags, role, matrix);
+      // Check service modules list
+      if (modules !== null && (moduleOrFlag in MODULE_FLAG || modules.includes(moduleOrFlag))) {
+        return modules.includes(moduleOrFlag);
+      }
+
+      // Fallback
+      return isModuleVisible(moduleOrFlag, flags, role, matrix);
     };
-  }, [flags, matrix, role, modules]);
+  }, [flags, matrix, effective, role, modules]);
 
   return {
     flags,
     matrix,
+    effective,
     modules,
     memberModules: modules,
     loading,

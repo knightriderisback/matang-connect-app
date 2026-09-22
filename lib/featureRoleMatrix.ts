@@ -20,6 +20,7 @@ export const MATRIX_FLAG_KEYS: string[] = [
   "directory_enabled",
   "directory_filters_enabled",
   "scan_enabled",
+  "vanshawali_enabled",
   "scan_file_upload",
   "public_qr_profile",
   "feed_enabled",
@@ -388,3 +389,143 @@ export function matrixToLegacyFlags(matrix: FeatureRoleMatrix, base: FeatureFlag
   }
   return next;
 }
+
+export const MATRIX_LABELS: Record<string, string> = (() => {
+  const map: Record<string, string> = {};
+  for (const sec of MATRIX_SECTIONS) {
+    for (const item of sec.items) {
+      map[item.key] = item.label;
+    }
+  }
+  return map;
+})();
+
+export function memberKey(userId: string) {
+  return `member_flags:${userId}`;
+}
+
+function coerceBool(v: unknown): boolean | undefined {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    if (s === "true" || s === "1") return true;
+    if (s === "false" || s === "0") return false;
+  }
+  return undefined;
+}
+
+export function parseOverrides(raw: unknown): Record<string, boolean> {
+  const overrides: Record<string, boolean> = {};
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    Object.entries(raw as Record<string, unknown>).forEach(([k, v]) => {
+      const b = coerceBool(v);
+      if (b !== undefined) overrides[k] = b;
+    });
+  }
+  return overrides;
+}
+
+export async function getUserEffectiveFeatures(userId: string, role?: string | null) {
+  const matrix = await getFeatureRoleMatrix();
+  const col = roleToCol(role);
+  const supabase = createAdminClient();
+  const { data: row } = await supabase
+    .from("app_settings")
+    .select("setting_value")
+    .eq("setting_key", memberKey(userId))
+    .maybeSingle();
+
+  let raw = row?.setting_value;
+  if (typeof raw === "string") {
+    try { raw = JSON.parse(raw); } catch { raw = null; }
+  }
+  const overrides = parseOverrides(raw);
+
+  const categoryDefaults: Record<string, boolean> = {};
+  const effective: Record<string, boolean> = {};
+
+  for (const key of MATRIX_FLAG_KEYS) {
+    if (col === "super_admin") {
+      categoryDefaults[key] = true;
+      effective[key] = true;
+      continue;
+    }
+    const cell = matrix[key];
+    const catVal = cell ? cell[col as RoleCol] !== false : true;
+    categoryDefaults[key] = catVal;
+    if (key in overrides) {
+      effective[key] = overrides[key];
+    } else {
+      effective[key] = catVal;
+    }
+  }
+
+  return {
+    matrix,
+    overrides,
+    categoryDefaults,
+    effective,
+    roleCol: col,
+  };
+}
+
+export async function setUserFeatureOverride(
+  userId: string,
+  key: string,
+  value: boolean | null
+): Promise<{ ok: boolean; effective?: Record<string, boolean>; overrides?: Record<string, boolean>; error?: string }> {
+  const supabase = createAdminClient();
+  const { data: target } = await supabase.from("users").select("id, role").eq("id", userId).maybeSingle();
+  if (!target) return { ok: false, error: "User not found" };
+
+  const { data: row } = await supabase
+    .from("app_settings")
+    .select("setting_value")
+    .eq("setting_key", memberKey(userId))
+    .maybeSingle();
+
+  let raw = row?.setting_value;
+  if (typeof raw === "string") {
+    try { raw = JSON.parse(raw); } catch { raw = null; }
+  }
+  const overrides = parseOverrides(raw);
+
+  if (value === null) {
+    delete overrides[key];
+  } else {
+    overrides[key] = value;
+  }
+
+  const res = await upsertSetting(memberKey(userId), overrides);
+  if (!res.ok) return { ok: false, error: res.error };
+
+  const userEff = await getUserEffectiveFeatures(userId, target.role);
+  return { ok: true, effective: userEff.effective, overrides: userEff.overrides };
+}
+
+export async function resetAllUserOverrides(
+  userId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("app_settings")
+    .delete()
+    .eq("setting_key", memberKey(userId));
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function getUserVisibleModules(userId: string, role?: string | null): Promise<string[]> {
+  if (role === "super_admin") {
+    return Object.keys(MODULE_FLAG);
+  }
+  const { effective } = await getUserEffectiveFeatures(userId, role);
+  const visible: string[] = [];
+  for (const [mod, fk] of Object.entries(MODULE_FLAG)) {
+    if (effective[fk as string] !== false) {
+      visible.push(mod);
+    }
+  }
+  return Array.from(new Set(visible));
+}
+

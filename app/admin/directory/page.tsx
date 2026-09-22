@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useToast } from "@/components/ui/Toaster";
-import { MapPin, Phone, Search, ChevronLeft, Shield, Users } from "lucide-react";
+import { MapPin, Phone, Search, ChevronLeft, Shield, Users, RotateCcw, ExternalLink } from "lucide-react";
+import { MATRIX_SECTIONS } from "@/lib/featureRoleMatrix";
 
 interface DirectoryUser {
   id: string;
@@ -40,6 +41,7 @@ interface DirectoryUser {
 }
 
 function AdminDirectoryPageInner() {
+  const router = useRouter();
   const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useCurrentUser();
@@ -307,33 +309,10 @@ function AdminDirectoryPageInner() {
     const fam = memberDetail?.family || selected.families?.[0];
     const detail = memberDetail?.user || selected;
     const overrides: Record<string, boolean> = memberDetail?.overrides || {};
-    const MODULE_FLAGS = [
-      ["sos_enabled", "SOS"],
-      ["jobs_enabled", "Jobs"],
-      ["notices_enabled", "Notices / Feed"],
-      ["feed_images_enabled", "Feed images"],
-      ["feed_member_post_enabled", "Can post on Feed"],
-      ["care_enabled", "Care"],
-      ["kosh_transparency_mode", "Kosh"],
-      ["vyapar_enabled", "Vyapar"],
-      ["matrimony_enabled", "Matrimony"],
-      ["dharohar_enabled", "Dharohar"],
-      ["panchang_enabled", "Panchang"],
-      ["mahila_enabled", "Mahila"],
-      ["polls_enabled", "Polls"],
-      ["arthik_enabled", "Arthik"],
-      ["rides_enabled", "Rides"],
-      ["gaurav_enabled", "Gaurav"],
-      ["admin_requests_enabled", "All Requests"],
-      ["gamification_enabled", "Credits"],
-      ["scan_enabled", "Scan"],
-    ] as const;
+    const categoryDefaults: Record<string, boolean> = memberDetail?.categoryDefaults || {};
+    const effective: Record<string, boolean> = memberDetail?.effective || {};
 
-    const toggleMemberFlag = async (key: string, value: boolean) => {
-      setMemberDetail((prev: any) => ({
-        ...prev,
-        overrides: { ...(prev?.overrides || {}), [key]: value },
-      }));
+    const toggleMemberFlag = async (key: string, value: boolean | null) => {
       const res = await fetch("/api/admin/member-flags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -342,16 +321,23 @@ function AdminDirectoryPageInner() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         toast(data.error || "Could not save", "error");
-        setMemberDetail((prev: any) => ({
-          ...prev,
-          overrides: { ...(prev?.overrides || {}), [key]: !value },
-        }));
         return;
       }
-      if (data.overrides) {
-        setMemberDetail((prev: any) => ({ ...prev, overrides: data.overrides }));
+      if (data.overrides !== undefined) {
+        setMemberDetail((prev: any) => ({
+          ...prev,
+          overrides: data.overrides,
+          effective: data.effective || prev?.effective,
+        }));
       }
-      toast(value ? "Feature ON for member" : "Feature OFF for member", "success");
+      toast(
+        value === null
+          ? "Reverted to category default"
+          : value
+            ? "Personal override: View"
+            : "Personal override: Hide",
+        "success"
+      );
     };
 
     return (
@@ -413,27 +399,77 @@ function AdminDirectoryPageInner() {
           </CardContent>
         </Card>
 
-        {(user?.role === "super_admin" || user?.role === "core_committee") && (
+        {user?.role === "super_admin" && (
           <Card>
             <CardContent className="p-4 space-y-3">
-              <p className="font-semibold text-matang-navy text-sm">Personal feature access</p>
-              <p className="text-[11px] text-gray-500">Override global stage flags for this member only. OFF = hidden for them.</p>
-              <div className="space-y-2">
-                {MODULE_FLAGS.map(([key, label]) => {
-                  const on = overrides[key] !== undefined ? overrides[key] : true;
-                  return (
-                    <div key={key} className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-50">
-                      <span className="text-sm text-matang-navy">{label}</span>
-                      <button
-                        type="button"
-                        onClick={() => toggleMemberFlag(key, !on)}
-                        className={`text-xs font-bold px-3 py-1 rounded-full ${on ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}
-                      >
-                        {on ? "ON" : "OFF"}
-                      </button>
-                    </div>
-                  );
-                })}
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-matang-navy text-sm">Personal feature access</p>
+                  <p className="text-[11px] text-gray-500">
+                    Role: <span className="font-semibold">{detail.role || "member"}</span> · Super Admin individual override
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/member/${selected.id}`)}
+                  className="flex items-center gap-1 text-xs font-semibold text-matang-gold hover:underline"
+                >
+                  Full matrix <ExternalLink size={12} />
+                </button>
+              </div>
+
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                {MATRIX_SECTIONS.map((sec) => (
+                  <div key={sec.title} className="rounded-xl border border-gray-100 p-2.5 space-y-1.5 bg-gray-50/50">
+                    <p className="text-[11px] font-bold text-matang-navy">{sec.title}</p>
+                    {sec.items.map((item) => {
+                      const key = item.key;
+                      const isOverridden = key in overrides;
+                      const on = effective[key] !== undefined ? effective[key] : (overrides[key] !== undefined ? overrides[key] : true);
+                      const catOn = categoryDefaults[key] !== false;
+
+                      return (
+                        <div key={key} className="flex items-center justify-between gap-2 py-1 border-b border-gray-100 last:border-0">
+                          <div className="min-w-0 flex-1 pr-2">
+                            <p className="text-xs font-medium text-matang-navy truncate">{item.label}</p>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className={`text-[9px] px-1.5 py-0.2 rounded font-medium ${catOn ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-500"}`}>
+                                Cat: {catOn ? "View" : "Hide"}
+                              </span>
+                              {isOverridden && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded font-semibold bg-amber-100 text-amber-800">
+                                  Override
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            {isOverridden && (
+                              <button
+                                type="button"
+                                onClick={() => toggleMemberFlag(key, null)}
+                                title="Revert to category default"
+                                className="text-gray-400 hover:text-red-600 p-1 rounded-full hover:bg-gray-100"
+                              >
+                                <RotateCcw size={12} />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => toggleMemberFlag(key, !on)}
+                              className={`text-xs font-bold px-3 py-1 rounded-full transition active:scale-95 ${
+                                on ? "bg-green-100 text-green-700 border border-green-300" : "bg-gray-100 text-gray-600 border border-gray-200"
+                              }`}
+                            >
+                              {on ? "View" : "Hide"}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

@@ -267,6 +267,13 @@ export async function PATCH(request: NextRequest) {
   const allowed = ["interested", "en_route", "arrived", "completed", "fake", "cancelled"];
   const st = allowed.includes(status) ? status : "interested";
 
+  if ((st === "fake" || st === "cancelled") && !["core_committee", "super_admin"].includes(session.role)) {
+    return NextResponse.json(
+      { error: "Only Core Committee / Super Admin can mark alerts as fake or cancelled" },
+      { status: 403 }
+    );
+  }
+
   // upsert-like: try insert response
   const { data: existing } = await supabase
     .from("sos_responses")

@@ -39,23 +39,9 @@ export default function ServicesPage() {
     return <div className="p-8 text-center text-gray-400">Loading…</div>;
   }
 
-  if (isStaff) {
-    return (
-      <div className="p-8 text-center space-y-3">
-        <p className="text-sm text-gray-500">Staff use Admin panel for all modules.</p>
-        <button
-          type="button"
-          className="text-sm font-semibold text-matang-gold"
-          onClick={() => router.push("/admin")}
-        >
-          Open Admin →
-        </button>
-      </div>
-    );
-  }
-
   // Prefer explicit modules list when present; else can()
   const visible = MEMBER_SERVICES.filter((s) => {
+    if (isStaff) return true;
     if (modules !== null && modules.length > 0) return modules.includes(s.key);
     return can(s.key);
   });

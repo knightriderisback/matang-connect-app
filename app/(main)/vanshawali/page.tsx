@@ -429,6 +429,14 @@ function VanshawaliInner() {
         setApiCanEdit(!!d.can_edit);
         setIsSA(!!d.is_super_admin);
         setIsOwner(!!d.is_owner);
+        if (d.positions && Object.keys(d.positions).length > 0) {
+          setFloatPos(d.positions);
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.setItem(`vansh-float-${rootId}`, JSON.stringify(d.positions));
+            } catch (_) {}
+          }
+        }
       })
       .catch(() => toast("Load failed", "error"))
       .finally(() => setLoading(false));
@@ -512,6 +520,18 @@ function VanshawaliInner() {
       try {
         localStorage.setItem(`vansh-float-${rootId}`, JSON.stringify(next));
       } catch (_) {}
+    }
+    // Also save to database so layout persists across devices
+    if (rootId) {
+      fetch("/api/vanshawali", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_positions",
+          root_user_id: rootId,
+          positions: next,
+        }),
+      }).catch(() => {});
     }
   };
 

@@ -152,12 +152,18 @@ export async function tryGodAction(
     return { handled: true, message: "📊 Live data:\n" + parts.join("\n") };
   }
 
-  // ===== VERIFY ALL =====
+  // ===== VERIFY ALL (High-risk action: requires explicit CONFIRM keyword) =====
   if (
     /verify\s*all|approve\s*all|sab\s*verify|pending\s*(ko\s*)?(approve|verify)|सभी\s*verify|सब\s*verify|pending\s*sab/i.test(
       lower
     )
   ) {
+    if (!/\b(confirm|sure|ha|yes|kardo|kar do)\b/i.test(lower)) {
+      return {
+        handled: true,
+        message: "⚠️ High-risk action: To verify all pending members, please type:\n👉 \"CONFIRM verify all\"",
+      };
+    }
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("users")
