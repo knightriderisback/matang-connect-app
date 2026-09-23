@@ -3,50 +3,42 @@
  * Supports English ('en'), Hindi ('hi'), Marathi ('mr'), Chhattisgarhi ('cg'), and Hinglish ('hng').
  */
 
-const DEV_DIGITS = ["०", "१", "२", "३", "४", "५", "६", "७", "८", "९"];
-
 export type SupportedLocale = "en" | "hi" | "mr" | "cg" | "hng";
 
 /**
- * Converts Western digits to Devanagari numerals for hi, mr, and cg.
- * For en and hng, keeps Western digits.
+ * Keeps standard digits (1, 2, 3, ...) across all languages per user requirement.
  */
-export function toLocalizedDigits(value: string | number | null | undefined, locale: string = "en"): string {
+export function toLocalizedDigits(value: string | number | null | undefined, _locale: string = "en"): string {
   if (value === null || value === undefined) return "";
-  const s = String(value);
-  if (locale === "en" || locale === "hng") return s;
-  // hi, mr, cg use Devanagari digits
-  return s.replace(/\d/g, (d) => DEV_DIGITS[parseInt(d, 10)] ?? d);
+  return String(value);
 }
 
 /**
- * Formats a number with Indian grouping (e.g. 1,50,000) and converts to Devanagari if applicable.
+ * Formats a number with Indian grouping (e.g. 1,50,000) using standard digits.
  */
 export function formatLocalizedNumber(
   value: number | string | null | undefined,
-  locale: string = "en"
+  _locale: string = "en"
 ): string {
   if (value === null || value === undefined || value === "") return "";
   const num = typeof value === "string" ? parseFloat(value) : value;
   if (isNaN(num)) return String(value);
 
   // Format with en-IN grouping (lakhs / crores separator)
-  const formattedEn = num.toLocaleString("en-IN");
-  return toLocalizedDigits(formattedEn, locale);
+  return num.toLocaleString("en-IN");
 }
 
 /**
- * Formats an amount as Indian Rupee (₹) with Indian grouping and localized digits.
+ * Formats an amount as Indian Rupee (₹) with Indian grouping and standard digits.
  */
 export function formatCurrency(
   value: number | string | null | undefined,
-  locale: string = "en"
+  _locale: string = "en"
 ): string {
   if (value === null || value === undefined || value === "") return "₹0";
   const num = typeof value === "string" ? parseFloat(value) : value;
   if (isNaN(num)) return `₹${value}`;
-  const formattedEn = num.toLocaleString("en-IN");
-  return `₹${toLocalizedDigits(formattedEn, locale)}`;
+  return `₹${num.toLocaleString("en-IN")}`;
 }
 
 /**

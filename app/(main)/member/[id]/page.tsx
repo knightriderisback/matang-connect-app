@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/Card";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useToast } from "@/components/ui/Toaster";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { MapPin, Phone, Shield, ChevronLeft, User, RotateCcw, Search } from "lucide-react";
 import {
   MATRIX_SECTIONS,
@@ -15,23 +16,27 @@ function ViewHideBtn({
   on,
   onClick,
   busy,
+  viewLabel,
+  hideLabel,
 }: {
   on: boolean;
   onClick: () => void;
   busy?: boolean;
+  viewLabel: string;
+  hideLabel: string;
 }) {
   return (
     <button
       type="button"
       disabled={busy}
       onClick={onClick}
-      className={`min-w-[4.25rem] px-2.5 py-1.5 rounded-full text-[11px] font-bold transition active:scale-95 disabled:opacity-50 ${
+      className={`min-w-[4.25rem] px-2.5 py-1.5 rounded-full text-[11px] font-bold transition active:scale-95 disabled:opacity-50 cursor-pointer ${
         on
           ? "bg-green-100 text-green-800 border border-green-300"
           : "bg-gray-100 text-gray-500 border border-gray-200"
       }`}
     >
-      {on ? "View" : "Hide"}
+      {on ? viewLabel : hideLabel}
     </button>
   );
 }
@@ -39,10 +44,10 @@ function ViewHideBtn({
 export default function MemberProfilePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { t, n } = useI18n();
   const { toast } = useToast();
   const { user: me } = useCurrentUser();
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(me?.role || "");
-  // Personal overrides can STRICTLY only be managed by Super Admin
   const canEditFlags = me?.role === "super_admin";
   const [member, setMember] = useState<any>(null);
   const [error, setError] = useState("");
@@ -104,9 +109,9 @@ export default function MemberProfilePage() {
       if (data.effective) setEffective(data.effective);
       if (data.overrides) setOverrides(data.overrides);
       if (data.categoryDefaults) setCategoryDefaults(data.categoryDefaults);
-      toast(`Personal override: ${next ? "View" : "Hide"}`, "success");
+      toast(`${t("common.success")}: ${next ? t("common.view") : t("common.hide")}`, "success");
     } catch {
-      toast("Network error", "error");
+      toast(t("common.error"), "error");
       loadFlags();
     } finally {
       setBusyKey(null);
@@ -129,16 +134,16 @@ export default function MemberProfilePage() {
       if (data.effective) setEffective(data.effective);
       if (data.overrides) setOverrides(data.overrides);
       if (data.categoryDefaults) setCategoryDefaults(data.categoryDefaults);
-      toast("Reverted to category default", "success");
+      toast(t("common.success"), "success");
     } catch {
-      toast("Network error", "error");
+      toast(t("common.error"), "error");
     } finally {
       setBusyKey(null);
     }
   };
 
   const resetAllOverrides = async () => {
-    if (!confirm("Reset all personal overrides for this member back to their category defaults?")) return;
+    if (!confirm(t("common.confirmDelete"))) return;
     setBusyKey("all");
     try {
       const res = await fetch("/api/admin/member-modules", {
@@ -150,9 +155,9 @@ export default function MemberProfilePage() {
       if (!res.ok) throw new Error(data.error || "Failed");
       if (data.effective) setEffective(data.effective);
       if (data.overrides) setOverrides(data.overrides || {});
-      toast("All overrides reset to category defaults", "success");
+      toast(t("common.success"), "success");
     } catch (e: any) {
-      toast(e.message || "Failed", "error");
+      toast(e.message || t("common.error"), "error");
     } finally {
       setBusyKey(null);
     }
@@ -173,14 +178,14 @@ export default function MemberProfilePage() {
   }, [flagSearch]);
 
   if (loading) {
-    return <div className="p-8 text-center text-sm text-gray-400">Loading profile…</div>;
+    return <div className="p-8 text-center text-sm text-gray-400">{t("common.loading")}</div>;
   }
   if (error || !member) {
     return (
       <div className="p-8 text-center space-y-3">
-        <p className="text-sm text-red-600">{error || "Member not found"}</p>
-        <button type="button" onClick={() => router.back()} className="text-matang-gold text-sm font-medium">
-          ← Back
+        <p className="text-sm text-red-600">{error || t("common.noData")}</p>
+        <button type="button" onClick={() => router.back()} className="text-matang-gold text-sm font-medium cursor-pointer">
+          ← {t("common.back")}
         </button>
       </div>
     );
@@ -193,9 +198,9 @@ export default function MemberProfilePage() {
       <button
         type="button"
         onClick={() => router.back()}
-        className="flex items-center gap-1 text-sm text-matang-gold font-medium"
+        className="flex items-center gap-1 text-sm text-matang-gold font-medium cursor-pointer"
       >
-        <ChevronLeft size={16} /> Back
+        <ChevronLeft size={16} /> {t("common.back")}
       </button>
 
       <Card className="overflow-hidden border-matang-gold/30">
@@ -212,7 +217,7 @@ export default function MemberProfilePage() {
             <div className="min-w-0">
               <h1 className="text-xl font-bold truncate">{member.full_name}</h1>
               <p className="text-sm text-white/70 flex items-center gap-1">
-                <Shield size={12} /> {member.role || "member"} · {member.verification_status || "-"}
+                <Shield size={12} /> {t(member.role || "member")} · {t(member.verification_status || "pending")}
               </p>
             </div>
           </div>
@@ -228,7 +233,7 @@ export default function MemberProfilePage() {
           )}
           <p className="flex items-center gap-2">
             <MapPin size={14} className="text-gray-400" />
-            {member.native_village || "-"}
+            {member.native_village || "—"}
             {member.cities?.name ? ` · ${member.cities.name}` : ""}
           </p>
           {member.qr_code_id && (
@@ -240,28 +245,23 @@ export default function MemberProfilePage() {
 
           <div className="border-t border-gray-100 pt-2 mt-2 divide-y divide-gray-50">
             <div className="flex justify-between items-center py-2 gap-2">
-              <span className="text-gray-500">Phone</span>
+              <span className="text-gray-500">{t("common.phone")}</span>
               <span className="font-mono text-xs font-medium">
-                {member.phone_hidden
-                  ? "Hidden"
-                  : member.phone || "—"}
-                {me?.role === "super_admin" && member.show_phone === false && member.phone
-                  ? " (SA view)"
-                  : ""}
+                {member.phone_hidden ? t("common.hide") : member.phone || "—"}
               </span>
             </div>
             {[
-              ["Village", member.native_village || "—"],
-              ["City", member.cities?.name || "—"],
-              ["Address", member.address || "—"],
-              ["Gender", member.gender || "—"],
-              ["Blood group", member.blood_group || "—"],
-              ["Education", member.education_level || "—"],
-              ["Occupation", member.occupation || "—"],
-              ["About", member.about || "—"],
-              ["QR ID", member.qr_code_id || "—"],
-              ["Role", member.role || "—"],
-              ["Status", member.verification_status || "—"],
+              [t("auth.nativeVillage"), member.native_village || "—"],
+              [t("auth.city"), member.cities?.name || "—"],
+              [t("common.address"), member.address || "—"],
+              [t("census.gender"), member.gender ? t(member.gender) : "—"],
+              [t("census.bloodGroup"), member.blood_group || "—"],
+              [t("census.education"), member.education_level ? t(member.education_level) : "—"],
+              [t("census.occupation"), member.occupation ? t(member.occupation) : "—"],
+              [t("profile.about"), member.about || "—"],
+              [t("profile.qrId"), member.qr_code_id || "—"],
+              [t("common.role"), member.role ? t(member.role) : "—"],
+              [t("common.status"), member.verification_status ? t(member.verification_status) : "—"],
             ].map(([label, value]) => (
               <div key={String(label)} className="flex justify-between items-start gap-2 py-2">
                 <span className="text-gray-500 shrink-0">{label}</span>
@@ -273,17 +273,17 @@ export default function MemberProfilePage() {
           <button
             type="button"
             onClick={() => router.push(`/vanshawali?user=${member.id}`)}
-            className="w-full mt-2 text-sm font-semibold text-matang-navy border border-matang-gold/50 rounded-xl py-2.5 bg-amber-50"
+            className="w-full mt-2 text-sm font-semibold text-matang-navy border border-matang-gold/50 rounded-xl py-2.5 bg-amber-50 cursor-pointer"
           >
-            वंशावली · Family tree →
+            {t("nav.vanshawali")} →
           </button>
           {isStaff && (
             <button
               type="button"
               onClick={() => router.push(`/admin/directory?user=${member.id}`)}
-              className="w-full mt-2 text-sm font-semibold text-matang-gold border border-matang-gold/40 rounded-xl py-2"
+              className="w-full mt-2 text-sm font-semibold text-matang-gold border border-matang-gold/40 rounded-xl py-2 cursor-pointer"
             >
-              Open in Directory (staff tools) →
+              {t("profile.openInDirectory")} →
             </button>
           )}
         </CardContent>
@@ -293,9 +293,9 @@ export default function MemberProfilePage() {
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h2 className="text-sm font-bold text-matang-navy">Personal Feature Control</h2>
+              <h2 className="text-sm font-bold text-matang-navy">{t("admin.featureControl")}</h2>
               <p className="text-[11px] text-gray-500 mt-0.5">
-                Role: <span className="font-semibold">{member.role || "member"}</span> · Individual override overrides category setting for this user only
+                {t("common.role")}: <span className="font-semibold">{t(member.role || "member")}</span>
               </p>
             </div>
             {overrideCount > 0 && (
@@ -303,9 +303,9 @@ export default function MemberProfilePage() {
                 type="button"
                 disabled={busyKey === "all"}
                 onClick={resetAllOverrides}
-                className="flex items-center gap-1 text-[10px] font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg border border-red-200 transition"
+                className="flex items-center gap-1 text-[10px] font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg border border-red-200 transition cursor-pointer"
               >
-                <RotateCcw size={10} /> Reset ({overrideCount})
+                <RotateCcw size={10} /> Reset ({n(overrideCount)})
               </button>
             )}
           </div>
@@ -316,7 +316,7 @@ export default function MemberProfilePage() {
               type="text"
               value={flagSearch}
               onChange={(e) => setFlagSearch(e.target.value)}
-              placeholder="Search features…"
+              placeholder={t("common.search")}
               className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-matang-gold"
             />
           </div>
@@ -348,13 +348,8 @@ export default function MemberProfilePage() {
                             catOn ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-500"
                           }`}
                         >
-                          Cat: {catOn ? "View" : "Hide"}
+                          Cat: {catOn ? t("common.view") : t("common.hide")}
                         </span>
-                        {isOverridden && (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded font-semibold bg-amber-100 text-amber-800">
-                            Override
-                          </span>
-                        )}
                       </div>
                     </div>
 
@@ -364,8 +359,8 @@ export default function MemberProfilePage() {
                           type="button"
                           disabled={busyKey === key}
                           onClick={() => revertToCategory(key)}
-                          title="Clear override (inherit category default)"
-                          className="text-[10px] text-gray-400 hover:text-red-600 p-1 rounded-full hover:bg-gray-100 transition"
+                          title="Clear override"
+                          className="text-[10px] text-gray-400 hover:text-red-600 p-1 rounded-full hover:bg-gray-100 transition cursor-pointer"
                         >
                           <RotateCcw size={13} />
                         </button>
@@ -374,6 +369,8 @@ export default function MemberProfilePage() {
                         on={on}
                         busy={busyKey === key}
                         onClick={() => togglePersonal(key)}
+                        viewLabel={t("common.view")}
+                        hideLabel={t("common.hide")}
                       />
                     </div>
                   </div>

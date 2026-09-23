@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { effectiveRole } from "@/lib/auth/roleCache";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { BarChart3, Plus, Lock } from "lucide-react";
 
@@ -24,6 +25,7 @@ interface Poll {
 
 /** LOCKED C2 create path — staff only; vote lock + change request flow active */
 function PollsPageInner() {
+  const { t, n } = useI18n();
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const role = effectiveRole(user?.role);
@@ -72,14 +74,14 @@ function PollsPageInner() {
     const data = await res.json();
     if (!res.ok) {
       if (data.code === "VOTE_LOCKED") {
-        toast("Vote locked — request a change", "error");
+        toast(t("polls.voted"), "error");
         setPendingChange({ pollId, optionIndex });
         return;
       }
-      toast(data.error || "Vote failed", "error");
+      toast(data.error || t("common.error"), "error");
       return;
     }
-    toast("Vote locked in ✓", "success");
+    toast(t("common.success"), "success");
     load();
   };
 
@@ -99,10 +101,10 @@ function PollsPageInner() {
     });
     const data = await res.json();
     if (!res.ok) {
-      toast(data.error || "Request failed", "error");
+      toast(data.error || t("common.error"), "error");
       return;
     }
-    toast("Change request sent to Core / Super Admin", "success");
+    toast(t("common.success"), "success");
     setPendingChange(null);
     load();
   };
@@ -115,17 +117,17 @@ function PollsPageInner() {
     });
     const data = await res.json();
     if (!res.ok) {
-      toast(data.error || "Failed", "error");
+      toast(data.error || t("common.error"), "error");
       return;
     }
-    toast(decision === "accept" ? "Vote change approved" : "Request rejected", "success");
+    toast(t("common.success"), "success");
     load();
   };
 
   const create = async () => {
     const options = [form.opt1, form.opt2, form.opt3, form.opt4].map((o) => o.trim()).filter(Boolean);
     if (!form.question || options.length < 2) {
-      toast("Question + at least 2 options required", "error");
+      toast(t("auth.invalidCredentials") || "Question + at least 2 options required", "error");
       return;
     }
     setSubmitting(true);
@@ -140,12 +142,12 @@ function PollsPageInner() {
         toast(data.error || "Failed", "error");
         return;
       }
-      toast("Poll created", "success");
+      toast(t("common.success"), "success");
       setShowForm(false);
       setForm({ question: "", opt1: "", opt2: "", opt3: "", opt4: "" });
       load();
     } catch {
-      toast("Failed to create poll", "error");
+      toast(t("common.error"), "error");
     } finally {
       setSubmitting(false);
     }
@@ -156,11 +158,11 @@ function PollsPageInner() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BarChart3 className="text-matang-gold" size={22} />
-          <h1 className="text-lg font-bold text-matang-navy">Polls</h1>
+          <h1 className="text-lg font-bold text-matang-navy">{t("polls.title")}</h1>
         </div>
         {isStaff && (
-          <Button className="text-sm px-3 py-1.5" onClick={() => setShowForm(!showForm)}>
-            <Plus size={16} /> New Poll
+          <Button className="text-sm px-3 py-1.5 cursor-pointer" onClick={() => setShowForm(!showForm)}>
+            <Plus size={16} /> {t("polls.createPoll")}
           </Button>
         )}
       </div>
@@ -168,30 +170,30 @@ function PollsPageInner() {
       {isApprover && changeReqs.length > 0 && (
         <Card className="border-amber-300 bg-amber-50/50">
           <CardContent className="p-3 space-y-2">
-            <p className="text-sm font-semibold text-matang-navy">Vote change requests</p>
+            <p className="text-sm font-semibold text-matang-navy">{t("admin.allRequests")}</p>
             {changeReqs.map((r) => {
               const poll = polls.find((p) => p.id === r.poll_id);
               return (
                 <div key={r.id} className="rounded-xl border bg-white p-3 text-sm space-y-1">
                   <p>
-                    <span className="font-semibold">{r.user_name}</span> wants to change vote
+                    <span className="font-semibold">{r.user_name}</span> · {t("polls.vote")}
                   </p>
                   <p className="text-xs text-gray-600">{poll?.question || r.poll_id}</p>
                   <p className="text-xs">
-                    New option:{" "}
+                    {t("common.next")}:{" "}
                     <strong>{poll?.options?.[r.option_index] ?? `#${r.option_index}`}</strong>
                   </p>
-                  {r.reason && <p className="text-xs text-gray-500">Reason: {r.reason}</p>}
+                  {r.reason && <p className="text-xs text-gray-500">{t("common.details")}: {r.reason}</p>}
                   <div className="flex gap-2 pt-1">
-                    <Button className="text-xs px-3 py-1" onClick={() => resolve(r.id, "accept")}>
-                      Accept
+                    <Button className="text-xs px-3 py-1 cursor-pointer" onClick={() => resolve(r.id, "accept")}>
+                      {t("admin.verify")}
                     </Button>
                     <Button
                       variant="outline"
-                      className="text-xs px-3 py-1"
+                      className="text-xs px-3 py-1 cursor-pointer"
                       onClick={() => resolve(r.id, "reject")}
                     >
-                      Reject
+                      {t("admin.reject")}
                     </Button>
                   </div>
                 </div>
@@ -205,7 +207,7 @@ function PollsPageInner() {
         <Card className="border-matang-gold/30">
           <CardContent className="p-4 space-y-3">
             <Input
-              label="Question *"
+              label={`${t("dashboard.title")} *`}
               value={form.question}
               onChange={(e) => setForm({ ...form, question: e.target.value })}
             />
@@ -230,11 +232,11 @@ function PollsPageInner() {
               onChange={(e) => setForm({ ...form, opt4: e.target.value })}
             />
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>
-                Cancel
+              <Button variant="outline" className="flex-1 cursor-pointer" onClick={() => setShowForm(false)}>
+                {t("common.cancel")}
               </Button>
-              <Button className="flex-1" isLoading={submitting} onClick={create}>
-                Create
+              <Button className="flex-1 cursor-pointer" isLoading={submitting} onClick={create}>
+                {t("common.create")}
               </Button>
             </div>
           </CardContent>
@@ -244,22 +246,22 @@ function PollsPageInner() {
       {pendingChange && (
         <Card className="border-matang-gold/40">
           <CardContent className="p-4 space-y-2">
-            <p className="text-sm font-semibold text-matang-navy">Request vote change</p>
+            <p className="text-sm font-semibold text-matang-navy">{t("admin.allRequests")}</p>
             <p className="text-xs text-gray-600">
-              Core Committee / Super Admin must approve before your vote changes.
+              {t("auth.superAdmin")} / {t("auth.coreCommittee")} {t("auth.verificationPending")}
             </p>
             <Input
-              label="Reason (optional)"
+              label={t("common.details")}
               value={changeReason}
               onChange={(e) => setChangeReason(e.target.value)}
-              placeholder="Why change?"
+              placeholder="Reason"
             />
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setPendingChange(null)}>
-                Cancel
+              <Button variant="outline" className="flex-1 cursor-pointer" onClick={() => setPendingChange(null)}>
+                {t("common.cancel")}
               </Button>
-              <Button className="flex-1" onClick={submitChangeRequest}>
-                Send request
+              <Button className="flex-1 cursor-pointer" onClick={submitChangeRequest}>
+                {t("common.submit")}
               </Button>
             </div>
           </CardContent>
@@ -268,18 +270,18 @@ function PollsPageInner() {
 
       {myReqs.length > 0 && (
         <p className="text-xs text-amber-700">
-          You have {myReqs.length} pending vote-change request(s).
+          {n(myReqs.length)} {t("common.pending")} {t("admin.allRequests")}.
         </p>
       )}
 
       {loading ? (
-        <p className="text-center text-gray-500 py-8">Loading...</p>
+        <p className="text-center text-gray-500 py-8">{t("common.loading")}</p>
       ) : polls.length === 0 ? (
         <EmptyState
           icon={BarChart3}
-          title="No Active Polls"
-          description="Community opinion polls and surveys will appear here."
-          actionLabel={isStaff ? "New Poll" : undefined}
+          title={t("polls.noPolls")}
+          description={t("polls.subtitle")}
+          actionLabel={isStaff ? t("polls.createPoll") : undefined}
           onAction={isStaff ? () => setShowForm(true) : undefined}
         />
       ) : (
@@ -293,7 +295,7 @@ function PollsPageInner() {
                   <h3 className="font-semibold text-matang-navy">{p.question}</h3>
                   {locked && (
                     <span className="flex items-center gap-0.5 text-[10px] text-gray-500 shrink-0">
-                      <Lock size={10} /> Locked
+                      <Lock size={10} /> {t("polls.voted")}
                     </span>
                   )}
                 </div>
@@ -307,7 +309,7 @@ function PollsPageInner() {
                         key={i}
                         type="button"
                         onClick={() => vote(p.id, i, locked, p.my_vote)}
-                        className={`w-full text-left relative overflow-hidden rounded-xl border px-3 py-2.5 text-sm transition ${
+                        className={`w-full text-left relative overflow-hidden rounded-xl border px-3 py-2.5 text-sm transition cursor-pointer ${
                           selected
                             ? "border-matang-gold bg-matang-gold/10"
                             : "border-gray-200 hover:border-matang-navy/30"
@@ -322,7 +324,7 @@ function PollsPageInner() {
                             {opt}
                           </span>
                           <span className="text-xs text-gray-500 shrink-0">
-                            {count} ({pct}%)
+                            {n(count)} ({n(pct)}%)
                           </span>
                         </div>
                       </button>
@@ -330,8 +332,7 @@ function PollsPageInner() {
                   })}
                 </div>
                 <p className="text-[10px] text-gray-400">
-                  {p.total_votes} vote{p.total_votes !== 1 ? "s" : ""}
-                  {locked ? " · Tap another option to request change" : ""}
+                  {n(p.total_votes)} {t("polls.votes")}
                 </p>
               </CardContent>
             </Card>

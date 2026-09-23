@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { Settings, Search, RotateCcw, Unlock } from "lucide-react";
 import {
   MATRIX_SECTIONS,
@@ -18,10 +19,12 @@ function ViewHideBtn({
   on,
   onClick,
   busy,
+  t,
 }: {
   on: boolean;
   onClick: () => void;
   busy?: boolean;
+  t: (k: string) => string;
 }) {
   return (
     <button
@@ -34,12 +37,13 @@ function ViewHideBtn({
           : "bg-gray-100 text-gray-500 border border-gray-200"
       }`}
     >
-      {on ? "View" : "Hide"}
+      {on ? (t("common.view") || "View") : (t("common.hide") || "Hide")}
     </button>
   );
 }
 
 export default function SettingsPage() {
+  const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [matrix, setMatrix] = useState<CellMap>(() => defaultMatrix());
@@ -174,9 +178,9 @@ export default function SettingsPage() {
         <div className="flex items-center gap-2">
           <Settings className="text-matang-gold" size={24} />
           <div>
-            <h1 className="text-lg font-bold text-matang-navy">Feature Control</h1>
+            <h1 className="text-lg font-bold text-matang-navy">{t("nav.settings") || "Feature Control"}</h1>
             <p className="text-[11px] text-gray-500">
-              Category level: Member · Volunteer · Core · Changes apply to everyone in that category
+              {t("admin.featureControlDesc") || "Category level: Member · Volunteer · Core · Changes apply to everyone in that category"}
             </p>
           </div>
         </div>
@@ -188,7 +192,7 @@ export default function SettingsPage() {
             onClick={handleResetDefaults}
             className="flex items-center gap-1 text-[11px] font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg border border-gray-200 transition"
           >
-            <RotateCcw size={12} /> Reset
+            <RotateCcw size={12} /> {t("common.reset") || "Reset"}
           </button>
           <button
             type="button"
@@ -196,18 +200,18 @@ export default function SettingsPage() {
             onClick={handleUnlockAll}
             className="flex items-center gap-1 text-[11px] font-semibold text-matang-navy bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded-lg border border-amber-300 transition"
           >
-            <Unlock size={12} /> Unlock all
+            <Unlock size={12} /> {t("admin.unlockAll") || "Unlock all"}
           </button>
         </div>
       </div>
 
       <div className="rounded-xl bg-matang-navy text-matang-gold px-3 py-2 text-[11px] font-semibold flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-3">
-          <span>Member: {counts.member} / {MATRIX_FLAG_KEYS.length}</span>
-          <span>Volunteer: {counts.volunteer} / {MATRIX_FLAG_KEYS.length}</span>
-          <span>Core: {counts.core} / {MATRIX_FLAG_KEYS.length}</span>
+          <span>{t("auth.member") || "Member"}: {counts.member} / {MATRIX_FLAG_KEYS.length}</span>
+          <span>{t("auth.volunteer") || "Volunteer"}: {counts.volunteer} / {MATRIX_FLAG_KEYS.length}</span>
+          <span>{t("auth.coreCommittee") || "Core"}: {counts.core} / {MATRIX_FLAG_KEYS.length}</span>
         </div>
-        <span className="text-white/60 text-[10px]">Total: {MATRIX_FLAG_KEYS.length} features</span>
+        <span className="text-white/60 text-[10px]">{t("common.total") || "Total"}: {MATRIX_FLAG_KEYS.length} {t("admin.features") || "features"}</span>
       </div>
 
       {loadError && (
@@ -220,19 +224,19 @@ export default function SettingsPage() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search features by name or key…"
+          placeholder={t("common.search") || "Search features by name or key…"}
           className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-matang-gold"
         />
       </div>
 
       <div className="sticky top-0 z-10 grid grid-cols-[1fr_4.5rem_4.5rem_4.5rem] gap-1 bg-gray-50/95 backdrop-blur border-b border-gray-200 py-2 px-1 text-[10px] font-bold text-matang-navy text-center">
-        <div className="text-left pl-1">Feature</div>
-        <div>Member</div>
-        <div>Vol</div>
-        <div>Core</div>
+        <div className="text-left pl-1">{t("admin.feature") || "Feature"}</div>
+        <div>{t("auth.member") || "Member"}</div>
+        <div>{t("auth.volunteer") || "Vol"}</div>
+        <div>{t("auth.coreCommittee") || "Core"}</div>
       </div>
 
-      {loading && <p className="text-center text-gray-400 text-sm py-4">Loading features…</p>}
+      {loading && <p className="text-center text-gray-400 text-sm py-4">{t("common.loading") || "Loading features…"}</p>}
 
       {filteredSections.map((sec) => (
         <div key={sec.title} className="space-y-1">
@@ -258,6 +262,7 @@ export default function SettingsPage() {
                       on={cell[role] === true}
                       busy={busyKey === `${item.key}:${role}`}
                       onClick={() => toggle(item.key, role)}
+                      t={t}
                     />
                   </div>
                 ))}

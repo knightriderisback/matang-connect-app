@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 
 /**
  * Clean, compact PWA install hint that does not occlude the bottom navigation or content.
  */
 export function InstallPrompt() {
+  const { t } = useI18n();
   const [deferred, setDeferred] = useState<any>(null);
   const [visible, setVisible] = useState(false);
   const [iosHint, setIosHint] = useState(false);
@@ -74,7 +76,7 @@ export function InstallPrompt() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
-              <p className="font-bold text-xs text-white">Install Matang Connect</p>
+              <p className="font-bold text-xs text-white">{t("common.installApp")}</p>
               <button
                 type="button"
                 onClick={dismiss}
@@ -90,7 +92,7 @@ export function InstallPrompt() {
               </p>
             ) : (
               <p className="text-[11px] text-white/70 mt-0.5 leading-snug">
-                Faster launch & instant offline updates
+                {t("common.installAppDesc")}
               </p>
             )}
             <div className="flex gap-2 mt-2">
@@ -100,7 +102,7 @@ export function InstallPrompt() {
                   onClick={install}
                   className="flex-1 py-1.5 px-3 rounded-lg bg-matang-gold text-matang-navy text-xs font-bold active:scale-95 transition-all cursor-pointer"
                 >
-                  Install
+                  {t("common.installApp")}
                 </button>
               )}
               <button
@@ -108,7 +110,7 @@ export function InstallPrompt() {
                 onClick={dismiss}
                 className="py-1.5 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-medium text-white/90 active:scale-95 transition-all cursor-pointer"
               >
-                Later
+                {t("common.skip")}
               </button>
             </div>
           </div>

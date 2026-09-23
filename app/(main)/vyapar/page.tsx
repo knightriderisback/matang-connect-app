@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Store, Plus, Phone, MapPin, MessageCircle, BadgeCheck } from "lucide-react";
 
@@ -21,16 +22,10 @@ interface Business {
   created_at: string;
 }
 
-const CATEGORIES = [
-  { value: "all", label: "All" },
-  { value: "shop", label: "Shop" },
-  { value: "service", label: "Service" },
-  { value: "food", label: "Food" },
-  { value: "manufacturing", label: "Manufacturing" },
-  { value: "other", label: "Other" },
-];
+const CATEGORIES = ["all", "shop", "service", "food", "manufacturing", "other"];
 
 function VyaparPageInner() {
+  const { t, n } = useI18n();
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [list, setList] = useState<Business[]>([]);
@@ -61,7 +56,7 @@ function VyaparPageInner() {
 
   const submit = async () => {
     if (!form.name || !form.category) {
-      toast("Name and category required", "error");
+      toast(t("auth.invalidCredentials") || "Name and category required", "error");
       return;
     }
     setSubmitting(true);
@@ -76,42 +71,42 @@ function VyaparPageInner() {
         toast(data.error || "Failed", "error");
         return;
       }
-      toast("Business listed", "success");
+      toast(t("common.success"), "success");
       setShowForm(false);
       setForm({ name: "", category: "shop", description: "", address: "", contact_phone: "", whatsapp: "" });
       load();
     } catch {
-      toast("Failed to list business", "error");
+      toast(t("common.error"), "error");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-4 pb-24">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Store className="text-matang-gold" size={22} />
-          <h1 className="text-lg font-bold text-matang-navy">Vyapar</h1>
+          <h1 className="text-lg font-bold text-matang-navy">{t("vyapar.title")}</h1>
         </div>
-        <Button className="text-sm px-3 py-1.5" onClick={() => setShowForm(!showForm)}>
-          <Plus size={16} /> List Business
+        <Button className="text-sm px-3 py-1.5 cursor-pointer" onClick={() => setShowForm(!showForm)}>
+          <Plus size={16} /> {t("vyapar.addBusiness")}
         </Button>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
         {CATEGORIES.map((c) => (
           <button
-            key={c.value}
+            key={c}
             onClick={() => {
-              setCategory(c.value);
-              load(c.value);
+              setCategory(c);
+              load(c);
             }}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ${
-              category === c.value ? "bg-matang-navy text-white" : "bg-gray-100 text-gray-600"
+            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap cursor-pointer ${
+              category === c ? "bg-matang-navy text-white" : "bg-gray-100 text-gray-600"
             }`}
           >
-            {c.label}
+            {t(c)}
           </button>
         ))}
       </div>
@@ -119,29 +114,29 @@ function VyaparPageInner() {
       {showForm && (
         <Card className="border-matang-gold/30">
           <CardContent className="p-4 space-y-3">
-            <Input label="Business Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            <label className="block text-sm font-medium text-matang-navy">Category *</label>
+            <Input label={`${t("vyapar.shopName")} *`} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <label className="block text-sm font-medium text-matang-navy">{t("vyapar.category")} *</label>
             <select
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
             >
-              {CATEGORIES.filter((c) => c.value !== "all").map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
+              {CATEGORIES.filter((c) => c !== "all").map((c) => (
+                <option key={c} value={c}>
+                  {t(c)}
                 </option>
               ))}
             </select>
-            <Input label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-            <Input label="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-            <Input label="Phone" value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
-            <Input label="WhatsApp" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} />
+            <Input label={t("common.details")} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <Input label={t("common.address")} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+            <Input label={t("common.phone")} value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
+            <Input label={t("common.whatsapp")} value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} />
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>
-                Cancel
+              <Button variant="outline" className="flex-1 cursor-pointer" onClick={() => setShowForm(false)}>
+                {t("common.cancel")}
               </Button>
-              <Button className="flex-1" isLoading={submitting} onClick={submit}>
-                Submit
+              <Button className="flex-1 cursor-pointer" isLoading={submitting} onClick={submit}>
+                {t("common.submit")}
               </Button>
             </div>
           </CardContent>
@@ -149,13 +144,13 @@ function VyaparPageInner() {
       )}
 
       {loading ? (
-        <p className="text-center text-gray-500 py-8">Loading...</p>
+        <p className="text-center text-gray-500 py-8">{t("common.loading")}</p>
       ) : list.length === 0 ? (
         <EmptyState
           icon={Store}
-          title="No Businesses Listed"
-          description="Directory of community businesses, shops, and services."
-          actionLabel="List Business"
+          title={t("vyapar.noBusinesses")}
+          description={t("vyapar.subtitle")}
+          actionLabel={t("vyapar.addBusiness")}
           onAction={() => setShowForm(true)}
         />
       ) : (
@@ -167,7 +162,7 @@ function VyaparPageInner() {
                   {b.name}
                   {b.is_verified && <BadgeCheck size={16} className="text-matang-gold shrink-0" />}
                 </h3>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 capitalize shrink-0">{b.category}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 capitalize shrink-0">{t(b.category)}</span>
               </div>
               {b.description && <p className="text-sm text-gray-600">{b.description}</p>}
               <div className="flex flex-wrap gap-3 text-xs text-gray-500 pt-1">
@@ -191,7 +186,7 @@ function VyaparPageInner() {
                     className="flex items-center gap-1 text-green-600 font-medium"
                   >
                     <MessageCircle size={12} />
-                    WhatsApp
+                    {t("common.whatsapp")}
                   </a>
                 )}
               </div>

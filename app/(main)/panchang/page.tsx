@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { Calendar, ChevronLeft, ChevronRight, Plus, X, RefreshCw, Share2, Pencil, Trash2, LocateFixed } from "lucide-react";
 import { festivalsForYear, hasVerifiedYear, drikPanchangUrl, VERIFIED_YEARS } from "@/lib/hinduFestivals2026";
 
@@ -19,10 +20,10 @@ interface Festival {
   source?: "staff" | "verified" | string;
 }
 
-const WEEK = ["रवि", "सोम", "मंगल", "बुध", "गुरु", "शुक्र", "शनि"];
-const MONTHS_HI = [
-  "जनवरी", "फरवरी", "मार्च", "अप्रैल", "मई", "जून",
-  "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर",
+const WEEK_I18N = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
 
 function daysInMonth(year: number, month0: number) {
@@ -34,6 +35,7 @@ function startWeekday(year: number, month0: number) {
 }
 
 function PanchangPageInner() {
+  const { t, n, lang } = useI18n();
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const now = new Date();
@@ -72,7 +74,7 @@ function PanchangPageInner() {
 
   const syncVerified = async () => {
     if (!hasVerifiedYear(year)) {
-      toast(`${year} verified list mein nahi — Drik kholo`, "error");
+      toast(`${n(year)} Drik Panchang`, "error");
       window.open(drikPanchangUrl(year), "_blank");
       return;
     }
@@ -89,10 +91,10 @@ function PanchangPageInner() {
         return;
       }
       setLastSyncAt(data.lastSyncAt || new Date().toISOString());
-      toast(`${year}: ${data.count} tyohar sync · staff data safe`, "success");
+      toast(`${n(year)}: ${n(data.count)} ${t("panchang.festivalToday")} sync`, "success");
       load();
     } catch {
-      toast("Network error", "error");
+      toast(t("common.error"), "error");
     } finally {
       setSyncing(false);
     }
@@ -114,7 +116,7 @@ function PanchangPageInner() {
     festivalsForYear(year).forEach((e) =>
       add({
         id: e.id,
-        title: e.titleHi || e.title,
+        title: lang === "en" ? e.title : e.titleHi || e.title,
         description: [e.tithi, e.note].filter(Boolean).join(" · "),
         festival_date: e.date,
         source: "verified",
@@ -150,7 +152,7 @@ function PanchangPageInner() {
       }
     }
     return map;
-  }, [list, year]);
+  }, [list, year, lang]);
 
   const prevMonth = () => {
     if (month0 === 0) {
@@ -169,7 +171,7 @@ function PanchangPageInner() {
 
   const submit = async () => {
     if (!form.title || !form.festival_date) {
-      toast("Title and date required", "error");
+      toast(t("auth.invalidCredentials") || "Title and date required", "error");
       return;
     }
     if (editingId) {
@@ -183,7 +185,7 @@ function PanchangPageInner() {
         toast(data.error || "Update failed", "error");
         return;
       }
-      toast("Festival updated", "success");
+      toast(t("common.success"), "success");
       setEditingId(null);
       setShowForm(false);
       setForm({ title: "", description: "", festival_date: "", recurrence: "yearly" });
@@ -200,7 +202,7 @@ function PanchangPageInner() {
       toast(data.error || "Failed", "error");
       return;
     }
-    toast("Festival added", "success");
+    toast(t("common.success"), "success");
     setShowForm(false);
     setForm({ title: "", description: "", festival_date: "", recurrence: "yearly" });
     load();
@@ -214,7 +216,6 @@ function PanchangPageInner() {
   };
 
   const startEdit = (ev: Festival) => {
-    // unwrap expanded recurring id → original list id
     const baseId = list.find((l) => ev.id === l.id || String(ev.id).startsWith(String(l.id) + "_"))?.id || ev.id;
     const raw = list.find((l) => l.id === baseId) || ev;
     setEditingId(baseId);
@@ -230,14 +231,14 @@ function PanchangPageInner() {
 
   const deleteFest = async (ev: Festival) => {
     const baseId = list.find((l) => ev.id === l.id || String(ev.id).startsWith(String(l.id) + "_"))?.id || ev.id;
-    if (!confirm("Delete this staff festival?")) return;
+    if (!confirm(t("common.confirmDelete"))) return;
     const res = await fetch(`/api/panchang?id=${encodeURIComponent(baseId)}`, { method: "DELETE" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       toast(data.error || "Delete failed", "error");
       return;
     }
-    toast("Deleted", "success");
+    toast(t("common.success"), "success");
     load();
   };
 
@@ -261,8 +262,8 @@ function PanchangPageInner() {
     const body =
       lines.length > 0
         ? lines.join("\n")
-        : "Is hafte koi registered tyohar nahi.";
-    const text = `🕉️ *Matang Connect — Is hafte ke tyohar*\n📍 ${cityLabel}\n\n${body}\n\n_Matang Connect Panchang_`;
+        : t("common.noData");
+    const text = `🕉️ *${t("panchang.title")} — ${t("app.name")}*\n📍 ${cityLabel}\n\n${body}\n\n_${t("app.footer")}_`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   };
 
@@ -282,51 +283,49 @@ function PanchangPageInner() {
         <div className="flex items-center gap-2 min-w-0">
           <Calendar className="text-matang-gold shrink-0" size={22} />
           <div className="min-w-0">
-            <h1 className="text-lg font-bold text-matang-navy leading-tight">पंचांग</h1>
-            <p className="text-[10px] text-gray-500 truncate">📍 {cityLabel} · Chhattisgarh</p>
+            <h1 className="text-lg font-bold text-matang-navy leading-tight">{t("panchang.title")}</h1>
+            <p className="text-[10px] text-gray-500 truncate">📍 {cityLabel}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          <Button type="button" variant="outline" className="text-xs px-2 py-1.5 gap-1" onClick={goToday}>
-            <LocateFixed size={14} /> Today
+          <Button type="button" variant="outline" className="text-xs px-2 py-1.5 gap-1 cursor-pointer" onClick={goToday}>
+            <LocateFixed size={14} /> {t("panchang.festivalToday")}
           </Button>
           {isStaff && (
             <Button
-              className="text-sm px-3 py-1.5"
+              className="text-sm px-3 py-1.5 cursor-pointer"
               onClick={() => {
                 setEditingId(null);
                 setForm({ title: "", description: "", festival_date: "", recurrence: "yearly" });
                 setShowForm(!showForm);
               }}
             >
-              <Plus size={16} /> Add
+              <Plus size={16} /> {t("panchang.addFestival")}
             </Button>
           )}
         </div>
       </div>
-      <p className="text-[11px] text-gray-500">
-        कैलेंडर · त्योहार · समाज की तारीखें। तिथि पर टैप करें विवरण के लिए। Local note: {cityLabel}.
-      </p>
+      <p className="text-[11px] text-gray-500">{t("panchang.subtitle")}</p>
 
       {showForm && isStaff && (
         <Card className="border-matang-gold/30">
           <CardContent className="p-4 space-y-3">
             <p className="text-sm font-semibold text-matang-navy">
-              {editingId ? "Edit festival" : "Add festival"}
+              {editingId ? t("common.edit") : t("panchang.addFestival")}
             </p>
             <Input
-              label="Title"
+              label={`${t("dashboard.title")} *`}
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
             <Input
-              label="Date (pehli / base tithi)"
+              label={`${t("common.date")} *`}
               type="date"
               value={form.festival_date}
               onChange={(e) => setForm({ ...form, festival_date: e.target.value })}
             />
             <div>
-              <label className="block text-sm font-medium text-matang-navy mb-1">Repeat</label>
+              <label className="block text-sm font-medium text-matang-navy mb-1">{t("common.details")}</label>
               <select
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm bg-white"
                 value={form.recurrence}
@@ -337,15 +336,12 @@ function PanchangPageInner() {
                   })
                 }
               >
-                <option value="none">Sirf ek baar (no repeat)</option>
-                <option value="monthly">Har mahina (same date)</option>
-                <option value="yearly">Har saal (same date)</option>
+                <option value="none">Once</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
               </select>
-              <p className="text-[10px] text-gray-500 mt-1">
-                Monthly = har month usi date · Yearly = har year MM-DD
-              </p>
             </div>
-            <label className="block text-sm font-medium text-matang-navy">Description</label>
+            <label className="block text-sm font-medium text-matang-navy">{t("dashboard.message")}</label>
             <textarea
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm min-h-[70px]"
               value={form.description}
@@ -354,16 +350,16 @@ function PanchangPageInner() {
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                className="flex-1"
+                className="flex-1 cursor-pointer"
                 onClick={() => {
                   setShowForm(false);
                   setEditingId(null);
                 }}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
-              <Button className="flex-1" onClick={submit}>
-                {editingId ? "Update" : "Save"}
+              <Button className="flex-1 cursor-pointer" onClick={submit}>
+                {t("common.save")}
               </Button>
             </div>
           </CardContent>
@@ -372,76 +368,50 @@ function PanchangPageInner() {
 
       {/* Month navigation */}
       <div className="flex items-center justify-between bg-matang-navy text-matang-gold rounded-2xl px-3 py-2.5">
-        <button type="button" onClick={prevMonth} className="p-1.5 rounded-lg active:bg-white/10">
+        <button type="button" onClick={prevMonth} className="p-1.5 rounded-lg active:bg-white/10 cursor-pointer">
           <ChevronLeft size={20} />
         </button>
         <div className="text-center">
           <p className="text-sm font-bold">
-            {MONTHS_HI[month0]} {year}
+            {MONTHS_NAMES[month0]} {n(year)}
           </p>
           <p className="text-[10px] text-matang-gold/70">
-            📍 {cityLabel} · Drik baseline Delhi · 2025–2027
+            📍 {cityLabel} · {n(year)}
           </p>
         </div>
-        <button type="button" onClick={nextMonth} className="p-1.5 rounded-lg active:bg-white/10">
+        <button type="button" onClick={nextMonth} className="p-1.5 rounded-lg active:bg-white/10 cursor-pointer">
           <ChevronRight size={20} />
         </button>
       </div>
 
-      
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           variant="outline"
-          className="text-xs gap-1.5"
+          className="text-xs gap-1.5 cursor-pointer"
           disabled={syncing}
           onClick={syncVerified}
         >
           <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
-          {syncing ? "Updating…" : "Update / Sync"}
+          {syncing ? t("common.loading") : t("common.refresh")}
         </Button>
-        <Button type="button" variant="outline" className="text-xs gap-1.5 text-green-700 border-green-300" onClick={shareWeekWhatsApp}>
-          <Share2 size={14} /> Is hafte WhatsApp
+        <Button type="button" variant="outline" className="text-xs gap-1.5 text-green-700 border-green-300 cursor-pointer" onClick={shareWeekWhatsApp}>
+          <Share2 size={14} /> {t("common.share")}
         </Button>
-        {lastSyncAt && (
-          <span className="text-[10px] text-gray-500">
-            Last sync: {new Date(lastSyncAt).toLocaleString("en-IN")}
-          </span>
-        )}
-        <span className="text-[10px] text-gray-400">Staff tyohar Sync se safe</span>
       </div>
-
-      {!hasVerifiedYear(year) && (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="p-3 text-xs text-amber-900 space-y-2">
-            <p>
-              <strong>{year}</strong> ke built-in tyohar abhi app mein verify karke store nahi hain (sirf{" "}
-              {VERIFIED_YEARS.join(", ")}). Hum dates invent nahi karte.
-            </p>
-            <a
-              href={drikPanchangUrl(year)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block font-semibold text-matang-navy underline"
-            >
-              Drik Panchang {year} calendar kholo →
-            </a>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Calendar grid */}
       <Card>
         <CardContent className="p-2">
           <div className="grid grid-cols-7 gap-0.5 mb-1">
-            {WEEK.map((w) => (
+            {WEEK_I18N.map((w) => (
               <div key={w} className="text-center text-[10px] font-semibold text-matang-navy py-1">
-                {w}
+                {t(w)}
               </div>
             ))}
           </div>
           {loading ? (
-            <p className="text-center text-gray-400 text-sm py-8">Loading…</p>
+            <p className="text-center text-gray-400 text-sm py-8">{t("common.loading")}</p>
           ) : (
             <div className="grid grid-cols-7 gap-0.5">
               {cells.map((d, i) => {
@@ -458,16 +428,13 @@ function PanchangPageInner() {
                     key={dateStr}
                     type="button"
                     onClick={() => setSelected(dateStr)}
-                    className={`aspect-square rounded-xl flex flex-col items-center justify-center text-xs relative transition
+                    className={`aspect-square rounded-xl flex flex-col items-center justify-center text-xs relative transition cursor-pointer
                       ${isSel ? "bg-matang-navy text-matang-gold ring-2 ring-matang-gold" : ""}
                       ${!isSel && isToday ? "bg-emerald-500 text-white font-bold ring-2 ring-emerald-600 shadow-md scale-[1.02]" : ""}
                       ${!isSel && !isToday ? "hover:bg-gray-50 text-gray-800" : ""}
                     `}
                   >
-                    <span className="leading-none">{d}</span>
-                    {isToday && !isSel && (
-                      <span className="text-[8px] leading-none font-bold opacity-90">आज</span>
-                    )}
+                    <span className="leading-none">{n(d)}</span>
                     {hasEvent && (
                       <span className="mt-0.5 flex gap-0.5">
                         {hasVerified && (
@@ -485,11 +452,6 @@ function PanchangPageInner() {
           )}
         </CardContent>
       </Card>
-      <div className="flex flex-wrap gap-3 text-[10px] text-gray-600 px-1">
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-500" /> आज</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> Verified tyohar</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> Staff add</span>
-      </div>
 
       {/* Day detail panel */}
       {selected && selectedDateObj && (
@@ -498,83 +460,62 @@ function PanchangPageInner() {
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-sm font-bold text-matang-navy">
-                  {selectedDateObj.toLocaleDateString("hi-IN", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
+                  {selected}
                 </p>
                 <p className="text-[11px] text-gray-500">{selected}</p>
               </div>
-              <button type="button" onClick={() => setSelected(null)} className="p-1 text-gray-400">
+              <button type="button" onClick={() => setSelected(null)} className="p-1 text-gray-400 cursor-pointer">
                 <X size={18} />
               </button>
             </div>
 
-            <div className="rounded-xl bg-matang-navy/5 p-3 text-xs text-gray-700 space-y-1">
-              <p>
-                <span className="font-semibold text-matang-navy">वार:</span>{" "}
-                {WEEK[selectedDateObj.getDay()]}
-              </p>
-              <p className="text-[10px] text-gray-500">
-                त्योहार तिथियाँ: Drik Panchang (Delhi, 2026) से सत्यापित। शहर / मुहूर्त के अनुसार ±1 दिन अंतर हो सकता है।
-                नक्षत्र–योग के लिए स्थानीय पंचांग देखें।
-              </p>
-            </div>
-
             {selectedEvents.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">इस दिन कोई दर्ज त्योहार नहीं</p>
+              <p className="text-sm text-gray-400 text-center py-4">{t("common.noData")}</p>
             ) : (
               <div className="space-y-2">
                 {selectedEvents.map((ev) => {
                   const staff = ev.source === "staff";
                   return (
-                  <div
-                    key={ev.id}
-                    className={`rounded-xl border p-3 space-y-1 ${
-                      staff
-                        ? "border-green-400 bg-green-50"
-                        : "border-matang-gold/30 bg-white"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className={`text-sm font-semibold ${staff ? "text-green-900" : "text-matang-navy"}`}>
-                        {ev.title}
-                      </p>
-                      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
-                        staff ? "bg-green-200 text-green-800" : "bg-amber-100 text-amber-800"
-                      }`}>
-                        {staff ? "Staff" : "Verified"}
-                      </span>
-                    </div>
-                    {ev.description && (
-                      <p className="text-xs text-gray-600">{ev.description}</p>
-                    )}
-                    {staff && ev.recurrence && ev.recurrence !== "none" && (
-                      <p className="text-[10px] text-green-700">
-                        Repeat: {ev.recurrence === "monthly" ? "Har mahina" : "Har saal"}
-                      </p>
-                    )}
-                    {isStaff && staff && (
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          type="button"
-                          className="flex items-center gap-1 text-[11px] text-matang-navy font-medium"
-                          onClick={() => startEdit(ev)}
-                        >
-                          <Pencil size={12} /> Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="flex items-center gap-1 text-[11px] text-red-600 font-medium"
-                          onClick={() => deleteFest(ev)}
-                        >
-                          <Trash2 size={12} /> Delete
-                        </button>
+                    <div
+                      key={ev.id}
+                      className={`rounded-xl border p-3 space-y-1 ${
+                        staff
+                          ? "border-green-400 bg-green-50"
+                          : "border-matang-gold/30 bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`text-sm font-semibold ${staff ? "text-green-900" : "text-matang-navy"}`}>
+                          {ev.title}
+                        </p>
+                        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                          staff ? "bg-green-200 text-green-800" : "bg-amber-100 text-amber-800"
+                        }`}>
+                          {staff ? t("auth.volunteer") : t("common.verified")}
+                        </span>
                       </div>
-                    )}
-                  </div>
+                      {ev.description && (
+                        <p className="text-xs text-gray-600">{ev.description}</p>
+                      )}
+                      {isStaff && staff && (
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 text-[11px] text-matang-navy font-medium cursor-pointer"
+                            onClick={() => startEdit(ev)}
+                          >
+                            <Pencil size={12} /> {t("common.edit")}
+                          </button>
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 text-[11px] text-red-600 font-medium cursor-pointer"
+                            onClick={() => deleteFest(ev)}
+                          >
+                            <Trash2 size={12} /> {t("common.delete")}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -583,13 +524,13 @@ function PanchangPageInner() {
             {isStaff && (
               <Button
                 variant="outline"
-                className="w-full text-xs"
+                className="w-full text-xs cursor-pointer"
                 onClick={() => {
                   setForm((f) => ({ ...f, festival_date: selected }));
                   setShowForm(true);
                 }}
               >
-                + इस तारीख पर त्योहार जोड़ें
+                + {t("panchang.addFestival")}
               </Button>
             )}
           </CardContent>
@@ -598,7 +539,7 @@ function PanchangPageInner() {
 
       {/* Upcoming list this month */}
       <div>
-        <h2 className="text-sm font-bold text-matang-navy mb-2">इस महीने</h2>
+        <h2 className="text-sm font-bold text-matang-navy mb-2">{t("panchang.upcomingFestivals")}</h2>
         {Array.from(allEvents.entries())
           .filter(([date]) => date.startsWith(`${year}-${String(month0 + 1).padStart(2, "0")}`))
           .sort(([a], [b]) => a.localeCompare(b))
@@ -607,7 +548,7 @@ function PanchangPageInner() {
               key={date}
               type="button"
               onClick={() => setSelected(date)}
-              className="w-full text-left mb-2 rounded-xl border border-gray-100 bg-white p-3 active:scale-[0.99]"
+              className="w-full text-left mb-2 rounded-xl border border-gray-100 bg-white p-3 active:scale-[0.99] cursor-pointer"
             >
               <p className="text-[10px] text-matang-gold font-semibold">{date}</p>
               {evs.map((e) => (

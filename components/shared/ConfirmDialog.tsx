@@ -2,6 +2,7 @@
 import React, { useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { AlertTriangle, AlertCircle, Info, X } from "lucide-react";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -19,13 +20,15 @@ export function ConfirmDialog({
   isOpen,
   title,
   description,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  cancelLabel,
   variant = "default",
   isLoading = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useI18n();
+
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -38,6 +41,8 @@ export function ConfirmDialog({
   if (!isOpen) return null;
 
   const isDanger = variant === "danger";
+  const displayConfirmLabel = confirmLabel ? t(confirmLabel) : t("common.confirm");
+  const displayCancelLabel = cancelLabel ? t(cancelLabel) : t("common.cancel");
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
@@ -67,9 +72,9 @@ export function ConfirmDialog({
           </div>
           <div className="flex-1 min-w-0">
             <h3 id="confirm-dialog-title" className="text-base font-bold text-matang-navy leading-snug">
-              {title}
+              {t(title)}
             </h3>
-            <p className="text-xs text-gray-600 mt-1 leading-relaxed">{description}</p>
+            <p className="text-xs text-gray-600 mt-1 leading-relaxed">{t(description)}</p>
           </div>
           <button
             type="button"
@@ -89,7 +94,7 @@ export function ConfirmDialog({
             onClick={onCancel}
             disabled={isLoading}
           >
-            {cancelLabel}
+            {displayCancelLabel}
           </Button>
           <Button
             type="button"
@@ -101,7 +106,7 @@ export function ConfirmDialog({
             isLoading={isLoading}
             onClick={onConfirm}
           >
-            {confirmLabel}
+            {displayConfirmLabel}
           </Button>
         </div>
       </div>

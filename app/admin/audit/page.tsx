@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { ScrollText } from "lucide-react";
 
 interface Log {
@@ -16,6 +17,7 @@ interface Log {
 }
 
 export default function AuditPage() {
+  const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [logs, setLogs] = useState<Log[]>([]);
@@ -31,7 +33,7 @@ export default function AuditPage() {
         if (d.error) setErr(d.error);
         else setErr("");
       })
-      .catch(() => toast("Failed to load audit logs", "error"))
+      .catch(() => toast(t("common.error") || "Failed to load audit logs", "error"))
       .finally(() => setLoading(false));
   };
 
@@ -63,7 +65,7 @@ export default function AuditPage() {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <ScrollText className="text-matang-gold" size={22} />
-          <h1 className="text-lg font-bold text-matang-navy">Audit Log</h1>
+          <h1 className="text-lg font-bold text-matang-navy">{t("nav.audit") || "Audit Log"}</h1>
         </div>
         {user.role === "super_admin" && (
           <button
@@ -71,19 +73,19 @@ export default function AuditPage() {
             onClick={testWrite}
             className="text-xs font-semibold px-3 py-1.5 rounded-full bg-matang-navy text-matang-gold"
           >
-            Write test entry
+            {t("admin.writeTestEntry") || "Write test entry"}
           </button>
         )}
       </div>
       <p className="text-xs text-gray-500">
-        Login, register, profile update, M-PIN reset, feature toggles, etc.
+        {t("admin.auditDesc") || "Login, register, profile update, M-PIN reset, feature toggles, etc."}
       </p>
       {err && <p className="text-xs text-red-600 break-all">{err}</p>}
-      {loading && <p className="text-center text-gray-400 py-8">Loading…</p>}
+      {loading && <p className="text-center text-gray-400 py-8">{t("common.loading") || "Loading…"}</p>}
       {!loading && logs.length === 0 && (
         <Card>
           <CardContent className="p-6 text-center text-sm text-gray-400">
-            No audit entries yet. Use “Write test entry” or login/register to generate logs.
+            {t("admin.noAuditLogs") || "No audit entries yet."}
           </CardContent>
         </Card>
       )}

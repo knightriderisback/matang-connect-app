@@ -6,12 +6,14 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { effectiveRole } from "@/lib/auth/roleCache";
 import { useFeatureFlags } from "@/lib/useFeatureFlags";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Inbox } from "lucide-react";
 
 export default function AdminRequestsPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const { toast } = useToast();
   const { user, loading: userLoading } = useCurrentUser();
@@ -45,14 +47,14 @@ export default function AdminRequestsPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      toast(data.error || "Failed", "error");
+      toast(data.error || t("common.error"), "error");
       return;
     }
-    toast(decision === "accept" ? "Accepted" : "Rejected", "success");
+    toast(decision === "accept" ? (t("common.confirmed") || "Accepted") : (t("common.delete") || "Rejected"), "success");
     load();
   };
 
-  if (userLoading) return <div className="p-8 text-center text-gray-500">Loading…</div>;
+  if (userLoading) return <div className="p-8 text-center text-gray-500">{t("common.loading") || "Loading…"}</div>;
   if (!isStaff) {
     return <div className="p-8 text-center text-sm text-gray-500">Staff access only — Volunteer / Core / Super Admin</div>;
   }
@@ -67,7 +69,7 @@ export default function AdminRequestsPage() {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Inbox className="text-matang-gold" size={22} />
-          <h1 className="text-lg font-bold text-matang-navy">All Requests</h1>
+          <h1 className="text-lg font-bold text-matang-navy">{t("nav.allRequests") || "All Requests"}</h1>
         </div>
         <div className="flex gap-1 text-xs">
           <button
@@ -77,7 +79,7 @@ export default function AdminRequestsPage() {
               filter === "pending" ? "bg-matang-navy text-white border-matang-navy" : "bg-white"
             }`}
           >
-            Pending
+            {t("common.pending") || "Pending"}
           </button>
           <button
             type="button"
@@ -86,20 +88,20 @@ export default function AdminRequestsPage() {
               filter === "all" ? "bg-matang-navy text-white border-matang-navy" : "bg-white"
             }`}
           >
-            All
+            {t("common.all") || "All"}
           </button>
         </div>
       </div>
       <p className="text-[11px] text-gray-500">
-        Poll changes, verifications, and future module requests — one place.
+        {t("admin.requestsDesc") || "Poll changes, verifications, and future module requests — one place."}
       </p>
 
       {loading ? (
-        <p className="text-center text-gray-400 py-8">Loading…</p>
+        <p className="text-center text-gray-400 py-8">{t("common.loading") || "Loading…"}</p>
       ) : shown.length === 0 ? (
         <EmptyState
           icon={Inbox}
-          title="No Requests"
+          title={filter === "pending" ? (t("common.noData") || "No Pending Requests") : (t("common.noResults") || "No Requests")}
           description={filter === "pending" ? "There are no pending requests right now." : "No requests found."}
         />
       ) : (
@@ -117,7 +119,7 @@ export default function AdminRequestsPage() {
                       className="text-sm font-semibold text-matang-navy hover:underline"
                       onClick={() => r.user_id && router.push(`/member/${r.user_id}`)}
                     >
-                      {r.user_name || "Member"}
+                      {r.user_name || (t("auth.member") || "Member")}
                     </button>
                   </div>
                   <span
@@ -153,7 +155,7 @@ export default function AdminRequestsPage() {
                       className="text-xs px-2 py-1"
                       onClick={() => router.push(r.href)}
                     >
-                      Open
+                      {t("common.view") || "Open"}
                     </Button>
                   )}
                   {isApprover && r.type === "poll_vote_change" && r.status === "pending" && (
@@ -162,14 +164,14 @@ export default function AdminRequestsPage() {
                         className="text-xs px-2 py-1"
                         onClick={() => resolvePoll(r.id, "accept")}
                       >
-                        Accept
+                        {t("admin.accept") || "Accept"}
                       </Button>
                       <Button
                         variant="outline"
                         className="text-xs px-2 py-1"
                         onClick={() => resolvePoll(r.id, "reject")}
                       >
-                        Reject
+                        {t("admin.reject") || "Reject"}
                       </Button>
                     </>
                   )}
@@ -178,7 +180,7 @@ export default function AdminRequestsPage() {
                       className="text-xs px-2 py-1"
                       onClick={() => router.push("/admin/verify")}
                     >
-                      Verify
+                      {t("nav.verify") || "Verify"}
                     </Button>
                   )}
                 </div>

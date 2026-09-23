@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { Button } from "@/components/ui/Button";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 
 interface EmptyStateProps {
   icon: any;
@@ -19,6 +20,8 @@ export function EmptyState({
   onAction,
   className = "",
 }: EmptyStateProps) {
+  const { t } = useI18n();
+
   return (
     <div
       className={`flex flex-col items-center justify-center p-8 text-center bg-white rounded-2xl border border-gray-100 shadow-sm space-y-3 ${className}`}
@@ -27,12 +30,12 @@ export function EmptyState({
         <Icon size={26} strokeWidth={2} />
       </div>
       <div className="space-y-1 max-w-sm">
-        <h3 className="text-base font-bold text-matang-navy">{title}</h3>
-        <p className="text-xs text-gray-500 leading-relaxed">{description}</p>
+        <h3 className="text-base font-bold text-matang-navy">{t(title)}</h3>
+        <p className="text-xs text-gray-500 leading-relaxed">{t(description)}</p>
       </div>
       {actionLabel && onAction && (
         <Button size="sm" onClick={onAction} className="mt-2 text-xs px-4 py-2">
-          {actionLabel}
+          {t(actionLabel)}
         </Button>
       )}
     </div>

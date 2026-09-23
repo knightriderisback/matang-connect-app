@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { effectiveRole } from "@/lib/auth/roleCache";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { Trophy, Award, Medal, Clock, Sparkles } from "lucide-react";
 import { NameLink } from "@/components/shared/NameLink";
 
@@ -21,23 +22,8 @@ const POINT_PRESETS = [
   { label: "Custom…", points: 0, reason: "custom" },
 ];
 
-function formatWhen(iso?: string) {
-  if (!iso) return "—";
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString(undefined, {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
-}
-
 function BadgesPageInner() {
+  const { t, n, timeAgo } = useI18n();
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const role = effectiveRole(user?.role);
@@ -88,15 +74,15 @@ function BadgesPageInner() {
 
   const submitAward = async () => {
     if (!award.user_id) {
-      toast("Select a member", "error");
+      toast(t("auth.invalidCredentials") || "Select a member", "error");
       return;
     }
     if (!award.points || Number(award.points) < 1) {
-      toast("Enter points", "error");
+      toast(t("common.error"), "error");
       return;
     }
     if (isCustom && !award.reason.trim()) {
-      toast("Enter custom reason", "error");
+      toast(t("common.details"), "error");
       return;
     }
     setSaving(true);
@@ -111,7 +97,7 @@ function BadgesPageInner() {
         toast(data.error || "Failed", "error");
         return;
       }
-      toast(`Awarded — total ${data.points} pts`, "success");
+      toast(`${t("common.success")} — ${n(data.points)} pts`, "success");
       setPresetIdx(0);
       setAward({ user_id: award.user_id, points: "10", reason: "Community service" });
       load();
@@ -128,11 +114,9 @@ function BadgesPageInner() {
         <Trophy className="text-matang-gold" size={22} />
         <div>
           <h1 className="text-lg font-bold text-matang-navy">
-            {isVolunteer ? "My Credits" : "Volunteer Credits"}
+            {t("badges.title")}
           </h1>
-          {isVolunteer && (
-            <p className="text-[11px] text-gray-500">Aapke points, badges, log aur leaderboard</p>
-          )}
+          <p className="text-[11px] text-gray-500">{t("badges.subtitle")}</p>
         </div>
       </div>
 
@@ -141,14 +125,14 @@ function BadgesPageInner() {
         <CardContent className="p-4 space-y-3">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <p className="text-white/70 text-xs">Your points</p>
-              <p className="text-4xl font-bold text-matang-gold tabular-nums">{me.points || 0}</p>
+              <p className="text-white/70 text-xs">{t("badges.points")}</p>
+              <p className="text-4xl font-bold text-matang-gold tabular-nums">{n(me.points || 0)}</p>
             </div>
             <Sparkles className="text-matang-gold/80" size={28} />
           </div>
           {me.updated_at && (
             <p className="text-[10px] text-white/50 flex items-center gap-1">
-              <Clock size={10} /> Updated {formatWhen(me.updated_at)}
+              <Clock size={10} /> {t("common.time")}: {timeAgo(me.updated_at)}
             </p>
           )}
         </CardContent>
@@ -157,10 +141,10 @@ function BadgesPageInner() {
       {/* Badges / medals */}
       <div>
         <h2 className="text-sm font-bold text-matang-navy mb-2 flex items-center gap-1.5">
-          <Medal size={16} className="text-matang-gold" /> Badges & medals
+          <Medal size={16} className="text-matang-gold" /> {t("badges.badges")}
         </h2>
         {badges.length === 0 ? (
-          <p className="text-xs text-gray-400 py-2">Abhi koi badge nahi — points se unlock honge.</p>
+          <p className="text-xs text-gray-400 py-2">{t("badges.noBadges")}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {badges.map((b: string) => (
@@ -169,7 +153,7 @@ function BadgesPageInner() {
                 className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200 font-medium"
               >
                 <Award size={12} className="text-matang-gold" />
-                {b}
+                {t(b)}
               </span>
             ))}
           </div>
@@ -180,14 +164,14 @@ function BadgesPageInner() {
       {canAward && (
         <Card>
           <CardContent className="p-4 space-y-3">
-            <h2 className="text-sm font-bold text-matang-navy">Award points</h2>
-            <p className="text-[11px] text-gray-500">Core Committee / Super Admin only</p>
+            <h2 className="text-sm font-bold text-matang-navy">{t("badges.points")}</h2>
+            <p className="text-[11px] text-gray-500">{t("auth.superAdmin")} / {t("auth.coreCommittee")}</p>
             <select
-              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white"
               value={award.user_id}
               onChange={(e) => setAward((a) => ({ ...a, user_id: e.target.value }))}
             >
-              <option value="">— Select member —</option>
+              <option value="">— {t("common.details")} —</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.full_name} {u.phone ? `(${u.phone})` : ""}
@@ -195,7 +179,7 @@ function BadgesPageInner() {
               ))}
             </select>
             <select
-              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white"
               value={presetIdx}
               onChange={(e) => onPreset(Number(e.target.value))}
             >
@@ -217,17 +201,17 @@ function BadgesPageInner() {
                 <Input
                   value={award.reason}
                   onChange={(e) => setAward((a) => ({ ...a, reason: e.target.value }))}
-                  placeholder="Reason"
+                  placeholder={t("common.details")}
                 />
               </>
             )}
             {!isCustom && (
               <p className="text-xs text-gray-500">
-                <strong>{award.points}</strong> pts — {award.reason}
+                <strong>{n(award.points)}</strong> pts — {award.reason}
               </p>
             )}
-            <Button className="w-full" isLoading={saving} onClick={submitAward}>
-              Award
+            <Button className="w-full cursor-pointer" isLoading={saving} onClick={submitAward}>
+              {t("common.save")}
             </Button>
           </CardContent>
         </Card>
@@ -235,7 +219,7 @@ function BadgesPageInner() {
 
       {/* Leaderboard */}
       <div>
-        <h2 className="text-sm font-bold text-matang-navy mb-2">Leaderboard</h2>
+        <h2 className="text-sm font-bold text-matang-navy mb-2">{t("badges.leaderboard")}</h2>
         <div className="space-y-2">
           {leaders.map((l, i) => {
             const isMe = l.user_id === user?.id || l.user_id === (user as any)?.userId;
@@ -243,50 +227,50 @@ function BadgesPageInner() {
               <Card key={l.user_id} className={isMe ? "border-matang-gold/50 ring-1 ring-matang-gold/30" : ""}>
                 <CardContent className="p-3 flex justify-between text-sm items-center">
                   <span className="font-medium">
-                    #{i + 1}{" "}
-                    <NameLink id={l.user_id} name={l.full_name || l.users?.full_name || "Member"} />
+                    #{n(i + 1)}{" "}
+                    <NameLink id={l.user_id} name={l.full_name || l.users?.full_name || t("auth.member")} />
                     {isMe && (
-                      <span className="ml-1 text-[10px] text-matang-gold font-bold">You</span>
+                      <span className="ml-1 text-[10px] text-matang-gold font-bold">({t("relations.self")})</span>
                     )}
                   </span>
-                  <span className="text-matang-gold font-bold">{l.points} pts</span>
+                  <span className="text-matang-gold font-bold">{n(l.points)} pts</span>
                 </CardContent>
               </Card>
             );
           })}
-          {!leaders.length && <p className="text-xs text-gray-400">No points yet.</p>}
+          {!leaders.length && <p className="text-xs text-gray-400">{t("common.noData")}</p>}
         </div>
       </div>
 
       {/* Personal / award log */}
       <div>
         <h2 className="text-sm font-bold text-matang-navy mb-2">
-          {isVolunteer ? "Aapka points log" : "Award log"}
+          {t("badges.points")} Log
         </h2>
         <div className="space-y-2">
           {logs.map((log, i) => (
             <Card key={log.id || i}>
               <CardContent className="p-3 space-y-1.5 text-sm">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-bold text-matang-gold text-base">+{log.points} pts</p>
+                  <p className="font-bold text-matang-gold text-base">+{n(log.points)} pts</p>
                   <p className="text-[10px] text-gray-400 flex items-center gap-0.5 shrink-0">
                     <Clock size={10} />
-                    {formatWhen(log.created_at)}
+                    {timeAgo(log.created_at)}
                   </p>
                 </div>
                 {log.reason && (
                   <p className="text-xs text-gray-700">
-                    <span className="text-gray-400">Kaam / reason: </span>
+                    <span className="text-gray-400">{t("common.details")}: </span>
                     {log.reason}
                   </p>
                 )}
                 <p className="text-xs text-gray-600">
-                  <span className="text-gray-400">Diya: </span>
-                  <NameLink id={log.awarded_by} name={log.awarder_name || "Staff"} />
+                  <span className="text-gray-400">By: </span>
+                  <NameLink id={log.awarded_by} name={log.awarder_name || t("auth.volunteer")} />
                   {!isVolunteer && (
                     <>
                       <span className="text-gray-400"> → </span>
-                      <NameLink id={log.user_id} name={log.recipient_name || "Member"} />
+                      <NameLink id={log.user_id} name={log.recipient_name || t("auth.member")} />
                     </>
                   )}
                 </p>
@@ -295,9 +279,7 @@ function BadgesPageInner() {
           ))}
           {!logs.length && (
             <p className="text-xs text-gray-400">
-              {isVolunteer
-                ? "Abhi aapka koi award log nahi. Points milne par yahan date-time ke saath dikhenge."
-                : "No award history yet."}
+              {t("common.noData")}
             </p>
           )}
         </div>

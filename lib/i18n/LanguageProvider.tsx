@@ -40,11 +40,11 @@ const DICTIONARIES: Record<LanguageCode, Record<string, any>> = {
 interface I18nContextType {
   lang: LanguageCode;
   setLang: (lang: LanguageCode | string) => void;
-  /** Translate a dot-path key with optional interpolation params e.g. { name: 'John' } */
+  /** Translate a dot-path key, raw term, or identifier with optional params */
   t: (key: string, params?: Record<string, string | number>) => string;
-  /** Format number with Indian numbering and Devanagari numerals where applicable */
+  /** Format number with Indian numbering and standard digits (1, 2, 3...) */
   n: (value: number | string | null | undefined) => string;
-  /** Format currency with Rupee symbol and localized digits */
+  /** Format currency with Rupee symbol and standard digits */
   c: (value: number | string | null | undefined) => string;
   /** Localized time ago e.g. '5 मिनट पहले' or '5 min pehle' */
   timeAgo: (date: string | number | Date | null | undefined) => string;
@@ -63,6 +63,22 @@ const I18nContext = createContext<I18nContextType>({
   languages: SUPPORTED_LANGUAGES,
 });
 
+function normalizeLookupKey(str: string): string {
+  return str
+    .trim()
+    .toLowerCase()
+    .replace(/[\s\-_]+/g, "_")
+    .replace(/[^\w]/g, "");
+}
+
+function camelToSnake(str: string): string {
+  return str.replace(/([a-z])([A-Z])/g, "$1_$2").toLowerCase();
+}
+
+function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<LanguageCode>("hi");
   const [isReady, setIsReady] = useState(false);
@@ -71,11 +87,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const saved = localStorage.getItem("matang-lang") as LanguageCode | null;
-      if (saved && (saved in DICTIONARIES)) {
+      if (saved && saved in DICTIONARIES) {
         setLangState(saved);
         document.documentElement.lang = saved === "hng" ? "hi-Latn" : saved;
       } else {
-        // Default to Hindi or English based on browser
         const browserLang = navigator.language?.toLowerCase() || "";
         if (browserLang.startsWith("mr")) {
           setLangState("mr");
@@ -104,43 +119,116 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /**
-   * Safe nested key getter with strict fallback:
-   * currentLang -> hi -> en -> last segment of key (cleaned)
+   * Search helper within a dictionary
    */
-  const getNested = useCallback(
-    (dict: Record<string, any>, path: string): string | null => {
-      const parts = path.split(".");
+  const searchDictionary = useCallback((dict: Record<string, any>, key: string): string | null => {
+    if (!dict || typeof dict !== "object" || !key) return null;
+
+    // 1. Exact dotted path
+    if (key.includes(".")) {
+      const parts = key.split(".");
       let cur: any = dict;
       for (const p of parts) {
-        if (!cur || typeof cur !== "object") return null;
+        if (!cur || typeof cur !== "object") {
+          cur = null;
+          break;
+        }
         cur = cur[p];
       }
-      return typeof cur === "string" ? cur : null;
-    },
-    []
-  );
+      if (typeof cur === "string") return cur;
+    }
+
+    // 2. Direct top-level key
+    if (typeof dict[key] === "string") return dict[key];
+
+    // 3. Search across all top-level sections
+    const candidates = [
+      key,
+      normalizeLookupKey(key),
+      camelToSnake(key),
+      snakeToCamel(key),
+      key.toLowerCase(),
+    ];
+
+    const prioritySections = [
+      "roles",
+      "categories",
+      "genders",
+      "marital",
+      "relations",
+      "education_opts",
+      "occupations",
+      "common",
+      "nav",
+      "auth",
+      "dashboard",
+      "census",
+      "profile",
+      "matrimony",
+      "care",
+      "jobs",
+      "admin",
+      "services",
+      "sos",
+      "rides",
+      "vyapar",
+      "panchang",
+      "dharohar",
+      "mahila",
+      "polls",
+      "gaurav",
+      "badges",
+      "scan",
+    ];
+
+    for (const sec of prioritySections) {
+      if (dict[sec] && typeof dict[sec] === "object") {
+        for (const cand of candidates) {
+          if (typeof dict[sec][cand] === "string") {
+            return dict[sec][cand];
+          }
+        }
+      }
+    }
+
+    // 4. Any other section
+    for (const secKey of Object.keys(dict)) {
+      if (!prioritySections.includes(secKey) && typeof dict[secKey] === "object") {
+        for (const cand of candidates) {
+          if (typeof dict[secKey][cand] === "string") {
+            return dict[secKey][cand];
+          }
+        }
+      }
+    }
+
+    return null;
+  }, []);
 
   const t = useCallback(
     (key: string, params?: Record<string, string | number>): string => {
       if (!key) return "";
 
       const currentDict = DICTIONARIES[lang] || DICTIONARIES.hi;
-      let text = getNested(currentDict, key);
+      let text = searchDictionary(currentDict, key);
 
       // Fallback 1: Hindi
       if (!text && lang !== "hi") {
-        text = getNested(DICTIONARIES.hi, key);
+        text = searchDictionary(DICTIONARIES.hi, key);
       }
 
       // Fallback 2: English
       if (!text && lang !== "en") {
-        text = getNested(DICTIONARIES.en, key);
+        text = searchDictionary(DICTIONARIES.en, key);
       }
 
       // Fallback 3: Return key itself or clean last part
       if (!text) {
-        const parts = key.split(".");
-        return parts[parts.length - 1] ?? key;
+        if (key.includes(".")) {
+          const parts = key.split(".");
+          return parts[parts.length - 1] ?? key;
+        }
+        return key;
       }
 
       // Variable interpolation: {{key}}
@@ -154,7 +242,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
       return text;
     },
-    [lang, getNested]
+    [lang, searchDictionary]
   );
 
   const n = useCallback(

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Bell, Plus, Share2 } from "lucide-react";
 
@@ -19,14 +20,6 @@ interface Notice {
   is_global?: boolean;
 }
 
-const CATEGORY_LABEL: Record<string, string> = {
-  shok_sandesh: "Shok Sandesh",
-  meeting: "Meeting",
-  announcement: "Announcement",
-  general: "General",
-  other: "Other",
-};
-
 const PRIORITY_COLOR: Record<string, string> = {
   urgent: "bg-red-100 text-red-700",
   high: "bg-orange-100 text-orange-700",
@@ -35,6 +28,7 @@ const PRIORITY_COLOR: Record<string, string> = {
 };
 
 function NoticesPageInner() {
+  const { t, timeAgo } = useI18n();
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [notices, setNotices] = useState<Notice[]>([]);
@@ -62,7 +56,7 @@ function NoticesPageInner() {
 
   const submit = async () => {
     if (!form.title || !form.body) {
-      toast("Title and body required", "error");
+      toast(t("auth.invalidCredentials") || "Title and body required", "error");
       return;
     }
     setSubmitting(true);
@@ -77,12 +71,12 @@ function NoticesPageInner() {
         toast(data.error || "Failed", "error");
         return;
       }
-      toast("Notice published", "success");
+      toast(t("common.success"), "success");
       setShowForm(false);
       setForm({ title: "", body: "", priority: "normal", category: "general" });
       load();
     } catch {
-      toast("Failed to publish notice", "error");
+      toast(t("common.error"), "error");
     } finally {
       setSubmitting(false);
     }
@@ -91,22 +85,22 @@ function NoticesPageInner() {
   const shareWA = (n: Notice) => {
     const cat =
       n.category && n.category !== "general"
-        ? ` [${CATEGORY_LABEL[n.category] || n.category}]`
+        ? ` [${t(n.category)}]`
         : "";
-    const msg = `📢 *${n.title}${cat}*\n\n${n.body}\n\n— Matang Connect`;
+    const msg = `📢 *${n.title}${cat}*\n\n${n.body}\n\n— ${t("app.name")}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-4 pb-24">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Bell className="text-matang-gold" size={22} />
-          <h1 className="text-lg font-bold text-matang-navy">Notices</h1>
+          <h1 className="text-lg font-bold text-matang-navy">{t("nav.notices")}</h1>
         </div>
         {isStaff && (
-          <Button className="text-sm px-3 py-1.5" onClick={() => setShowForm(!showForm)}>
-            <Plus size={16} /> New
+          <Button className="text-sm px-3 py-1.5 cursor-pointer" onClick={() => setShowForm(!showForm)}>
+            <Plus size={16} /> {t("common.post")}
           </Button>
         )}
       </div>
@@ -115,56 +109,56 @@ function NoticesPageInner() {
         <Card className="border-matang-gold/30">
           <CardContent className="p-4 space-y-3">
             <Input
-              label="Title *"
+              label={`${t("dashboard.title")} *`}
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
-            <label className="block text-sm font-medium text-matang-navy">Body *</label>
+            <label className="block text-sm font-medium text-matang-navy">{t("dashboard.message")} *</label>
             <textarea
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm min-h-[100px]"
               value={form.body}
               onChange={(e) => setForm({ ...form, body: e.target.value })}
             />
             <select
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
               value={form.priority}
               onChange={(e) => setForm({ ...form, priority: e.target.value })}
             >
               <option value="low">Low</option>
               <option value="normal">Normal</option>
               <option value="high">High</option>
-              <option value="urgent">Urgent</option>
+              <option value="urgent">{t("dashboard.urgent")}</option>
             </select>
             <select
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
             >
-              <option value="general">General</option>
-              <option value="meeting">Meeting</option>
-              <option value="announcement">Announcement</option>
-              <option value="shok_sandesh">Shok Sandesh</option>
-              <option value="other">Other</option>
+              <option value="general">{t("dashboard.general")}</option>
+              <option value="meeting">{t("dashboard.meeting")}</option>
+              <option value="announcement">{t("dashboard.announcement")}</option>
+              <option value="shok_sandesh">{t("dashboard.shokSandesh")}</option>
+              <option value="other">{t("common.details")}</option>
             </select>
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>
-                Cancel
+              <Button variant="outline" className="flex-1 cursor-pointer" onClick={() => setShowForm(false)}>
+                {t("common.cancel")}
               </Button>
-              <Button className="flex-1" isLoading={submitting} onClick={submit}>
-                Publish
+              <Button className="flex-1 cursor-pointer" isLoading={submitting} onClick={submit}>
+                {t("common.post")}
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {loading && <p className="text-center text-gray-400 py-8">Loading...</p>}
+      {loading && <p className="text-center text-gray-400 py-8">{t("common.loading")}</p>}
       {!loading && notices.length === 0 && (
         <EmptyState
           icon={Bell}
-          title="No Notices Yet"
-          description="Community announcements, meetings, and updates will appear here."
-          actionLabel={isStaff ? "New Notice" : undefined}
+          title={t("dashboard.noPosts")}
+          description={t("nav.notices")}
+          actionLabel={isStaff ? t("common.post") : undefined}
           onAction={isStaff ? () => setShowForm(true) : undefined}
         />
       )}
@@ -177,7 +171,7 @@ function NoticesPageInner() {
                   {n.title}
                   {n.category && n.category !== "general" && (
                     <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
-                      {CATEGORY_LABEL[n.category] || n.category}
+                      {t(n.category)}
                     </span>
                   )}
                 </h3>
@@ -186,19 +180,19 @@ function NoticesPageInner() {
                     PRIORITY_COLOR[n.priority] || PRIORITY_COLOR.normal
                   }`}
                 >
-                  {n.priority}
+                  {t(n.priority)}
                 </span>
               </div>
               <p className="text-sm text-gray-600 whitespace-pre-wrap">{n.body}</p>
               <div className="flex items-center justify-between pt-1">
                 <span className="text-[10px] text-gray-400">
-                  {new Date(n.created_at).toLocaleString()}
+                  {timeAgo(n.created_at)}
                 </span>
                 <button
                   onClick={() => shareWA(n)}
-                  className="flex items-center gap-1 text-xs text-green-600 font-medium"
+                  className="flex items-center gap-1 text-xs text-green-600 font-medium cursor-pointer"
                 >
-                  <Share2 size={14} /> WhatsApp
+                  <Share2 size={14} /> {t("common.share")}
                 </button>
               </div>
             </CardContent>

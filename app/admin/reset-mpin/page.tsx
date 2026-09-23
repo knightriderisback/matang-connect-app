@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { KeyRound, Search } from "lucide-react";
 
 interface DirUser {
@@ -16,6 +17,7 @@ interface DirUser {
 }
 
 export default function ResetMpinPage() {
+  const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [users, setUsers] = useState<DirUser[]>([]);
@@ -29,7 +31,7 @@ export default function ResetMpinPage() {
     fetch("/api/admin/directory")
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => setUsers(d.users || []))
-      .catch(() => toast("Could not load members", "error"));
+      .catch(() => toast(t("common.error") || "Could not load members", "error"));
   }, []);
 
   const filtered = users.filter(
@@ -66,7 +68,7 @@ export default function ResetMpinPage() {
       setNewMpin("");
       setConfirm("");
     } catch {
-      toast("Something went wrong", "error");
+      toast(t("common.error"), "error");
     } finally {
       setLoading(false);
     }
@@ -84,10 +86,10 @@ export default function ResetMpinPage() {
     <div className="p-4 space-y-4">
       <div className="flex items-center gap-2">
         <KeyRound className="text-matang-gold" size={22} />
-        <h1 className="text-lg font-bold text-matang-navy">Reset Member M-PIN</h1>
+        <h1 className="text-lg font-bold text-matang-navy">{t("nav.resetMpin") || "Reset Member M-PIN"}</h1>
       </div>
       <p className="text-xs text-gray-500">
-        Verify the member&apos;s identity in person before resetting. New M-PIN is 4 digits.
+        {t("admin.resetMpinDesc") || "Verify the member's identity in person before resetting. New M-PIN is 4 digits."}
       </p>
 
       {!selected ? (
@@ -97,7 +99,7 @@ export default function ResetMpinPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name, phone, village..."
+              placeholder={t("common.search") || "Search name, phone, village..."}
               className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-matang-gold/40"
             />
           </div>
@@ -118,24 +120,24 @@ export default function ResetMpinPage() {
                 </Card>
               </button>
             ))}
-            {filtered.length === 0 && <p className="text-center text-sm text-gray-400 py-8">No members found</p>}
+            {filtered.length === 0 && <p className="text-center text-sm text-gray-400 py-8">{t("common.noResults") || "No members found"}</p>}
           </div>
         </>
       ) : (
         <Card className="border-matang-gold/30">
           <CardHeader>
-            <CardTitle className="text-base">Reset for {selected.full_name}</CardTitle>
+            <CardTitle className="text-base">{t("admin.resetMpinFor") || "Reset for"} {selected.full_name}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-gray-500">{selected.phone} · {selected.native_village} · {selected.cities?.name}</p>
-            <Input label="New M-PIN *" type="password" maxLength={4} value={newMpin} onChange={(e) => setNewMpin(e.target.value.replace(/\D/g, ""))} placeholder="4 digits" />
-            <Input label="Confirm M-PIN *" type="password" maxLength={4} value={confirm} onChange={(e) => setConfirm(e.target.value.replace(/\D/g, ""))} placeholder="4 digits" />
+            <Input label={`${t("auth.newMpin") || "New 4-Digit M-PIN"} *`} type="password" maxLength={4} value={newMpin} onChange={(e) => setNewMpin(e.target.value.replace(/\D/g, ""))} placeholder="4 digits" />
+            <Input label={`${t("auth.confirmMpin") || "Confirm M-PIN"} *`} type="password" maxLength={4} value={confirm} onChange={(e) => setConfirm(e.target.value.replace(/\D/g, ""))} placeholder="4 digits" />
             <div className="flex gap-2 pt-1">
               <Button variant="outline" className="flex-1" onClick={() => { setSelected(null); setNewMpin(""); setConfirm(""); }}>
-                Cancel
+                {t("common.cancel") || "Cancel"}
               </Button>
               <Button className="flex-1" isLoading={loading} onClick={handleReset}>
-                Reset M-PIN
+                {t("auth.resetMpin") || "Reset M-PIN"}
               </Button>
             </div>
           </CardContent>

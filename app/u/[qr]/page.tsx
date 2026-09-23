@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Logo } from "@/components/shared/Logo";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { MapPin, Shield, User, ArrowLeft } from "lucide-react";
 
 interface Member {
@@ -19,6 +20,7 @@ interface Member {
 export default function PublicMemberPage() {
   const params = useParams();
   const router = useRouter();
+  const { t } = useI18n();
   const qr = decodeURIComponent(String(params?.qr || ""));
   const [member, setMember] = useState<Member | null>(null);
   const [error, setError] = useState("");
@@ -46,19 +48,19 @@ export default function PublicMemberPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push("/")}
-            className="p-2 rounded-full bg-white border shadow-sm"
+            className="p-2 rounded-full bg-white border shadow-sm cursor-pointer"
           >
             <ArrowLeft size={18} />
           </button>
           <Logo className="w-14 h-14" title="Matang Connect" />
           <div>
-            <p className="font-bold text-matang-navy text-sm">Matang Connect</p>
-            <p className="text-[11px] text-gray-500">Digital Member ID</p>
+            <p className="font-bold text-matang-navy text-sm">{t("app.name")}</p>
+            <p className="text-[11px] text-gray-500">{t("profile.digitalId")}</p>
           </div>
         </div>
 
         {loading && (
-          <p className="text-center text-gray-400 py-12">Loading…</p>
+          <p className="text-center text-gray-400 py-12">{t("common.loading")}</p>
         )}
 
         {error && !loading && (
@@ -66,8 +68,8 @@ export default function PublicMemberPage() {
             <CardContent className="p-6 text-center space-y-3">
               <p className="text-red-600 font-medium">{error}</p>
               <p className="text-sm text-gray-500">QR ID: {qr}</p>
-              <Button className="w-full" onClick={() => router.push("/login")}>
-                Login to Matang Connect
+              <Button className="w-full cursor-pointer" onClick={() => router.push("/login")}>
+                {t("auth.login")}
               </Button>
             </CardContent>
           </Card>
@@ -92,7 +94,7 @@ export default function PublicMemberPage() {
                   </p>
                   {member.verification_status === "verified" && (
                     <span className="inline-block mt-1 bg-green-500/90 text-white text-[10px] px-2 py-0.5 rounded-full">
-                      ✓ Verified Member
+                      ✓ {t("profile.verified")}
                     </span>
                   )}
                 </div>
@@ -101,25 +103,22 @@ export default function PublicMemberPage() {
             <CardContent className="p-4 space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-500 flex items-center gap-1">
-                  <User size={14} /> Role
+                  <User size={14} /> {t("common.role")}
                 </span>
                 <span className="font-medium flex items-center gap-1">
-                  <Shield size={14} /> {member.role || "member"}
+                  <Shield size={14} /> {t(member.role || "member")}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">City</span>
+                <span className="text-gray-500">{t("auth.city")}</span>
                 <span className="font-medium">{member.cities?.name || "—"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">QR ID</span>
                 <span className="font-mono text-xs">{member.qr_code_id || qr}</span>
               </div>
-              <p className="text-[11px] text-gray-400 pt-2 text-center">
-                Phone is private. Login to contact verified members.
-              </p>
-              <Button className="w-full mt-2" onClick={() => router.push("/login")}>
-                Open Matang Connect
+              <Button className="w-full mt-2 cursor-pointer" onClick={() => router.push("/login")}>
+                {t("auth.login")}
               </Button>
             </CardContent>
           </Card>

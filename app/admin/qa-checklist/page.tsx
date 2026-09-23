@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { ClipboardCheck, RotateCcw, Info } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
@@ -36,6 +37,7 @@ function loadState(): { checks: Checks; build: string; tester: string; date: str
 }
 
 export default function QaChecklistPage() {
+  const { t } = useI18n();
   const { user, loading } = useCurrentUser();
   const [checks, setChecks] = useState<Checks>({});
   const [build, setBuild] = useState("");
@@ -100,7 +102,7 @@ export default function QaChecklistPage() {
   }
 
   if (loading || !hydrated) {
-    return <div className="p-8 text-center text-gray-500">Loading…</div>;
+    return <div className="p-8 text-center text-gray-500">{t("common.loading") || "Loading…"}</div>;
   }
   if (user?.role !== "super_admin") {
     return (
@@ -116,7 +118,7 @@ export default function QaChecklistPage() {
         <div>
           <h1 className="text-lg font-bold text-matang-navy flex items-center gap-2">
             <ClipboardCheck className="text-matang-gold" size={22} />
-            QA Checklist
+            {t("nav.qaChecklist") || "QA Checklist"}
           </h1>
           <p className="text-[11px] text-gray-500 mt-0.5">
             Super Admin · auto-updates from feature flags + module registry
@@ -127,7 +129,7 @@ export default function QaChecklistPage() {
           onClick={clearAll}
           className="text-xs flex items-center gap-1 text-gray-500 px-2 py-1 rounded-lg border border-gray-200"
         >
-          <RotateCcw size={12} /> Clear
+          <RotateCcw size={12} /> {t("common.reset") || "Clear"}
         </button>
       </div>
 

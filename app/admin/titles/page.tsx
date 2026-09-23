@@ -6,6 +6,7 @@ import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { Award, Trash2, MapPin, Plus } from "lucide-react";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 import {
   INDIA_STATES,
   allIndiaCityOptions,
@@ -46,6 +47,7 @@ const SECTION_COLORS = [
 ];
 
 export default function TitlesPage() {
+  const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const [titles, setTitles] = useState<TitleRow[]>([]);
@@ -305,9 +307,9 @@ export default function TitlesPage() {
       <div className="flex items-center gap-2">
         <Award className="text-matang-gold" size={22} />
         <div>
-          <h1 className="text-lg font-bold text-matang-navy">City Titles</h1>
+          <h1 className="text-lg font-bold text-matang-navy">{t("nav.titles") || "City Titles"}</h1>
           <p className="text-[11px] text-gray-500">
-            Title + State + City + Member — city-wise Adhyaksh etc.
+            {t("admin.titlesDesc") || "Title + State + City + Member — city-wise Adhyaksh etc."}
           </p>
         </div>
       </div>
@@ -315,13 +317,13 @@ export default function TitlesPage() {
       <Card>
         <CardContent className="p-4 space-y-3">
           <Select
-            label="Title"
+            label={t("admin.title") || "Title"}
             value={titleKey}
             onChange={(e) => setTitleKey(e.target.value)}
             options={titleOptions}
           />
           <Select
-            label="State"
+            label={t("admin.state") || "State"}
             value={stateName}
             onChange={(e) => {
               setStateName(e.target.value);
@@ -332,7 +334,7 @@ export default function TitlesPage() {
             options={stateOptions}
           />
           <Select
-            label="City (is state ki cities)"
+            label={t("admin.city") || "City"}
             value={showCustom ? "__custom__" : cityId}
             onChange={(e) => {
               const v = e.target.value;
@@ -352,7 +354,7 @@ export default function TitlesPage() {
 
           {showCustom && (
             <div className="rounded-xl border border-dashed border-matang-gold/50 bg-amber-50/50 p-3 space-y-2">
-              <label className="text-xs font-medium text-matang-navy">Nayi city ka naam</label>
+              <label className="text-xs font-medium text-matang-navy">{t("admin.newCityName") || "Nayi city ka naam"}</label>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -374,7 +376,7 @@ export default function TitlesPage() {
                   className="shrink-0 px-3"
                 >
                   <Plus size={16} className="inline mr-1" />
-                  {savingCity ? "…" : "Add"}
+                  {savingCity ? "…" : (t("common.save") || "Add")}
                 </Button>
               </div>
               <p className="text-[10px] text-gray-500">
@@ -384,24 +386,24 @@ export default function TitlesPage() {
           )}
 
           <Select
-            label="Member (sirf selected city ke)"
+            label={t("admin.member") || "Member"}
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
             options={memberOptions}
             disabled={!cityId || cityId === "__custom__"}
           />
           <Button type="button" onClick={assign} className="w-full">
-            Assign title
+            {t("admin.assignTitle") || "Assign Title"}
           </Button>
         </CardContent>
       </Card>
 
       <div>
-        <h2 className="text-sm font-bold text-matang-navy mb-2">Assignments (city-wise)</h2>
+        <h2 className="text-sm font-bold text-matang-navy mb-2">{t("admin.assignments") || "Assignments (city-wise)"}</h2>
         {loading ? (
-          <p className="text-sm text-gray-400">Loading…</p>
+          <p className="text-sm text-gray-400">{t("common.loading") || "Loading…"}</p>
         ) : titlesByCity.length === 0 ? (
-          <p className="text-sm text-gray-400">No titles assigned yet.</p>
+          <p className="text-sm text-gray-400">{t("common.noData") || "No titles assigned yet."}</p>
         ) : (
           <div className="space-y-4">
             {titlesByCity.map(([key, group], idx) => (
@@ -413,27 +415,27 @@ export default function TitlesPage() {
                   <MapPin size={14} className="text-matang-gold" />
                   {group.label}
                   <span className="text-[10px] font-normal text-gray-500 ml-auto">
-                    {group.items.length} title{group.items.length > 1 ? "s" : ""}
+                    {group.items.length} {t("nav.titles") || "titles"}
                   </span>
                 </h3>
                 <div className="space-y-2">
-                  {group.items.map((t) => (
+                  {group.items.map((tItem) => (
                     <div
-                      key={t.id}
+                      key={tItem.id}
                       className="bg-white/80 rounded-xl p-2.5 flex items-start justify-between gap-2 border border-white/60"
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-matang-navy">
-                          {t.title_label || t.title_key}
+                          {tItem.title_label || tItem.title_key}
                         </p>
                         <p className="text-xs text-gray-600 truncate">
-                          {t.users?.full_name || t.user_id}
-                          {t.users?.phone ? ` · ${t.users.phone}` : ""}
+                          {tItem.users?.full_name || tItem.user_id}
+                          {tItem.users?.phone ? ` · ${tItem.users.phone}` : ""}
                         </p>
                       </div>
                       <button
                         type="button"
-                        onClick={() => remove(t.id)}
+                        onClick={() => remove(tItem.id)}
                         className="p-2 text-red-500 shrink-0"
                         aria-label="Remove"
                       >
