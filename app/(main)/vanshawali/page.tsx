@@ -1950,7 +1950,7 @@ function VanshawaliInner() {
             {/* Logo: canvas centre, scales with tree size, pans with tree */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo-float.png"
+              src="/logo.png"
               alt=""
               className="vansh-logo-watermark"
               draggable={false}
@@ -1964,7 +1964,7 @@ function VanshawaliInner() {
             />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo-float.png"
+              src="/logo.png"
               alt=""
               className="vansh-logo-seal"
               draggable={false}

@@ -1,6 +1,6 @@
 /* Matang Connect — minimal PWA service worker */
-const CACHE = "matang-v4";
-const PRECACHE = ["/manifest.json", "/icon-192x192.png", "/icon-512x512.png"];
+const CACHE = "matang-v5";
+const PRECACHE = ["/manifest.json", "/logo.png", "/icon-192x192.png", "/icon-512x512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

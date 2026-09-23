@@ -5,7 +5,13 @@ import { useI18n } from "@/lib/i18n/LanguageProvider";
 /**
  * High-tech, minimal welcome animation with tap-to-skip.
  */
-export function WelcomeAnimation({ onComplete }: { onComplete: () => void }) {
+export function WelcomeAnimation({
+  onComplete,
+  userName,
+}: {
+  onComplete: () => void;
+  userName?: string;
+}) {
   const { t } = useI18n();
   const [visible, setVisible] = useState(true);
   const [phase, setPhase] = useState<"in" | "hold" | "out">("in");
@@ -16,11 +22,11 @@ export function WelcomeAnimation({ onComplete }: { onComplete: () => void }) {
   }, [onComplete]);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("hold"), 600);
-    const t2 = setTimeout(() => setPhase("out"), 2400);
+    const t1 = setTimeout(() => setPhase("hold"), 400);
+    const t2 = setTimeout(() => setPhase("out"), 2100);
     const t3 = setTimeout(() => {
       dismiss();
-    }, 2900);
+    }, 2500);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
@@ -83,15 +89,15 @@ export function WelcomeAnimation({ onComplete }: { onComplete: () => void }) {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/logo-float.png?v=nobg2"
+          src="/logo.png"
           alt="Matang Connect"
-          className="welcome-logo-3d mb-6 h-[min(78vw,22rem)] w-[min(78vw,22rem)] max-h-[45vh] max-w-[90vw] object-contain bg-transparent"
+          className="welcome-logo-3d mb-6 h-[min(72vw,19rem)] w-[min(72vw,19rem)] max-h-[42vh] max-w-[88vw] object-contain bg-transparent"
           draggable={false}
         />
-        <h1 className="text-2xl font-semibold tracking-wide text-matang-gold sm:text-3xl">
-          {t("common.welcome")}
+        <h1 className="text-2xl font-bold tracking-wide text-matang-gold sm:text-3xl">
+          {userName ? `${t("common.welcome")}, ${userName}!` : t("common.welcome")}
         </h1>
-        <p className="mt-2 max-w-xs text-sm text-white/70 sm:text-base">{t("common.welcomeMessage")}</p>
+        <p className="mt-2 max-w-xs text-sm text-white/80 sm:text-base">{t("common.welcomeMessage")}</p>
         {/* thin gold progress line */}
         <div className="mt-8 h-[2px] w-40 overflow-hidden rounded-full bg-white/10">
           <div className="welcome-progress h-full rounded-full bg-gradient-to-r from-matang-gold/40 via-matang-gold to-matang-gold/40" />

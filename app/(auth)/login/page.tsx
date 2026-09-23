@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { LanguageToggleLight } from "@/components/shared/LanguageToggleLight";
+import { WelcomeAnimation } from "@/components/shared/WelcomeAnimation";
 import { useToast } from "@/components/ui/Toaster";
 
 export default function LoginPage() {
@@ -15,6 +16,8 @@ export default function LoginPage() {
   const [mpin, setMpin] = useState("");
   const [loading, setLoading] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState<string>("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,14 +34,14 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      localStorage.setItem("matang-welcome", "true");
-      // Instant header / Admin / Matang AI after login
+      let userName = "";
       try {
         const u = result.user;
         if (u) {
+          userName = u.full_name || u.fullName || "";
           const normalized = {
             ...u,
-            full_name: u.full_name || u.fullName || "",
+            full_name: userName,
             verification_status: u.verification_status || u.verificationStatus || "pending",
             qr_code_id: u.qr_code_id || u.qrCodeId || null,
           };
@@ -49,18 +52,31 @@ export default function LoginPage() {
       } catch {
         /* ignore */
       }
-      toast("Login successful!", "success");
-      // Full navigation so AppHeader/BottomNav remount with cache
-      window.location.href = "/dashboard";
+      // Clear dashboard-level flag so it won't duplicate the welcome screen
+      localStorage.removeItem("matang-welcome");
+      
+      setLoggedInUser(userName);
+      setShowWelcome(true);
+      setLoading(false);
     } catch {
       toast(t("common.error"), "error");
-    } finally {
       setLoading(false);
     }
   };
 
+  const handleWelcomeComplete = () => {
+    // Full navigation so AppHeader/BottomNav remount with fresh user cache
+    window.location.href = "/dashboard";
+  };
+
   return (
     <div className="min-h-screen bg-matang-cream flex flex-col">
+      {showWelcome && (
+        <WelcomeAnimation
+          onComplete={handleWelcomeComplete}
+          userName={loggedInUser}
+        />
+      )}
       <div
         className="p-4 flex justify-end"
         style={{ paddingTop: "max(1rem, env(safe-area-inset-top, 0px))" }}
@@ -69,7 +85,7 @@ export default function LoginPage() {
       </div>
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-float.png?v=nobg2" alt="Matang" className="w-48 h-48 sm:w-56 sm:h-56 object-contain bg-transparent mb-6 drop-shadow-xl" draggable={false} />
+        <img src="/logo.png" alt="Matang" className="w-48 h-48 sm:w-56 sm:h-56 object-contain bg-transparent mb-6 drop-shadow-xl" draggable={false} />
         <h1 className="text-2xl font-bold text-matang-navy mb-1">{t("app.name")}</h1>
         <p className="text-gray-500 mb-8">{t("app.tagline")}</p>
         <form onSubmit={handleLogin} className="w-full max-w-sm space-y-4">

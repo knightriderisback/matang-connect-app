@@ -172,7 +172,7 @@ export default function DashboardPage() {
   return (
     <>
       <Onboarding />
-      {showWelcome && <WelcomeAnimation onComplete={() => setShowWelcome(false)} />}
+      {showWelcome && <WelcomeAnimation onComplete={() => setShowWelcome(false)} userName={user?.full_name} />}
       <div className="space-y-4 pb-4">
         <div className="px-4 pt-4">
           <p className="text-sm text-gray-500">{t("dashboard.welcome")},</p>
