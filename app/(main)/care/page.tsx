@@ -9,6 +9,7 @@ import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { HeartHandshake, Plus, Share2 } from "lucide-react";
 import { NameLink } from "@/components/shared/NameLink";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 /** Matches live care_requests columns */
 interface CareReq {
@@ -47,6 +48,7 @@ function CarePageInner() {
   const { t } = useI18n();
   const [requests, setRequests] = useState<CareReq[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     care_type: "medical",
@@ -72,25 +74,32 @@ function CarePageInner() {
       toast("Description required", "error");
       return;
     }
-    const res = await fetch("/api/care", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        care_type: form.care_type,
-        description: form.description,
-        urgency: form.urgency,
-        notes: form.notes || form.description,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      toast(data.error || "Failed", "error");
-      return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/care", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          care_type: form.care_type,
+          description: form.description,
+          urgency: form.urgency,
+          notes: form.notes || form.description,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Failed", "error");
+        return;
+      }
+      toast("Care request submitted", "success");
+      setShowForm(false);
+      setForm({ care_type: "medical", description: "", urgency: "normal", notes: "" });
+      load();
+    } catch {
+      toast("Failed to submit care request", "error");
+    } finally {
+      setSubmitting(false);
     }
-    toast("Care request submitted", "success");
-    setShowForm(false);
-    setForm({ care_type: "medical", description: "", urgency: "normal", notes: "" });
-    load();
   };
 
   const closeReq = async (id: string) => {
@@ -170,7 +179,7 @@ function CarePageInner() {
               <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>
                 {t("common.cancel") || "Cancel"}
               </Button>
-              <Button className="flex-1" onClick={submit}>
+              <Button className="flex-1" isLoading={submitting} onClick={submit}>
                 {t("common.submit") || "Submit"}
               </Button>
             </div>
@@ -180,9 +189,13 @@ function CarePageInner() {
 
       {loading && <p className="text-center text-gray-400 py-8">{t("common.loading")}…</p>}
       {!loading && requests.length === 0 && (
-        <Card>
-          <CardContent className="p-8 text-center text-gray-400 text-sm">{t("care.noRequests") || "No care requests yet."}</CardContent>
-        </Card>
+        <EmptyState
+          icon={HeartHandshake}
+          title={t("care.noRequests") || "No Care Requests Yet"}
+          description="Requests for medical, elderly, or disability assistance will appear here."
+          actionLabel={t("care.requestHelp") || "Request Help"}
+          onAction={() => setShowForm(true)}
+        />
       )}
 
       <div className="space-y-3">

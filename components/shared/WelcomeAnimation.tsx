@@ -1,35 +1,42 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 
 /**
- * LOCKED — do not change welcome design without explicit request.
- * High-tech, minimal welcome — no confetti / particle rain.
+ * High-tech, minimal welcome animation with tap-to-skip.
  */
 export function WelcomeAnimation({ onComplete }: { onComplete: () => void }) {
   const { t } = useI18n();
   const [visible, setVisible] = useState(true);
   const [phase, setPhase] = useState<"in" | "hold" | "out">("in");
 
+  const dismiss = useCallback(() => {
+    setVisible(false);
+    onComplete();
+  }, [onComplete]);
+
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("hold"), 700);
-    const t2 = setTimeout(() => setPhase("out"), 2800);
+    const t1 = setTimeout(() => setPhase("hold"), 600);
+    const t2 = setTimeout(() => setPhase("out"), 2400);
     const t3 = setTimeout(() => {
-      setVisible(false);
-      onComplete();
-    }, 3400);
+      dismiss();
+    }, 2900);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
     };
-  }, [onComplete]);
+  }, [dismiss]);
 
   if (!visible) return null;
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden transition-opacity duration-500 ${
+      onClick={dismiss}
+      role="button"
+      tabIndex={0}
+      aria-label="Tap to skip welcome screen"
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden transition-opacity duration-500 cursor-pointer select-none ${
         phase === "out" ? "opacity-0" : "opacity-100"
       }`}
       style={{
@@ -37,6 +44,23 @@ export function WelcomeAnimation({ onComplete }: { onComplete: () => void }) {
           "radial-gradient(ellipse 80% 60% at 50% 40%, #132a4a 0%, #0a1628 55%, #050d18 100%)",
       }}
     >
+      {/* Skip button top right */}
+      <div
+        className="absolute right-4 z-20"
+        style={{ top: "calc(1rem + env(safe-area-inset-top, 0px))" }}
+      >
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            dismiss();
+          }}
+          className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white/70 hover:text-white text-xs font-medium transition-all"
+        >
+          {t("common.skip") || "Skip"} ✕
+        </button>
+      </div>
+
       {/* soft tech grid */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.12]"
@@ -76,3 +100,5 @@ export function WelcomeAnimation({ onComplete }: { onComplete: () => void }) {
     </div>
   );
 }
+
+export default WelcomeAnimation;

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { Car, Plus, Phone, MapPin } from "lucide-react";
 
 interface Ride { id: string; ride_type: string; from_place: string; to_place: string; ride_date?: string; ride_time?: string; seats?: number; contact_phone?: string; notes?: string; poster_id?: string | null; poster_name?: string | null; }
@@ -17,6 +18,7 @@ function RidesPageInner() {
   const router = useRouter();
   const [rides, setRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ ride_type: "offer", from_place: "", to_place: "", ride_date: "", ride_time: "", seats: "1", contact_phone: "", notes: "" });
 
@@ -27,12 +29,20 @@ function RidesPageInner() {
 
   const submit = async () => {
     if (!form.from_place || !form.to_place) { toast("From and To required", "error"); return; }
-    const res = await fetch("/api/rides", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, seats: parseInt(form.seats, 10) || 1 }) });
-    const data = await res.json();
-    if (!res.ok) { toast(data.error || "Failed", "error"); return; }
-    toast("Ride posted", "success");
-    setShowForm(false);
-    load();
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/rides", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, seats: parseInt(form.seats, 10) || 1 }) });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || "Failed", "error"); return; }
+      toast("Ride posted", "success");
+      setShowForm(false);
+      setForm({ ride_type: "offer", from_place: "", to_place: "", ride_date: "", ride_time: "", seats: "1", contact_phone: "", notes: "" });
+      load();
+    } catch {
+      toast("Failed to post ride", "error");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -59,12 +69,18 @@ function RidesPageInner() {
           <Input label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <div className="flex gap-2">
             <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>Cancel</Button>
-            <Button className="flex-1" onClick={submit}>Post</Button>
+            <Button className="flex-1" isLoading={submitting} onClick={submit}>Post</Button>
           </div>
         </CardContent></Card>
       )}
       {loading ? <p className="text-center text-gray-400 py-8">Loading…</p> : rides.length === 0 ? (
-        <Card><CardContent className="p-8 text-center text-gray-400 text-sm">No rides yet. Be the first to post.</CardContent></Card>
+        <EmptyState
+          icon={Car}
+          title="No Rides Found"
+          description="Offer a seat or request a carpool ride with fellow community members."
+          actionLabel="Post a Ride"
+          onAction={() => setShowForm(true)}
+        />
       ) : (
         <div className="space-y-3">
           {rides.map((r) => (

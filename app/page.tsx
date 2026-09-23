@@ -9,7 +9,10 @@ export default function LandingPage() {
   const router = useRouter();
   return (
     <div className="min-h-screen bg-matang-cream flex flex-col">
-      <div className="p-4 flex justify-end">
+      <div
+        className="p-4 flex justify-end"
+        style={{ paddingTop: "max(1rem, env(safe-area-inset-top, 0px))" }}
+      >
         <LanguageToggle variant="light" />
       </div>
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">

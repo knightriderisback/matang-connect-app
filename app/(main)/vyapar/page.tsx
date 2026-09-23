@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { Store, Plus, Phone, MapPin, MessageCircle, BadgeCheck } from "lucide-react";
 
 interface Business {
@@ -34,6 +35,7 @@ function VyaparPageInner() {
   const { user } = useCurrentUser();
   const [list, setList] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [category, setCategory] = useState("all");
   const [form, setForm] = useState({
@@ -62,20 +64,27 @@ function VyaparPageInner() {
       toast("Name and category required", "error");
       return;
     }
-    const res = await fetch("/api/vyapar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      toast(data.error || "Failed", "error");
-      return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/vyapar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Failed", "error");
+        return;
+      }
+      toast("Business listed", "success");
+      setShowForm(false);
+      setForm({ name: "", category: "shop", description: "", address: "", contact_phone: "", whatsapp: "" });
+      load();
+    } catch {
+      toast("Failed to list business", "error");
+    } finally {
+      setSubmitting(false);
     }
-    toast("Business listed", "success");
-    setShowForm(false);
-    setForm({ name: "", category: "shop", description: "", address: "", contact_phone: "", whatsapp: "" });
-    load();
   };
 
   return (
@@ -131,7 +140,7 @@ function VyaparPageInner() {
               <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>
                 Cancel
               </Button>
-              <Button className="flex-1" onClick={submit}>
+              <Button className="flex-1" isLoading={submitting} onClick={submit}>
                 Submit
               </Button>
             </div>
@@ -142,9 +151,13 @@ function VyaparPageInner() {
       {loading ? (
         <p className="text-center text-gray-500 py-8">Loading...</p>
       ) : list.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center text-gray-500">No businesses listed yet. Be the first!</CardContent>
-        </Card>
+        <EmptyState
+          icon={Store}
+          title="No Businesses Listed"
+          description="Directory of community businesses, shops, and services."
+          actionLabel="List Business"
+          onAction={() => setShowForm(true)}
+        />
       ) : (
         list.map((b) => (
           <Card key={b.id}>

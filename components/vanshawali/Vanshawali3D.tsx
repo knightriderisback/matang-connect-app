@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X, RotateCcw, Maximize2, Sparkles, Users, Info, ZoomIn, ZoomOut } from "lucide-react";
 
 type Person = {
@@ -108,7 +108,7 @@ export default function Vanshawali3D({ rootId, onClose }: { rootId: string; onCl
   const [zoom, setZoom] = useState(0.82);
   const [error, setError] = useState("");
 
-  useMemo(() => {
+  useEffect(() => {
     let live = true;
     fetch("/api/vanshawali?userId=" + encodeURIComponent(rootId), { cache: "no-store" })
       .then(r => r.json())
@@ -140,7 +140,7 @@ export default function Vanshawali3D({ rootId, onClose }: { rootId: string; onCl
       groups.get(g)!.push(p);
     });
     const out: { p: Person; x: number; y: number; z: number }[] = [];
-    [...groups.keys()].sort((a,b) => b-a).forEach(g => {
+    Array.from(groups.keys()).sort((a,b) => b-a).forEach(g => {
       const list = groups.get(g)!;
       const gap = Math.max(120, 760 / Math.max(2, list.length));
       const mid = (list.length - 1) / 2;

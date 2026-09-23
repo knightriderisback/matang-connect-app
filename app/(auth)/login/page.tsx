@@ -61,7 +61,12 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-matang-cream flex flex-col">
-      <div className="p-4 flex justify-end"><LanguageToggleLight /></div>
+      <div
+        className="p-4 flex justify-end"
+        style={{ paddingTop: "max(1rem, env(safe-area-inset-top, 0px))" }}
+      >
+        <LanguageToggleLight />
+      </div>
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo-float.png?v=nobg2" alt="Matang" className="w-48 h-48 sm:w-56 sm:h-56 object-contain bg-transparent mb-6 drop-shadow-xl" draggable={false} />
@@ -87,7 +92,7 @@ export default function LoginPage() {
         <button
           type="button"
           onClick={() => setShowForgot(!showForgot)}
-          className="mt-4 text-sm text-matang-gold font-medium underline underline-offset-2"
+          className="mt-4 text-sm text-amber-800 hover:text-amber-900 font-semibold underline underline-offset-2 cursor-pointer"
         >
           {t("auth.forgotMpin") || "Forgot M-PIN?"}
         </button>
@@ -106,7 +111,7 @@ export default function LoginPage() {
 
         <p className="mt-6 text-sm text-gray-500">
           {t("auth.noAccount") || "New member?"}{" "}
-          <button type="button" className="text-matang-gold font-semibold" onClick={() => router.push("/register")}>
+          <button type="button" className="text-amber-800 hover:text-amber-900 font-bold cursor-pointer" onClick={() => router.push("/register")}>
             {t("auth.register") || "Register"}
           </button>
         </p>

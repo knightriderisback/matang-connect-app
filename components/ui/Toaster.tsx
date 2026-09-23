@@ -20,7 +20,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed top-4 right-4 z-[200] space-y-2 max-w-sm">
+      <div
+        className="fixed right-4 z-[200] space-y-2 max-w-sm"
+        style={{ top: "calc(1rem + env(safe-area-inset-top, 0px))" }}
+      >
         {toasts.map((t) => (
           <div
             key={t.id}

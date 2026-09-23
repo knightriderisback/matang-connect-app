@@ -3,8 +3,7 @@ import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
 
 /**
- * Shows “Install Matang Connect” when the browser fires beforeinstallprompt
- * (Chrome/Edge Android). iOS shows manual “Add to Home Screen” hint.
+ * Clean, compact PWA install hint that does not occlude the bottom navigation or content.
  */
 export function InstallPrompt() {
   const [deferred, setDeferred] = useState<any>(null);
@@ -14,7 +13,7 @@ export function InstallPrompt() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (window.matchMedia("(display-mode: standalone)").matches) return;
-    if ((navigator as any).standalone) return; // iOS already installed
+    if ((navigator as any).standalone) return; // iOS standalone
 
     const dismissed = localStorage.getItem("matang-pwa-dismiss");
     if (dismissed === "1") return;
@@ -22,7 +21,8 @@ export function InstallPrompt() {
     const isIos =
       /iphone|ipad|ipod/i.test(navigator.userAgent) && !(window as any).MSStream;
     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    if (isIos) {
+    if (isIos && isSafari) {
+      // Show gentle hint once for iOS Safari users
       setIosHint(true);
       setVisible(true);
       return;
@@ -39,7 +39,11 @@ export function InstallPrompt() {
 
   const dismiss = () => {
     setVisible(false);
-    localStorage.setItem("matang-pwa-dismiss", "1");
+    try {
+      localStorage.setItem("matang-pwa-dismiss", "1");
+    } catch {
+      /* ignore */
+    }
   };
 
   const install = async () => {
@@ -57,29 +61,44 @@ export function InstallPrompt() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-20 left-3 right-3 z-[60] max-w-lg mx-auto md:left-auto md:right-6 md:w-80">
-      <div className="bg-matang-navy text-white rounded-2xl shadow-xl p-4 border border-matang-gold/30">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-matang-gold/20 flex items-center justify-center shrink-0">
-            <Download size={20} className="text-matang-gold" />
+    <div
+      className="fixed z-[65] left-3 right-3 sm:left-auto sm:right-6 sm:w-80 transition-all animate-in slide-in-from-bottom-2 duration-300"
+      style={{
+        bottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px) + 8px)",
+      }}
+    >
+      <div className="bg-matang-navy/95 backdrop-blur-md text-white rounded-2xl shadow-2xl p-3.5 border border-matang-gold/30">
+        <div className="flex items-start gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-matang-gold/20 flex items-center justify-center shrink-0">
+            <Download size={18} className="text-matang-gold" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm">Install Matang Connect</p>
+            <div className="flex items-center justify-between">
+              <p className="font-bold text-xs text-white">Install Matang Connect</p>
+              <button
+                type="button"
+                onClick={dismiss}
+                aria-label="Dismiss banner"
+                className="text-white/60 hover:text-white p-1 -mr-1 -mt-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
             {iosHint ? (
-              <p className="text-[11px] text-white/70 mt-1">
-                Safari: Share → <strong>Add to Home Screen</strong>
+              <p className="text-[11px] text-white/70 mt-0.5 leading-snug">
+                Safari: Tap Share icon → <strong>Add to Home Screen</strong>
               </p>
             ) : (
-              <p className="text-[11px] text-white/70 mt-1">
-                Add to home screen for app-like experience
+              <p className="text-[11px] text-white/70 mt-0.5 leading-snug">
+                Faster launch & instant offline updates
               </p>
             )}
-            <div className="flex gap-2 mt-3">
+            <div className="flex gap-2 mt-2">
               {!iosHint && deferred && (
                 <button
                   type="button"
                   onClick={install}
-                  className="flex-1 py-2 rounded-xl bg-matang-gold text-matang-navy text-xs font-bold"
+                  className="flex-1 py-1.5 px-3 rounded-lg bg-matang-gold text-matang-navy text-xs font-bold active:scale-95 transition-all cursor-pointer"
                 >
                   Install
                 </button>
@@ -87,17 +106,16 @@ export function InstallPrompt() {
               <button
                 type="button"
                 onClick={dismiss}
-                className="px-3 py-2 rounded-xl bg-white/10 text-xs font-medium"
+                className="py-1.5 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-medium text-white/90 active:scale-95 transition-all cursor-pointer"
               >
                 Later
               </button>
             </div>
           </div>
-          <button type="button" onClick={dismiss} className="text-white/50 p-0.5">
-            <X size={16} />
-          </button>
         </div>
       </div>
     </div>
   );
 }
+
+export default InstallPrompt;

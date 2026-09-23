@@ -40,14 +40,16 @@ export function Onboarding({ onDone }: { onDone?: () => void }) {
   const next = () => {
     if (isLast) {
       finish();
-      if (step === 1) router.push("/census");
     } else {
       setStep((s) => s + 1);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div
+      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in"
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+    >
       <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom">
         <div className={`bg-gradient-to-br ${current.color} p-8 text-white text-center`}>
           <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-white/15 flex items-center justify-center">

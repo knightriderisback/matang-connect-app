@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Heart, Plus, User, Share2, Link2 } from "lucide-react";
 
 const GENDER_OPTS = ["male", "female", "other"];
@@ -98,6 +100,9 @@ function MatrimonyPageInner() {
   const [showForm, setShowForm] = useState(false);
   const [filterGender, setFilterGender] = useState("all");
   const [heightUnit, setHeightUnit] = useState<"cm" | "ft">("cm");
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
   const [form, setForm] = useState({
     gender: "male",
     dob: "",
@@ -215,37 +220,54 @@ function MatrimonyPageInner() {
 
     const age = ageFromDob(form.dob);
 
-    const res = await fetch("/api/matrimony", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        gender: form.gender,
-        dob: form.dob || null,
-        age,
-        height_cm,
-        education: education || null,
-        occupation: occupation || null,
-        native_village: form.native_village || null,
-        about: form.about || null,
-        looking_for: looking_for || null,
-        contact_visible: form.contact_visible,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      toast(data.error || "Failed", "error");
-      return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/matrimony", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gender: form.gender,
+          dob: form.dob || null,
+          age,
+          height_cm,
+          education: education || null,
+          occupation: occupation || null,
+          native_village: form.native_village || null,
+          about: form.about || null,
+          looking_for: looking_for || null,
+          contact_visible: form.contact_visible,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Failed", "error");
+        return;
+      }
+      toast("Profile saved", "success");
+      setShowForm(false);
+      load();
+    } catch {
+      toast("Failed to save profile", "error");
+    } finally {
+      setSubmitting(false);
     }
-    toast("Profile saved", "success");
-    setShowForm(false);
-    load();
   };
 
   const deactivate = async () => {
-    const res = await fetch("/api/matrimony", { method: "DELETE" });
-    if (res.ok) {
-      toast("Profile deactivated", "success");
-      load();
+    setDeactivating(true);
+    try {
+      const res = await fetch("/api/matrimony", { method: "DELETE" });
+      if (res.ok) {
+        toast("Profile deactivated", "success");
+        setConfirmDeactivate(false);
+        load();
+      } else {
+        toast("Failed to deactivate profile", "error");
+      }
+    } catch {
+      toast("Error deactivating profile", "error");
+    } finally {
+      setDeactivating(false);
     }
   };
 
@@ -511,32 +533,53 @@ function MatrimonyPageInner() {
               <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>
                 Cancel
               </Button>
-              <Button className="flex-1" onClick={submit}>
+              <Button className="flex-1" isLoading={submitting} onClick={submit}>
                 Save Profile
               </Button>
             </div>
-            <Button variant="outline" className="w-full text-xs" onClick={deactivate}>
+            <Button
+              variant="outline"
+              className="w-full text-xs text-red-600 border-red-200 hover:bg-red-50"
+              onClick={() => setConfirmDeactivate(true)}
+            >
               Deactivate my profile
             </Button>
           </CardContent>
         </Card>
       )}
 
+      <ConfirmDialog
+        isOpen={confirmDeactivate}
+        title="Deactivate Matrimony Profile?"
+        description="Your profile will be removed from community searches. You can create a new profile anytime."
+        variant="danger"
+        confirmLabel="Deactivate"
+        isLoading={deactivating}
+        onConfirm={deactivate}
+        onCancel={() => setConfirmDeactivate(false)}
+      />
+
       {loading ? (
         <p className="text-center text-gray-500 py-8">Loading...</p>
       ) : profiles.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center text-gray-500">
-            No profiles yet. Create yours to start.
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Heart}
+          title="No Matrimonial Profiles Found"
+          description="Be the first to list a matrimony profile or adjust your filter."
+          actionLabel="Create Profile"
+          onAction={() => setShowForm(true)}
+        />
       ) : (
         profiles.map((p) => (
           <Card key={p.id || p.user_id}>
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-matang-navy/10 flex items-center justify-center">
-                  <User size={22} className="text-matang-navy" />
+                <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-matang-navy/10 flex items-center justify-center border border-gray-100">
+                  {p.photo_url ? (
+                    <img src={p.photo_url} alt={p.user_name || "Member"} className="w-full h-full object-cover" />
+                  ) : (
+                    <User size={22} className="text-matang-navy" />
+                  )}
                 </div>
                 <div className="min-w-0">
                   {p.user_name && p.user_id ? (

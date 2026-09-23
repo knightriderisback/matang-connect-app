@@ -176,7 +176,13 @@ export function MatangAI() {
       )}
 
       {open && (
-        <div className={panelClass}>
+        <>
+          <div
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-45 bg-black/40 backdrop-blur-xs transition-opacity"
+            aria-hidden="true"
+          />
+          <div className={panelClass}>
           <div
             className={
               isSuper
@@ -197,7 +203,12 @@ export function MatangAI() {
                 </p>
               </div>
             </div>
-            <button type="button" onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-white/10 cursor-pointer">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 active:bg-white/20 cursor-pointer"
+              aria-label="Close Matang AI"
+            >
               <X size={18} />
             </button>
           </div>
@@ -267,16 +278,16 @@ export function MatangAI() {
               onChange={(e) => setInput(e.target.value)}
               placeholder={PLACEHOLDER[currentLang] || PLACEHOLDER.hi}
               disabled={loading}
-              className={`flex-1 px-3 py-2 text-sm rounded-xl border focus:outline-none ${
+              className={`flex-1 px-3 py-2 text-base sm:text-sm rounded-xl border focus:outline-none ${
                 isSuper
                   ? "bg-purple-900/40 border-purple-400/40 text-white placeholder-purple-300/50"
-                  : "bg-white border-gray-200"
+                  : "bg-white border-gray-200 text-matang-navy placeholder:text-gray-400"
               }`}
             />
             <button
               type="submit"
               disabled={loading || !input.trim()}
-              className={`px-3 py-2 rounded-xl transition-all ${
+              className={`px-3 py-2 rounded-xl transition-all cursor-pointer ${
                 isSuper
                   ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-amber-200 disabled:opacity-40"
                   : "bg-matang-navy text-white disabled:opacity-40"
@@ -286,6 +297,7 @@ export function MatangAI() {
             </button>
           </form>
         </div>
+      </>
       )}
     </>
   );

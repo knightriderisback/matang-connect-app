@@ -133,13 +133,42 @@ function CensusPageInner() {
   };
 
   const addMember = () => {
-    if (!cur.name || !cur.relation) { toast("Name and relation required", "error"); return; }
+    if (!cur.name.trim() || !cur.relation) { toast("Name and relation required", "error"); return; }
     if (!cur.dob) { toast("Date of birth required", "error"); return; }
-    if (!cur.phone || cur.phone.replace(/\D/g, "").length < 10) {
-      toast("Member phone is mandatory (10 digits)", "error"); return;
+    const age = calcAge(cur.dob);
+    const isAdultOrSelf = cur.relation === "Self" || (age !== null && age >= 18);
+    if (isAdultOrSelf && (!cur.phone || cur.phone.replace(/\D/g, "").length < 10)) {
+      toast("Member phone is mandatory for adults (10 digits)", "error"); return;
+    }
+    if (cur.phone && cur.phone.replace(/\D/g, "").length !== 10) {
+      toast("Please enter a valid 10-digit mobile number", "error"); return;
     }
     setMembers([...members, cur]);
     setCur(emptyMember());
+  };
+
+  const handleStep2Next = () => {
+    let currentMembers = [...members];
+    if (cur.name.trim()) {
+      if (!cur.relation) { toast("Relation required for current member", "error"); return; }
+      if (!cur.dob) { toast("Date of birth required for current member", "error"); return; }
+      const age = calcAge(cur.dob);
+      const isAdultOrSelf = cur.relation === "Self" || (age !== null && age >= 18);
+      if (isAdultOrSelf && (!cur.phone || cur.phone.replace(/\D/g, "").length < 10)) {
+        toast("Phone (10 digits) required for adult / self", "error"); return;
+      }
+      if (cur.phone && cur.phone.replace(/\D/g, "").length !== 10) {
+        toast("Please enter a valid 10-digit mobile number", "error"); return;
+      }
+      currentMembers.push(cur);
+      setMembers(currentMembers);
+      setCur(emptyMember());
+    }
+    if (currentMembers.length === 0) {
+      toast("Please add at least one family member", "error");
+      return;
+    }
+    setStep(3);
   };
 
   return (
@@ -234,7 +263,14 @@ function CensusPageInner() {
               <Select label="Education" value={cur.education_level} onChange={(e) => setCur({ ...cur, education_level: e.target.value })} options={EDUCATION} />
               <Select label="Occupation" value={cur.occupation} onChange={(e) => setCur({ ...cur, occupation: e.target.value })} options={OCCUPATIONS} />
               <Select label="Marital Status" value={cur.marital_status} onChange={(e) => setCur({ ...cur, marital_status: e.target.value })} options={MARITAL} />
-              <Input label="Phone *" type="tel" placeholder="10-digit mobile" value={cur.phone} onChange={(e) => setCur({ ...cur, phone: e.target.value })} required />
+              <Input
+                label={curAge !== null && curAge < 18 && cur.relation !== "Self" ? "Phone (Optional for minors)" : "Phone *"}
+                type="tel"
+                placeholder={curAge !== null && curAge < 18 && cur.relation !== "Self" ? "Optional for minors" : "10-digit mobile"}
+                value={cur.phone}
+                onChange={(e) => setCur({ ...cur, phone: e.target.value })}
+                required={cur.relation === "Self" || (curAge !== null && curAge >= 18)}
+              />
               <Input label="Disability (if any)" placeholder="None / specify" value={cur.disability} onChange={(e) => setCur({ ...cur, disability: e.target.value })} />
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={cur.is_unemployed} onChange={(e) => setCur({ ...cur, is_unemployed: e.target.checked })} /> Unemployed</label>
@@ -244,7 +280,7 @@ function CensusPageInner() {
             </div>
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setStep(1)}><ChevronLeft size={18} /> Back</Button>
-              <Button className="flex-1" onClick={() => setStep(3)}>Next <ChevronRight size={18} /></Button>
+              <Button className="flex-1" onClick={handleStep2Next}>Next <ChevronRight size={18} /></Button>
             </div>
           </CardContent>
         </Card>

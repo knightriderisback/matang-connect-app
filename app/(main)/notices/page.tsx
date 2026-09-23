@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { Bell, Plus, Share2 } from "lucide-react";
 
 interface Notice {
@@ -38,6 +39,7 @@ function NoticesPageInner() {
   const { user } = useCurrentUser();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     title: "",
@@ -63,20 +65,27 @@ function NoticesPageInner() {
       toast("Title and body required", "error");
       return;
     }
-    const res = await fetch("/api/notices", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      toast(data.error || "Failed", "error");
-      return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/notices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Failed", "error");
+        return;
+      }
+      toast("Notice published", "success");
+      setShowForm(false);
+      setForm({ title: "", body: "", priority: "normal", category: "general" });
+      load();
+    } catch {
+      toast("Failed to publish notice", "error");
+    } finally {
+      setSubmitting(false);
     }
-    toast("Notice published", "success");
-    setShowForm(false);
-    setForm({ title: "", body: "", priority: "normal", category: "general" });
-    load();
   };
 
   const shareWA = (n: Notice) => {
@@ -141,7 +150,7 @@ function NoticesPageInner() {
               <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>
                 Cancel
               </Button>
-              <Button className="flex-1" onClick={submit}>
+              <Button className="flex-1" isLoading={submitting} onClick={submit}>
                 Publish
               </Button>
             </div>
@@ -151,7 +160,13 @@ function NoticesPageInner() {
 
       {loading && <p className="text-center text-gray-400 py-8">Loading...</p>}
       {!loading && notices.length === 0 && (
-        <p className="text-center text-gray-400 py-8">No notices yet</p>
+        <EmptyState
+          icon={Bell}
+          title="No Notices Yet"
+          description="Community announcements, meetings, and updates will appear here."
+          actionLabel={isStaff ? "New Notice" : undefined}
+          onAction={isStaff ? () => setShowForm(true) : undefined}
+        />
       )}
       <div className="space-y-3">
         {notices.map((n) => (

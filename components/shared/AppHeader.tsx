@@ -131,12 +131,12 @@ export function AppHeader() {
     >
       {/* fills notch/status — same navy, content sits below inset */}
       <div className="h-0.5 bg-gradient-to-r from-transparent via-matang-gold to-transparent opacity-80" />
-      <div className="px-2 h-11 flex items-center gap-1.5">
+      <div className="px-2 h-12 flex items-center gap-2">
         {!isHome ? (
           <button
             type="button"
             onClick={goBack}
-            className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl text-white/90 active:bg-white/10"
+            className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl text-white/90 hover:bg-white/10 active:bg-white/20 transition-colors cursor-pointer"
             aria-label="Back"
           >
             <ChevronLeft size={24} />
@@ -145,52 +145,63 @@ export function AppHeader() {
           <button
             type="button"
             onClick={() => router.push("/history")}
-            className="shrink-0 relative group ml-1 bg-transparent border-0 p-0"
+            className="shrink-0 relative group ml-1 bg-transparent border-0 p-0 cursor-pointer"
             title="Matang Samaj History"
           >
             <Logo
-              className="w-11 h-11 object-contain bg-transparent group-active:scale-95 transition-transform -my-1"
+              className="w-10 h-10 object-contain bg-transparent group-active:scale-95 transition-transform"
             />
           </button>
         )}
         <div className="flex-1 min-w-0">
-          <p
-            className="matang-gold-title relative inline-block max-w-full truncate text-[17px] sm:text-[19px] font-black tracking-[0.1em] uppercase leading-none"
-          >
-            MATANG CONNECT
-          </p>
-          <p className="text-white/85 text-[10px] truncate leading-none -mt-0.5">
-            {displayUser?.full_name ? (
-              <>
-                <span className="text-white font-medium">{displayUser.full_name}</span>
-                <span className="text-matang-gold/90"> · {roleLabel}</span>
-                {((displayUser as any)?.cities?.name ||
-                  (displayUser as any)?.city_name ||
-                  (displayUser as any)?.city) && (
-                  <span className="text-white/70">
-                    {" "}
-                    ·{" "}
-                    {(displayUser as any)?.cities?.name ||
+          {!isHome ? (
+            <>
+              <h1 className="text-[16px] font-bold text-white tracking-wide truncate leading-tight">
+                {title}
+              </h1>
+              <p className="text-white/60 text-[10px] truncate leading-none mt-0.5">
+                {displayUser?.full_name ? `${displayUser.full_name} · ${roleLabel}` : roleLabel}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="matang-gold-title relative inline-block max-w-full truncate text-[17px] sm:text-[19px] font-black tracking-[0.1em] uppercase leading-none">
+                MATANG CONNECT
+              </p>
+              <p className="text-white/85 text-[10px] truncate leading-none mt-0.5">
+                {displayUser?.full_name ? (
+                  <>
+                    <span className="text-white font-medium">{displayUser.full_name}</span>
+                    <span className="text-matang-gold/90"> · {roleLabel}</span>
+                    {((displayUser as any)?.cities?.name ||
                       (displayUser as any)?.city_name ||
-                      (displayUser as any)?.city}
-                  </span>
+                      (displayUser as any)?.city) && (
+                      <span className="text-white/70">
+                        {" "}
+                        ·{" "}
+                        {(displayUser as any)?.cities?.name ||
+                          (displayUser as any)?.city_name ||
+                          (displayUser as any)?.city}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-matang-gold/80">{roleLabel}</span>
                 )}
-              </>
-            ) : (
-              <span className="text-matang-gold/80">{roleLabel}</span>
-            )}
-          </p>
+              </p>
+            </>
+          )}
         </div>
         {showSos ? (
           <button
             type="button"
             onClick={() => router.push("/sos")}
-            title="Emergency SOS"
-            aria-label="Emergency SOS"
-            className="shrink-0 relative flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-b from-red-400 to-red-700 text-white shadow-[0_3px_0_0_#7f1d1d,0_4px_8px_rgba(0,0,0,0.35)] active:shadow-[0_1px_0_0_#7f1d1d] active:translate-y-0.5 transition-all ring-1 ring-red-300/40"
+            title={t("sos.title") || "Emergency SOS"}
+            aria-label={t("sos.title") || "Emergency SOS"}
+            className="shrink-0 relative flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-b from-red-500 to-red-700 text-white shadow-[0_3px_0_0_#7f1d1d,0_4px_8px_rgba(0,0,0,0.35)] active:shadow-[0_1px_0_0_#7f1d1d] active:translate-y-0.5 transition-all ring-2 ring-red-400/40 cursor-pointer"
           >
-            <HeartPulse size={18} strokeWidth={2.5} />
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-300 animate-pulse" />
+            <HeartPulse size={20} strokeWidth={2.5} />
+            <span className="absolute 0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-300 animate-pulse" />
           </button>
         ) : null}
         <LanguageToggle />

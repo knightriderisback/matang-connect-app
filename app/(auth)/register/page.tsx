@@ -33,10 +33,10 @@ export default function RegisterPage() {
           setCities(data);
           setForm((p) => ({ ...p, cityId: p.cityId || data[0].id }));
         } else {
-          setCitiesError(json.error || "No cities found. Run migrations in Supabase.");
+          setCitiesError(json.error || "Unable to load cities. Please try again.");
         }
       })
-      .catch(() => setCitiesError("Could not load cities"));
+      .catch(() => setCitiesError("Could not load cities. Please check network."));
   }, []);
 
   const handleChange = (field: string, value: string) =>

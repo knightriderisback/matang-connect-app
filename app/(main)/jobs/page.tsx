@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { Briefcase, Plus, Phone, MapPin } from "lucide-react";
 
 interface Job {
@@ -25,6 +26,7 @@ function JobsPageInner() {
   const { t } = useI18n();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", location: "", contact_phone: "", salary_range: "" });
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
@@ -45,20 +47,27 @@ function JobsPageInner() {
       toast("Title required", "error");
       return;
     }
-    const res = await fetch("/api/jobs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      toast(data.error || "Failed", "error");
-      return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Failed", "error");
+        return;
+      }
+      toast("Job posted", "success");
+      setShowForm(false);
+      setForm({ title: "", description: "", location: "", contact_phone: "", salary_range: "" });
+      load();
+    } catch {
+      toast("Failed to post job", "error");
+    } finally {
+      setSubmitting(false);
     }
-    toast("Job posted", "success");
-    setShowForm(false);
-    setForm({ title: "", description: "", location: "", contact_phone: "", salary_range: "" });
-    load();
   };
 
   return (
@@ -109,7 +118,7 @@ function JobsPageInner() {
               <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>
                 {t("common.cancel") || "Cancel"}
               </Button>
-              <Button className="flex-1" onClick={submit}>
+              <Button className="flex-1" isLoading={submitting} onClick={submit}>
                 {t("jobs.postJob") || "Post Job"}
               </Button>
             </div>
@@ -119,7 +128,13 @@ function JobsPageInner() {
 
       {loading && <p className="text-center text-gray-400 py-8">{t("common.loading")}...</p>}
       {!loading && jobs.length === 0 && (
-        <p className="text-center text-gray-400 py-8">{t("jobs.noJobs") || "No jobs posted yet"}</p>
+        <EmptyState
+          icon={Briefcase}
+          title={t("jobs.noJobs") || "No Jobs Posted Yet"}
+          description="Community employment postings, vacancies, and opportunities will appear here."
+          actionLabel={isStaff ? (t("jobs.postJob") || "Post Job") : undefined}
+          onAction={isStaff ? () => setShowForm(true) : undefined}
+        />
       )}
       <div className="space-y-3">
         {jobs.map((j) => (

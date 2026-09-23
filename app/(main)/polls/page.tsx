@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { effectiveRole } from "@/lib/auth/roleCache";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { BarChart3, Plus, Lock } from "lucide-react";
 
 interface Poll {
@@ -30,6 +31,7 @@ function PollsPageInner() {
   const isApprover = ["core_committee", "super_admin"].includes(role || "");
   const [polls, setPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ question: "", opt1: "", opt2: "", opt3: "", opt4: "" });
   const [changeReqs, setChangeReqs] = useState<any[]>([]);
@@ -126,20 +128,27 @@ function PollsPageInner() {
       toast("Question + at least 2 options required", "error");
       return;
     }
-    const res = await fetch("/api/polls", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: form.question, options }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      toast(data.error || "Failed", "error");
-      return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/polls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: form.question, options }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Failed", "error");
+        return;
+      }
+      toast("Poll created", "success");
+      setShowForm(false);
+      setForm({ question: "", opt1: "", opt2: "", opt3: "", opt4: "" });
+      load();
+    } catch {
+      toast("Failed to create poll", "error");
+    } finally {
+      setSubmitting(false);
     }
-    toast("Poll created", "success");
-    setShowForm(false);
-    setForm({ question: "", opt1: "", opt2: "", opt3: "", opt4: "" });
-    load();
   };
 
   return (
@@ -224,7 +233,7 @@ function PollsPageInner() {
               <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>
                 Cancel
               </Button>
-              <Button className="flex-1" onClick={create}>
+              <Button className="flex-1" isLoading={submitting} onClick={create}>
                 Create
               </Button>
             </div>
@@ -266,9 +275,13 @@ function PollsPageInner() {
       {loading ? (
         <p className="text-center text-gray-500 py-8">Loading...</p>
       ) : polls.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center text-gray-500">No active polls.</CardContent>
-        </Card>
+        <EmptyState
+          icon={BarChart3}
+          title="No Active Polls"
+          description="Community opinion polls and surveys will appear here."
+          actionLabel={isStaff ? "New Poll" : undefined}
+          onAction={isStaff ? () => setShowForm(true) : undefined}
+        />
       ) : (
         polls.map((p) => {
           const max = Math.max(...(p.vote_counts || [0]), 1);

@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { effectiveRole } from "@/lib/auth/roleCache";
 import { useFeatureFlags } from "@/lib/useFeatureFlags";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { Inbox } from "lucide-react";
 
 export default function AdminRequestsPage() {
@@ -96,9 +97,11 @@ export default function AdminRequestsPage() {
       {loading ? (
         <p className="text-center text-gray-400 py-8">Loading…</p>
       ) : shown.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center text-gray-400 text-sm">No requests</CardContent>
-        </Card>
+        <EmptyState
+          icon={Inbox}
+          title="No Requests"
+          description={filter === "pending" ? "There are no pending requests right now." : "No requests found."}
+        />
       ) : (
         <div className="space-y-2">
           {shown.map((r) => (

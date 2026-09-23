@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { Landmark, Plus } from "lucide-react";
 
 interface Post {
@@ -24,6 +25,7 @@ function DharoharPageInner() {
   const { user } = useCurrentUser();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", body: "", category: "culture" });
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
@@ -44,20 +46,27 @@ function DharoharPageInner() {
       toast("Title and body required", "error");
       return;
     }
-    const res = await fetch("/api/dharohar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      toast(data.error || "Failed", "error");
-      return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/dharohar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Failed", "error");
+        return;
+      }
+      toast("Published", "success");
+      setShowForm(false);
+      setForm({ title: "", body: "", category: "culture" });
+      load();
+    } catch {
+      toast("Failed to publish", "error");
+    } finally {
+      setSubmitting(false);
     }
-    toast("Published", "success");
-    setShowForm(false);
-    setForm({ title: "", body: "", category: "culture" });
-    load();
   };
 
   return (
@@ -100,7 +109,7 @@ function DharoharPageInner() {
               <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>
                 Cancel
               </Button>
-              <Button className="flex-1" onClick={submit}>
+              <Button className="flex-1" isLoading={submitting} onClick={submit}>
                 Publish
               </Button>
             </div>
@@ -111,9 +120,13 @@ function DharoharPageInner() {
       {loading ? (
         <p className="text-center text-gray-500 py-8">Loading...</p>
       ) : posts.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center text-gray-500">No heritage posts yet.</CardContent>
-        </Card>
+        <EmptyState
+          icon={Landmark}
+          title="No Heritage Posts Yet"
+          description="Articles and stories on Matang history, culture, and traditions will appear here."
+          actionLabel={isStaff ? "Post" : undefined}
+          onAction={isStaff ? () => setShowForm(true) : undefined}
+        />
       ) : (
         posts.map((p) => (
           <Card key={p.id}>
