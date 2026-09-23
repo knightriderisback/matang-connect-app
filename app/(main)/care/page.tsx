@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { HeartHandshake, Plus, Share2 } from "lucide-react";
 import { NameLink } from "@/components/shared/NameLink";
 
@@ -43,6 +44,7 @@ const URGENCY = [
 function CarePageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
+  const { t } = useI18n();
   const [requests, setRequests] = useState<CareReq[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -98,7 +100,7 @@ function CarePageInner() {
       body: JSON.stringify({ id, status: "completed" }),
     });
     if (!res.ok) {
-      toast("Could not update", "error");
+      toast("Failed to update status", "error");
       return;
     }
     toast("Marked completed", "success");
@@ -106,7 +108,7 @@ function CarePageInner() {
   };
 
   const shareWA = (r: CareReq) => {
-    const msg = `🤝 *Care Request*\nType: ${r.care_type}\n${r.description || ""}\nUrgency: ${r.urgency}\n— Matang Connect`;
+    const msg = `🤝 *Care Request: ${r.care_type?.toUpperCase()}*\n\n${r.description || ""}\n\nUrgency: ${r.urgency}\nStatus: ${r.status}\n\n— Matang Connect`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
@@ -115,14 +117,14 @@ function CarePageInner() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <HeartHandshake className="text-matang-gold" size={22} />
-          <h1 className="text-lg font-bold text-matang-navy">Care / Vridh Seva</h1>
+          <h1 className="text-lg font-bold text-matang-navy">{t("care.title") || "Care / Vridh Seva"}</h1>
         </div>
         <Button className="text-sm px-3 py-1.5" onClick={() => setShowForm(!showForm)}>
-          <Plus size={16} /> Request
+          <Plus size={16} /> {t("care.requestHelp") || "Request"}
         </Button>
       </div>
       <p className="text-sm text-gray-600">
-        Medical, elderly, disability, financial or educational support from the community.
+        {t("care.subtitle") || "Medical, elderly, disability, financial or educational support from the community."}
       </p>
 
       {showForm && (
@@ -134,9 +136,9 @@ function CarePageInner() {
               value={form.care_type}
               onChange={(e) => setForm({ ...form, care_type: e.target.value })}
             >
-              {TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
+              {TYPES.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
                 </option>
               ))}
             </select>
@@ -166,20 +168,20 @@ function CarePageInner() {
             />
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>
-                Cancel
+                {t("common.cancel") || "Cancel"}
               </Button>
               <Button className="flex-1" onClick={submit}>
-                Submit
+                {t("common.submit") || "Submit"}
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {loading && <p className="text-center text-gray-400 py-8">Loading…</p>}
+      {loading && <p className="text-center text-gray-400 py-8">{t("common.loading")}…</p>}
       {!loading && requests.length === 0 && (
         <Card>
-          <CardContent className="p-8 text-center text-gray-400 text-sm">No care requests yet.</CardContent>
+          <CardContent className="p-8 text-center text-gray-400 text-sm">{t("care.noRequests") || "No care requests yet."}</CardContent>
         </Card>
       )}
 
@@ -192,7 +194,7 @@ function CarePageInner() {
                   {r.care_type?.replace("_", " ") || "Care"} request
                 </h3>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-matang-gold/20 text-matang-navy font-medium">
-                  {r.status}
+                  {r.status === "open" ? t("care.statusOpen") || r.status : r.status}
                 </span>
               </div>
               {r.description && <p className="text-sm text-gray-600">{r.description}</p>}
@@ -210,14 +212,14 @@ function CarePageInner() {
                     className="text-xs px-2 py-1"
                     onClick={() => closeReq(r.id)}
                   >
-                    Mark Completed
+                    {t("care.markClosed") || "Mark Completed"}
                   </Button>
                 )}
                 <button
-                  className="flex items-center gap-1 text-xs text-green-600 font-medium"
+                  className="flex items-center gap-1 text-xs text-green-600 font-medium cursor-pointer"
                   onClick={() => shareWA(r)}
                 >
-                  <Share2 size={12} /> Share
+                  <Share2 size={12} /> {t("common.share") || "Share"}
                 </button>
               </div>
             </CardContent>

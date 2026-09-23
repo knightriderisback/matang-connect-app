@@ -89,12 +89,12 @@ export default function LoginPage() {
           onClick={() => setShowForgot(!showForgot)}
           className="mt-4 text-sm text-matang-gold font-medium underline underline-offset-2"
         >
-          Forgot M-PIN?
+          {t("auth.forgotMpin") || "Forgot M-PIN?"}
         </button>
 
         {showForgot && (
           <div className="mt-3 w-full max-w-sm bg-white border border-matang-gold/30 rounded-2xl p-4 text-sm text-gray-600 space-y-2">
-            <p className="font-semibold text-matang-navy">How to reset your M-PIN</p>
+            <p className="font-semibold text-matang-navy">{t("auth.resetMpin") || "How to reset your M-PIN"}</p>
             <ol className="list-decimal list-inside space-y-1 text-xs">
               <li>Contact your city <strong>Volunteer</strong>, <strong>Core Committee</strong>, or <strong>Super Admin</strong>.</li>
               <li>They will verify your identity and reset your 4-digit M-PIN from the Admin panel.</li>
@@ -105,9 +105,9 @@ export default function LoginPage() {
         )}
 
         <p className="mt-6 text-sm text-gray-500">
-          New member?{" "}
+          {t("auth.noAccount") || "New member?"}{" "}
           <button type="button" className="text-matang-gold font-semibold" onClick={() => router.push("/register")}>
-            Register
+            {t("auth.register") || "Register"}
           </button>
         </p>
       </div>

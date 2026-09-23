@@ -8,7 +8,6 @@ import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { Heart, Plus, TrendingUp, TrendingDown, Clock, User } from "lucide-react";
 import { NameLink } from "@/components/shared/NameLink";
-import { toLocalizedDigits } from "@/lib/numbers";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 
 interface Entry {
@@ -32,25 +31,10 @@ interface Contrib {
   contributor_name?: string | null;
 }
 
-function formatWhen(iso?: string | null) {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
-}
-
 function KoshPageInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
-  const { lang } = useI18n();
+  const { t, c, n, timeAgo } = useI18n();
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [contributions, setContributions] = useState<Contrib[]>([]);
@@ -64,7 +48,6 @@ function KoshPageInner() {
     entry_date: new Date().toISOString().slice(0, 10),
   });
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
-  const loc = lang || "en";
 
   const load = () => {
     fetch("/api/kosh")
@@ -102,14 +85,12 @@ function KoshPageInner() {
     load();
   };
 
-  const fmt = (n: number) => toLocalizedDigits(n.toLocaleString("en-IN"), loc);
-
   return (
     <div className="p-4 space-y-4 pb-24">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Heart className="text-matang-gold" size={22} />
-          <h1 className="text-lg font-bold text-matang-navy">Sahyog Kosh</h1>
+          <h1 className="text-lg font-bold text-matang-navy">{t("kosh.title") || "Sahyog Kosh"}</h1>
         </div>
         {isStaff && (
           <Button
@@ -119,7 +100,7 @@ function KoshPageInner() {
             onClick={() => setShowForm((v) => !v)}
           >
             <Plus size={14} className="inline mr-1" />
-            Entry
+            {t("common.edit") || "Entry"}
           </Button>
         )}
       </div>
@@ -129,21 +110,21 @@ function KoshPageInner() {
           <CardContent className="p-3 text-center">
             <TrendingUp size={16} className="mx-auto text-green-600 mb-1" />
             <p className="text-[10px] text-gray-500">Income</p>
-            <p className="text-sm font-bold text-green-700">₹{fmt(summary.income)}</p>
+            <p className="text-sm font-bold text-green-700">{c(summary.income)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3 text-center">
             <TrendingDown size={16} className="mx-auto text-red-600 mb-1" />
-            <p className="text-[10px] text-gray-500">Expense</p>
-            <p className="text-sm font-bold text-red-700">₹{fmt(summary.expense)}</p>
+            <p className="text-[10px] text-gray-500">{t("kosh.expenses") || "Expense"}</p>
+            <p className="text-sm font-bold text-red-700">{c(summary.expense)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3 text-center">
             <Heart size={16} className="mx-auto text-matang-gold mb-1" />
-            <p className="text-[10px] text-gray-500">Balance</p>
-            <p className="text-sm font-bold text-matang-navy">₹{fmt(summary.balance)}</p>
+            <p className="text-[10px] text-gray-500">{t("kosh.totalFund") || "Balance"}</p>
+            <p className="text-sm font-bold text-matang-navy">{c(summary.balance)}</p>
           </CardContent>
         </Card>
       </div>
@@ -157,47 +138,47 @@ function KoshPageInner() {
               onChange={(e) => setForm((f) => ({ ...f, entry_type: e.target.value }))}
             >
               <option value="income">Income</option>
-              <option value="expense">Expense</option>
+              <option value="expense">{t("kosh.expenses") || "Expense"}</option>
             </select>
             <Input
               type="number"
-              placeholder="Amount"
+              placeholder={t("kosh.amount") || "Amount"}
               value={form.amount}
               onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
             />
             <Input
-              placeholder="Description"
+              placeholder={t("kosh.purpose") || "Description"}
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             />
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>
-                Cancel
+                {t("common.cancel") || "Cancel"}
               </Button>
               <Button className="flex-1" onClick={submit}>
-                Save
+                {t("common.save") || "Save"}
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {loading && <p className="text-center text-gray-400 py-8">Loading...</p>}
+      {loading && <p className="text-center text-gray-400 py-8">{t("common.loading")}...</p>}
 
       {campaigns.length > 0 && (
         <div className="space-y-2">
           <h2 className="text-sm font-bold text-matang-navy">Fundraising campaigns</h2>
-          {campaigns.map((c: any) => {
+          {campaigns.map((camp: any) => {
             const pct =
-              c.goal_amount > 0
-                ? Math.min(100, Math.round((Number(c.raised_amount || 0) / Number(c.goal_amount)) * 100))
+              camp.goal_amount > 0
+                ? Math.min(100, Math.round((Number(camp.raised_amount || 0) / Number(camp.goal_amount)) * 100))
                 : 0;
             return (
-              <Card key={c.id} className="border-matang-gold/20">
+              <Card key={camp.id} className="border-matang-gold/20">
                 <CardContent className="p-3 space-y-1.5">
                   <div className="flex justify-between text-sm">
-                    <span className="font-semibold text-matang-navy">{c.title}</span>
-                    <span className="text-xs text-gray-500">{pct}%</span>
+                    <span className="font-semibold text-matang-navy">{camp.title}</span>
+                    <span className="text-xs text-gray-500">{n(pct)}%</span>
                   </div>
                   <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                     <div
@@ -206,8 +187,7 @@ function KoshPageInner() {
                     />
                   </div>
                   <p className="text-[11px] text-gray-500">
-                    ₹{Number(c.raised_amount || 0).toLocaleString("en-IN")} / ₹
-                    {Number(c.goal_amount || 0).toLocaleString("en-IN")}
+                    {c(Number(camp.raised_amount || 0))} / {c(Number(camp.goal_amount || 0))}
                   </p>
                 </CardContent>
               </Card>
@@ -234,7 +214,7 @@ function KoshPageInner() {
                 )}
                 <p className="text-[10px] text-gray-400 flex items-center gap-1">
                   <Clock size={10} />
-                  {formatWhen(e.created_at || e.entry_date)}
+                  {timeAgo(e.created_at || e.entry_date)}
                 </p>
               </div>
               <p
@@ -242,36 +222,36 @@ function KoshPageInner() {
                   e.entry_type === "income" ? "text-green-600" : "text-red-600"
                 }`}
               >
-                {e.entry_type === "income" ? "+" : "-"}₹{fmt(Number(e.amount))}
+                {e.entry_type === "income" ? "+" : "-"}{c(Number(e.amount))}
               </p>
             </CardContent>
           </Card>
         ))}
         {!loading && entries.length === 0 && (
-          <p className="text-xs text-gray-400 text-center py-4">No ledger entries yet.</p>
+          <p className="text-xs text-gray-400 text-center py-4">{t("common.noData") || "No ledger entries yet."}</p>
         )}
       </div>
 
       {contributions.length > 0 && (
         <div className="space-y-2">
-          <h2 className="text-sm font-bold text-matang-navy">Member contributions</h2>
-          {contributions.map((c) => (
-            <Card key={c.id}>
+          <h2 className="text-sm font-bold text-matang-navy">{t("kosh.recentContributions") || "Member contributions"}</h2>
+          {contributions.map((cb) => (
+            <Card key={cb.id}>
               <CardContent className="p-3 flex items-start justify-between gap-2">
                 <div className="min-w-0 space-y-0.5">
                   <p className="text-sm font-medium text-matang-navy">
-                    {c.purpose || "Contribution"}
+                    {cb.purpose || "Contribution"}
                   </p>
                   <p className="text-[11px] text-gray-600 flex items-center gap-1 flex-wrap">
                     <User size={11} className="text-gray-400 shrink-0" />
-                    <NameLink id={c.contributor_id} name={c.contributor_name} />
+                    <NameLink id={cb.contributor_id} name={cb.contributor_name} />
                   </p>
                   <p className="text-[10px] text-gray-400 flex items-center gap-1">
                     <Clock size={10} />
-                    {formatWhen(c.created_at)}
+                    {timeAgo(cb.created_at)}
                   </p>
                 </div>
-                <p className="font-bold text-sm text-green-600 shrink-0">+₹{fmt(Number(c.amount))}</p>
+                <p className="font-bold text-sm text-green-600 shrink-0">+{c(Number(cb.amount))}</p>
               </CardContent>
             </Card>
           ))}

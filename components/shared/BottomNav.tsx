@@ -31,10 +31,10 @@ export function BottomNav() {
   ];
 
   if (isStaff) {
-    items.push({ icon: Shield, label: "Admin", href: "/admin" });
+    items.push({ icon: Shield, label: t("nav.admin") || "Admin", href: "/admin" });
   } else {
     // Every non-staff member gets Services in footer
-    items.push({ icon: Grid3X3, label: "Services", href: "/services" });
+    items.push({ icon: Grid3X3, label: t("nav.services") || "Services", href: "/services" });
   }
 
   return (

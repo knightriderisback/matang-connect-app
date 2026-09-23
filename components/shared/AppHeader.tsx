@@ -26,18 +26,18 @@ const TITLES: Record<string, string> = {
   "/polls": "nav.polls",
   "/arthik": "nav.arthik",
   "/scan": "nav.scan",
-  "/badges": "Volunteer Credits",
-  "/vanshawali": "Vanshawali",
-  "/gaurav": "Matang Gaurav",
-  "/rides": "Ride Share",
-  "/admin": "Admin",
-  "/admin/directory": "Directory",
-  "/admin/verify": "Verify Users",
-  "/admin/titles": "City Titles",
-  "/admin/audit": "Audit Log",
-  "/admin/settings": "Stage Lock",
-  "/admin/reset-mpin": "Reset M-PIN",
-  "/history": "Matang History",
+  "/badges": "nav.badges",
+  "/vanshawali": "nav.vanshawali",
+  "/gaurav": "nav.gaurav",
+  "/rides": "nav.rides",
+  "/admin": "nav.admin",
+  "/admin/directory": "nav.directory",
+  "/admin/verify": "nav.verify",
+  "/admin/titles": "nav.titles",
+  "/admin/audit": "nav.audit",
+  "/admin/settings": "nav.settings",
+  "/admin/reset-mpin": "nav.resetMpin",
+  "/history": "nav.history",
 };
 
 function peekUser(): { full_name?: string; role?: string; title?: string; cities?: { name?: string } | null; city_name?: string } | null {
@@ -106,15 +106,16 @@ export function AppHeader() {
   const showSos = can("sos");
 
   const ROLE_LABEL: Record<string, string> = {
-    super_admin: "Super Admin",
-    core_committee: "Core Committee",
-    volunteer: "Volunteer",
-    normal: "Member",
+    super_admin: t("auth.superAdmin") || "Super Admin",
+    core_committee: t("auth.coreCommittee") || "Core Committee",
+    volunteer: t("auth.volunteer") || "Volunteer",
+    normal: t("auth.member") || "Member",
   };
   const roleLabel =
     (displayUser as any)?.title ||
     ROLE_LABEL[displayUser?.role || ""] ||
     displayUser?.role ||
+    t("auth.member") ||
     "Member";
 
   return (

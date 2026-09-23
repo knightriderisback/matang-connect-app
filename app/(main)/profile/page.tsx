@@ -13,11 +13,11 @@ import { MatangQR } from "@/components/shared/MatangQR";
 import { Logo } from "@/components/shared/Logo";
 import { LogOut, Shield, MapPin, Phone, Pencil, Save, QrCode, ImagePlus, Eye, EyeOff, Network } from "lucide-react";
 
-const ROLE_STYLE: Record<string, { label: string; gradient: string; badge: string }> = {
-  super_admin: { label: "Super Admin", gradient: "from-matang-navy via-blue-900 to-purple-900", badge: "bg-matang-gold text-matang-navy" },
-  core_committee: { label: "Core Committee", gradient: "from-indigo-800 to-matang-navy", badge: "bg-indigo-200 text-indigo-900" },
-  volunteer: { label: "Volunteer", gradient: "from-emerald-700 to-teal-800", badge: "bg-emerald-100 text-emerald-800" },
-  normal: { label: "Member", gradient: "from-matang-navy to-blue-900", badge: "bg-white/20 text-white" },
+const ROLE_STYLE: Record<string, { label: string; labelKey: string; defaultLabel: string; gradient: string; badge: string }> = {
+  super_admin: { label: "Super Admin", labelKey: "auth.superAdmin", defaultLabel: "Super Admin", gradient: "from-matang-navy via-blue-900 to-purple-900", badge: "bg-matang-gold text-matang-navy" },
+  core_committee: { label: "Core Committee", labelKey: "auth.coreCommittee", defaultLabel: "Core Committee", gradient: "from-indigo-800 to-matang-navy", badge: "bg-indigo-200 text-indigo-900" },
+  volunteer: { label: "Volunteer", labelKey: "auth.volunteer", defaultLabel: "Volunteer", gradient: "from-emerald-700 to-teal-800", badge: "bg-emerald-100 text-emerald-800" },
+  normal: { label: "Member", labelKey: "auth.member", defaultLabel: "Member", gradient: "from-matang-navy to-blue-900", badge: "bg-white/20 text-white" },
 };
 
 const GENDERS = [
@@ -267,7 +267,7 @@ export default function ProfilePage() {
               <Logo className="w-5 h-5 !bg-transparent" title="Matang" />
               {t("profile.digitalId")}
             </span>
-            <span className={`text-xs px-2 py-1 rounded-full font-medium ${style.badge}`}>{style.label}</span>
+            <span className={`text-xs px-2 py-1 rounded-full font-medium ${style.badge}`}>{t(style.labelKey) || style.defaultLabel}</span>
           </div>
           <div className="flex items-center gap-4">
             <div className="relative">
@@ -318,7 +318,7 @@ export default function ProfilePage() {
             <div className="flex justify-between items-center">
               <span className="text-gray-500">Role</span>
               <span className="font-medium flex items-center gap-1">
-                <Shield size={14} /> {style.label}
+                <Shield size={14} /> {t(style.labelKey) || style.label}
               </span>
             </div>
           </CardContent>

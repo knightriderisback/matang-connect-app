@@ -427,16 +427,16 @@ export default function SOSPage() {
       {confirmOpen && (
         <div className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4">
-            <p className="text-lg font-bold text-red-600 text-center">Send Emergency SOS?</p>
+            <p className="text-lg font-bold text-red-600 text-center">{t("sos.medicalEmergency") || "Send Emergency SOS?"}</p>
             <p className="text-sm text-gray-600 text-center">
-              Volunteers & core members will be alerted in-app. Your location will be attached if GPS is allowed. No WhatsApp for this button.
+              {t("sos.triggerDesc") || "Volunteers & core members will be alerted immediately with your location."}
             </p>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setConfirmOpen(false)}>
-                Cancel
+                {t("common.cancel") || "Cancel"}
               </Button>
               <Button className="flex-1 bg-red-600 text-white" isLoading={sending} onClick={confirmAndSendMedical}>
-                Confirm SOS
+                {t("sos.title") || "Confirm SOS"}
               </Button>
             </div>
           </div>
@@ -475,7 +475,7 @@ export default function SOSPage() {
             </span>
           </button>
           <p className="text-xs text-gray-500 mt-3 text-center">
-            Hold → confirm popup + sound → alert staff (no WhatsApp)
+            {t("sos.triggerDesc") || "Hold → alert volunteers & staff with live location"}
           </p>
           <Button
             className="mt-4 w-full max-w-xs bg-red-600 hover:bg-red-700 text-white"
@@ -485,7 +485,7 @@ export default function SOSPage() {
               setConfirmOpen(true);
             }}
           >
-            <Send size={16} /> Send SOS now
+            <Send size={16} /> {t("sos.title") || "Send SOS now"}
           </Button>
         </div>
       </Card>
@@ -510,14 +510,14 @@ export default function SOSPage() {
           <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
             <Pill className="text-orange-600" size={22} />
           </div>
-          <span className="text-sm font-medium">Medicine Help</span>
+          <span className="text-sm font-medium">{t("care.medicineHelp") || "Medicine Help"}</span>
           <span className="text-[10px] text-gray-400">Feed + WA</span>
         </button>
       </div>
 
       <div>
         <h2 className="text-sm font-bold text-matang-navy mb-2 flex items-center gap-1">
-          <Navigation size={14} /> Active / recent alerts
+          <Navigation size={14} /> {t("sos.activeAlerts") || "Active / recent alerts"}
         </h2>
         {alerts.length === 0 && (
           <p className="text-xs text-gray-400">No alerts yet</p>

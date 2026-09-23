@@ -30,21 +30,8 @@ interface Notice {
   image_url?: string | null;
 }
 
-function timeAgo(iso: string) {
-  const d = new Date(iso).getTime();
-  const s = Math.max(0, Math.floor((Date.now() - d) / 1000));
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-}
-
-
-
-
-
 export default function DashboardPage() {
-  const { t } = useI18n();
+  const { t, timeAgo, n } = useI18n();
   const router = useRouter();
   const { toast } = useToast();
   const { user, loading } = useCurrentUser();
@@ -188,30 +175,30 @@ export default function DashboardPage() {
       {showWelcome && <WelcomeAnimation onComplete={() => setShowWelcome(false)} />}
       <div className="space-y-4 pb-4">
         <div className="px-4 pt-4">
-          <p className="text-sm text-gray-500">Welcome,</p>
+          <p className="text-sm text-gray-500">{t("dashboard.welcome")},</p>
           <h2 className="text-xl font-bold text-matang-navy flex items-center gap-2 flex-wrap">
             {user?.full_name || "..."}
             {isSuper && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-matang-gold/25 text-matang-navy text-[10px] rounded-full font-semibold">
-                <Shield size={10} /> Super Admin
+                <Shield size={10} /> {t("dashboard.superAdminBadge") || "Super Admin"}
               </span>
             )}
           </h2>
           <p className="text-[11px] text-matang-gold/90 flex items-center gap-1 mt-0.5">
-            <Sparkles size={12} /> Matang AI — left bottom
+            <Sparkles size={12} /> {t("dashboard.aiHelper") || "Matang AI"}
           </p>
         </div>
         <div className="px-4 flex items-center justify-between">
           <h2 className="text-base font-bold text-matang-navy flex items-center gap-2">
-            <Bell size={18} className="text-matang-gold" /> Community Feed
+            <Bell size={18} className="text-matang-gold" /> {t("dashboard.communityFeed") || "Community Feed"}
           </h2>
           {canPost && (
             <button
               type="button"
               onClick={() => setShowPost((v) => !v)}
-              className="flex items-center gap-1 text-xs font-semibold text-matang-navy bg-matang-gold/20 px-2.5 py-1.5 rounded-full"
+              className="flex items-center gap-1 text-xs font-semibold text-matang-navy bg-matang-gold/20 px-2.5 py-1.5 rounded-full cursor-pointer hover:bg-matang-gold/30 active:scale-95 transition-all"
             >
-              <Plus size={14} /> Post
+              <Plus size={14} /> {t("dashboard.post") || "Post"}
             </button>
           )}
         </div>
@@ -219,27 +206,27 @@ export default function DashboardPage() {
         {showPost && canPost && (
           <div className="mx-4 p-4 bg-white rounded-2xl border border-matang-gold/30 space-y-3 shadow-sm">
             <Input
-              label="Title"
+              label={t("dashboard.title") || "Title"}
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
-            <label className="block text-sm font-medium text-matang-navy">Message</label>
+            <label className="block text-sm font-medium text-matang-navy">{t("dashboard.message") || "Message"}</label>
             <textarea
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm min-h-[90px]"
               value={form.body}
               onChange={(e) => setForm({ ...form, body: e.target.value })}
-              placeholder="Write for the community…"
+              placeholder={t("dashboard.writePost") || "Write for the community…"}
             />
             <select
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm"
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
             >
-              <option value="general">General</option>
-              <option value="announcement">Announcement</option>
-              <option value="meeting">Meeting</option>
-              <option value="shok_sandesh">Shok Sandesh</option>
-              <option value="urgent">Urgent</option>
+              <option value="general">{t("dashboard.general") || "General"}</option>
+              <option value="announcement">{t("dashboard.announcement") || "Announcement"}</option>
+              <option value="meeting">{t("dashboard.meeting") || "Meeting"}</option>
+              <option value="shok_sandesh">{t("dashboard.shokSandesh") || "Shok Sandesh"}</option>
+              <option value="urgent">{t("dashboard.urgent") || "Urgent"}</option>
             </select>
             {canImage && (
               <div className="space-y-2">
@@ -247,15 +234,15 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => imageInputRef.current?.click()}
-                  className="text-xs font-semibold text-matang-navy border border-dashed border-matang-gold/50 rounded-xl w-full py-2"
+                  className="text-xs font-semibold text-matang-navy border border-dashed border-matang-gold/50 rounded-xl w-full py-2 cursor-pointer hover:bg-matang-gold/5"
                 >
-                  {form.image ? "Change image" : "Add image"}
+                  {form.image ? t("dashboard.uploadImage") || "Change image" : t("dashboard.uploadImage") || "Add image"}
                 </button>
                 {form.image && (
                   <div className="relative">
                     <img src={form.image} alt="" className="w-full max-h-48 object-cover rounded-xl" />
-                    <button type="button" className="absolute top-2 right-2 text-xs bg-black/60 text-white px-2 py-0.5 rounded" onClick={() => setForm({ ...form, image: "" })}>
-                      Remove
+                    <button type="button" className="absolute top-2 right-2 text-xs bg-black/60 text-white px-2 py-0.5 rounded cursor-pointer" onClick={() => setForm({ ...form, image: "" })}>
+                      {t("common.delete") || "Remove"}
                     </button>
                   </div>
                 )}
@@ -263,10 +250,10 @@ export default function DashboardPage() {
             )}
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setShowPost(false)}>
-                Cancel
+                {t("common.cancel") || "Cancel"}
               </Button>
               <Button className="flex-1" onClick={publish}>
-                Publish
+                {t("dashboard.post") || "Publish"}
               </Button>
             </div>
           </div>
@@ -274,15 +261,12 @@ export default function DashboardPage() {
 
         <div className="px-3 space-y-3">
           {feedLoading && (
-            <p className="text-center text-gray-400 text-sm py-8">Loading feed…</p>
+            <p className="text-center text-gray-400 text-sm py-8">{t("common.loading")}…</p>
           )}
           {!feedLoading && notices.length === 0 && (
             <div className="text-center py-10 px-4 bg-white rounded-2xl border border-dashed border-gray-200">
               <Bell className="mx-auto text-gray-300 mb-2" size={28} />
-              <p className="text-sm text-gray-400">No posts yet</p>
-              {isStaff && (
-                <p className="text-xs text-gray-400 mt-1">Tap + Post to publish</p>
-              )}
+              <p className="text-sm text-gray-400">{t("dashboard.noPosts") || "No posts yet"}</p>
             </div>
           )}
           {notices.map((n) => {
@@ -328,7 +312,7 @@ export default function DashboardPage() {
                                 : "bg-blue-50 text-blue-700"
                           }`}
                         >
-                          {tag.replace(/_/g, " ")}
+                          {t(`dashboard.${tag === "shok_sandesh" ? "shokSandesh" : tag}`) || tag.replace(/_/g, " ")}
                         </span>
                       )}
                     </div>
@@ -358,7 +342,7 @@ export default function DashboardPage() {
                     onClick={() => shareWA(n)}
                     className="flex items-center gap-1 text-xs text-green-600 font-medium"
                   >
-                    <Share2 size={14} /> WhatsApp
+                    <Share2 size={14} /> {t("common.share") || "WhatsApp"}
                   </button>
                 </div>
               </article>
