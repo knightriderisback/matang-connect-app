@@ -12,6 +12,7 @@ import {
   timeAgo as computeTimeAgo,
   SupportedLocale,
 } from "@/lib/numbers";
+import { translateAnyText, TargetLanguage } from "./universalTranslator";
 
 export type LanguageCode = "en" | "hi" | "mr" | "cg" | "hng";
 
@@ -40,8 +41,10 @@ const DICTIONARIES: Record<LanguageCode, Record<string, any>> = {
 interface I18nContextType {
   lang: LanguageCode;
   setLang: (lang: LanguageCode | string) => void;
-  /** Translate a dot-path key, raw term, or identifier with optional params */
+  /** Translate a dot-path key, raw term, identifier, or dynamic text with optional params */
   t: (key: string, params?: Record<string, string | number>) => string;
+  /** Deep translation for arbitrary dynamic text (names, posts, comments, notices) */
+  translateDynamic: (text: string) => string;
   /** Format number with Indian numbering and standard digits (1, 2, 3...) */
   n: (value: number | string | null | undefined) => string;
   /** Format currency with Rupee symbol and standard digits */
@@ -53,9 +56,10 @@ interface I18nContextType {
 }
 
 const I18nContext = createContext<I18nContextType>({
-  lang: "en",
+  lang: "hi",
   setLang: () => {},
   t: (key: string) => key,
+  translateDynamic: (text: string) => text,
   n: (val) => String(val ?? ""),
   c: (val) => `₹${val ?? 0}`,
   timeAgo: () => "",
@@ -78,6 +82,20 @@ function camelToSnake(str: string): string {
 function snakeToCamel(str: string): string {
   return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 }
+
+// Global WeakMap for storing original text of DOM TextNodes to prevent translation degradation
+const nodeOriginalTextMap = new WeakMap<Node, string>();
+
+const IGNORED_TAGS = new Set([
+  "SCRIPT",
+  "STYLE",
+  "CODE",
+  "PRE",
+  "TEXTAREA",
+  "INPUT",
+  "SVG",
+  "NOSCRIPT",
+]);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<LanguageCode>("hi");
@@ -205,6 +223,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     return null;
   }, []);
 
+  const translateDynamic = useCallback(
+    (text: string): string => {
+      if (!text) return "";
+      return translateAnyText(text, lang as TargetLanguage);
+    },
+    [lang]
+  );
+
   const t = useCallback(
     (key: string, params?: Record<string, string | number>): string => {
       if (!key) return "";
@@ -222,13 +248,15 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
         text = searchDictionary(DICTIONARIES.en, key);
       }
 
-      // Fallback 3: Return key itself or clean last part
+      // Fallback 3: Deep Dynamic Universal Translator
       if (!text) {
         if (key.includes(".")) {
           const parts = key.split(".");
-          return parts[parts.length - 1] ?? key;
+          const lastPart = parts[parts.length - 1] ?? key;
+          text = translateAnyText(lastPart, lang as TargetLanguage);
+        } else {
+          text = translateAnyText(key, lang as TargetLanguage);
         }
-        return key;
       }
 
       // Variable interpolation: {{key}}
@@ -240,7 +268,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      return text;
+      return text || key;
     },
     [lang, searchDictionary]
   );
@@ -266,18 +294,104 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     [lang]
   );
 
+  // Real-time Universal DOM Text Node Translator (Deep DNA Layer)
+  useEffect(() => {
+    if (typeof window === "undefined" || !isReady) return;
+
+    let isTranslating = false;
+
+    const translateNode = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const parent = node.parentElement;
+        if (!parent || IGNORED_TAGS.has(parent.tagName) || parent.isContentEditable || parent.closest("[data-no-translate]")) {
+          return;
+        }
+
+        const currentVal = node.nodeValue || "";
+        if (!currentVal.trim()) return;
+
+        // Retrieve or initialize original text
+        let orig = nodeOriginalTextMap.get(node);
+        if (orig === undefined) {
+          orig = currentVal;
+          nodeOriginalTextMap.set(node, orig);
+        }
+
+        const translated = translateAnyText(orig, lang as TargetLanguage);
+        if (translated !== currentVal) {
+          node.nodeValue = translated;
+        }
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+        if (IGNORED_TAGS.has(el.tagName) || el.isContentEditable || el.closest("[data-no-translate]")) {
+          return;
+        }
+        for (let i = 0; i < el.childNodes.length; i++) {
+          translateNode(el.childNodes[i]);
+        }
+      }
+    };
+
+    const runFullDOMTranslation = () => {
+      if (isTranslating) return;
+      isTranslating = true;
+      try {
+        translateNode(document.body);
+      } finally {
+        isTranslating = false;
+      }
+    };
+
+    // Run immediately on language change
+    runFullDOMTranslation();
+
+    // Observe dynamic mutations (feed posts, new data, dialogs)
+    let rafId: number | null = null;
+    const observer = new MutationObserver((mutations) => {
+      if (isTranslating) return;
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        for (const m of mutations) {
+          if (m.type === "childList") {
+            m.addedNodes.forEach((n) => translateNode(n));
+          } else if (m.type === "characterData" && m.target) {
+            const tNode = m.target;
+            const cur = tNode.nodeValue || "";
+            // If modified externally, update cache
+            if (cur && !nodeOriginalTextMap.has(tNode)) {
+              nodeOriginalTextMap.set(tNode, cur);
+              translateNode(tNode);
+            }
+          }
+        }
+      });
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+
+    return () => {
+      observer.disconnect();
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [lang, isReady]);
+
   const contextValue = useMemo(
     () => ({
       lang,
       setLang,
       t,
+      translateDynamic,
       n,
       c,
       timeAgo: localizedTimeAgo,
       isReady,
       languages: SUPPORTED_LANGUAGES,
     }),
-    [lang, setLang, t, n, c, localizedTimeAgo, isReady]
+    [lang, setLang, t, translateDynamic, n, c, localizedTimeAgo, isReady]
   );
 
   return <I18nContext.Provider value={contextValue}>{children}</I18nContext.Provider>;
@@ -286,3 +400,4 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 export function useI18n() {
   return useContext(I18nContext);
 }
+
