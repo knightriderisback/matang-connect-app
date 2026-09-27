@@ -134,7 +134,9 @@
     "moduleLocked": "Module Locked",
     "moduleLockedDesc": "This module is currently disabled for your role. Contact an admin to unlock.",
     "installApp": "Install App",
-    "installAppDesc": "Add Matang Connect to your home screen for quick offline access."
+    "installAppDesc": "Add Matang Connect to your home screen for quick offline access.",
+    "language": "Language",
+    "changeLanguage": "Change language"
   },
   "roles": {
     "super_admin": "Super Admin",
