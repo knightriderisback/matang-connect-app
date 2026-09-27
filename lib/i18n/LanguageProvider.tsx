@@ -320,7 +320,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       if (el.closest("[data-no-translate]")) return;
       let state = attributeState.get(el);
       if (!state) { state = new Map(); attributeState.set(el, state); }
-      for (const attr of userFacingAttributes) {
+      const attributes = el.tagName === "BUTTON" ? [...userFacingAttributes, "value"] : userFacingAttributes;
+      for (const attr of attributes) {
         const current = el.getAttribute(attr);
         if (current == null || !current.trim()) continue;
         const previous = state.get(attr);
