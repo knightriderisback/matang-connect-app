@@ -334,8 +334,11 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       if (node.nodeType === Node.TEXT_NODE) { translateTextNode(node as Text); return; }
       if (node.nodeType !== Node.ELEMENT_NODE) return;
       const el = node as HTMLElement;
-      if (IGNORED_TAGS.has(el.tagName) || el.isContentEditable || el.closest("[data-no-translate]")) return;
+      if (el.closest("[data-no-translate]")) return;
+      // Translate user-facing attributes even on form controls, while never touching
+      // user-entered input values or code/preformatted content.
       translateAttributes(el);
+      if (IGNORED_TAGS.has(el.tagName) || el.isContentEditable) return;
       for (let i = 0; i < el.childNodes.length; i++) walk(el.childNodes[i]);
     };
     const run = () => {
