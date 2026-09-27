@@ -83,8 +83,6 @@ function snakeToCamel(str: string): string {
   return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 }
 
-// Global WeakMap for storing original text of DOM TextNodes to prevent translation degradation
-const nodeOriginalTextMap = new WeakMap<Node, string>();
 
 const IGNORED_TAGS = new Set([
   "SCRIPT",

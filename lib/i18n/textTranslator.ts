@@ -6,7 +6,6 @@ import hng from "./translations/hng.json";
 
 export type UiLanguage = "en" | "hi" | "mr" | "cg" | "hng";
 type Dict = Record<string, unknown>;
-const DICTS: Record<UiLanguage, Dict> = { en, hi, mr, cg, hng };
 
 function flatten(value: Dict, prefix = "", out: Record<string, string> = {}) {
   for (const [key, child] of Object.entries(value)) {
@@ -26,7 +25,7 @@ for (const sourceLang of Object.keys(FLAT) as UiLanguage[]) {
   }
 }
 const PHRASES = Array.from(REVERSE.entries()).filter(([value]) => value.length >= 2).sort((a, b) => b[0].length - a[0].length);
-function escapeRegExp(value: string) { return value.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&"); }
+function escapeRegExp(value: string) { return value.replace(/[.*+?^${}()|[\\]\\]/g, "\\function escapeRegExp(value: string) { return value.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&"); }"); }
 export function translateKnownText(text: string, target: UiLanguage): string | null {
   if (!text || !text.trim()) return text;
   const trimmed = text.trim();
