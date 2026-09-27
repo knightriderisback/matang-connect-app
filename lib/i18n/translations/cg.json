@@ -9,7 +9,7 @@
     "census": "जनगणना",
     "profile": "प्रोफाइल",
     "services": "सेवा मन",
-    "sos": "आपातकालीन SOS",
+    "sos": "आपातकालीन एसओएस",
     "admin": "एडमिन",
     "directory": "निर्देशिका",
     "verify": "सत्यापन",
@@ -24,7 +24,7 @@
     "mahila": "महिला शक्ति",
     "polls": "राय-बात अउ वोट",
     "arthik": "आर्थिक तरक्की",
-    "scan": "QR स्कैनर",
+    "scan": "क्यूआर स्कैनर",
     "badges": "क्रेडिट अउ बैज",
     "vanshawali": "वंशावली",
     "gaurav": "मातंग गौरव",
@@ -35,7 +35,7 @@
     "resetMpin": "एम-पिन बदले",
     "history": "समाज के इतिहास",
     "allRequests": "जम्मो अरजी",
-    "qaChecklist": "QA चेकलिस्ट"
+    "qaChecklist": "क्यूए चेकलिस्ट"
   },
   "auth": {
     "login": "लॉग इन करव",
@@ -191,7 +191,7 @@
     "diploma": "डिप्लोमा",
     "graduate": "स्नातक",
     "post_graduate": "पोस्ट ग्रेजुएट",
-    "doctorate": "डॉक्टरेट (PhD)",
+    "doctorate": "डॉक्टरेट (पीएचडी)",
     "professional": "प्रोफेशनल",
     "illiterate": "अनपढ़",
     "other": "आन पढ़ाई"
@@ -241,7 +241,7 @@
     "superAdminBadge": "सुपर एडमिन",
     "volunteerBadge": "स्वयंसेवक",
     "coreBadge": "कोर कमेटी",
-    "aiHelper": "मातंग AI",
+    "aiHelper": "मातंग एआई",
     "quickServices": "झटपट सेवा"
   },
   "services": {
@@ -294,15 +294,15 @@
   },
   "profile": {
     "title": "मोर प्रोफाइल",
-    "digitalId": "डिजिटल पहचान पत्र (ID)",
+    "digitalId": "डिजिटल पहचान पत्र (आईडी)",
     "verified": "जांचे गे सदस्य",
     "pending": "जांच रुके हे",
     "rejected": "अस्वीकृत",
     "role": "समाज म पद",
-    "qrCode": "QR कोड ID",
+    "qrCode": "क्यूआर कोड आईडी",
     "memberSince": "सदस्य बने के साल",
     "myFamily": "मोर परिवार",
-    "scanQr": "QR स्कैन करव",
+    "scanQr": "क्यूआर स्कैन करव",
     "editProfile": "प्रोफाइल बदलव",
     "saveProfile": "प्रोफाइल सहेजव",
     "phone": "मोबाइल नंबर",
@@ -313,20 +313,20 @@
     "education": "पढ़ाई",
     "occupation": "काम-धंधा",
     "about": "मोर बारे म",
-    "qrId": "सदस्य QR ID",
+    "qrId": "सदस्य क्यूआर आईडी",
     "familyTree": "वंशावली वृक्ष",
     "openInDirectory": "निर्देशिका म देखव",
     "changeMpin": "एम-पिन बदलव",
     "logout": "लॉग आउट करव"
   },
   "sos": {
-    "title": "आपातकालीन SOS",
+    "title": "आपातकालीन एसओएस",
     "subtitle": "खून अउ अस्पताल के विपत म स्वयंसेवक मन ला झटपट खबर",
     "bloodRequest": "खून (रक्तदान) के आपात जरूरत",
     "medicalEmergency": "दवाई-इलाज के बिपत",
     "shareWhatsApp": "व्हाट्सएप म भेजव",
-    "tapAndHold": "SOS भेजे खातिर दबा के राखव",
-    "sosSent": "SOS अलर्ट भेज दे गे हे! स्वयंसेवक आघू आवत हें।",
+    "tapAndHold": "एसओएस भेजे खातिर दबा के राखव",
+    "sosSent": "एसओएस अलर्ट भेज दे गे हे! स्वयंसेवक आघू आवत हें।",
     "alertVolunteers": "शहर के स्वयंसेवक मन ला खबर करव",
     "activeAlerts": "चालू आपातकालीन अलर्ट",
     "respond": "मदद खातिर आघू आवव",
@@ -370,9 +370,9 @@
     "experience": "अनुभव",
     "apply": "अरजी देवव",
     "callEmployer": "मालिक ला फोन करव",
-    "fullTime": "पूरा बेरा (Full Time)",
-    "partTime": "आधा बेरा (Part Time)",
-    "contract": "ठीका (Contract)",
+    "fullTime": "पूरा बेरा",
+    "partTime": "आधा बेरा",
+    "contract": "ठीका",
     "postedBy": "भेजइया",
     "noJobs": "अभी कोई नौकरी नइ हे।",
     "jobDetails": "काम के हाल-चाल"
@@ -477,7 +477,7 @@
   "mahila": {
     "title": "महिला शक्ति",
     "subtitle": "महिला मन के तरक्की, स्व-सहायता समूह अउ बिपार",
-    "shg": "स्व-सहायता समूह (SHG)",
+    "shg": "स्व-सहायता समूह",
     "empowerment": "हुनर सिखाई अउ कार्यशाला",
     "stories": "सफलता के कहानी मन",
     "schemes": "महिला योजना मन",
@@ -520,7 +520,7 @@
   "badges": {
     "title": "क्रेडिट अउ बैज",
     "subtitle": "समाज सेवा नंबर अउ सम्मान सूची",
-    "points": "सेवा नंबर (Points)",
+    "points": "सेवा अंक",
     "credits": "सेवा क्रेडिट",
     "leaderboard": "सम्मान सूची",
     "rank": "रैंक",
@@ -529,14 +529,14 @@
     "noBadges": "प्रोफाइल पूरा करव अउ बैज पावव।"
   },
   "scan": {
-    "title": "QR स्कैनर",
+    "title": "क्यूआर स्कैनर",
     "subtitle": "सदस्य के डिजिटल कार्ड ला झटपट जांचव",
-    "scanMember": "सदस्य के QR कोड स्कैन करव",
+    "scanMember": "सदस्य के क्यूआर कोड स्कैन करव",
     "scanInstruction": "कैमरा ला मातंग कनेक्ट कोड के आघू राखव",
-    "uploadImage": "QR फोटो अपलोड करव",
+    "uploadImage": "क्यूआर फोटो अपलोड करव",
     "flash": "फ्लैश ऑन/ऑफ",
     "scanResult": "जांच के नतीजा",
-    "invalidQr": "गलत QR कोड। मातंग कनेक्ट के असली कोड जांचव।"
+    "invalidQr": "गलत क्यूआर कोड। मातंग कनेक्ट के असली कोड जांचव।"
   },
   "admin": {
     "title": "एडमिन डैशबोर्ड",
@@ -554,7 +554,7 @@
     "titlesManagement": "शहर पदवी",
     "resetMpin": "एम-पिन बदले",
     "allRequests": "जम्मो अरजी",
-    "qaChecklist": "QA चेकलिस्ट",
+    "qaChecklist": "क्यूए चेकलिस्ट",
     "totalMembers": "जम्मो सदस्य",
     "verifiedMembers": "जांचे गे सदस्य",
     "pendingMembers": "रुके सदस्य"
@@ -562,7 +562,7 @@
   "onboarding": {
     "step1Title": "डिजिटल समाज मंच",
     "step1Body": "जम्मो गाँव अउ शहर के मातंग समाज ला एक संग जोड़ना।",
-    "step2Title": "आपातकालीन SOS",
+    "step2Title": "आपातकालीन एसओएस",
     "step2Body": "रक्तदान, दवाई अउ विपत म स्वयंसेवक मन ले सीधा संपर्क।",
     "step3Title": "परिवार जनगणना अउ वंशावली",
     "step3Body": "अपन कुल के जतन करव अउ सगा मन ले डिजिटल जुड़व।",

@@ -322,7 +322,7 @@
   "sos": {
     "title": "Emergency SOS",
     "subtitle": "Instant emergency alert to community volunteers",
-    "bloodRequest": "Blood Emergency (रक्तदान)",
+    "bloodRequest": "Blood Emergency (Blood Donation)",
     "medicalEmergency": "Medical / Health Crisis",
     "shareWhatsApp": "Share via WhatsApp",
     "tapAndHold": "Tap and Hold to Trigger SOS",
@@ -405,7 +405,7 @@
     "title": "Care & Seva",
     "subtitle": "Elderly support, medical assistance & community seva",
     "requestHelp": "Request Seva / Help",
-    "vridhSeva": "Elderly Seva (वृद्ध सेवा)",
+    "vridhSeva": "Elderly Care",
     "medicalAssistance": "Medical Assistance",
     "rationSupport": "Ration & Essentials",
     "volunteerHelp": "Volunteer Assistance",
