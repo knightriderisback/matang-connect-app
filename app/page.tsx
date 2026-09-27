@@ -33,7 +33,7 @@ export default function LandingPage() {
             {t("auth.register")}
           </Button>
         </div>
-        <p className="mt-6 text-xs text-gray-400 text-center">Pilot: Bilaspur, Chhattisgarh</p>
+        <p className="mt-6 text-xs text-gray-400 text-center">{t("app.pilot")}</p>
       </div>
     </div>
   );
