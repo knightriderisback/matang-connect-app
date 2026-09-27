@@ -3,6 +3,8 @@
  * Handles DNA-level deep translation of dynamic text, names, posts, locations, and DOM nodes.
  */
 
+import { translateKnownText } from "./textTranslator";
+
 export type TargetLanguage = "en" | "hi" | "mr" | "cg" | "hng";
 
 // Standard Common Name / Location / Community Dictionary
@@ -329,13 +331,17 @@ export function translateAnyText(text: string, targetLang: TargetLanguage): stri
     return text;
   }
 
-  // 1. Direct lowercase dictionary lookup
+  // 1. Canonical app dictionary: real translation for known UI phrases.
+  const known = translateKnownText(text, targetLang);
+  if (known !== null) return known;
+
+  // 2. Direct vocabulary lookup for names, cities, community terms, etc.
   const lower = trimmed.toLowerCase();
   if (VOCABULARY_MAP[lower]) {
     return VOCABULARY_MAP[lower][targetLang] || VOCABULARY_MAP[lower].hi;
   }
 
-  // 2. Hinglish Mode: Convert Devanagari to Latin if needed
+  // 3. Hinglish Mode: Convert Devanagari to Latin if needed
   if (targetLang === "hng" || targetLang === "en") {
     // If text has Devanagari characters, transliterate to Latin
     if (/[\u0900-\u097F]/.test(text)) {
@@ -344,7 +350,7 @@ export function translateAnyText(text: string, targetLang: TargetLanguage): stri
     return text;
   }
 
-  // 3. Native Indian Scripts (hi, mr, cg):
+  // 4. Native Indian Scripts (hi, mr, cg):
   // If the text contains Latin letters, transliterate word-by-word into Devanagari
   if (/[a-zA-Z]/.test(text)) {
     return text.replace(/[a-zA-Z]+/g, (match) => {

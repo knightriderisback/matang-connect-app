@@ -16,7 +16,7 @@ const VARIANT_CLASSES: Record<"dark" | "light", string> = {
  *  - variant="light" → cream landing page / light surfaces
  */
 export function LanguageToggle({ variant = "dark" }: { variant?: "dark" | "light" }) {
-  const { lang, setLang } = useI18n();
+  const { lang, setLang, t } = useI18n();
   const current = SUPPORTED_LANGUAGES.find((l) => l.code === lang) || SUPPORTED_LANGUAGES[0];
 
   const next = () => {
@@ -29,8 +29,8 @@ export function LanguageToggle({ variant = "dark" }: { variant?: "dark" | "light
     <button
       onClick={next}
       type="button"
-      aria-label={`Current language: ${current.full}. Tap to switch language.`}
-      title={`भाषा: ${current.full} (बदलने के लिए टैप करें / Tap to change)`}
+      aria-label={t("common.language") || `Current language: ${current.full}`}
+      title={t("common.changeLanguage") || current.full}
       className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-semibold backdrop-blur-sm transition-all active:scale-95 cursor-pointer shadow-sm select-none ${VARIANT_CLASSES[variant]}`}
     >
       <Languages size={14} className="opacity-90" />

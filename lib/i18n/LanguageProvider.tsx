@@ -294,91 +294,89 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     [lang]
   );
 
-  // Real-time Universal DOM Text Node Translator (Deep DNA Layer)
+  // Deep runtime localization layer.
+  // Translates rendered text plus user-facing attributes and preserves the
+  // original source per DOM node so repeated language switches remain stable.
   useEffect(() => {
     if (typeof window === "undefined" || !isReady) return;
-
-    let isTranslating = false;
-
-    const translateNode = (node: Node) => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        const parent = node.parentElement;
-        if (!parent || IGNORED_TAGS.has(parent.tagName) || parent.isContentEditable || parent.closest("[data-no-translate]")) {
-          return;
-        }
-
-        const currentVal = node.nodeValue || "";
-        if (!currentVal.trim()) return;
-
-        // Retrieve or initialize original text
-        let orig = nodeOriginalTextMap.get(node);
-        if (orig === undefined) {
-          orig = currentVal;
-          nodeOriginalTextMap.set(node, orig);
-        }
-
-        const translated = translateAnyText(orig, lang as TargetLanguage);
-        if (translated !== currentVal) {
-          node.nodeValue = translated;
-        }
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        const el = node as HTMLElement;
-        if (IGNORED_TAGS.has(el.tagName) || el.isContentEditable || el.closest("[data-no-translate]")) {
-          return;
-        }
-        for (let i = 0; i < el.childNodes.length; i++) {
-          translateNode(el.childNodes[i]);
-        }
-      }
-    };
-
-    const runFullDOMTranslation = () => {
-      if (isTranslating) return;
-      isTranslating = true;
-      try {
-        translateNode(document.body);
-      } finally {
-        isTranslating = false;
-      }
-    };
-
-    // Run immediately on language change
-    runFullDOMTranslation();
-
-    // Observe dynamic mutations (feed posts, new data, dialogs)
+    type NodeState = { source: string; rendered: string };
+    type AttributeState = { source: string; rendered: string };
+    const nodeState = new WeakMap<Node, NodeState>();
+    const attributeState = new WeakMap<Element, Map<string, AttributeState>>();
+    let translating = false;
     let rafId: number | null = null;
+    const userFacingAttributes = ["placeholder", "title", "aria-label", "aria-description", "alt"];
+    const translateText = (source: string) => !source || !source.trim() ? source : translateAnyText(source, lang as TargetLanguage);
+    const translateTextNode = (node: Text) => {
+      const parent = node.parentElement;
+      if (!parent || IGNORED_TAGS.has(parent.tagName) || parent.isContentEditable || parent.closest("[data-no-translate]")) return;
+      const current = node.nodeValue || "";
+      if (!current.trim()) return;
+      const previous = nodeState.get(node);
+      const source = previous && current === previous.rendered ? previous.source : current;
+      const rendered = translateText(source);
+      nodeState.set(node, { source, rendered });
+      if (rendered !== current) node.nodeValue = rendered;
+    };
+    const translateAttributes = (el: Element) => {
+      if (el.closest("[data-no-translate]")) return;
+      let state = attributeState.get(el);
+      if (!state) { state = new Map(); attributeState.set(el, state); }
+      for (const attr of userFacingAttributes) {
+        const current = el.getAttribute(attr);
+        if (current == null || !current.trim()) continue;
+        const previous = state.get(attr);
+        const source = previous && current === previous.rendered ? previous.source : current;
+        const rendered = translateText(source);
+        state.set(attr, { source, rendered });
+        if (rendered !== current) el.setAttribute(attr, rendered);
+      }
+    };
+    const walk = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) { translateTextNode(node as Text); return; }
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+      const el = node as HTMLElement;
+      if (IGNORED_TAGS.has(el.tagName) || el.isContentEditable || el.closest("[data-no-translate]")) return;
+      translateAttributes(el);
+      for (let i = 0; i < el.childNodes.length; i++) walk(el.childNodes[i]);
+    };
+    const run = () => {
+      if (translating) return;
+      translating = true;
+      try {
+        walk(document.body);
+        document.documentElement.lang = lang === "hng" ? "hi-Latn" : lang;
+        const appTitle = t("app.name");
+        if (appTitle) document.title = appTitle;
+      } finally { translating = false; }
+    };
+    const originalAlert = window.alert;
+    const originalConfirm = window.confirm;
+    const originalPrompt = window.prompt;
+    window.alert = (message?: any) => originalAlert(translateText(String(message ?? "")));
+    window.confirm = (message?: string) => originalConfirm(translateText(String(message ?? "")));
+    window.prompt = (message?: string, defaultValue?: string) => originalPrompt(translateText(String(message ?? "")), defaultValue);
+    run();
     const observer = new MutationObserver((mutations) => {
-      if (isTranslating) return;
+      if (translating) return;
       if (rafId) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
-        for (const m of mutations) {
-          if (m.type === "childList") {
-            m.addedNodes.forEach((n) => translateNode(n));
-          } else if (m.type === "characterData" && m.target) {
-            const tNode = m.target;
-            const cur = tNode.nodeValue || "";
-            // If modified externally, update cache
-            if (cur && !nodeOriginalTextMap.has(tNode)) {
-              nodeOriginalTextMap.set(tNode, cur);
-              translateNode(tNode);
-            }
-          }
+        for (const mutation of mutations) {
+          if (mutation.type === "childList") mutation.addedNodes.forEach(walk);
+          else if (mutation.type === "characterData") translateTextNode(mutation.target as Text);
+          else if (mutation.type === "attributes") translateAttributes(mutation.target as Element);
         }
       });
     });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
-
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: userFacingAttributes });
     return () => {
       observer.disconnect();
       if (rafId) cancelAnimationFrame(rafId);
+      window.alert = originalAlert;
+      window.confirm = originalConfirm;
+      window.prompt = originalPrompt;
     };
-  }, [lang, isReady]);
-
+  }, [lang, isReady, t]);
   const contextValue = useMemo(
     () => ({
       lang,
