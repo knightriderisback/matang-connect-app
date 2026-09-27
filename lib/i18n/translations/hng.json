@@ -65,7 +65,8 @@
     "coreCommittee": "Core Committee",
     "volunteer": "Volunteer",
     "member": "Member",
-    "admin": "Admin"
+    "admin": "Admin",
+    "noAccount": "Account nahi hai?"
   },
   "common": {
     "loading": "Loading ho raha hai...",
