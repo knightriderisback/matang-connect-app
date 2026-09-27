@@ -28,7 +28,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full" suppressHydrationWarning>
+    <html lang="hi" className="h-full" suppressHydrationWarning>
       <body className="h-full overflow-hidden bg-matang-navy antialiased">
         <LanguageProvider>
           <ToastProvider>
