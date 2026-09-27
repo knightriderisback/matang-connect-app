@@ -2,7 +2,8 @@
   "app": {
     "name": "Matang Connect",
     "tagline": "Hamari Community ko Ekjut Karna",
-    "footer": "Matang Samaj Digital Initiative"
+    "footer": "Matang Samaj Digital Initiative",
+    "pilot": "Pilot: Bilaspur, Chhattisgarh"
   },
   "nav": {
     "home": "Home",
