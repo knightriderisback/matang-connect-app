@@ -65,7 +65,8 @@
     "coreCommittee": "कोर कमेटी",
     "volunteer": "स्वयंसेवक",
     "member": "सदस्य",
-    "admin": "एडमिन"
+    "admin": "एडमिन",
+    "noAccount": "क्या आपका खाता नहीं है?"
   },
   "common": {
     "loading": "लोड हो रहा है...",
