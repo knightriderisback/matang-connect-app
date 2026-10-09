@@ -34,6 +34,7 @@ export async function middleware(request: NextRequest) {
     "/api/auth/logout",
     "/api/cities",
     "/api/public/member",
+    "/api/cron/keepalive", // protected by CRON_SECRET inside the route
   ];
 
   if (PUBLIC_API_ROUTES.includes(pathname)) {
