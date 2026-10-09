@@ -1,310 +1,462 @@
 "use client";
 import { FeatureGate } from "@/components/shared/FeatureGate";
-import { useState, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import { useToast } from "@/components/ui/Toaster";
-import { Plus, Trash2, ChevronRight, ChevronLeft, Users, Camera } from "lucide-react";
+import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import FieldRenderer from "@/components/parivar/FieldRenderer";
+import {
+  Answers,
+  FormField,
+  FormSection,
+  activeFields,
+  calcAge,
+  displayValue,
+  isConditionMet,
+  isEmptyValue,
+  missingRequired,
+  pickLabel,
+} from "@/lib/parivar/form";
+import { Plus, Trash2, ChevronRight, ChevronLeft, Users, Camera, ChevronDown, UserSearch } from "lucide-react";
 
-const RELATIONS = ["Self","Spouse","Son","Daughter","Father","Mother","Brother","Sister","Grandfather","Grandmother","Uncle","Aunt","Nephew","Niece","Other"].map(r=>({value:r,label:r}));
-const GENDERS = ["Male","Female","Other"].map(g=>({value:g,label:g}));
-const EDUCATION = ["No formal education","Primary (1-5)","Middle (6-8)","High School (9-10)","Higher Secondary (11-12)","Diploma","Graduate","Post Graduate","Professional (Eng/Med/Law)","Other"].map(e=>({value:e,label:e}));
-const OCCUPATIONS = ["Student","Farmer","Labourer","Private Job","Government Job","Business","Self Employed","Homemaker","Unemployed","Retired","Other"].map(o=>({value:o,label:o}));
-const BLOOD = ["Unknown","A+","A-","B+","B-","AB+","AB-","O+","O-"].map(b=>({value:b,label:b}));
-const MARITAL = ["Single","Married","Widowed","Divorced","Separated"].map(m=>({value:m,label:m}));
-const EMPLOYMENT = [{value:"employed",label:"Employed"},{value:"unemployed",label:"Unemployed"},{value:"self_employed",label:"Self Employed"},{value:"student",label:"Student"},{value:"retired",label:"Retired"}];
-const NEEDS_OPTS = ["Education support","Job / Employment","Medical help","Housing","Financial aid","Skill training","Elderly care","Disability support"];
-
-function calcAge(dob: string): number | null {
-  if (!dob) return null;
-  const d = new Date(dob);
-  if (isNaN(d.getTime())) return null;
-  const today = new Date();
-  let age = today.getFullYear() - d.getFullYear();
-  const m = today.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
-  return age >= 0 && age < 150 ? age : null;
-}
-
-interface Member {
-  name: string; relation: string; dob: string; gender: string;
-  education_level: string; occupation: string; blood_group: string;
-  marital_status: string; phone: string; is_unemployed: boolean; needs_care: boolean; disability: string;
+interface MemberEntry {
+  answers: Answers;
   photo?: string;
 }
 
-const emptyMember = (): Member => ({
-  name: "", relation: "Son", dob: "", gender: "Male", education_level: "High School (9-10)",
-  occupation: "Student", blood_group: "Unknown", marital_status: "Single", phone: "",
-  is_unemployed: false, needs_care: false, disability: "",
-});
+const compressImage = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const max = 800;
+        let w = img.width, h = img.height;
+        if (w > max || h > max) {
+          if (w > h) { h = Math.round((h * max) / w); w = max; }
+          else { w = Math.round((w * max) / h); h = max; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.7));
+      };
+      img.onerror = reject;
+      img.src = reader.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 
-function CensusPageInner() {
-  const { t } = useI18n();
+/** dob jaise source field badalne par auto_from wale fields (age) apne aap bharo */
+function withAutoFrom(fields: FormField[], answers: Answers, key: string, value: any): Answers {
+  const next: Answers = { ...answers, [key]: value };
+  for (const f of fields) {
+    if (f.config?.auto_from === key) {
+      const age = typeof value === "string" ? calcAge(value) : null;
+      if (age !== null) next[f.field_key] = String(age);
+    }
+  }
+  return next;
+}
+
+function ParivarFormInner() {
+  const { t, lang } = useI18n();
   const { toast } = useToast();
   const router = useRouter();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const memberPhotoRef = useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [familyPhoto, setFamilyPhoto] = useState("");
-  const [family, setFamily] = useState({
-    native_village: "", address: "", education_summary: "",
-    employment_status: "employed", needs: [] as string[], contact_phone: "",
-  });
-  const [members, setMembers] = useState<Member[]>([]);
-  const [cur, setCur] = useState<Member>(emptyMember());
-  const curAge = useMemo(() => calcAge(cur.dob), [cur.dob]);
+  const { user } = useCurrentUser();
+  const isStaff = ["volunteer", "core_committee", "super_admin"].includes(user?.role || "");
 
-  const toggleNeed = (n: string) => {
-    setFamily((f) => ({
-      ...f,
-      needs: f.needs.includes(n) ? f.needs.filter((x) => x !== n) : [...f.needs, n],
-    }));
+  const [sections, setSections] = useState<FormSection[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [step, setStep] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const [famAnswers, setFamAnswers] = useState<Answers>({});
+  const [famPhoto, setFamPhoto] = useState("");
+  const [members, setMembers] = useState<MemberEntry[]>([]);
+  const [cur, setCur] = useState<MemberEntry>({ answers: {} });
+  const [openSec, setOpenSec] = useState(0);
+
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [restored, setRestored] = useState(false);
+  const [savedAt, setSavedAt] = useState(0);
+  const submittedRef = useRef(false);
+
+  const [assisted, setAssisted] = useState(false);
+  const [forPhone, setForPhone] = useState("");
+  const [forName, setForName] = useState("");
+
+  const famFileRef = useRef<HTMLInputElement>(null);
+  const memFileRef = useRef<HTMLInputElement>(null);
+
+  const loadConfig = useCallback(async () => {
+    setLoadError(false);
+    try {
+      const res = await fetch("/api/parivar/config", { cache: "no-store" });
+      if (!res.ok) throw new Error("config");
+      const d = await res.json();
+      setSections(d.sections || []);
+    } catch {
+      setLoadError(true);
+    }
+  }, []);
+
+  useEffect(() => { loadConfig(); }, [loadConfig]);
+
+  // Draft restore
+  const draftStep = useRef(0);
+  useEffect(() => {
+    fetch("/api/parivar/draft", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const dd = d?.draft?.data;
+        if (dd && (Object.keys(dd.family || {}).length > 0 || (dd.members || []).length > 0)) {
+          setFamAnswers(dd.family || {});
+          setMembers((dd.members || []).map((a: Answers) => ({ answers: a })));
+          draftStep.current = d.draft.current_step || 0;
+          setStep(draftStep.current);
+          setRestored(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setDraftLoaded(true));
+  }, []);
+
+  const famSections = useMemo(
+    () => (sections || []).filter((s) => s.scope === "family" && activeFields(s).length > 0),
+    [sections]
+  );
+  const memSections = useMemo(
+    () => (sections || []).filter((s) => s.scope === "member" && activeFields(s).length > 0),
+    [sections]
+  );
+  const famFields = useMemo(() => famSections.flatMap(activeFields), [famSections]);
+  const memFields = useMemo(() => memSections.flatMap(activeFields), [memSections]);
+
+  const totalSteps = famSections.length + 2; // + members + review
+  const safeStep = Math.min(step, Math.max(totalSteps - 1, 0));
+  const isMembersStep = safeStep === famSections.length;
+  const isReviewStep = safeStep === famSections.length + 1;
+  const curFamSection = safeStep < famSections.length ? famSections[safeStep] : null;
+
+  // Autosave draft (photos draft me nahi jaati)
+  useEffect(() => {
+    if (!draftLoaded || submittedRef.current || !sections) return;
+    const hasData = Object.keys(famAnswers).length > 0 || members.length > 0;
+    if (!hasData) return;
+    const h = setTimeout(() => {
+      fetch("/api/parivar/draft", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: { family: famAnswers, members: members.map((m) => m.answers) },
+          step: safeStep,
+        }),
+      })
+        .then((r) => { if (r.ok) setSavedAt(Date.now()); })
+        .catch(() => {});
+    }, 1500);
+    return () => clearTimeout(h);
+  }, [famAnswers, members, safeStep, draftLoaded, sections]);
+
+  const goStep = (n: number) => {
+    setStep(n);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const compressImage = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const max = 800;
-          let w = img.width, h = img.height;
-          if (w > max || h > max) {
-            if (w > h) { h = Math.round((h * max) / w); w = max; }
-            else { w = Math.round((w * max) / h); h = max; }
-          }
-          canvas.width = w; canvas.height = h;
-          canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL("image/jpeg", 0.7));
-        };
-        img.onerror = reject;
-        img.src = reader.result as string;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+  const clearDraft = async () => {
+    await fetch("/api/parivar/draft", { method: "DELETE" }).catch(() => {});
+    setFamAnswers({}); setMembers([]); setCur({ answers: {} }); setFamPhoto("");
+    setRestored(false); setStep(0);
+  };
 
-  const onFamilyPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const missingNames = (list: FormField[]) => list.map((f) => pickLabel(f.label, lang)).join(", ");
+
+  const nextFamily = () => {
+    if (!curFamSection) return;
+    const miss = missingRequired(activeFields(curFamSection), famAnswers);
+    if (miss.length > 0) { toast(`Required: ${missingNames(miss)}`, "error"); return; }
+    goStep(safeStep + 1);
+  };
+
+  const sectionHasRequired = (s: FormSection) => activeFields(s).some((f) => f.is_required);
+
+  const validateMember = (m: MemberEntry): string | null => {
+    const miss = missingRequired(memFields, m.answers);
+    if (miss.length > 0) return `Required: ${missingNames(miss)}`;
+    const hasAgeField = memFields.some((f) => f.system_column === "age");
+    const hasDobField = memFields.some((f) => f.system_column === "dob");
+    if ((hasAgeField || hasDobField) && !m.answers.dob && !m.answers.age) return "Age or date of birth is required";
+    return null;
+  };
+
+  const addMember = (): boolean => {
+    const err = validateMember(cur);
+    if (err) { toast(err, "error"); return false; }
+    setMembers((prev) => [...prev, cur]);
+    setCur({ answers: {} });
+    setOpenSec(0);
+    return true;
+  };
+
+  const nextFromMembers = () => {
+    const hasStarted = Object.keys(cur.answers).some((k) => !isEmptyValue(cur.answers[k]));
+    if (hasStarted) {
+      if (!addMember()) return;
+    } else if (members.length === 0) {
+      toast("Please add at least one family member", "error");
+      return;
+    }
+    goStep(safeStep + 1);
+  };
+
+  const setCurAnswer = (key: string, value: any) =>
+    setCur((c) => ({ ...c, answers: withAutoFrom(memFields, c.answers, key, value) }));
+  const setFamAnswer = (key: string, value: any) =>
+    setFamAnswers((a) => withAutoFrom(famFields, a, key, value));
+
+  const onPhoto = async (e: React.ChangeEvent<HTMLInputElement>, target: "family" | "member") => {
     const f = e.target.files?.[0];
     if (!f) return;
     if (f.size > 5 * 1024 * 1024) { toast("Max 5MB image", "error"); return; }
     try {
       const data = await compressImage(f);
-      setFamilyPhoto(data);
+      if (target === "family") setFamPhoto(data);
+      else setCur((c) => ({ ...c, photo: data }));
     } catch { toast("Could not read image", "error"); }
   };
 
-  const onMemberPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
+  const lookupMember = async () => {
     try {
-      const data = await compressImage(f);
-      setCur((c) => ({ ...c, photo: data }));
-    } catch { toast("Could not read image", "error"); }
+      const res = await fetch(`/api/parivar/lookup?phone=${encodeURIComponent(forPhone)}`);
+      const d = await res.json();
+      if (!res.ok) { setForName(""); toast(d.error || "Not found", "error"); return; }
+      setForName(d.user.full_name);
+    } catch { toast(t("common.error"), "error"); }
   };
 
-  const save = async () => {
-    if (!family.contact_phone || family.contact_phone.replace(/\D/g, "").length < 10) {
-      toast("Valid contact phone is mandatory", "error"); return;
-    }
+  const submit = async () => {
+    if (assisted && !forName) { toast("Find the member by phone first", "error"); return; }
     setLoading(true);
     try {
       const res = await fetch("/api/census", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          family: { ...family, photo: familyPhoto },
-          members: members.map((m) => ({ ...m, age: calcAge(m.dob) })),
+          family: { answers: famAnswers, photo: famPhoto },
+          members: members.map((m) => ({ answers: m.answers, photo: m.photo })),
+          forPhone: assisted ? forPhone : undefined,
         }),
       });
       const result = await res.json();
       if (!res.ok) { toast(result.error || t("common.error"), "error"); return; }
-      toast(t("census.success") || "Family registered!", "success");
+      submittedRef.current = true;
+      toast(t("census.success"), "success");
       router.push("/dashboard");
     } catch { toast(t("common.error"), "error"); }
     finally { setLoading(false); }
   };
 
-  const addMember = () => {
-    if (!cur.name.trim() || !cur.relation) { toast("Name and relation required", "error"); return; }
-    if (!cur.dob) { toast("Date of birth required", "error"); return; }
-    const age = calcAge(cur.dob);
-    const isAdultOrSelf = cur.relation === "Self" || (age !== null && age >= 18);
-    if (isAdultOrSelf && (!cur.phone || cur.phone.replace(/\D/g, "").length < 10)) {
-      toast("Member phone is mandatory for adults (10 digits)", "error"); return;
-    }
-    if (cur.phone && cur.phone.replace(/\D/g, "").length !== 10) {
-      toast("Please enter a valid 10-digit mobile number", "error"); return;
-    }
-    setMembers([...members, cur]);
-    setCur(emptyMember());
-  };
+  // Rough completion preview
+  const completion = useMemo(() => {
+    const famCount = famFields.filter((f) => !f.conditional);
+    const memCount = memFields.filter((f) => !f.conditional);
+    const total = famCount.length + memCount.length * Math.max(members.length, 1);
+    if (total === 0) return 0;
+    let done = famCount.filter((f) => !isEmptyValue(famAnswers[f.field_key])).length;
+    const list = members.length ? members : [cur];
+    for (const m of list) done += memCount.filter((f) => !isEmptyValue(m.answers[f.field_key])).length;
+    return Math.min(100, Math.round((done * 100) / total));
+  }, [famFields, memFields, famAnswers, members, cur]);
 
-  const handleStep2Next = () => {
-    let currentMembers = [...members];
-    if (cur.name.trim()) {
-      if (!cur.relation) { toast("Relation required for current member", "error"); return; }
-      if (!cur.dob) { toast("Date of birth required for current member", "error"); return; }
-      const age = calcAge(cur.dob);
-      const isAdultOrSelf = cur.relation === "Self" || (age !== null && age >= 18);
-      if (isAdultOrSelf && (!cur.phone || cur.phone.replace(/\D/g, "").length < 10)) {
-        toast("Phone (10 digits) required for adult / self", "error"); return;
-      }
-      if (cur.phone && cur.phone.replace(/\D/g, "").length !== 10) {
-        toast("Please enter a valid 10-digit mobile number", "error"); return;
-      }
-      currentMembers.push(cur);
-      setMembers(currentMembers);
-      setCur(emptyMember());
-    }
-    if (currentMembers.length === 0) {
-      toast("Please add at least one family member", "error");
-      return;
-    }
-    setStep(3);
-  };
+  if (loadError) {
+    return (
+      <div className="p-6 text-center space-y-3">
+        <p className="text-sm text-gray-600">{t("common.error")}</p>
+        <Button onClick={loadConfig}>{t("common.retry")}</Button>
+      </div>
+    );
+  }
+  if (!sections) return <div className="p-8 text-center text-gray-500">{t("common.loading")}</div>;
+  if (famSections.length === 0 && memSections.length === 0) {
+    return <div className="p-8 text-center text-sm text-gray-500">{t("common.noData")}</div>;
+  }
+
+  const renderFields = (list: FormField[], answers: Answers, setter: (k: string, v: any) => void) => (
+    <div className="space-y-4">
+      {list.filter((f) => isConditionMet(f.conditional, answers)).map((f) => (
+        <FieldRenderer
+          key={f.id}
+          field={f}
+          lang={lang}
+          value={answers[f.field_key]}
+          disabled={!!f.config?.auto_from && !!answers[f.config.auto_from]}
+          onChange={(v) => setter(f.field_key, v)}
+        />
+      ))}
+    </div>
+  );
+
+  const stepTitle = curFamSection
+    ? pickLabel(curFamSection.title, lang)
+    : isMembersStep ? `${t("census.addMember")} (${members.length})` : t("common.done");
 
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex gap-2">{[1, 2, 3].map((s) => (
-        <div key={s} className={`flex-1 h-1.5 rounded-full ${step >= s ? "bg-matang-gold" : "bg-gray-200"}`} />
-      ))}</div>
+    <div className="p-4 space-y-4 pb-24">
+      <div>
+        <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+          <span>Step {safeStep + 1}/{totalSteps}</span>
+          <span>{t("census.title")}: {completion}%</span>
+        </div>
+        <div className="flex gap-1.5">
+          {Array.from({ length: totalSteps }).map((_, s) => (
+            <div key={s} className={`flex-1 h-1.5 rounded-full ${safeStep >= s ? "bg-matang-gold" : "bg-gray-200"}`} />
+          ))}
+        </div>
+        {savedAt > 0 && <p className="text-[10px] text-gray-400 mt-1 text-right">Draft saved ✓</p>}
+      </div>
 
-      {step === 1 && (
+      {restored && (
+        <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-matang-gold/10 border border-matang-gold/30 text-xs">
+          <span className="text-matang-navy">Your saved draft was restored.</span>
+          <button type="button" onClick={clearDraft} className="text-red-600 font-medium cursor-pointer">Start fresh</button>
+        </div>
+      )}
+
+      {safeStep === 0 && isStaff && (
         <Card>
-          <CardHeader><CardTitle>Family / Household</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-col items-center gap-2">
-              <button type="button" onClick={() => fileRef.current?.click()}
-                className="w-24 h-24 rounded-2xl border-2 border-dashed border-matang-gold/50 bg-matang-gold/5 flex flex-col items-center justify-center overflow-hidden">
-                {familyPhoto ? <img src={familyPhoto} alt="Family" className="w-full h-full object-cover" /> : (
-                  <><Camera size={24} className="text-matang-gold" /><span className="text-[10px] text-gray-500 mt-1">Family Photo</span></>
-                )}
-              </button>
-              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFamilyPhoto} />
-            </div>
-            <Input label="Native Village *" value={family.native_village} onChange={(e) => setFamily({ ...family, native_village: e.target.value })} required />
-            <Input label="Current Address *" value={family.address} onChange={(e) => setFamily({ ...family, address: e.target.value })} required />
-            <Input label="Contact Phone *" type="tel" placeholder="10-digit mobile" value={family.contact_phone}
-              onChange={(e) => setFamily({ ...family, contact_phone: e.target.value })} required />
-            <Select label="Head Employment Status" value={family.employment_status} onChange={(e) => setFamily({ ...family, employment_status: e.target.value })} options={EMPLOYMENT} />
-            <Select label="Highest Education in Family" value={family.education_summary} onChange={(e) => setFamily({ ...family, education_summary: e.target.value })}
-              options={[{ value: "", label: "Select..." }, ...EDUCATION]} />
-            <div>
-              <p className="text-sm font-medium text-matang-navy mb-2">Family Needs (select all)</p>
-              <div className="flex flex-wrap gap-2">
-                {NEEDS_OPTS.map((n) => (
-                  <button key={n} type="button" onClick={() => toggleNeed(n)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium border ${family.needs.includes(n) ? "bg-matang-gold text-matang-navy border-matang-gold" : "bg-white text-gray-600 border-gray-200"}`}>
-                    {n}
-                  </button>
-                ))}
+          <CardContent className="space-y-2 pt-4">
+            <label className="flex items-center gap-2 text-sm font-medium text-matang-navy">
+              <input type="checkbox" checked={assisted} onChange={(e) => { setAssisted(e.target.checked); setForName(""); }} />
+              Fill on behalf of another member (assisted entry)
+            </label>
+            {assisted && (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="tel" inputMode="numeric" maxLength={10} placeholder="Member's 10-digit phone"
+                    value={forPhone}
+                    onChange={(e) => { setForPhone(e.target.value.replace(/\D/g, "").slice(0, 10)); setForName(""); }}
+                    className="flex-1 px-3 py-3 rounded-xl border border-gray-200 text-base focus:border-matang-gold focus:outline-none"
+                  />
+                  <Button variant="outline" onClick={lookupMember}><UserSearch size={16} /> Find</Button>
+                </div>
+                {forName && <p className="text-xs text-green-700">Filling for: <strong>{forName}</strong></p>}
               </div>
-            </div>
-            <Button className="w-full" onClick={() => {
-              if (!family.native_village || !family.address) { toast("Village & address required", "error"); return; }
-              if (!family.contact_phone || family.contact_phone.replace(/\D/g, "").length < 10) {
-                toast("Contact phone is mandatory", "error"); return;
-              }
-              setStep(2);
-            }}>Next <ChevronRight size={18} /></Button>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {step === 2 && (
+      {curFamSection && (
         <Card>
-          <CardHeader><CardTitle>Members ({members.length})</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{stepTitle}</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {safeStep === 0 && (
+              <div className="flex flex-col items-center gap-2">
+                <button type="button" onClick={() => famFileRef.current?.click()}
+                  className="w-24 h-24 rounded-2xl border-2 border-dashed border-matang-gold/50 bg-matang-gold/5 flex flex-col items-center justify-center overflow-hidden cursor-pointer">
+                  {famPhoto ? <img src={famPhoto} alt="Family" className="w-full h-full object-cover" /> : (
+                    <><Camera size={24} className="text-matang-gold" /><span className="text-[10px] text-gray-500 mt-1">Family Photo</span></>
+                  )}
+                </button>
+                <input ref={famFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onPhoto(e, "family")} />
+              </div>
+            )}
+            {renderFields(activeFields(curFamSection), famAnswers, setFamAnswer)}
+            <div className="flex gap-2 pt-2">
+              {safeStep > 0 && (
+                <Button variant="outline" className="flex-1" onClick={() => goStep(safeStep - 1)}><ChevronLeft size={18} /> {t("common.back")}</Button>
+              )}
+              {!sectionHasRequired(curFamSection) && (
+                <Button variant="outline" className="flex-1" onClick={() => goStep(safeStep + 1)}>{t("common.skip")}</Button>
+              )}
+              <Button className="flex-1" onClick={nextFamily}>{t("common.next")} <ChevronRight size={18} /></Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isMembersStep && (
+        <Card>
+          <CardHeader><CardTitle>{stepTitle}</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {members.map((m, i) => (
               <div key={i} className="flex justify-between items-center p-2.5 bg-gray-50 rounded-xl gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   {m.photo && <img src={m.photo} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />}
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{m.name}</p>
-                    <p className="text-xs text-gray-500">{m.relation} · {calcAge(m.dob) ?? "?"}y · {m.blood_group}</p>
+                  <div className="min-w-0" data-no-translate>
+                    <p className="text-sm font-medium truncate">{String(m.answers.name || "—")}</p>
+                    <p className="text-xs text-gray-500">
+                      {String(m.answers.relation || "")} · {m.answers.age ?? calcAge(m.answers.dob) ?? "?"}y
+                    </p>
                   </div>
                 </div>
-                <button onClick={() => setMembers(members.filter((_, j) => j !== i))} className="text-red-500 p-1"><Trash2 size={16} /></button>
+                <button type="button" onClick={() => setMembers(members.filter((_, j) => j !== i))} className="text-red-500 p-1 cursor-pointer"><Trash2 size={16} /></button>
               </div>
             ))}
+
             <div className="border-t pt-3 space-y-3">
               <div className="flex justify-center">
-                <button type="button" onClick={() => memberPhotoRef.current?.click()}
-                  className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex flex-col items-center justify-center overflow-hidden bg-gray-50">
+                <button type="button" onClick={() => memFileRef.current?.click()}
+                  className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50 cursor-pointer">
                   {cur.photo ? <img src={cur.photo} alt="" className="w-full h-full object-cover" /> : <Camera size={20} className="text-gray-400" />}
                 </button>
-                <input ref={memberPhotoRef} type="file" accept="image/*" className="hidden" onChange={onMemberPhoto} />
+                <input ref={memFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onPhoto(e, "member")} />
               </div>
-              <Input label="Full Name *" value={cur.name} onChange={(e) => setCur({ ...cur, name: e.target.value })} required />
-              <div className="grid grid-cols-2 gap-3">
-                <Select label="Relation *" value={cur.relation} onChange={(e) => setCur({ ...cur, relation: e.target.value })} options={RELATIONS} />
-                <Select label="Gender" value={cur.gender} onChange={(e) => setCur({ ...cur, gender: e.target.value })} options={GENDERS} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-matang-navy mb-1">Date of Birth *</label>
-                <div className="flex gap-2 items-center">
-                  <input type="date" value={cur.dob} max={new Date().toISOString().slice(0, 10)}
-                    onChange={(e) => setCur({ ...cur, dob: e.target.value })}
-                    className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 focus:border-matang-gold focus:outline-none bg-white text-sm" required />
-                  <span className="text-sm font-semibold text-matang-navy bg-matang-gold/20 px-3 py-2.5 rounded-xl whitespace-nowrap min-w-[4.5rem] text-center">
-                    {curAge != null ? `${curAge} yrs` : "Age"}
-                  </span>
+
+              {memSections.map((s, idx) => (
+                <div key={s.id} className="border border-gray-100 rounded-xl overflow-hidden">
+                  <button type="button" onClick={() => setOpenSec(openSec === idx ? -1 : idx)}
+                    className="w-full flex items-center justify-between px-3 py-3 bg-gray-50 text-sm font-semibold text-matang-navy cursor-pointer">
+                    <span data-no-translate>{pickLabel(s.title, lang)}</span>
+                    <ChevronDown size={16} className={openSec === idx ? "rotate-180" : ""} />
+                  </button>
+                  {openSec === idx && (
+                    <div className="p-3">{renderFields(activeFields(s), cur.answers, setCurAnswer)}</div>
+                  )}
                 </div>
-              </div>
-              <Select label="Blood Group" value={cur.blood_group} onChange={(e) => setCur({ ...cur, blood_group: e.target.value })} options={BLOOD} />
-              <Select label="Education" value={cur.education_level} onChange={(e) => setCur({ ...cur, education_level: e.target.value })} options={EDUCATION} />
-              <Select label="Occupation" value={cur.occupation} onChange={(e) => setCur({ ...cur, occupation: e.target.value })} options={OCCUPATIONS} />
-              <Select label="Marital Status" value={cur.marital_status} onChange={(e) => setCur({ ...cur, marital_status: e.target.value })} options={MARITAL} />
-              <Input
-                label={curAge !== null && curAge < 18 && cur.relation !== "Self" ? "Phone (Optional for minors)" : "Phone *"}
-                type="tel"
-                placeholder={curAge !== null && curAge < 18 && cur.relation !== "Self" ? "Optional for minors" : "10-digit mobile"}
-                value={cur.phone}
-                onChange={(e) => setCur({ ...cur, phone: e.target.value })}
-                required={cur.relation === "Self" || (curAge !== null && curAge >= 18)}
-              />
-              <Input label="Disability (if any)" placeholder="None / specify" value={cur.disability} onChange={(e) => setCur({ ...cur, disability: e.target.value })} />
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={cur.is_unemployed} onChange={(e) => setCur({ ...cur, is_unemployed: e.target.checked })} /> Unemployed</label>
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={cur.needs_care} onChange={(e) => setCur({ ...cur, needs_care: e.target.checked })} /> Needs Care</label>
-              </div>
-              <Button variant="outline" className="w-full" onClick={addMember}><Plus size={16} /> Add Member</Button>
+              ))}
+
+              <Button variant="outline" className="w-full" onClick={addMember}><Plus size={16} /> {t("census.addMember")}</Button>
             </div>
+
             <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setStep(1)}><ChevronLeft size={18} /> Back</Button>
-              <Button className="flex-1" onClick={handleStep2Next}>Next <ChevronRight size={18} /></Button>
+              <Button variant="outline" className="flex-1" onClick={() => goStep(safeStep - 1)}><ChevronLeft size={18} /> {t("common.back")}</Button>
+              <Button className="flex-1" onClick={nextFromMembers}>{t("common.next")} <ChevronRight size={18} /></Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {step === 3 && (
+      {isReviewStep && (
         <Card>
-          <CardHeader><CardTitle>Review & Submit</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t("common.confirm")}</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            {familyPhoto && <img src={familyPhoto} alt="Family" className="w-full h-32 object-cover rounded-xl" />}
-            <div className="bg-gray-50 p-3 rounded-xl text-sm space-y-1">
-              <p><strong>Village:</strong> {family.native_village}</p>
-              <p><strong>Address:</strong> {family.address}</p>
-              <p><strong>Contact:</strong> {family.contact_phone}</p>
-              <p><strong>Employment:</strong> {family.employment_status}</p>
-              {family.needs.length > 0 && <p><strong>Needs:</strong> {family.needs.join(", ")}</p>}
-              <p className="pt-2"><strong>Members ({members.length}):</strong></p>
+            {famPhoto && <img src={famPhoto} alt="Family" className="w-full h-32 object-cover rounded-xl" />}
+            {assisted && forName && <p className="text-xs text-matang-navy">Filling for: <strong>{forName}</strong></p>}
+            <div className="bg-gray-50 p-3 rounded-xl text-sm space-y-1" data-no-translate>
+              {famFields.filter((f) => isConditionMet(f.conditional, famAnswers)).map((f) => {
+                const v = displayValue(f, famAnswers[f.field_key], lang);
+                if (!v) return null;
+                return <p key={f.id}><strong>{pickLabel(f.label, lang)}:</strong> {v}</p>;
+              })}
+              <p className="pt-2"><strong>{t("census.addMember")} ({members.length}):</strong></p>
               {members.map((m, i) => (
-                <p key={i} className="text-gray-600">• {m.name} — {m.relation}, {calcAge(m.dob)}y, {m.phone}</p>
+                <p key={i} className="text-gray-600">
+                  • {String(m.answers.name || "—")}
+                  {m.answers.relation ? ` — ${m.answers.relation}` : ""}
+                  {(m.answers.age ?? calcAge(m.answers.dob)) != null ? `, ${m.answers.age ?? calcAge(m.answers.dob)}y` : ""}
+                </p>
               ))}
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setStep(2)}><ChevronLeft size={18} /> Back</Button>
-              <Button className="flex-1" isLoading={loading} onClick={save}><Users size={18} /> Save Family</Button>
+              <Button variant="outline" className="flex-1" onClick={() => goStep(safeStep - 1)}><ChevronLeft size={18} /> {t("common.back")}</Button>
+              <Button className="flex-1" isLoading={loading} onClick={submit}><Users size={18} /> {t("census.saveFamily")}</Button>
             </div>
           </CardContent>
         </Card>
@@ -313,10 +465,10 @@ function CensusPageInner() {
   );
 }
 
-export default function CensusPage() {
+export default function ParivarFormPage() {
   return (
     <FeatureGate moduleKey="census">
-      <CensusPageInner />
+      <ParivarFormInner />
     </FeatureGate>
   );
 }
