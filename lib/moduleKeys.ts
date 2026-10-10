@@ -34,7 +34,7 @@ export const MODULE_KEYS = [
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
 export const MODULE_LABELS: Record<string, string> = {
-  census: "Census",
+  census: "Parivar Form",
   sos: "SOS",
   care: "Care",
   jobs: "Jobs",
