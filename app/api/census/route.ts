@@ -1,160 +1,117 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/requireAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { calcAge } from "@/lib/parivar/form";
+import { suggestSchemes } from "@/lib/parivar/schemes";
 import {
-  Answers,
-  FormField,
-  FormSection,
-  activeFields,
-  calcAge,
-  isConditionMet,
-  isEmptyValue,
-  pickLabel,
-} from "@/lib/parivar/form";
+  FAMILY_COLUMNS,
+  MAX_MEMBERS,
+  MEMBER_COLUMNS,
+  STAFF_ROLES,
+  answersFromRow,
+  canAccessFamily,
+  emptyColumnsFor,
+  loadConfig,
+  mergeCustom,
+  processScope,
+  uploadPhoto,
+} from "@/lib/parivar/server";
 
 export const dynamic = "force-dynamic";
 
-const STAFF_ROLES = ["volunteer", "core_committee", "super_admin"];
-const MAX_MEMBERS = 30;
-const BOOL_COLUMNS = new Set(["is_unemployed", "needs_care"]);
+type Supa = ReturnType<typeof createAdminClient>;
+type Cfg = NonNullable<Awaited<ReturnType<typeof loadConfig>>>;
 
-// Sirf yehi real columns config se likhe ja sakte hain; baaki sab custom_fields me jaata hai.
-const FAMILY_COLUMNS = new Set([
-  "native_village", "address", "education_summary", "employment_status", "needs",
-  "house_ownership", "ration_card_type", "family_income_range",
-]);
-const MEMBER_COLUMNS = new Set([
-  "name", "relation", "age", "education_level", "occupation", "is_unemployed", "needs_care",
-  "gender", "marital_status", "blood_group", "dob", "contact_number", "skills", "income_range",
-  "disability_status", "support_needed",
-]);
-
-interface Processed {
-  columns: Record<string, any>;
-  custom: Record<string, any>;
-  errors: string[];
+function memberAge(columns: Record<string, any>): number | null {
+  const age = columns.dob ? calcAge(columns.dob) : (columns.age ?? null);
+  return age === undefined ? null : age;
 }
 
-function processScope(fields: FormField[], answers: Answers, who: string, allowed: Set<string>): Processed {
-  const columns: Record<string, any> = {};
-  const custom: Record<string, any> = {};
-  const errors: string[] = [];
+async function buildFamilyDetail(supabase: Supa, cfg: Cfg, fam: any) {
+  const { data: memberRows } = await supabase
+    .from("family_members")
+    .select("*")
+    .eq("family_id", fam.id)
+    .order("created_at", { ascending: true });
+  const famAnswers = answersFromRow(cfg.family, fam, FAMILY_COLUMNS);
+  const members = (memberRows || []).map((m: any) => ({
+    id: m.id as string,
+    answers: answersFromRow(cfg.member, m, MEMBER_COLUMNS),
+    photo_url: (m.custom_fields && m.custom_fields.photo_url) || null,
+  }));
+  return {
+    id: fam.id as string,
+    completion_percent: fam.completion_percent ?? 0,
+    created_at: fam.created_at ?? null,
+    answers: famAnswers,
+    photo_url: (fam.custom_fields && fam.custom_fields.photo_url) || null,
+    members,
+    suggestions: suggestSchemes(famAnswers, members.map((m) => m.answers)),
+  };
+}
 
-  for (const f of fields) {
-    if (!isConditionMet(f.conditional, answers)) continue;
-    const label = pickLabel(f.label, "en") || f.field_key;
-    const raw = answers[f.field_key];
-    const optionValues = new Set(
-      (f.options || []).filter((o) => o.is_visible && !o.is_archived).map((o) => o.value)
-    );
-    let val: any = undefined;
+// GET /api/census?mine=1  -> meri families (summary + yojana suggestions)
+// GET /api/census?id=UUID -> ek family ka poora detail (edit ke liye), head ya staff hi dekh sakta hai
+export async function GET(request: NextRequest) {
+  const auth = await requireAuth();
+  if (!auth.session) return auth.response;
+  const session = auth.session;
+  const supabase = createAdminClient();
 
-    if (isEmptyValue(raw)) {
-      if (f.is_required) errors.push(`${who}${label} is required`);
-      continue;
+  const cfg = await loadConfig(supabase);
+  if (!cfg) return NextResponse.json({ error: "Could not load form configuration" }, { status: 500 });
+
+  const id = request.nextUrl.searchParams.get("id");
+  if (id) {
+    const { data: fam } = await supabase.from("families").select("*").eq("id", id).maybeSingle();
+    if (!fam) return NextResponse.json({ error: "Family not found" }, { status: 404 });
+    if (!(await canAccessFamily(supabase, session, fam.head_of_family))) {
+      return NextResponse.json({ error: "Not allowed" }, { status: 403 });
     }
-
-    switch (f.field_type) {
-      case "text":
-      case "textarea": {
-        const s = String(raw).trim().slice(0, f.field_type === "text" ? 200 : 1000);
-        if (!s) { if (f.is_required) errors.push(`${who}${label} is required`); continue; }
-        val = s;
-        break;
-      }
-      case "dropdown": {
-        const s = String(raw);
-        if (!optionValues.has(s)) { errors.push(`${who}${label}: invalid option`); continue; }
-        val = s;
-        break;
-      }
-      case "multi_select": {
-        if (!Array.isArray(raw)) { errors.push(`${who}${label}: invalid`); continue; }
-        const arr = Array.from(new Set(raw.map(String)));
-        if (arr.some((x) => !optionValues.has(x))) { errors.push(`${who}${label}: invalid option`); continue; }
-        if (arr.length === 0) { if (f.is_required) errors.push(`${who}${label} is required`); continue; }
-        val = arr;
-        break;
-      }
-      case "yes_no": {
-        const s = String(raw);
-        if (s !== "yes" && s !== "no") { errors.push(`${who}${label}: invalid`); continue; }
-        val = s;
-        break;
-      }
-      case "yes_no_number": {
-        const status = raw && typeof raw === "object" ? String(raw.status) : "";
-        if (!["yes", "no", "unknown"].includes(status)) { errors.push(`${who}${label}: invalid`); continue; }
-        if (status !== "yes") { val = { status }; break; }
-        let number: string | undefined;
-        const rawNumber = String(raw.number ?? "");
-        if (f.config?.store === "last4") {
-          // Aadhaar jaise sensitive IDs: poora number kabhi store nahi hota.
-          const d = rawNumber.replace(/\D/g, "");
-          number = d ? d.slice(-4) : undefined;
-        } else {
-          const s = rawNumber.trim().slice(0, 40);
-          number = s || undefined;
-        }
-        val = number ? { status, number } : { status };
-        break;
-      }
-      case "number": {
-        const n = Number(raw);
-        if (!Number.isFinite(n)) { errors.push(`${who}${label}: invalid number`); continue; }
-        const min = typeof f.config?.min === "number" ? f.config.min : undefined;
-        const max = typeof f.config?.max === "number" ? f.config.max : undefined;
-        if ((min !== undefined && n < min) || (max !== undefined && n > max)) {
-          errors.push(`${who}${label}: out of range`);
-          continue;
-        }
-        val = f.system_column === "age" ? Math.round(n) : n;
-        break;
-      }
-      case "date": {
-        const s = String(raw);
-        const d = new Date(s);
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || isNaN(d.getTime())) { errors.push(`${who}${label}: invalid date`); continue; }
-        if (f.system_column === "dob" && (d.getTime() > Date.now() || calcAge(s) === null)) {
-          errors.push(`${who}${label}: invalid date of birth`);
-          continue;
-        }
-        val = s;
-        break;
-      }
-      case "phone": {
-        const d = String(raw).replace(/\D/g, "").slice(-10);
-        if (d.length !== 10) { errors.push(`${who}${label}: enter a valid 10-digit number`); continue; }
-        val = d;
-        break;
-      }
-      default:
-        continue;
-    }
-
-    if (f.system_column && allowed.has(f.system_column)) {
-      columns[f.system_column] = BOOL_COLUMNS.has(f.system_column) ? val === "yes" : val;
-    } else {
-      custom[f.field_key] = val;
-    }
+    const detail = await buildFamilyDetail(supabase, cfg, fam);
+    return NextResponse.json({ family: detail }, { headers: { "Cache-Control": "no-store" } });
   }
-  return { columns, custom, errors };
+
+  const { data: fams } = await supabase
+    .from("families")
+    .select("*")
+    .eq("head_of_family", session.userId)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  const families = await Promise.all((fams || []).map((f: any) => buildFamilyDetail(supabase, cfg, f)));
+  return NextResponse.json({ families }, { headers: { "Cache-Control": "no-store" } });
 }
 
-async function uploadPhoto(supabase: ReturnType<typeof createAdminClient>, dataUrl: unknown, folder: string): Promise<string | null> {
-  if (typeof dataUrl !== "string") return null;
-  const m = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
-  if (!m) return null;
-  const buf = Buffer.from(m[2], "base64");
-  if (buf.length > 1_500_000) return null;
-  const ext = m[1] === "jpeg" ? "jpg" : m[1];
-  const path = `parivar/${folder}/${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from("feed-images").upload(path, buf, { contentType: `image/${m[1]}` });
-  if (error) {
-    console.warn("parivar photo upload failed:", error.message);
+type Validated =
+  | { ok: true; fam: ReturnType<typeof processScope>; members: ReturnType<typeof processScope>[] }
+  | { ok: false; errors: string[] };
+
+function validatePayload(cfg: Cfg, familyIn: any, membersIn: any[]): Validated {
+  const fam = processScope(cfg.family, familyIn?.answers || {}, "", FAMILY_COLUMNS);
+  const errors = [...fam.errors];
+  if (!fam.columns.native_village || !fam.columns.address) errors.push("Native place and address are required");
+
+  const members = membersIn.map((m, i) => {
+    const who = `Member ${i + 1}: `;
+    const r = processScope(cfg.member, m?.answers || {}, who, MEMBER_COLUMNS);
+    if (!r.columns.name) r.errors.push(`${who}Name is required`);
+    if (!r.columns.relation) r.errors.push(`${who}Relation is required`);
+    const age = memberAge(r.columns);
+    if (age === null) r.errors.push(`${who}Age or date of birth is required`);
+    else r.columns.age = age;
+    errors.push(...r.errors);
+    return r;
+  });
+  if (errors.length > 0) return { ok: false, errors };
+  return { ok: true, fam, members };
+}
+
+async function parseBody(request: NextRequest): Promise<any> {
+  try {
+    return await request.json();
+  } catch {
     return null;
   }
-  return supabase.storage.from("feed-images").getPublicUrl(path).data.publicUrl;
 }
 
 export async function POST(request: NextRequest) {
@@ -162,30 +119,20 @@ export async function POST(request: NextRequest) {
   if (!auth.session) return auth.response;
   const session = auth.session;
 
-  let body: any;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-  }
-  const familyIn = body?.family || {};
-  const membersIn: any[] = Array.isArray(body?.members) ? body.members : [];
-  if (membersIn.length === 0) {
-    return NextResponse.json({ error: "Please add at least one family member" }, { status: 400 });
-  }
-  if (membersIn.length > MAX_MEMBERS) {
-    return NextResponse.json({ error: `Maximum ${MAX_MEMBERS} members allowed` }, { status: 400 });
-  }
+  const body = await parseBody(request);
+  if (!body) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  const familyIn = body.family || {};
+  const membersIn: any[] = Array.isArray(body.members) ? body.members : [];
+  if (membersIn.length === 0) return NextResponse.json({ error: "Please add at least one family member" }, { status: 400 });
+  if (membersIn.length > MAX_MEMBERS) return NextResponse.json({ error: `Maximum ${MAX_MEMBERS} members allowed` }, { status: 400 });
 
   const supabase = createAdminClient();
 
   // Head of family: khud ya (staff ke liye) assisted entry
   let headUserId = session.userId;
   let filledVia = "self";
-  if (body?.forPhone) {
-    if (!STAFF_ROLES.includes(session.role)) {
-      return NextResponse.json({ error: "Only volunteers can fill for others" }, { status: 403 });
-    }
+  if (body.forPhone) {
+    if (!STAFF_ROLES.includes(session.role)) return NextResponse.json({ error: "Only volunteers can fill for others" }, { status: 403 });
     const phone = String(body.forPhone).replace(/\D/g, "").slice(-10);
     const { data: target } = await supabase.from("users").select("id, city_id").eq("phone", phone).maybeSingle();
     if (!target) return NextResponse.json({ error: "No member found with this phone" }, { status: 404 });
@@ -196,51 +143,25 @@ export async function POST(request: NextRequest) {
     filledVia = "assisted";
   }
 
-  // Config load (server-side truth; client ki validation par bharosa nahi)
-  const { data: cfg, error: cfgError } = await supabase.rpc("get_parivar_form_config", { p_include_hidden: false });
-  if (cfgError || !Array.isArray(cfg)) {
-    return NextResponse.json({ error: "Could not load form configuration" }, { status: 500 });
-  }
-  const sections = cfg as FormSection[];
-  const familyFields = sections.filter((s) => s.scope === "family").flatMap(activeFields);
-  const memberFields = sections.filter((s) => s.scope === "member").flatMap(activeFields);
+  const cfg = await loadConfig(supabase);
+  if (!cfg) return NextResponse.json({ error: "Could not load form configuration" }, { status: 500 });
 
-  const fam = processScope(familyFields, familyIn.answers || {}, "", FAMILY_COLUMNS);
-  const errors = [...fam.errors];
-  if (!fam.columns.native_village || !fam.columns.address) {
-    errors.push("Native place and address are required");
-  }
+  const v = validatePayload(cfg, familyIn, membersIn);
+  if (!v.ok) return NextResponse.json({ error: v.errors[0], errors: v.errors }, { status: 400 });
+  const { fam, members } = v;
 
-  const memberResults = membersIn.map((m, i) => {
-    const who = `Member ${i + 1}: `;
-    const r = processScope(memberFields, m?.answers || {}, who, MEMBER_COLUMNS);
-    if (!r.columns.name) r.errors.push(`${who}Name is required`);
-    if (!r.columns.relation) r.errors.push(`${who}Relation is required`);
-    const age = r.columns.dob ? calcAge(r.columns.dob) : (r.columns.age ?? null);
-    if (age === null || age === undefined) r.errors.push(`${who}Age or date of birth is required`);
-    else r.columns.age = age;
-    return r;
-  });
-  memberResults.forEach((r) => errors.push(...r.errors));
-
-  if (errors.length > 0) {
-    return NextResponse.json({ error: errors[0], errors }, { status: 400 });
-  }
-
-  // Soft warning: same head ka pehle se family record
   let warning: string | null = null;
   const { data: existing } = await supabase.from("families").select("id").eq("head_of_family", headUserId).limit(1);
   if (existing && existing.length > 0) {
     warning = "A family record already exists for this member. New entry saved; please review for duplicates.";
   }
 
-  // Photos -> storage (URL custom_fields me)
   const folder = crypto.randomUUID();
   const famPhoto = await uploadPhoto(supabase, familyIn.photo, folder);
   if (famPhoto) fam.custom.photo_url = famPhoto;
   for (let i = 0; i < membersIn.length; i++) {
     const url = await uploadPhoto(supabase, membersIn[i]?.photo, folder);
-    if (url) memberResults[i].custom.photo_url = url;
+    if (url) members[i].custom.photo_url = url;
   }
 
   const { data: familyRow, error: familyError } = await supabase
@@ -260,7 +181,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Could not save family details" }, { status: 500 });
   }
 
-  const rows = memberResults.map((r) => ({ family_id: familyRow.id, ...r.columns, custom_fields: r.custom }));
+  const rows = members.map((r) => ({ family_id: familyRow.id, ...r.columns, custom_fields: r.custom }));
   const { error: membersError } = await supabase.from("family_members").insert(rows);
   if (membersError) {
     console.error("parivar members insert error:", membersError.message);
@@ -274,11 +195,7 @@ export async function POST(request: NextRequest) {
   }
 
   await supabase.from("parivar_form_drafts").delete().eq("user_id", session.userId);
-  await supabase.from("audit_logs").insert({
-    actor_id: session.userId,
-    action: "census_submit",
-    target_id: familyRow.id,
-  });
+  await supabase.from("audit_logs").insert({ actor_id: session.userId, action: "census_submit", target_id: familyRow.id });
 
   return NextResponse.json({
     success: true,
@@ -286,4 +203,107 @@ export async function POST(request: NextRequest) {
     completion: typeof completion === "number" ? completion : null,
     warning,
   });
+}
+
+// PUT: bhari hui family ko edit karo (head ya staff)
+export async function PUT(request: NextRequest) {
+  const auth = await requireAuth();
+  if (!auth.session) return auth.response;
+  const session = auth.session;
+
+  const body = await parseBody(request);
+  if (!body?.familyId) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  const familyIn = body.family || {};
+  const membersIn: any[] = Array.isArray(body.members) ? body.members : [];
+  if (membersIn.length === 0) return NextResponse.json({ error: "A family needs at least one member" }, { status: 400 });
+  if (membersIn.length > MAX_MEMBERS) return NextResponse.json({ error: `Maximum ${MAX_MEMBERS} members allowed` }, { status: 400 });
+
+  const supabase = createAdminClient();
+  const { data: famRow } = await supabase.from("families").select("*").eq("id", body.familyId).maybeSingle();
+  if (!famRow) return NextResponse.json({ error: "Family not found" }, { status: 404 });
+  if (!(await canAccessFamily(supabase, session, famRow.head_of_family))) {
+    return NextResponse.json({ error: "Not allowed" }, { status: 403 });
+  }
+
+  const cfg = await loadConfig(supabase);
+  if (!cfg) return NextResponse.json({ error: "Could not load form configuration" }, { status: 500 });
+
+  const v = validatePayload(cfg, familyIn, membersIn);
+  if (!v.ok) return NextResponse.json({ error: v.errors[0], errors: v.errors }, { status: 400 });
+  const { fam, members } = v;
+
+  const { data: existingMembers } = await supabase.from("family_members").select("*").eq("family_id", famRow.id);
+  const existingById = new Map<string, any>((existingMembers || []).map((m: any): [string, any] => [m.id as string, m]));
+  for (const m of membersIn) {
+    if (m?.id && !existingById.has(m.id)) return NextResponse.json({ error: "Invalid member reference" }, { status: 400 });
+  }
+
+  const folder = famRow.id as string;
+  const famPhoto = await uploadPhoto(supabase, familyIn.photo, folder);
+  const famCustom = mergeCustom(famRow.custom_fields, cfg.family, fam.custom);
+  if (famPhoto) famCustom.photo_url = famPhoto;
+
+  const { error: famErr } = await supabase
+    .from("families")
+    .update({
+      ...emptyColumnsFor(cfg.family, FAMILY_COLUMNS, fam.columns),
+      ...fam.columns,
+      custom_fields: famCustom,
+    })
+    .eq("id", famRow.id);
+  if (famErr) {
+    console.error("parivar family update error:", famErr.message);
+    return NextResponse.json({ error: "Could not update family details" }, { status: 500 });
+  }
+
+  const keepIds = new Set<string>();
+  for (let i = 0; i < membersIn.length; i++) {
+    const m = membersIn[i];
+    const r = members[i];
+    const photo = await uploadPhoto(supabase, m?.photo, folder);
+    if (m?.id) {
+      keepIds.add(m.id);
+      const prev = existingById.get(m.id);
+      const custom = mergeCustom(prev?.custom_fields, cfg.member, r.custom);
+      if (photo) custom.photo_url = photo;
+      const { error } = await supabase
+        .from("family_members")
+        .update({ ...emptyColumnsFor(cfg.member, MEMBER_COLUMNS, r.columns), ...r.columns, custom_fields: custom })
+        .eq("id", m.id)
+        .eq("family_id", famRow.id);
+      if (error) {
+        console.error("parivar member update error:", error.message);
+        return NextResponse.json({ error: `Could not update member ${i + 1}` }, { status: 500 });
+      }
+    } else {
+      const custom = { ...r.custom };
+      if (photo) custom.photo_url = photo;
+      const { error } = await supabase
+        .from("family_members")
+        .insert({ family_id: famRow.id, ...emptyColumnsFor(cfg.member, MEMBER_COLUMNS, r.columns), ...r.columns, custom_fields: custom });
+      if (error) {
+        console.error("parivar member insert error:", error.message);
+        return NextResponse.json({ error: `Could not add member ${i + 1}` }, { status: 500 });
+      }
+    }
+  }
+
+  // Jo members form se hata diye gaye, unhe delete karo (agar kahin aur linked ho to batao)
+  const removeIds = Array.from(existingById.keys()).filter((id) => !keepIds.has(id));
+  let warning: string | null = null;
+  if (removeIds.length > 0) {
+    const { error } = await supabase.from("family_members").delete().in("id", removeIds);
+    if (error) {
+      console.error("parivar member delete error:", error.message);
+      warning = "Changes saved, but some removed members could not be deleted because they are linked elsewhere.";
+    }
+  }
+
+  const { data: completion } = await supabase.rpc("compute_parivar_completion", { p_family_id: famRow.id });
+  if (typeof completion === "number") {
+    await supabase.from("families").update({ completion_percent: completion }).eq("id", famRow.id);
+  }
+  await supabase.from("audit_logs").insert({ actor_id: session.userId, action: "census_edit", target_id: famRow.id });
+
+  return NextResponse.json({ success: true, familyId: famRow.id, completion: typeof completion === "number" ? completion : null, warning });
 }
