@@ -13,6 +13,7 @@ import {
   SupportedLocale,
 } from "@/lib/numbers";
 import { translateAnyText, TargetLanguage } from "./universalTranslator";
+import { PARIVAR_OVERRIDES } from "./parivarOverrides";
 
 export type LanguageCode = "en" | "hi" | "mr" | "cg" | "hng";
 
@@ -233,8 +234,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     (key: string, params?: Record<string, string | number>): string => {
       if (!key) return "";
 
+      // "Census" -> "Parivar Form" rename (see parivarOverrides.ts)
+      const override = PARIVAR_OVERRIDES[lang]?.[key] ?? PARIVAR_OVERRIDES.en[key];
       const currentDict = DICTIONARIES[lang] || DICTIONARIES.hi;
-      let text = searchDictionary(currentDict, key);
+      let text: string | null = override ?? searchDictionary(currentDict, key);
 
       // Fallback 1: Hindi
       if (!text && lang !== "hi") {
@@ -400,4 +403,3 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 export function useI18n() {
   return useContext(I18nContext);
 }
-
