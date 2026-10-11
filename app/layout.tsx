@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./vanshawali-heading.css";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import { ToastProvider } from "@/components/ui/Toaster";
 import { BottomNav } from "@/components/shared/BottomNav";
