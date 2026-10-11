@@ -40,6 +40,7 @@ const ADMIN_LINKS = [
   { href: "/admin/titles", labelKey: "nav.titles", icon: Award },
   { href: "/admin/directory", labelKey: "nav.directory", icon: BookOpen },
   { href: "/admin/audit", labelKey: "nav.audit", icon: ScrollText },
+  { href: "/admin/parivar-insights", labelKey: "Parivar Insights", icon: BarChart3 },
   { href: "/admin/form-builder", labelKey: "Parivar Form Builder", icon: LayoutList, superOnly: true },
   { href: "/admin/settings", labelKey: "nav.settings", icon: Settings },
   { href: "/admin/qa-checklist", labelKey: "nav.qaChecklist", icon: ClipboardCheck, superOnly: true },
@@ -157,7 +158,9 @@ export default function AdminHubPage() {
                     ? "bg-emerald-50 text-emerald-800 border-emerald-200 col-span-2"
                     : l.href === "/admin/form-builder"
                       ? "bg-matang-gold/15 text-matang-navy border-matang-gold/40 col-span-2"
-                      : "bg-white text-matang-navy"
+                      : l.href === "/admin/parivar-insights"
+                        ? "bg-matang-gold/15 text-matang-navy border-matang-gold/40"
+                        : "bg-white text-matang-navy"
               }`}
             >
               <l.icon size={16} />
