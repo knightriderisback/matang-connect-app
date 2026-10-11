@@ -5,11 +5,11 @@ import { canAccessFamily } from "@/lib/parivar/server";
 
 export const dynamic = "force-dynamic";
 
-const STAFF = ["volunteer", "core_committee", "super_admin"];
+const STAFF = ["volunteer", "core_committee", "super_admin"] as const;
 
 // City-scoped stats: super admin global, volunteer/core committee sirf apni city (DB function ke andar enforce).
 export async function GET() {
-  const auth = await requireAuth(STAFF);
+  const auth = await requireAuth([...STAFF]);
   if (!auth.session) return auth.response;
   const supabase = createAdminClient();
   const { data, error } = await supabase.rpc("get_parivar_insights", { p_actor: auth.session.userId });
@@ -21,7 +21,7 @@ export async function GET() {
 
 // POST { op: "remind", familyIds: string[] } -> head ko in-app notification
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth(STAFF);
+  const auth = await requireAuth([...STAFF]);
   if (!auth.session) return auth.response;
   const session = auth.session;
 
