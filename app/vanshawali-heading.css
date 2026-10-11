@@ -1,0 +1,118 @@
+/*
+ * Vanshawali heading — premium 3D gold lettering.
+ * Page ke purane flat-gold style ko override karta hai (double-class = higher specificity).
+ * Sirf heading ko chhuta hai: .vansh-heritage / .vh-title / .vh-sub
+ */
+
+.vansh-heritage.vansh-heritage {
+  position: relative;
+  isolation: isolate;
+  padding: 8px 16px 6px;
+  /* halka 3D jhukav: upar ka hissa thoda piche, neeche ka aage */
+  transform: perspective(520px) rotateX(9deg);
+  transform-origin: 50% 100%;
+}
+
+/* Peeche soft sunehri chamak (halo) — taaki gold text cream background par dab na jaye */
+.vansh-heritage.vansh-heritage::before {
+  content: "";
+  position: absolute;
+  inset: -6px -20px -4px;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at 50% 55%,
+    rgba(255, 205, 70, 0.5) 0%,
+    rgba(255, 205, 70, 0.2) 45%,
+    rgba(255, 205, 70, 0) 72%
+  );
+  filter: blur(8px);
+}
+
+/* Main title: metallic gold + gehra border + moti extrusion (3D) */
+.vansh-heritage.vansh-heritage .vh-title.vh-title {
+  margin: 0;
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  font-size: clamp(1.7rem, 8.4vw, 2.4rem);
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  line-height: 1.02;
+  background:
+    /* ek baar chalne wali shine */
+    linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.9) 50%, transparent 62%)
+      no-repeat -150% 0 / 60% 100%,
+    /* metal gradient: beech me gehri "horizon" line = chrome jaisa 3D look */
+    linear-gradient(
+      180deg,
+      #fff1a8 0%,
+      #ffd23f 24%,
+      #f2a20c 47%,
+      #8a4b00 50%,
+      #d98a0b 62%,
+      #ffc93c 82%,
+      #fff0a0 100%
+    );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 0.7px #6b3a00;
+  filter: drop-shadow(0 1px 0 #7a4300) drop-shadow(0 2px 0 #6a3a00)
+    drop-shadow(0 3px 0 #5a3000) drop-shadow(0 4px 0 #4a2800)
+    drop-shadow(0 5px 0 #3b2000) drop-shadow(0 9px 6px rgba(60, 30, 0, 0.45));
+  animation: vhShine 2.6s ease 0.5s 1 both;
+}
+
+/* Subtitle: chhota, khula spacing, wahi metal look */
+.vansh-heritage.vansh-heritage .vh-sub.vh-sub {
+  margin: 6px 0 0;
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  font-size: clamp(0.95rem, 4.4vw, 1.3rem);
+  font-weight: 800;
+  letter-spacing: 0.38em;
+  text-indent: 0.38em; /* trailing spacing ki wajah se center sahi rahe */
+  text-transform: uppercase;
+  background: linear-gradient(
+    180deg,
+    #ffe9a0 0%,
+    #f5b72e 40%,
+    #7e4300 52%,
+    #d48a0f 70%,
+    #ffd35a 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 0.5px #5a3000;
+  filter: drop-shadow(0 1px 0 #6a3a00) drop-shadow(0 2px 0 #4a2800)
+    drop-shadow(0 4px 3px rgba(60, 30, 0, 0.4));
+}
+
+/* Subtitle ke neeche sajawati sunehri line */
+.vansh-heritage.vansh-heritage .vh-sub.vh-sub::after {
+  content: "";
+  display: block;
+  height: 3px;
+  width: min(240px, 64%);
+  margin: 9px auto 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, #b8780a 18%, #ffd34e 50%, #b8780a 82%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 4px rgba(90, 50, 0, 0.35);
+}
+
+@keyframes vhShine {
+  from {
+    background-position: -150% 0, 0 0;
+  }
+  to {
+    background-position: 250% 0, 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vansh-heritage.vansh-heritage .vh-title.vh-title {
+    animation: none;
+    background-position: 250% 0, 0 0;
+  }
+}
