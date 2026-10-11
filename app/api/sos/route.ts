@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession, STAFF_ROLES } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAuditLog } from "@/lib/audit";
+import { notifyBloodDonors } from "@/lib/parivar/connect";
 
 async function ensureTables(supabase: ReturnType<typeof createAdminClient>) {
   // Best-effort: if tables missing, inserts will surface clear errors
@@ -230,11 +231,23 @@ export async function POST(request: NextRequest) {
     /* optional */
   }
 
+  // Parivar Form me blood group bhare compatible donors ke family head ko notify karo
+  let donorsNotified = 0;
+  if (type === "blood" && detailObj.group) {
+    donorsNotified = await notifyBloodDonors(supabase, {
+      alertId: saved.id,
+      group: String(detailObj.group),
+      cityId,
+      raiserId: session.userId,
+      where: String(detailObj.location || ""),
+    });
+  }
+
   await writeAuditLog({
     actorId: session.userId,
     action: "sos_" + type,
     targetId: saved.id,
-    meta: { type, lat, lng },
+    meta: { type, lat, lng, donorsNotified },
   });
 
   return NextResponse.json({
@@ -243,6 +256,7 @@ export async function POST(request: NextRequest) {
     mapsLink,
     shareWhatsApp: type === "blood" || type === "medicine",
     feedPosted: true,
+    donorsNotified,
   });
 }
 
