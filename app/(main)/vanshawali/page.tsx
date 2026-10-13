@@ -1,8 +1,8 @@
 "use client";
 /**
- * ═══════════════════════════════════════════════════════════════
+ * ══════════════════════════════════════════════════════════════════════════════
  * VANSHAWALI — LOCKED (do not break these rules)
- * ═══════════════════════════════════════════════════════════════
+ * ══════════════════════════════════════════════════════════════════════════════
  * METAPHOR: Each bubble = a real person. Each line = a living
  * relationship between two people — it must NEVER float or break
  * (lines overshoot INSIDE bubbles; zero visible gap).
@@ -40,7 +40,7 @@
  *   Parent → child = default gold branch.
  *   New child under a parent auto-joins existing kids as siblings.
  *   Add sibling = child of same parents; API links BOTH mother & father.
- * ═══════════════════════════════════════════════════════════════
+ * ══════════════════════════════════════════════════════════════════════════════
  */
 import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useCallback, useEffect, useMemo, useState, Suspense, useRef } from "react";
@@ -379,6 +379,7 @@ function VanshawaliInner() {
   const [saEditMode, setSaEditMode] = useState(false);
   const [selected, setSelected] = useState<Node | null>(null);
   const [show3D, setShow3D] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
   // add form
   const [draft, setDraft] = useState<{
@@ -387,6 +388,7 @@ function VanshawaliInner() {
     name: string;
     birth_year: string;
     birth_date: string;
+    gender: string;
     member_user_id: string | null;
   } | null>(null);
   const [editDraft, setEditDraft] = useState<{
@@ -431,6 +433,7 @@ function VanshawaliInner() {
         setApiCanEdit(!!d.can_edit);
         setIsSA(!!d.is_super_admin);
         setIsOwner(!!d.is_owner);
+        setPendingCount(Number(d.pending_count) || 0);
         if (d.positions && Object.keys(d.positions).length > 0) {
           setFloatPos(d.positions);
           if (typeof window !== "undefined") {
@@ -580,7 +583,7 @@ function VanshawaliInner() {
   const saveAdd = async () => {
     if (!draft) return;
     if (!draft.member_user_id && !draft.name.trim()) {
-      toast(lang === "hi" ? "Search ya name" : "Search or enter name", "error");
+      toast(lang === "hi" ? "Search या name" : "Search or enter name", "error");
       return;
     }
     if (draft.relation === "sibling" && !draft.centre_person_id) {
@@ -606,6 +609,7 @@ function VanshawaliInner() {
           display_name: draft.name.trim() || undefined,
           birth_year: draft.birth_year || null,
           birth_date: draft.birth_date || null,
+          gender: draft.gender || undefined,
           member_user_id: draft.member_user_id || null,
         }),
       });
@@ -708,6 +712,7 @@ function VanshawaliInner() {
       name: "",
       birth_year: "",
       birth_date: "",
+      gender: "",
       member_user_id: null,
     });
     setQ("");
@@ -1630,56 +1635,6 @@ function VanshawaliInner() {
           z-index: 0;
           user-select: none;
         }
-        /* Heritage 3D gold lettering — no plate */
-        .vansh-heritage {
-          text-align: center;
-          line-height: 1.05;
-          padding: 2px 8px;
-        }
-        .vansh-heritage .vh-title {
-          margin: 0;
-          font-family: Georgia, "Times New Roman", "Palatino Linotype", serif;
-          font-size: clamp(1.15rem, 5.2vw, 1.55rem);
-          font-weight: 800;
-          letter-spacing: 0.04em;
-          background: linear-gradient(
-            175deg,
-            #fff6d0 0%,
-            #ffe08a 18%,
-            #e8b84a 40%,
-            #c4921a 62%,
-            #8b6914 82%,
-            #f0d070 100%
-          );
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-          filter: drop-shadow(0 1px 0 #5c4010)
-            drop-shadow(0 2px 0 #3d2a08)
-            drop-shadow(0 3px 1px rgba(0,0,0,0.35));
-        }
-        .vansh-heritage .vh-sub {
-          margin: 2px 0 0;
-          font-family: Georgia, "Times New Roman", "Palatino Linotype", serif;
-          font-size: clamp(0.95rem, 4.2vw, 1.25rem);
-          font-weight: 700;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          background: linear-gradient(
-            175deg,
-            #fff8dc 0%,
-            #f0d060 30%,
-            #c9a227 55%,
-            #9a7010 80%,
-            #e8c860 100%
-          );
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-          filter: drop-shadow(0 1px 0 #5c4010)
-            drop-shadow(0 2px 0 #3d2a08)
-            drop-shadow(0 2px 1px rgba(0,0,0,0.3));
-        }
         @keyframes sibTravel {
           to { stroke-dashoffset: -120; }
         }
@@ -1738,14 +1693,33 @@ function VanshawaliInner() {
                 : "Arrange"}
           </button>
         )}
+        {(isOwnTree || isSA) && (
+          <button
+            type="button"
+            onClick={() => router.push("/vanshawali/requests")}
+            className="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold shadow border bg-white/90 text-gray-700 border-gray-200"
+          >
+            {lang === "hi" ? "अनुरोध" : "Requests"}
+            {pendingCount > 0 && (
+              <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center">
+                {pendingCount}
+              </span>
+            )}
+          </button>
+        )}
       </div>
 
       <div className="px-3 pt-2 pb-1 relative z-20 pointer-events-none">
-        {/* Heritage letters — centre; does not capture clicks over Arrange */}
+        {/* Gold house name-plate — sirf "Vanshawali"; does not capture clicks over Arrange */}
         <div className="flex justify-center w-full px-14">
           <div className="vansh-heritage" role="heading" aria-level={1}>
-            <p className="vh-title">Vansh Vruksh</p>
-            <p className="vh-sub">Vanshavali</p>
+            <div className="vh-plate">
+              <span className="vh-screw vh-tl" />
+              <span className="vh-screw vh-tr" />
+              <span className="vh-screw vh-bl" />
+              <span className="vh-screw vh-br" />
+              <p className="vh-name">Vanshawali</p>
+            </div>
           </div>
         </div>
         <p className="text-[11px] text-gray-500 leading-snug mt-1.5 text-center px-2 max-w-md mx-auto">
@@ -2412,6 +2386,17 @@ function VanshawaliInner() {
                   value={draft.name}
                   onChange={(e) => setDraft({ ...draft, name: e.target.value, member_user_id: null })}
                 />
+                {(draft.relation === "child" || draft.relation === "sibling" || draft.relation === "spouse") && (
+                  <select
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
+                    value={draft.gender}
+                    onChange={(e) => setDraft({ ...draft, gender: e.target.value })}
+                  >
+                    <option value="">{lang === "hi" ? "लिंग (Gender)" : "Gender"}</option>
+                    <option value="male">{lang === "hi" ? "पुरुष / Male" : "Male"}</option>
+                    <option value="female">{lang === "hi" ? "महिला / Female" : "Female"}</option>
+                  </select>
+                )}
                 <label className="text-[11px] text-gray-500">Date of birth</label>
                 <input
                   type="date"
