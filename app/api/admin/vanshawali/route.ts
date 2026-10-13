@@ -209,7 +209,7 @@ export async function POST(request: NextRequest) {
       const { data: head } = await supabase.from("users").select("id, full_name, gender, photo_url").eq("id", fam.head_of_family).maybeSingle();
       if (!head) { skipped++; continue; }
 
-      let headPerson = personByUser.get(head.id);
+      let headPerson: string = personByUser.get(head.id) as string;
       if (!headPerson) {
         const g = String(head.gender || "").toLowerCase();
         const { data: np, error } = await supabase.from("vanshawali_persons").insert({
@@ -217,8 +217,8 @@ export async function POST(request: NextRequest) {
           photo_url: head.photo_url || null, created_by: actor,
         }).select("id").single();
         if (error || !np) { skipped++; continue; }
-        headPerson = np.id;
-        personByUser.set(head.id, np.id);
+        headPerson = np.id as string;
+        personByUser.set(head.id, headPerson);
         createdPersons++;
       }
 
@@ -229,8 +229,7 @@ export async function POST(request: NextRequest) {
         const rel = String(m.relation || "");
         if (!["Wife", "Husband", "Son", "Daughter", "Father", "Mother"].includes(rel)) continue;
         const legacy = `fm_${m.id}`;
-        let pid = personByLegacy.get(legacy);
-        if (pid) continue; // pehle hi sync ho chuka
+        if (personByLegacy.get(legacy)) continue; // pehle hi sync ho chuka
         const g = String(m.gender || "").toLowerCase();
         const gender = rel === "Father" || rel === "Son" || rel === "Husband" ? "male" : rel === "Mother" || rel === "Daughter" || rel === "Wife" ? "female" : (["male", "female", "other"].includes(g) ? g : null);
         const birthYear = m.dob ? parseInt(String(m.dob).slice(0, 4), 10) : null;
@@ -240,15 +239,15 @@ export async function POST(request: NextRequest) {
           birth_date: m.dob || null, created_by: actor,
         }).select("id").single();
         if (error || !np) { skipped++; continue; }
-        pid = np.id;
-        personByLegacy.set(legacy, np.id);
+        const newId = np.id as string;
+        personByLegacy.set(legacy, newId);
         createdPersons++;
-        created.push({ id: np.id, relation: rel });
+        created.push({ id: newId, relation: rel });
 
-        if (rel === "Wife" || rel === "Husband") await addLink(headPerson, np.id, "spouse");
-        else if (rel === "Son" || rel === "Daughter") await addLink(headPerson, np.id, "child");
-        else if (rel === "Father") await addLink(np.id, headPerson, "father");
-        else if (rel === "Mother") await addLink(np.id, headPerson, "mother");
+        if (rel === "Wife" || rel === "Husband") await addLink(headPerson, newId, "spouse");
+        else if (rel === "Son" || rel === "Daughter") await addLink(headPerson, newId, "child");
+        else if (rel === "Father") await addLink(newId, headPerson, "father");
+        else if (rel === "Mother") await addLink(newId, headPerson, "mother");
       }
 
       // bachchon ko spouse ke saath bhi jodo
