@@ -48,8 +48,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
-import { Plus, Trash2, X, Focus, User, Pencil, Search, ZoomIn, ZoomOut, Maximize2, Home } from "lucide-react";
-import Vanshawali3D from "@/components/vanshawali/Vanshawali3D";
+import { Plus, Trash2, X, Focus, User, Pencil, Search, ZoomIn, ZoomOut, Maximize2, Home, Move, Check, Inbox } from "lucide-react";
 
 type Node = {
   id: string;
@@ -116,6 +115,51 @@ const REL: Record<string, Record<string, string>> = {
     child: "संतान",
     son: "पुत्र",
     daughter: "पुत्री",
+    grandfather: "दादा/नाना",
+    grandmother: "दादी/नानी",
+    grandchild: "पोता/पोती",
+  },
+  hng: {
+    self: "Aap",
+    father: "Pitaji",
+    mother: "Mataji",
+    spouse: "Jeevansathi",
+    sibling: "Bhai/Behen",
+    brother: "Bhai",
+    sister: "Behen",
+    child: "Santaan",
+    son: "Beta",
+    daughter: "Beti",
+    grandfather: "Dada/Nana",
+    grandmother: "Dadi/Nani",
+    grandchild: "Pota/Poti",
+  },
+  mr: {
+    self: "स्वतः",
+    father: "वडील",
+    mother: "आई",
+    spouse: "जोडीदार",
+    sibling: "भाऊ/बहीण",
+    brother: "भाऊ",
+    sister: "बहीण",
+    child: "अपत्य",
+    son: "मुलगा",
+    daughter: "मुलगी",
+    grandfather: "आजोबा",
+    grandmother: "आजी",
+    grandchild: "नातू/नात",
+  },
+  cg: {
+    self: "स्वयं",
+    father: "ददा",
+    mother: "दाई",
+    spouse: "जीवनसाथी",
+    sibling: "भइया/बहिनी",
+    brother: "भइया",
+    sister: "बहिनी",
+    child: "लइका",
+    son: "बेटा",
+    daughter: "बेटी",
     grandfather: "दादा/नाना",
     grandmother: "दादी/नानी",
     grandchild: "पोता/पोती",
@@ -378,8 +422,8 @@ function VanshawaliInner() {
   const [isOwner, setIsOwner] = useState(false);
   const [saEditMode, setSaEditMode] = useState(false);
   const [selected, setSelected] = useState<Node | null>(null);
-  const [show3D, setShow3D] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [viewError, setViewError] = useState<string | null>(null);
 
   // add form
   const [draft, setDraft] = useState<{
@@ -426,9 +470,15 @@ function VanshawaliInner() {
   const load = useCallback(() => {
     if (!rootId) return;
     setLoading(true);
+    setViewError(null);
     fetch(`/api/vanshawali?userId=${rootId}`)
-      .then((r) => r.json())
-      .then((d) => {
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          setTree(null);
+          setViewError(d.error || "Could not load");
+          return;
+        }
         setTree(d.tree || null);
         setApiCanEdit(!!d.can_edit);
         setIsSA(!!d.is_super_admin);
@@ -1646,63 +1696,55 @@ function VanshawaliInner() {
           animation: sibTravel 1.4s linear infinite;
         }
       `}</style>
-      {show3D && <Vanshawali3D rootId={rootId} onClose={() => setShow3D(false)} />}
 
-      {/* SA edit / Arrange — must sit ABOVE header (z-50) or clicks die */}
-      <div className="absolute top-3 right-3 z-[70] pointer-events-auto">
-        <button type="button" onClick={() => setShow3D(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold shadow border bg-slate-900 text-cyan-200 border-cyan-400/40 hover:bg-slate-800">
-          ✦ 3D Vansh Vruksh
-        </button>
-      </div>
-
-      <div className="absolute top-3 left-3 z-[70] flex flex-col gap-1.5 pointer-events-auto">
+      {/* Corner tools — chhote icon buttons (Edit / Arrange / Requests) */}
+      <div className="absolute top-2 left-2 z-[70] flex flex-col gap-1.5 pointer-events-auto">
         {isSA && !isOwner && (
           <button
             type="button"
+            title={saEditMode ? "Edit ON" : "Edit"}
+            aria-label="Edit"
             onClick={() => setSaEditMode((v) => !v)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold shadow border ${
+            className={`w-8 h-8 rounded-full flex items-center justify-center shadow border ${
               saEditMode
                 ? "bg-amber-400 text-white border-amber-500"
                 : "bg-white/90 text-gray-600 border-gray-200"
             }`}
           >
-            <Pencil size={12} />
-            {saEditMode ? "Edit ON" : "Edit"}
+            <Pencil size={14} />
           </button>
         )}
         {(canEdit || isOwnTree || isSA) && (
           <button
             type="button"
+            title={arrangeMode ? (lang === "hi" ? "सेव करें" : "Save arrangement") : (lang === "hi" ? "बबल व्यवस्थित करें" : "Arrange")}
+            aria-label="Arrange"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               toggleArrange();
             }}
-            className={`relative z-[70] flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold shadow border pointer-events-auto ${
+            className={`w-8 h-8 rounded-full flex items-center justify-center shadow border ${
               arrangeMode
                 ? "bg-emerald-500 text-white border-emerald-600"
                 : "bg-white/90 text-gray-600 border-gray-200"
             }`}
           >
-            {arrangeMode
-              ? lang === "hi"
-                ? "✓ Save"
-                : "✓ Save"
-              : lang === "hi"
-                ? "Arrange"
-                : "Arrange"}
+            {arrangeMode ? <Check size={15} /> : <Move size={14} />}
           </button>
         )}
         {(isOwnTree || isSA) && (
           <button
             type="button"
+            title={lang === "hi" ? "अनुरोध" : "Requests"}
+            aria-label="Requests"
             onClick={() => router.push("/vanshawali/requests")}
-            className="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold shadow border bg-white/90 text-gray-700 border-gray-200"
+            className="relative w-8 h-8 rounded-full flex items-center justify-center shadow border bg-white/90 text-gray-600 border-gray-200"
           >
-            {lang === "hi" ? "अनुरोध" : "Requests"}
+            <Inbox size={14} />
             {pendingCount > 0 && (
-              <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center">
-                {pendingCount}
+              <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 rounded-full bg-red-500 text-white text-[9px] leading-[15px] text-center font-bold">
+                {pendingCount > 9 ? "9+" : pendingCount}
               </span>
             )}
           </button>
@@ -1711,7 +1753,7 @@ function VanshawaliInner() {
 
       <div className="px-3 pt-2 pb-1 relative z-20 pointer-events-none">
         {/* Gold house name-plate — sirf "Vanshawali"; does not capture clicks over Arrange */}
-        <div className="flex justify-center w-full px-14">
+        <div className="flex justify-center w-full px-12">
           <div className="vansh-heritage" role="heading" aria-level={1}>
             <div className="vh-plate">
               <span className="vh-screw vh-tl" />
@@ -1764,6 +1806,10 @@ function VanshawaliInner() {
       </div>
 
       {loading && <p className="text-center text-gray-400 py-20">Loading…</p>}
+
+      {!loading && viewError && (
+        <p className="text-center text-sm text-gray-500 py-20 px-8">{viewError}</p>
+      )}
 
       {!loading && tree && (
         <div
