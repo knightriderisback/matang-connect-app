@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const STORE_KEY = "vanshawali_store";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NEIGHBOURHOOD_DEPTH = 4;
+const VIEW_DEPTH = 8;
 const MIN_PARENT_GAP = 12;
 
 export type Person = {
@@ -636,6 +637,24 @@ export async function GET(request: NextRequest) {
   }
 
   const userId = request.nextUrl.searchParams.get("userId") || session.userId;
+
+  // Privacy: doosre ka tree sirf wahi dekh sakta hai jo (a) usi city ka ho, (b) rishte se jura ho,
+  // ya (c) staff ho (super admin / core committee kahin bhi, volunteer apni city me).
+  if (userId !== session.userId) {
+    const { data: target } = await supabase.from("users").select("city_id").eq("id", userId).maybeSingle();
+    if (!target) return NextResponse.json({ error: "Member not found" }, { status: 404 });
+    const meP = personOfUser(store, session.userId);
+    const targetP = personOfUser(store, userId);
+    const connected = !!(meP && targetP && neighbourhood(store, meP.id, VIEW_DEPTH).has(targetP.id));
+    const sameCity = !!session.cityId && target.city_id === session.cityId;
+    const staffOk =
+      session.role === "super_admin" ||
+      session.role === "core_committee" ||
+      (session.role === "volunteer" && sameCity);
+    if (!(connected || sameCity || staffOk)) {
+      return NextResponse.json({ error: "Is vanshawali ko dekhne ki anumati nahi hai" }, { status: 403 });
+    }
+  }
 
   // Doosre ka tree dekhte waqt naya person DB me nahi banate (sirf apna)
   let centre: Person;
