@@ -219,6 +219,9 @@ function resolveSex(
 /** Measured bubble body (~px-2.5 py-1.5 + 12px text) */
 const BUBBLE_H = 42;
 
+/** BottomNav (fixed, z-50) ki oonchai + safe margin — tree-area isse upar khatam hota hai */
+const NAV_H = 80;
+
 /** Soft generation fills (transparent) + 3D shadow */
 const GEN_STYLE: Record<string, { bg: string; border: string; text: string }> = {
   self: {
@@ -383,6 +386,131 @@ function mildTilt(i: number, count: number) {
   return Math.max(-8, Math.min(8, (i - mid) * 2.8));
 }
 
+/**
+ * Ghar ki naam-plate jaisa gold cut-metal heading: "वंशावली"
+ * (bar + finials + chhed + mor-pankh + tassels). Sab kuch SVG hai, isliye har screen par saaf.
+ * Layers: cast shadow (peeche) → extrusion (motiइ) → gold face → bevel edge → ek baar shine.
+ */
+function PlateShapes() {
+  return (
+    <>
+      {/* top rail + arrow finials */}
+      <rect x="30" y="49" width="300" height="8" rx="4" />
+      <path d="M4 53 L14 44 L17 48 L22 40 L27 47 L33 49 L33 57 L27 59 L22 66 L17 58 L14 62 Z" />
+      <path d="M356 53 L346 44 L343 48 L338 40 L333 47 L327 49 L327 57 L333 59 L338 66 L343 58 L346 62 Z" />
+      {/* hangers */}
+      <rect x="52" y="56" width="4" height="22" rx="1.5" />
+      <rect x="290" y="56" width="4" height="22" rx="1.5" />
+      {/* naam */}
+      <text
+        x="44"
+        y="132"
+        fontSize="68"
+        textLength="252"
+        lengthAdjust="spacingAndGlyphs"
+      >
+        वंशावली
+      </text>
+      {/* mor-pankh */}
+      <path d="M322 50 C316 34 328 14 354 4 C354 22 344 40 322 50 Z" />
+      <path d="M321 52 C330 36 342 20 355 3 C344 22 333 38 323 53 Z" />
+      {/* tassel 1 */}
+      <path d="M326 56 C324 66 320 74 320 82 L323 82 C323 74 327 66 329 56 Z" />
+      <circle cx="321.5" cy="86" r="4.5" />
+      <path d="M315 90 Q321.5 86 328 90 L331 112 L312 112 Z" />
+      <rect x="312.5" y="112" width="1.7" height="13" />
+      <rect x="315.5" y="112" width="1.7" height="14" />
+      <rect x="318.5" y="112" width="1.7" height="15" />
+      <rect x="321.5" y="112" width="1.7" height="15" />
+      <rect x="324.5" y="112" width="1.7" height="14" />
+      <rect x="327.5" y="112" width="1.7" height="13" />
+      {/* tassel 2 */}
+      <path d="M344 56 C343 62 341 66 341 72 L344 72 C344 66 346 62 347 56 Z" />
+      <circle cx="342.5" cy="76" r="4" />
+      <path d="M337 79 Q342.5 75 348 79 L350 98 L335 98 Z" />
+      <rect x="335.5" y="98" width="1.7" height="10" />
+      <rect x="338.5" y="98" width="1.7" height="12" />
+      <rect x="341.5" y="98" width="1.7" height="12" />
+      <rect x="344.5" y="98" width="1.7" height="12" />
+      <rect x="347.5" y="98" width="1.7" height="10" />
+    </>
+  );
+}
+
+function VanshNameplate() {
+  return (
+    <svg
+      className="vh-sign w-full h-auto"
+      style={{ maxWidth: 340 }}
+      viewBox="0 0 360 150"
+      role="img"
+      aria-label="Vanshawali"
+    >
+      <title>Vanshawali</title>
+      <defs>
+        {/* metal gold: beech me gehri "horizon" line = chrome jaisi chamak */}
+        <linearGradient id="vhGold" gradientUnits="userSpaceOnUse" x1="0" y1="40" x2="50" y2="140">
+          <stop offset="0" stopColor="#fff3b0" />
+          <stop offset="0.2" stopColor="#ffd23f" />
+          <stop offset="0.44" stopColor="#f0a30a" />
+          <stop offset="0.5" stopColor="#9a5a00" />
+          <stop offset="0.62" stopColor="#d98a0b" />
+          <stop offset="0.84" stopColor="#ffc93c" />
+          <stop offset="1" stopColor="#fff0a0" />
+        </linearGradient>
+        {/* ek baar guzarti shine (SMIL) */}
+        <linearGradient id="vhSweep" gradientUnits="userSpaceOnUse" x1="-140" y1="0" x2="-60" y2="30">
+          <stop offset="0" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="0.5" stopColor="#ffffff" stopOpacity="0.85" />
+          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+          <animate attributeName="x1" from="-140" to="520" dur="2.8s" begin="0.7s" fill="freeze" />
+          <animate attributeName="x2" from="-60" to="600" dur="2.8s" begin="0.7s" fill="freeze" />
+        </linearGradient>
+        <filter id="vhBlur" x="-10%" y="-10%" width="125%" height="140%">
+          <feGaussianBlur stdDeviation="2.4" />
+        </filter>
+      </defs>
+
+      {/* 1) peeche ki parchhai — ubhra hua dikhe */}
+      <g fill="#1b0f00" opacity="0.5" filter="url(#vhBlur)" transform="translate(2.5 6)">
+        <PlateShapes />
+      </g>
+      {/* 2) motiइ (extrusion) */}
+      <g fill="#5a3200" stroke="#5a3200" strokeWidth="1.4" strokeLinejoin="round" transform="translate(1.2 2.6)">
+        <PlateShapes />
+      </g>
+      <g fill="#8a5200" stroke="#8a5200" strokeWidth="1.2" strokeLinejoin="round" transform="translate(0.6 1.3)">
+        <PlateShapes />
+      </g>
+      {/* 3) gold face */}
+      <g fill="url(#vhGold)" stroke="#7a4a05" strokeWidth="0.7" strokeLinejoin="round">
+        <PlateShapes />
+      </g>
+      {/* 4) upar-baayein kinare par halka bevel highlight */}
+      <g fill="none" stroke="rgba(255,248,190,0.9)" strokeWidth="0.6" strokeLinejoin="round" transform="translate(-0.5 -0.6)">
+        <PlateShapes />
+      </g>
+      {/* 5) shine */}
+      <g fill="url(#vhSweep)">
+        <PlateShapes />
+      </g>
+
+      {/* chhed (screw holes), pankh ki aankh aur barbs — cut-out jaisa */}
+      <g fill="#2e1a00" opacity="0.9">
+        {[60, 100, 140, 180, 220, 260].map((x) => (
+          <circle key={x} cx={x} cy="53" r="2.1" />
+        ))}
+        <circle cx="315" cy="53" r="2.1" />
+        <ellipse cx="342" cy="22" rx="4.2" ry="6.8" transform="rotate(35 342 22)" />
+      </g>
+      <g fill="none" stroke="#5a3300" strokeWidth="0.9" strokeLinecap="round">
+        <path d="M326 44 L337 37 M328 38 L340 31 M331 33 L343 27 M335 28 L347 21 M340 23 L350 15" />
+        <path d="M333 41 L322 38 M338 34 L326 30 M343 28 L332 22" opacity="0.6" />
+      </g>
+    </svg>
+  );
+}
+
 function VanshawaliInner() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
@@ -397,6 +525,7 @@ function VanshawaliInner() {
   const didCenterRef = useRef(false);
   const [vw, setVw] = useState(360);
   const [vh, setVh] = useState(480);
+  const [wrapH, setWrapH] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const pinchRef = useRef<{ dist: number; zoom: number } | null>(null);
@@ -454,17 +583,28 @@ function VanshawaliInner() {
   const isOwnTree = isOwner || (!!user?.id && !!rootId && user.id === rootId);
   const canEdit = isOwnTree || (isSA && saEditMode);
 
+  // Tree-area ki oonchai = screen − (upar ka hissa) − footer (BottomNav). Isse footer kuch ko dhakta nahi.
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
     const measure = () => {
+      const root = el.closest("[data-scroll-root]") as HTMLElement | null;
+      const top = el.getBoundingClientRect().top + (root?.scrollTop || 0);
+      const h = Math.max(260, Math.round(window.innerHeight - top - NAV_H));
+      setWrapH(h);
       setVw(Math.max(300, el.clientWidth));
-      setVh(Math.max(200, el.clientHeight));
+      setVh(h);
     };
     measure();
-    const ro = new ResizeObserver(measure);
+    const ro = new ResizeObserver(() => setVw(Math.max(300, el.clientWidth)));
     ro.observe(el);
-    return () => ro.disconnect();
+    window.addEventListener("resize", measure);
+    const t = setTimeout(measure, 350); // header / font settle hone ke baad dobara
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+      clearTimeout(t);
+    };
   }, [tree]);
 
   const load = useCallback(() => {
@@ -516,7 +656,7 @@ function VanshawaliInner() {
 
   // Open page → zoom out so FULL tree fits every device
   useEffect(() => {
-    if (loading || !tree) {
+    if (loading || !tree || wrapH === null) {
       didCenterRef.current = false;
       return;
     }
@@ -534,7 +674,7 @@ function VanshawaliInner() {
       x: vw / 2 - (cW / 2) * z,
       y: vh / 2 - (cH / 2) * z,
     });
-  }, [loading, tree, vw, vh]);
+  }, [loading, tree, vw, vh, wrapH]);
 
   // Auto-freeze all bubble positions — stay put until Arrange-move (survive delete/reload)
   useEffect(() => {
@@ -1751,20 +1891,12 @@ function VanshawaliInner() {
         )}
       </div>
 
-      <div className="px-3 pt-2 pb-1 relative z-20 pointer-events-none">
-        {/* Gold house name-plate — sirf "Vanshawali"; does not capture clicks over Arrange */}
-        <div className="flex justify-center w-full px-12">
-          <div className="vansh-heritage" role="heading" aria-level={1}>
-            <div className="vh-plate">
-              <span className="vh-screw vh-tl" />
-              <span className="vh-screw vh-tr" />
-              <span className="vh-screw vh-bl" />
-              <span className="vh-screw vh-br" />
-              <p className="vh-name">Vanshawali</p>
-            </div>
-          </div>
+      <div className="px-3 pt-7 pb-1 relative z-20 pointer-events-none">
+        {/* Gold cut-metal house name-plate — sirf "वंशावली"; clicks ko nahi rokta */}
+        <div className="flex justify-center w-full px-10">
+          <VanshNameplate />
         </div>
-        <p className="text-[11px] text-gray-500 leading-snug mt-1.5 text-center px-2 max-w-md mx-auto">
+        <p className="text-[11px] text-gray-500 leading-snug mt-1 text-center px-2 max-w-md mx-auto">
           {lang === "hi"
             ? "आपके परिवार की पीढ़ियाँ — ऊपर पूर्वज, बीच में आप, नीचे संतान। हर रेखा एक रिश्ता है।"
             : "Your family across generations — ancestors above, you at centre, children below. Every line is a living bond."}
@@ -1814,11 +1946,11 @@ function VanshawaliInner() {
       {!loading && tree && (
         <div
           ref={wrapRef}
-          className="flex-1 overflow-hidden pb-36 w-full relative touch-none"
-          style={{ minHeight: "55vh" }}
+          className="overflow-hidden w-full relative touch-none"
+          style={{ height: wrapH ?? "60vh" }}
         >
-          {/* Zoom toolbar */}
-          <div className="absolute bottom-28 right-3 z-30 flex flex-col items-center gap-1.5">
+          {/* Zoom toolbar — tree-area ke andar, footer (BottomNav) ke upar */}
+          <div className="absolute bottom-3 right-3 z-30 flex flex-col items-center gap-1.5">
             <button
               type="button"
               onClick={() => zoomBy(ZOOM_STEP)}
