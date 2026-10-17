@@ -10,7 +10,7 @@ export default function VanshawaliPage() {
       try {
         const parts: string[] = [];
         for (let i = 0; i <= 5; i++) {
-          const res = await fetch(`/vanshawali-title-${i}.b64`);
+          const res = await fetch(`/vanshawali-title-${i}.b64?v=2`);
           if (!res.ok) throw new Error(`chunk ${i}`);
           parts.push((await res.text()).trim());
         }
@@ -25,7 +25,7 @@ export default function VanshawaliPage() {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col items-center pt-10 px-4 bg-gray-50">
+    <div className="min-h-screen flex flex-col items-center pt-12 px-4 bg-white">
       {src ? (
         <img
           src={src}
@@ -44,9 +44,6 @@ export default function VanshawaliPage() {
       ) : (
         <div style={{ width: "min(56vw, 220px)", height: 48 }} />
       )}
-      <p className="mt-6 text-center text-sm text-gray-600 max-w-md">
-        Exact gold image (transparent, no background) is now the heading. Full family tree restoring next.
-      </p>
     </div>
   );
 }
