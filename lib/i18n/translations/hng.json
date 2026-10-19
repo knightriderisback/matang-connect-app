@@ -2,7 +2,8 @@
   "app": {
     "name": "Matang Connect",
     "tagline": "Hamari Community ko Ekjut Karna",
-    "footer": "Matang Samaj Digital Initiative"
+    "footer": "Matang Samaj Digital Initiative",
+    "pilot": "Pilot: Bilaspur, Chhattisgarh"
   },
   "nav": {
     "home": "Home",
@@ -64,7 +65,8 @@
     "coreCommittee": "Core Committee",
     "volunteer": "Volunteer",
     "member": "Member",
-    "admin": "Admin"
+    "admin": "Admin",
+    "noAccount": "Account nahi hai?"
   },
   "common": {
     "loading": "Loading ho raha hai...",
@@ -134,7 +136,9 @@
     "moduleLocked": "Feature Locked Hai",
     "moduleLockedDesc": "Ye feature aapke role ke liye abhi locked hai. Admin se contact karein.",
     "installApp": "App Install Karein",
-    "installAppDesc": "Easy access ke liye Matang Connect ko home screen par add karein."
+    "installAppDesc": "Easy access ke liye Matang Connect ko home screen par add karein.",
+    "language": "Language",
+    "changeLanguage": "Change language"
   },
   "roles": {
     "super_admin": "Super Admin",
@@ -350,9 +354,9 @@
     "zoomOut": "Zoom Out",
     "resetLayout": "Reset Layout",
     "savePositions": "Positions Save Karein",
-    "positionsSaved": "Tree positions save ho gayi",
+    "positionsSaved": "Positions save ho gayi",
     "generations": "Generations",
-    "treeView": "Tree View",
+    "treeView": "Vanshawali View",
     "relatives": "Relatives",
     "noTreeData": "Abhi koi vanshawali save nahi hai. Relatives add karein."
   },

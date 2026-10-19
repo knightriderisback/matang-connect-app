@@ -19,7 +19,7 @@ export default function LandingPage() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/logo.png"
-          alt="Matang Connect"
+          alt={t("app.name")}
           className="splash-logo-float w-52 h-52 sm:w-64 sm:h-64 object-contain bg-transparent mb-8"
           draggable={false}
         />
@@ -33,7 +33,7 @@ export default function LandingPage() {
             {t("auth.register")}
           </Button>
         </div>
-        <p className="mt-6 text-xs text-gray-400 text-center">Pilot: Bilaspur, Chhattisgarh</p>
+        <p className="mt-6 text-xs text-gray-400 text-center">{t("app.pilot")}</p>
       </div>
     </div>
   );

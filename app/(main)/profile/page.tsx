@@ -351,7 +351,7 @@ export default function ProfilePage() {
               वंशावली · Vanshawali
             </p>
             <p className="text-[11px] text-rose-800/50 mt-0.5">
-              Family tree · parents · spouse · children
+              Vanshawali · parents · spouse · children
             </p>
           </div>
           <span className="text-rose-800/40 text-xl font-light">›</span>

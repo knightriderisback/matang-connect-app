@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./vanshawali-heading.css";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import { ToastProvider } from "@/components/ui/Toaster";
 import { BottomNav } from "@/components/shared/BottomNav";
@@ -28,7 +29,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full" suppressHydrationWarning>
+    <html lang="hi" className="h-full" suppressHydrationWarning>
       <body className="h-full overflow-hidden bg-matang-navy antialiased">
         <LanguageProvider>
           <ToastProvider>

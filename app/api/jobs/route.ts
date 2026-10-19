@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession, STAFF_ROLES } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notifyJobSeekers } from "@/lib/parivar/connect";
 
 /** Live schema: posted_by, title, description, city_id, status */
 
@@ -46,7 +47,19 @@ export async function POST(request: NextRequest) {
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ success: true, job: data });
+
+  // Parivar Form skills se match hone wale berozgaar members ke families ko notify karo
+  let notified = 0;
+  if (data.status === "active" || data.status === "open") {
+    notified = await notifyJobSeekers(supabase, {
+      jobId: data.id,
+      title: String(data.title || ""),
+      description: String(data.description || ""),
+      cityId: data.city_id || null,
+      posterId: session.userId,
+    });
+  }
+  return NextResponse.json({ success: true, job: data, notified });
 }
 
 export async function PATCH(request: NextRequest) {

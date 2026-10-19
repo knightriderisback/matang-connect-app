@@ -1,0 +1,9 @@
+/*
+ * Vanshawali heading font — cut-metal name-plate ke liye bhaari Devanagari akshar.
+ * Plate khud SVG hai (page.tsx me VanshNameplate); yahan sirf font load hota hai.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Yatra+One&display=swap");
+
+.vh-sign text {
+  font-family: "Yatra One", "Tillana", "Noto Sans Devanagari", "Noto Serif Devanagari", sans-serif;
+}

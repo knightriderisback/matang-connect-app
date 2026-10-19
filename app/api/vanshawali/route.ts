@@ -3,6 +3,10 @@ import { getSession } from "@/lib/auth/getSession";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const STORE_KEY = "vanshawali_store";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const NEIGHBOURHOOD_DEPTH = 4;
+const VIEW_DEPTH = 8;
+const MIN_PARENT_GAP = 12;
 
 export type Person = {
   id: string;
@@ -33,6 +37,17 @@ export type Link = {
 
 export type Store = { persons: Person[]; links: Link[] };
 
+/** canonical id (legacy_id ya uuid) -> real DB uuid */
+type Ctx = { personUuid: Map<string, string>; linkUuid: Map<string, string> };
+
+class ApiError extends Error {
+  status: number;
+  constructor(message: string, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
+
 function uid() {
   return `v_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -42,13 +57,30 @@ function ageFromYear(y?: number | null) {
   return Math.max(0, new Date().getFullYear() - y);
 }
 
+function normGender(g: unknown): "male" | "female" | "other" | null {
+  const s = String(g ?? "").trim().toLowerCase();
+  if (s === "male" || s === "m" || s === "man") return "male";
+  if (s === "female" || s === "f" || s === "woman") return "female";
+  if (s === "other") return "other";
+  return null;
+}
+
+/** DB error ko chhupana nahi: log + clear error user ko */
+function fail(error: { message?: string; code?: string } | null | undefined, what: string): void {
+  if (!error) return;
+  console.error(`vanshawali: ${what} failed:`, error.message);
+  throw new ApiError(`${what} failed. Please try again.`, 500);
+}
+
+function uuidOf(ctx: Ctx, map: "person" | "link", key: string): string | undefined {
+  const m = map === "person" ? ctx.personUuid : ctx.linkUuid;
+  return m.get(key) ?? (UUID_RE.test(key) ? key : undefined);
+}
+
 // ----------------------------------------------------------------------------
-// DATA ACCESS LAYER: RELATIONAL WITH DUAL-READ FALLBACK
+// DATA ACCESS LAYER
 // ----------------------------------------------------------------------------
 
-/**
- * Checks if normalized relational tables exist and contain migrated data.
- */
 async function isRelationalActive(supabase: any): Promise<boolean> {
   try {
     const { count, error } = await supabase
@@ -60,10 +92,7 @@ async function isRelationalActive(supabase: any): Promise<boolean> {
   }
 }
 
-/**
- * Load store from normalized relational tables (vanshawali_persons + vanshawali_relationships).
- */
-async function loadRelationalStore(supabase: any): Promise<Store> {
+async function loadRelationalStore(supabase: any): Promise<{ store: Store; ctx: Ctx }> {
   const { data: personsData, error: pErr } = await supabase
     .from("vanshawali_persons")
     .select("id, legacy_id, user_id, display_name, gender, birth_year, birth_date, gotra, photo_url, created_by, created_at");
@@ -76,12 +105,13 @@ async function loadRelationalStore(supabase: any): Promise<Store> {
     throw new Error(`Failed to load relational store: ${pErr?.message || lErr?.message}`);
   }
 
-  // Build UUID -> Canonical ID lookup (preferring legacy_id if present to preserve client localStorage keys)
-  const idMap = new Map<string, string>();
+  const idMap = new Map<string, string>(); // uuid/legacy -> canonical
+  const ctx: Ctx = { personUuid: new Map(), linkUuid: new Map() };
   for (const p of personsData) {
     const canonicalId = p.legacy_id || p.id;
     idMap.set(p.id, canonicalId);
     if (p.legacy_id) idMap.set(p.legacy_id, canonicalId);
+    ctx.personUuid.set(canonicalId, p.id);
   }
 
   const persons: Person[] = personsData.map((p: any) => ({
@@ -98,23 +128,24 @@ async function loadRelationalStore(supabase: any): Promise<Store> {
     legacy_id: p.legacy_id || null,
   }));
 
-  const links: Link[] = (linksData || []).map((l: any) => ({
-    id: l.legacy_id || l.id,
-    from_id: idMap.get(l.from_person_id) || l.from_person_id,
-    to_id: idMap.get(l.to_person_id) || l.to_person_id,
-    relation: l.relation as Link["relation"],
-    status: l.status as Link["status"],
-    proposed_by: l.proposed_by,
-    created_at: l.created_at,
-    legacy_id: l.legacy_id || null,
-  }));
+  const links: Link[] = (linksData || []).map((l: any) => {
+    const canonical = l.legacy_id || l.id;
+    ctx.linkUuid.set(canonical, l.id);
+    return {
+      id: canonical,
+      from_id: idMap.get(l.from_person_id) || l.from_person_id,
+      to_id: idMap.get(l.to_person_id) || l.to_person_id,
+      relation: l.relation as Link["relation"],
+      status: l.status as Link["status"],
+      proposed_by: l.proposed_by,
+      created_at: l.created_at,
+      legacy_id: l.legacy_id || null,
+    };
+  });
 
-  return { persons, links };
+  return { store: { persons, links }, ctx };
 }
 
-/**
- * Legacy JSON fallback loader (from app_settings).
- */
 async function loadLegacyStore(supabase: any): Promise<Store> {
   const { data } = await supabase
     .from("app_settings")
@@ -131,67 +162,63 @@ async function loadLegacyStore(supabase: any): Promise<Store> {
   return { persons: [], links: [] };
 }
 
-/**
- * Unified store loader with automatic failover.
- */
-async function loadStore(supabase: any): Promise<{ store: Store; isRelational: boolean }> {
+async function loadStore(supabase: any): Promise<{ store: Store; isRelational: boolean; ctx: Ctx }> {
   const relational = await isRelationalActive(supabase);
   if (relational) {
     try {
-      const store = await loadRelationalStore(supabase);
-      return { store, isRelational: true };
+      const { store, ctx } = await loadRelationalStore(supabase);
+      return { store, isRelational: true, ctx };
     } catch (err) {
       console.warn("Relational store load failed, falling back to legacy JSON:", err);
     }
   }
   const store = await loadLegacyStore(supabase);
-  return { store, isRelational: false };
+  return { store, isRelational: false, ctx: { personUuid: new Map(), linkUuid: new Map() } };
 }
 
 /**
- * Save store mutations to appropriate storage engine.
+ * Relational mode me tables hi sach hain, snapshot nahi likhte (pehle har GET par poora JSON
+ * dobara likha jaata tha). Sirf legacy fallback mode me JSON persist hota hai.
  */
-async function persistStore(
+async function persistStore(supabase: any, store: Store, actor: string, isRelational: boolean) {
+  if (isRelational) return;
+  await supabase.from("app_settings").upsert(
+    { setting_key: STORE_KEY, setting_value: store, updated_by: actor, updated_at: new Date().toISOString() },
+    { onConflict: "setting_key" }
+  );
+}
+
+async function audit(
   supabase: any,
-  store: Store,
   actor: string,
-  isRelational: boolean
+  action: string,
+  entity: string,
+  entityId: string | null,
+  before: unknown,
+  after: unknown
 ) {
-  if (isRelational) {
-    // Relational updates are executed atomically per-operation; this syncs legacy snapshot as safety backup
-    try {
-      await supabase.from("app_settings").upsert(
-        {
-          setting_key: STORE_KEY,
-          setting_value: store,
-          updated_by: actor,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "setting_key" }
-      );
-    } catch (_err) {
-      // Non-critical: relational tables are primary
-    }
-  } else {
-    // Legacy JSON persistence
-    await supabase.from("app_settings").upsert(
-      {
-        setting_key: STORE_KEY,
-        setting_value: store,
-        updated_by: actor,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "setting_key" }
-    );
+  try {
+    await supabase.from("vanshawali_audit").insert({
+      actor_id: actor,
+      action,
+      entity,
+      entity_id: entityId,
+      before_data: before ?? null,
+      after_data: after ?? null,
+    });
+  } catch {
+    /* audit best-effort */
   }
 }
 
-/** Ensure a vansh person exists for a registered user */
 async function ensurePersonForUser(
   store: Store,
+  ctx: Ctx,
   supabase: any,
   userId: string,
-  isRelational: boolean
+  isRelational: boolean,
+  actorId: string,
+  persist = true
 ): Promise<Person> {
   const existing = store.persons.find((p) => p.user_id === userId);
   if (existing) return existing;
@@ -201,39 +228,119 @@ async function ensurePersonForUser(
     .select("id, full_name, photo_url, gender")
     .eq("id", userId)
     .maybeSingle();
+  if (!u) throw new ApiError("Member not found", 404);
 
   const generatedId = uid();
   const person: Person = {
     id: generatedId,
     user_id: userId,
-    display_name: u?.full_name || "Member",
-    gender: u?.gender || null,
-    photo_url: u?.photo_url || null,
+    display_name: u.full_name || "Member",
+    gender: normGender(u.gender),
+    photo_url: u.photo_url || null,
     birth_year: null,
-    created_by: userId,
+    created_by: actorId,
     created_at: new Date().toISOString(),
   };
 
+  if (!persist) return person; // sirf dekhne ke liye, DB me nahi likhte
   store.persons.push(person);
 
   if (isRelational) {
-    try {
-      await supabase.from("vanshawali_persons").insert({
+    const { data, error } = await supabase
+      .from("vanshawali_persons")
+      .insert({
         legacy_id: generatedId,
         user_id: userId,
         display_name: person.display_name,
         gender: person.gender,
         photo_url: person.photo_url,
-        created_by: userId,
-      });
-    } catch (_err) {}
+        created_by: actorId,
+      })
+      .select("id")
+      .single();
+    fail(error, "Creating person");
+    ctx.personUuid.set(generatedId, data.id);
   }
-
   return person;
 }
 
 // ----------------------------------------------------------------------------
-// GRAPH TRAVERSAL & TREE ASSEMBLY
+// GRAPH HELPERS (validation / authorization)
+// ----------------------------------------------------------------------------
+
+function personOfUser(store: Store, userId: string): Person | undefined {
+  return store.persons.find((p) => p.user_id === userId);
+}
+
+/** Undirected BFS (rejected links ignore) — "apne tree ke aas-paas" ke log */
+function neighbourhood(store: Store, startId: string, depth = NEIGHBOURHOOD_DEPTH): Set<string> {
+  const adj = new Map<string, string[]>();
+  for (const l of store.links) {
+    if (l.status === "rejected") continue;
+    if (!adj.has(l.from_id)) adj.set(l.from_id, []);
+    if (!adj.has(l.to_id)) adj.set(l.to_id, []);
+    adj.get(l.from_id)!.push(l.to_id);
+    adj.get(l.to_id)!.push(l.from_id);
+  }
+  const seen = new Set<string>([startId]);
+  let frontier = [startId];
+  for (let d = 0; d < depth; d++) {
+    const next: string[] = [];
+    for (const id of frontier) {
+      for (const n of adj.get(id) || []) {
+        if (!seen.has(n)) {
+          seen.add(n);
+          next.push(n);
+        }
+      }
+    }
+    if (!next.length) break;
+    frontier = next;
+  }
+  return seen;
+}
+
+/** parent -> child edges se: kya `ancestorId` se `descendantId` tak pahuncha ja sakta hai? */
+function isAncestorOf(store: Store, ancestorId: string, descendantId: string): boolean {
+  const kids = new Map<string, string[]>();
+  for (const l of store.links) {
+    if (l.status === "rejected") continue;
+    if (l.relation === "child" || l.relation === "father" || l.relation === "mother") {
+      if (!kids.has(l.from_id)) kids.set(l.from_id, []);
+      kids.get(l.from_id)!.push(l.to_id);
+    }
+  }
+  const seen = new Set<string>([ancestorId]);
+  const stack = [ancestorId];
+  while (stack.length) {
+    const cur = stack.pop()!;
+    for (const k of kids.get(cur) || []) {
+      if (k === descendantId) return true;
+      if (!seen.has(k)) {
+        seen.add(k);
+        stack.push(k);
+      }
+    }
+  }
+  return false;
+}
+
+function cleanName(raw: unknown): string {
+  const name = String(raw ?? "").replace(/\s+/g, " ").trim();
+  if (name.length < 2) throw new ApiError("Name kam se kam 2 akshar ka hona chahiye");
+  if (name.length > 80) throw new ApiError("Name bahut lamba hai (max 80)");
+  return name;
+}
+
+function cleanBirthYear(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === "") return null;
+  const y = parseInt(String(raw), 10);
+  if (isNaN(y) || y < 1800 || y > new Date().getFullYear()) throw new ApiError("Birth year sahi nahi hai");
+  return y;
+}
+
+// ----------------------------------------------------------------------------
+// TREE ASSEMBLY (unchanged logic)
 // ----------------------------------------------------------------------------
 
 function buildTree(store: Store, centre: Person, viewerId: string, isStaff: boolean) {
@@ -270,11 +377,11 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     via_child_id: row.via_id,
   });
 
-  /** Parents of personId */
   function parentsOf(personId: string): Row[] {
     const out: Row[] = [];
     for (const l of store.links) {
       if (!showLink(l)) continue;
+      if (l.status === "rejected") continue;
       if ((l.relation === "father" || l.relation === "mother") && l.to_id === personId) {
         const p = byId(l.from_id);
         if (p) out.push({ person: p, relation: l.relation, link: l, via_id: personId });
@@ -283,12 +390,12 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     return out;
   }
 
-  /** Children of personId */
   function childrenOf(personId: string): Row[] {
     const out: Row[] = [];
     const seen = new Set<string>();
     for (const l of store.links) {
       if (!showLink(l)) continue;
+      if (l.status === "rejected") continue;
       let childId: string | null = null;
       if (l.relation === "child" && l.from_id === personId) childId = l.to_id;
       else if ((l.relation === "father" || l.relation === "mother") && l.from_id === personId)
@@ -305,6 +412,7 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     const out: Row[] = [];
     for (const l of store.links) {
       if (!showLink(l)) continue;
+      if (l.status === "rejected") continue;
       if (l.relation !== "spouse") continue;
       if (l.from_id !== personId && l.to_id !== personId) continue;
       const otherId = l.from_id === personId ? l.to_id : l.from_id;
@@ -314,7 +422,6 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     return out;
   }
 
-  // levels_up[0] = parents, [1] = grandparents, ...
   const levels_up: Row[][] = [];
   let frontier = [centre.id];
   const seenUp = new Set<string>([centre.id]);
@@ -334,7 +441,6 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     frontier = nextIds;
   }
 
-  // levels_down[0] = children, [1] = grandchildren, ...
   const levels_down: Row[][] = [];
   frontier = [centre.id];
   const seenDown = new Set<string>([centre.id]);
@@ -360,7 +466,6 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
   const grandchildren = levels_down[1] || [];
   const spouses = spousesOf(centre.id);
 
-  // Spouses of EVERY tree member (parents, kids, GP…)
   const allTreeIds = new Set<string>([centre.id]);
   for (const lvl of levels_up) for (const r of lvl) allTreeIds.add(r.person.id);
   for (const lvl of levels_down) for (const r of lvl) allTreeIds.add(r.person.id);
@@ -379,7 +484,6 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     }
   }
 
-  // Siblings of centre = other children of either parent (not centre)
   const siblingSeen = new Set<string>([centre.id]);
   const siblingRows: Row[] = [];
   for (const par of parents) {
@@ -394,7 +498,6 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     }
   }
 
-  // Siblings of ANY tree person
   const siblings_of: Record<string, ReturnType<typeof mapNode>[]> = {};
   for (const id of Array.from(allTreeIds)) {
     const pParents = parentsOf(id);
@@ -457,6 +560,47 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
 }
 
 // ----------------------------------------------------------------------------
+// WRITE HELPERS (relational)
+// ----------------------------------------------------------------------------
+
+async function insertLinkRow(supabase: any, ctx: Ctx, link: Link, actor: string) {
+  const from = uuidOf(ctx, "person", link.from_id);
+  const to = uuidOf(ctx, "person", link.to_id);
+  if (!from || !to) throw new ApiError("Person not found in database", 500);
+  const { data, error } = await supabase
+    .from("vanshawali_relationships")
+    .insert({
+      legacy_id: link.id,
+      from_person_id: from,
+      to_person_id: to,
+      relation: link.relation,
+      status: link.status,
+      proposed_by: actor,
+    })
+    .select("id")
+    .single();
+  if (error && (error as any).code === "23505") return; // pehle se hai
+  fail(error, "Saving relation");
+  if (data?.id) ctx.linkUuid.set(link.id, data.id);
+}
+
+/** Link ko chhune (remove/edit relation) ka haq */
+function canTouchLink(
+  link: Link,
+  store: Store,
+  near: Set<string>,
+  session: { userId: string; role: string }
+): boolean {
+  if (session.role === "super_admin") return true;
+  if (link.proposed_by === session.userId) return true;
+  if (!near.has(link.from_id) || !near.has(link.to_id)) return false;
+  const a = store.persons.find((p) => p.id === link.from_id);
+  const b = store.persons.find((p) => p.id === link.to_id);
+  // do registered members ke beech ka link sirf proposer/super admin hata sakta hai
+  return !(a?.user_id && b?.user_id);
+}
+
+// ----------------------------------------------------------------------------
 // API ROUTE HANDLERS
 // ----------------------------------------------------------------------------
 
@@ -464,26 +608,71 @@ export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const userId = request.nextUrl.searchParams.get("userId") || session.userId;
   const supabase = createAdminClient();
-  const { store, isRelational } = await loadStore(supabase);
-
-  const centre = await ensurePersonForUser(store, supabase, userId, isRelational);
-  await persistStore(supabase, store, session.userId, isRelational);
-
+  const { store, isRelational, ctx } = await loadStore(supabase);
   const isStaff = ["volunteer", "core_committee", "super_admin"].includes(session.role);
+
+  // GET ?pending=1 -> mere liye approve/reject wale requests
+  if (request.nextUrl.searchParams.get("pending")) {
+    const verifier = ["core_committee", "super_admin"].includes(session.role);
+    const nameOf = (id: string) => store.persons.find((p) => p.id === id)?.display_name || "?";
+    const items = store.links
+      .filter((l) => {
+        if (l.status !== "pending") return false;
+        if (l.proposed_by === session.userId) return false;
+        if (verifier) return true;
+        const a = store.persons.find((p) => p.id === l.from_id);
+        const b = store.persons.find((p) => p.id === l.to_id);
+        return a?.user_id === session.userId || b?.user_id === session.userId;
+      })
+      .map((l) => ({
+        id: l.id,
+        relation: l.relation,
+        from_name: nameOf(l.from_id),
+        to_name: nameOf(l.to_id),
+        proposed_by: l.proposed_by,
+        created_at: l.created_at,
+      }));
+    return NextResponse.json({ items }, { headers: { "Cache-Control": "no-store" } });
+  }
+
+  const userId = request.nextUrl.searchParams.get("userId") || session.userId;
+
+  // Privacy: doosre ka tree sirf wahi dekh sakta hai jo (a) usi city ka ho, (b) rishte se jura ho,
+  // ya (c) staff ho (super admin / core committee kahin bhi, volunteer apni city me).
+  if (userId !== session.userId) {
+    const { data: target } = await supabase.from("users").select("city_id").eq("id", userId).maybeSingle();
+    if (!target) return NextResponse.json({ error: "Member not found" }, { status: 404 });
+    const meP = personOfUser(store, session.userId);
+    const targetP = personOfUser(store, userId);
+    const connected = !!(meP && targetP && neighbourhood(store, meP.id, VIEW_DEPTH).has(targetP.id));
+    const sameCity = !!session.cityId && target.city_id === session.cityId;
+    const staffOk =
+      session.role === "super_admin" ||
+      session.role === "core_committee" ||
+      (session.role === "volunteer" && sameCity);
+    if (!(connected || sameCity || staffOk)) {
+      return NextResponse.json({ error: "Is vanshawali ko dekhne ki anumati nahi hai" }, { status: 403 });
+    }
+  }
+
+  // Doosre ka tree dekhte waqt naya person DB me nahi banate (sirf apna)
+  let centre: Person;
+  try {
+    centre = await ensurePersonForUser(store, ctx, supabase, userId, isRelational, session.userId, userId === session.userId);
+  } catch (e) {
+    if (e instanceof ApiError) return NextResponse.json({ error: e.message }, { status: e.status });
+    throw e;
+  }
+
   const tree = buildTree(store, centre, session.userId, isStaff);
 
-  // Pending links count
   const pending = store.links.filter(
     (l) =>
       l.status === "pending" &&
-      (isStaff ||
-        l.proposed_by === session.userId ||
-        centre.user_id === session.userId)
+      (isStaff || l.proposed_by === session.userId || centre.user_id === session.userId)
   );
 
-  // Retrieve saved positions for this root user
   let positions: Record<string, { x: number; top: number }> = {};
   try {
     const { data: posData } = await supabase
@@ -513,269 +702,312 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const action = body.action || "add";
   const supabase = createAdminClient();
-  const { store, isRelational } = await loadStore(supabase);
-  const isStaff = ["core_committee", "super_admin"].includes(session.role);
+
+  try {
+    return await handlePost(supabase, session, body, action);
+  } catch (e) {
+    if (e instanceof ApiError) return NextResponse.json({ error: e.message }, { status: e.status });
+    console.error("vanshawali POST error:", e);
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+  }
+}
+
+async function handlePost(
+  supabase: any,
+  session: { userId: string; role: string; cityId?: string | null },
+  body: any,
+  action: string
+) {
+  const { store, isRelational, ctx } = await loadStore(supabase);
+  const isVerifier = ["core_committee", "super_admin"].includes(session.role);
   const isSA = session.role === "super_admin";
+  const me = personOfUser(store, session.userId);
+  const near = me ? neighbourhood(store, me.id) : new Set<string>();
 
   // ACTION: VERIFY / REJECT
   if (action === "verify" || action === "reject") {
-    const linkId = body.link_id;
-    const link = store.links.find((l) => l.id === linkId);
-    if (!link) return NextResponse.json({ error: "Link not found" }, { status: 404 });
+    const link = store.links.find((l) => l.id === String(body.link_id || ""));
+    if (!link) throw new ApiError("Link not found", 404);
+    if (link.status !== "pending") throw new ApiError("Ye request pehle hi process ho chuki hai", 409);
 
-    // Anti-self-verification check: proposer cannot self-verify unless staff
-    if (!isStaff && link.proposed_by === session.userId && action === "verify") {
-      return NextResponse.json({ error: "Dusra member / staff verify kare" }, { status: 403 });
+    const a = store.persons.find((p) => p.id === link.from_id);
+    const b = store.persons.find((p) => p.id === link.to_id);
+    const involved = a?.user_id === session.userId || b?.user_id === session.userId;
+    if (link.proposed_by === session.userId && !isVerifier) {
+      throw new ApiError("Dusra member / staff verify kare", 403);
+    }
+    if (!isVerifier && !involved) {
+      throw new ApiError("Sirf jis member ka naam is rishte me hai ya staff verify kar sakta hai", 403);
     }
 
     const newStatus = action === "verify" ? "verified" : "rejected";
-    link.status = newStatus;
-
     if (isRelational) {
-      try {
-        await supabase
-          .from("vanshawali_relationships")
-          .update({
-            status: newStatus,
-            verified_by: session.userId,
-            verified_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .or(`id.eq.${link.id},legacy_id.eq.${link.id}`);
-      } catch (_err) {}
+      const linkUuid = uuidOf(ctx, "link", link.id);
+      if (!linkUuid) throw new ApiError("Link not found in database", 500);
+      const { error } = await supabase
+        .from("vanshawali_relationships")
+        .update({
+          status: newStatus,
+          verified_by: session.userId,
+          verified_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", linkUuid);
+      fail(error, "Updating request");
     }
-
+    const before = { ...link };
+    link.status = newStatus;
     await persistStore(supabase, store, session.userId, isRelational);
+    await audit(supabase, session.userId, action, "link", link.id, before, link);
     return NextResponse.json({ success: true, link });
   }
 
   // ACTION: REMOVE
   if (action === "remove") {
-    const linkId = String(body.link_id || "");
-    const link = store.links.find((l) => l.id === linkId);
-    if (!link) return NextResponse.json({ error: "Link not found" }, { status: 404 });
+    const link = store.links.find((l) => l.id === String(body.link_id || ""));
+    if (!link) throw new ApiError("Link not found", 404);
+    if (!canTouchLink(link, store, near, session)) throw new ApiError("Not allowed to remove", 403);
 
-    const rootUser = String(body.root_user_id || session.userId);
-    const ownsTree = rootUser === session.userId || isSA;
-    const centre = body.centre_person_id
-      ? store.persons.find((p) => p.id === body.centre_person_id)
-      : null;
+    const before = { ...link };
+    store.links = store.links.filter((l) => l.id !== link.id);
 
-    const allowed =
-      ownsTree ||
-      centre?.user_id === session.userId ||
-      link.proposed_by === session.userId;
-    if (!allowed) return NextResponse.json({ error: "Not allowed to remove" }, { status: 403 });
-
-    store.links = store.links.filter((l) => l.id !== linkId);
-
-    // Prune orphan ghosts (no user_id, no remaining links)
     const used = new Set<string>();
     for (const l of store.links) {
       used.add(l.from_id);
       used.add(l.to_id);
     }
-    store.persons = store.persons.filter(
-      (p) => p.user_id || used.has(p.id) || p.created_by === session.userId
-    );
-    store.persons = store.persons.filter((p) => p.user_id != null || used.has(p.id));
+    const orphans = [link.from_id, link.to_id].filter((pid) => {
+      const p = store.persons.find((x) => x.id === pid);
+      return p && !p.user_id && !used.has(pid);
+    });
+    store.persons = store.persons.filter((p) => !orphans.includes(p.id));
 
     if (isRelational) {
-      try {
-        await supabase
-          .from("vanshawali_relationships")
-          .delete()
-          .or(`id.eq.${link.id},legacy_id.eq.${link.id}`);
-
-        // Clean up orphan unregistered persons
-        const orphaned = [link.from_id, link.to_id].filter(
-          (pid) => !used.has(pid)
-        );
-        for (const opId of orphaned) {
-          await supabase
-            .from("vanshawali_persons")
-            .delete()
-            .is("user_id", null)
-            .or(`id.eq.${opId},legacy_id.eq.${opId}`);
-        }
-      } catch (_err) {}
+      const linkUuid = uuidOf(ctx, "link", link.id);
+      if (!linkUuid) throw new ApiError("Link not found in database", 500);
+      const { error } = await supabase.from("vanshawali_relationships").delete().eq("id", linkUuid);
+      fail(error, "Removing relation");
+      for (const opId of orphans) {
+        const pu = uuidOf(ctx, "person", opId);
+        if (!pu) continue;
+        const { error: delErr } = await supabase.from("vanshawali_persons").delete().eq("id", pu).is("user_id", null);
+        fail(delErr, "Cleaning up person");
+      }
     }
-
     await persistStore(supabase, store, session.userId, isRelational);
+    await audit(supabase, session.userId, "remove", "link", link.id, before, null);
     return NextResponse.json({ success: true });
   }
 
-  // ACTION: SAVE_POSITIONS (Permanent arrangement storage)
+  // ACTION: SAVE_POSITIONS (layout sirf tree owner / super admin ka)
   if (action === "save_positions") {
     const rootUser = String(body.root_user_id || session.userId);
-    const ownsTree = rootUser === session.userId || isSA;
-    if (!ownsTree) {
-      return NextResponse.json({ error: "Only tree owner or Super Admin can save arrangement" }, { status: 403 });
+    if (rootUser !== session.userId && !isSA) {
+      throw new ApiError("Only tree owner or Super Admin can save arrangement", 403);
     }
-
     const positions = body.positions as Record<string, { x: number; top: number }> | undefined;
-    if (!positions || typeof positions !== "object") {
-      return NextResponse.json({ error: "positions object required" }, { status: 400 });
+    if (!positions || typeof positions !== "object") throw new ApiError("positions object required");
+    const clean: Record<string, { x: number; top: number }> = {};
+    for (const [k, v] of Object.entries(positions)) {
+      if (v && Number.isFinite(v.x) && Number.isFinite(v.top)) clean[k] = { x: v.x, top: v.top };
     }
-
-    // 1. Always persist to app_settings key vansh_positions:{rootUser}
-    await supabase.from("app_settings").upsert(
+    const { error } = await supabase.from("app_settings").upsert(
       {
         setting_key: `vansh_positions:${rootUser}`,
-        setting_value: positions,
+        setting_value: clean,
         updated_by: session.userId,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "setting_key" }
     );
-
-    // 2. Also update relational table if active
-    if (isRelational) {
-      try {
-        for (const [pId, pos] of Object.entries(positions)) {
-          if (pos && typeof pos.x === "number" && typeof pos.top === "number") {
-            await supabase
-              .from("vanshawali_persons")
-              .update({
-                pos_x: pos.x,
-                pos_y: pos.top,
-                updated_at: new Date().toISOString(),
-              })
-              .or(`id.eq.${pId},legacy_id.eq.${pId}`);
-          }
-        }
-      } catch (_err) {}
-    }
-
-    return NextResponse.json({ success: true, count: Object.keys(positions).length });
+    fail(error, "Saving arrangement");
+    return NextResponse.json({ success: true, count: Object.keys(clean).length });
   }
 
   // ACTION: EDIT
   if (action === "edit") {
-    const personId = String(body.person_id || "");
-    const person = store.persons.find((p) => p.id === personId);
-    if (!person) return NextResponse.json({ error: "Person not found" }, { status: 404 });
+    const person = store.persons.find((p) => p.id === String(body.person_id || ""));
+    if (!person) throw new ApiError("Person not found", 404);
 
-    const rootUser = String(body.root_user_id || session.userId);
-    const ownsTree = rootUser === session.userId || isSA;
+    const isSelf = person.user_id === session.userId;
     const allowed =
-      ownsTree ||
-      person.created_by === session.userId ||
-      (!person.user_id &&
-        store.links.some((l) => {
-          const other = l.from_id === personId ? l.to_id : l.to_id === personId ? l.from_id : null;
-          if (!other) return false;
-          const o = store.persons.find((p) => p.id === other);
-          return o?.user_id === session.userId;
-        }));
-    if (!allowed) return NextResponse.json({ error: "Not allowed to edit" }, { status: 403 });
+      isSA ||
+      isSelf ||
+      (!person.user_id && (person.created_by === session.userId || near.has(person.id)));
+    if (!allowed) throw new ApiError("Not allowed to edit", 403);
 
-    if (body.display_name != null) {
-      const name = String(body.display_name).trim();
-      if (name) person.display_name = name;
-    }
-    if (body.birth_year !== undefined) {
-      const by = body.birth_year ? parseInt(String(body.birth_year), 10) : null;
-      person.birth_year = by && !isNaN(by) ? by : null;
-    }
+    const before = { ...person };
+    if (body.display_name != null) person.display_name = cleanName(body.display_name);
+    if (body.birth_year !== undefined) person.birth_year = cleanBirthYear(body.birth_year);
     if (body.birth_date !== undefined) {
       const bd = body.birth_date ? String(body.birth_date).slice(0, 10) : null;
-      person.birth_date = bd || null;
-      if (bd && /^\d{4}/.test(bd)) {
-        const y = parseInt(bd.slice(0, 4), 10);
-        if (!isNaN(y)) person.birth_year = y;
-      }
+      if (bd && !/^\d{4}-\d{2}-\d{2}$/.test(bd)) throw new ApiError("Date sahi nahi hai");
+      person.birth_date = bd;
+      if (bd) person.birth_year = cleanBirthYear(bd.slice(0, 4));
     }
-    if (body.gender !== undefined) {
-      person.gender = body.gender || null;
-    }
+    if (body.gender !== undefined) person.gender = normGender(body.gender);
+
+    let linkChanged: Link | null = null;
     if (body.relation && body.link_id) {
       const link = store.links.find((l) => l.id === String(body.link_id));
       const rel = String(body.relation).toLowerCase();
-      if (link && ["father", "mother", "spouse", "child"].includes(rel)) {
+      if (link && ["father", "mother", "spouse", "child"].includes(rel) && link.relation !== rel) {
+        if (!canTouchLink(link, store, near, session)) throw new ApiError("Not allowed to change relation", 403);
         link.relation = rel as Link["relation"];
+        linkChanged = link;
       }
     }
 
     if (isRelational) {
-      try {
-        await supabase
-          .from("vanshawali_persons")
-          .update({
-            display_name: person.display_name,
-            birth_year: person.birth_year,
-            birth_date: person.birth_date,
-            gender: person.gender,
-            updated_at: new Date().toISOString(),
-          })
-          .or(`id.eq.${person.id},legacy_id.eq.${person.id}`);
-      } catch (_err) {}
+      const pu = uuidOf(ctx, "person", person.id);
+      if (!pu) throw new ApiError("Person not found in database", 500);
+      const { error } = await supabase
+        .from("vanshawali_persons")
+        .update({
+          display_name: person.display_name,
+          birth_year: person.birth_year,
+          birth_date: person.birth_date,
+          gender: person.gender,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", pu);
+      fail(error, "Saving person");
+      if (linkChanged) {
+        const lu = uuidOf(ctx, "link", linkChanged.id);
+        if (lu) {
+          const { error: lErr } = await supabase
+            .from("vanshawali_relationships")
+            .update({ relation: linkChanged.relation, updated_at: new Date().toISOString() })
+            .eq("id", lu);
+          fail(lErr, "Saving relation");
+        }
+      }
     }
-
     await persistStore(supabase, store, session.userId, isRelational);
+    await audit(supabase, session.userId, "edit", "person", person.id, before, person);
     return NextResponse.json({ success: true, person });
   }
 
   // ACTION: ADD
   let centre: Person;
-  const rootUser = String(body.root_user_id || body.centre_user_id || session.userId);
-  const ownsTree = rootUser === session.userId || isSA;
   if (body.centre_person_id) {
     const found = store.persons.find((p) => p.id === String(body.centre_person_id));
-    if (!found) return NextResponse.json({ error: "Centre person not found" }, { status: 404 });
-    if (!ownsTree) {
-      return NextResponse.json({ error: "Only own tree (or Super Admin)" }, { status: 403 });
-    }
+    if (!found) throw new ApiError("Centre person not found", 404);
+    if (!isSA && !near.has(found.id)) throw new ApiError("Sirf apne tree me jod sakte ho", 403);
     centre = found;
   } else {
-    const centreUserId = body.centre_user_id || session.userId;
-    if (centreUserId !== session.userId && !isSA) {
-      return NextResponse.json({ error: "Only own tree (or Super Admin)" }, { status: 403 });
-    }
-    centre = await ensurePersonForUser(store, supabase, centreUserId, isRelational);
+    const centreUserId = String(body.centre_user_id || session.userId);
+    if (centreUserId !== session.userId && !isSA) throw new ApiError("Only own tree (or Super Admin)", 403);
+    centre = await ensurePersonForUser(store, ctx, supabase, centreUserId, isRelational, session.userId);
   }
 
   const relation = String(body.relation || "").toLowerCase() as Link["relation"];
   if (!["father", "mother", "spouse", "child"].includes(relation)) {
-    return NextResponse.json({ error: "relation: father|mother|spouse|child" }, { status: 400 });
+    throw new ApiError("relation: father|mother|spouse|child");
   }
 
-  let other: Person | null = null;
+  // father/mother ek hi ho sakte hain
+  if (relation === "father" || relation === "mother") {
+    const exists = store.links.some(
+      (l) => l.relation === relation && l.to_id === centre.id && l.status !== "rejected"
+    );
+    if (exists) throw new ApiError(relation === "father" ? "Father pehle se jod diya gaya hai" : "Mother pehle se jod di gayi hai", 409);
+  }
+
+  let other: Person;
+  let createdNewPerson = false;
   if (body.member_user_id) {
-    // Check if member_user_id matches a user ID or an existing person ID
     const existingP = store.persons.find(
       (p) => p.id === body.member_user_id || p.user_id === body.member_user_id
     );
     if (existingP) {
       other = existingP;
     } else {
-      other = await ensurePersonForUser(store, supabase, String(body.member_user_id), isRelational);
+      other = await ensurePersonForUser(store, ctx, supabase, String(body.member_user_id), isRelational, session.userId);
     }
   } else {
-    const name = String(body.display_name || "").trim();
-    if (!name) return NextResponse.json({ error: "Name required" }, { status: 400 });
+    const name = cleanName(body.display_name);
     const birth_date = body.birth_date ? String(body.birth_date).slice(0, 10) : null;
-    let birth_year = body.birth_year ? parseInt(String(body.birth_year), 10) : null;
-    if (birth_date && /^\d{4}/.test(birth_date)) {
-      const y = parseInt(birth_date.slice(0, 4), 10);
-      if (!isNaN(y)) birth_year = y;
+    if (birth_date && !/^\d{4}-\d{2}-\d{2}$/.test(birth_date)) throw new ApiError("Date sahi nahi hai");
+    const birth_year = birth_date ? cleanBirthYear(birth_date.slice(0, 4)) : cleanBirthYear(body.birth_year);
+
+    // Gender: father/mother se pakka, spouse = centre ka ulta (agar pata ho), baaki form se
+    let gender = normGender(body.gender);
+    if (relation === "father") gender = "male";
+    else if (relation === "mother") gender = "female";
+    else if (relation === "spouse" && !gender) {
+      if (centre.gender === "male") gender = "female";
+      else if (centre.gender === "female") gender = "male";
     }
+
+    // Apne aas-paas me same naam + same saal ka vyakti pehle se ho to duplicate rokein
+    const dup = store.persons.find(
+      (p) =>
+        near.has(p.id) &&
+        p.display_name.trim().toLowerCase() === name.toLowerCase() &&
+        birth_year != null &&
+        p.birth_year === birth_year
+    );
+    if (dup) throw new ApiError(`"${dup.display_name}" (${birth_year}) pehle se tree me hai`, 409);
+
     other = {
       id: uid(),
       user_id: null,
       display_name: name,
-      gender: body.gender || null,
-      birth_year: birth_year && !isNaN(birth_year) ? birth_year : null,
-      birth_date: birth_date || null,
-      gotra: body.gotra || null,
+      gender,
+      birth_year,
+      birth_date,
+      gotra: body.gotra ? String(body.gotra).trim().slice(0, 60) : null,
       created_by: session.userId,
       created_at: new Date().toISOString(),
     };
-    store.persons.push(other);
+    createdNewPerson = true;
+  }
 
+  if (other.id === centre.id) throw new ApiError("Khud ko khud se nahi jod sakte");
+
+  // Cycle + umar ki sanity (father/mother/child)
+  if (relation === "father" || relation === "mother") {
+    if (isAncestorOf(store, centre.id, other.id)) throw new ApiError("Ye vyakti pehle se is ki santaan hai, parent nahi ban sakta", 409);
+    if (other.birth_year && centre.birth_year && other.birth_year > centre.birth_year - MIN_PARENT_GAP) {
+      throw new ApiError(`Parent ki umar bachche se kam se kam ${MIN_PARENT_GAP} saal zyada honi chahiye`, 409);
+    }
+  } else if (relation === "child") {
+    if (isAncestorOf(store, other.id, centre.id)) throw new ApiError("Ye vyakti pehle se is ka purvaj hai, santaan nahi ban sakta", 409);
+    if (other.birth_year && centre.birth_year && centre.birth_year > other.birth_year - MIN_PARENT_GAP) {
+      throw new ApiError(`Parent ki umar bachche se kam se kam ${MIN_PARENT_GAP} saal zyada honi chahiye`, 409);
+    }
+  }
+
+  const status: Link["status"] = isVerifier ? "verified" : "pending";
+  const mkLink = (from: string, to: string, rel: Link["relation"]): Link => ({
+    id: uid(),
+    from_id: from,
+    to_id: to,
+    relation: rel,
+    status,
+    proposed_by: session.userId,
+    created_at: new Date().toISOString(),
+  });
+
+  let link: Link;
+  if (relation === "father" || relation === "mother") link = mkLink(other.id, centre.id, relation);
+  else if (relation === "spouse") link = mkLink(centre.id, other.id, "spouse");
+  else link = mkLink(centre.id, other.id, "child");
+
+  // same relation dobara nahi
+  const dupEdge = store.links.some(
+    (l) => l.from_id === link.from_id && l.to_id === link.to_id && l.relation === link.relation && l.status !== "rejected"
+  );
+  if (dupEdge) throw new ApiError("Ye rishta pehle se jura hua hai", 409);
+
+  // --- DB writes (pehle person, phir links) ---
+  if (createdNewPerson) {
+    store.persons.push(other);
     if (isRelational) {
-      try {
-        await supabase.from("vanshawali_persons").insert({
+      const { data, error } = await supabase
+        .from("vanshawali_persons")
+        .insert({
           legacy_id: other.id,
           user_id: null,
           display_name: other.display_name,
@@ -784,109 +1016,37 @@ export async function POST(request: NextRequest) {
           birth_date: other.birth_date,
           gotra: other.gotra,
           created_by: session.userId,
-        });
-      } catch (_err) {}
+        })
+        .select("id")
+        .single();
+      fail(error, "Saving person");
+      ctx.personUuid.set(other.id, data.id);
     }
   }
 
-  const status: Link["status"] = isStaff ? "verified" : "pending";
-  let link: Link;
-
-  if (relation === "father" || relation === "mother") {
-    link = {
-      id: uid(),
-      from_id: other.id,
-      to_id: centre.id,
-      relation,
-      status,
-      proposed_by: session.userId,
-      created_at: new Date().toISOString(),
-    };
-  } else if (relation === "spouse") {
-    link = {
-      id: uid(),
-      from_id: centre.id,
-      to_id: other.id,
-      relation: "spouse",
-      status,
-      proposed_by: session.userId,
-      created_at: new Date().toISOString(),
-    };
-  } else {
-    // child
-    link = {
-      id: uid(),
-      from_id: centre.id,
-      to_id: other.id,
-      relation: "child",
-      status,
-      proposed_by: session.userId,
-      created_at: new Date().toISOString(),
-    };
-  }
-
+  const newLinks: Link[] = [link];
   store.links.push(link);
 
-  // Relational edge insertion
-  if (isRelational) {
-    try {
-      // Resolve UUIDs for relational insertion
-      const { data: pFrom } = await supabase
-        .from("vanshawali_persons")
-        .select("id")
-        .or(`id.eq.${link.from_id},legacy_id.eq.${link.from_id}`)
-        .single();
-      const { data: pTo } = await supabase
-        .from("vanshawali_persons")
-        .select("id")
-        .or(`id.eq.${link.to_id},legacy_id.eq.${link.to_id}`)
-        .single();
-
-      if (pFrom && pTo) {
-        await supabase.from("vanshawali_relationships").insert({
-          legacy_id: link.id,
-          from_person_id: pFrom.id,
-          to_person_id: pTo.id,
-          relation: link.relation,
-          status: link.status,
-          proposed_by: session.userId,
-        });
-      }
-    } catch (_err) {}
-  }
-
-  // Dual-parent & co-parent linking: child belongs with spouse AND any co-parent
+  // Child: spouse / co-parent ko bhi parent banao
   if (relation === "child") {
     const coParentIds = new Set<string>();
-    // 1) spouses of centre
     for (const l of store.links) {
-      if (l.relation !== "spouse") continue;
+      if (l.relation !== "spouse" || l.status === "rejected") continue;
       if (l.from_id !== centre.id && l.to_id !== centre.id) continue;
-      if (!(l.status === "verified" || l.proposed_by === session.userId || isStaff)) continue;
       coParentIds.add(l.from_id === centre.id ? l.to_id : l.from_id);
     }
-    // 2) other parents of existing children of centre
     for (const l of store.links) {
-      if (l.relation !== "child" || l.from_id !== centre.id) continue;
-      if (!(l.status === "verified" || l.proposed_by === session.userId || isStaff)) continue;
-      const kidId = l.to_id;
+      if (l.relation !== "child" || l.from_id !== centre.id || l.status === "rejected") continue;
       for (const pl of store.links) {
-        if (pl.to_id !== kidId) continue;
-        if (pl.relation !== "father" && pl.relation !== "mother" && pl.relation !== "child")
-          continue;
-        if (pl.relation === "father" || pl.relation === "mother") {
-          if (pl.from_id !== centre.id) coParentIds.add(pl.from_id);
-        }
+        if (pl.to_id !== l.to_id || pl.status === "rejected") continue;
+        if ((pl.relation === "father" || pl.relation === "mother") && pl.from_id !== centre.id) coParentIds.add(pl.from_id);
       }
     }
-    // 3) if centre is father/mother of someone, co-parent on same child
     for (const l of store.links) {
-      if ((l.relation === "father" || l.relation === "mother") && l.from_id === centre.id) {
-        const kidId = l.to_id;
+      if ((l.relation === "father" || l.relation === "mother") && l.from_id === centre.id && l.status !== "rejected") {
         for (const pl of store.links) {
-          if (pl.to_id !== kidId) continue;
-          if (pl.relation !== "father" && pl.relation !== "mother") continue;
-          if (pl.from_id !== centre.id) coParentIds.add(pl.from_id);
+          if (pl.to_id !== l.to_id || pl.status === "rejected") continue;
+          if ((pl.relation === "father" || pl.relation === "mother") && pl.from_id !== centre.id) coParentIds.add(pl.from_id);
         }
       }
     }
@@ -894,104 +1054,60 @@ export async function POST(request: NextRequest) {
       if (spouseId === other.id || spouseId === centre.id) continue;
       const already = store.links.some(
         (l) =>
-          (l.relation === "child" && l.from_id === spouseId && l.to_id === other.id) ||
-          ((l.relation === "father" || l.relation === "mother") &&
-            l.from_id === spouseId &&
-            l.to_id === other.id)
+          l.from_id === spouseId && l.to_id === other.id &&
+          (l.relation === "child" || l.relation === "father" || l.relation === "mother") && l.status !== "rejected"
       );
       if (already) continue;
-      const coLink: Link = {
-        id: uid(),
-        from_id: spouseId,
-        to_id: other.id,
-        relation: "child",
-        status,
-        proposed_by: session.userId,
-        created_at: new Date().toISOString(),
-      };
+      const coLink = mkLink(spouseId, other.id, "child");
       store.links.push(coLink);
-
-      if (isRelational) {
-        try {
-          const { data: pSpouse } = await supabase
-            .from("vanshawali_persons")
-            .select("id")
-            .or(`id.eq.${spouseId},legacy_id.eq.${spouseId}`)
-            .single();
-          const { data: pOther } = await supabase
-            .from("vanshawali_persons")
-            .select("id")
-            .or(`id.eq.${other.id},legacy_id.eq.${other.id}`)
-            .single();
-          if (pSpouse && pOther) {
-            await supabase.from("vanshawali_relationships").insert({
-              legacy_id: coLink.id,
-              from_person_id: pSpouse.id,
-              to_person_id: pOther.id,
-              relation: "child",
-              status,
-              proposed_by: session.userId,
-            });
-          }
-        } catch (_err) {}
-      }
+      newLinks.push(coLink);
     }
   }
 
-  // If adding spouse to someone who already has children, link new spouse → those children
+  // Spouse: naye spouse ko centre ke existing bachchon se bhi jodo
   if (relation === "spouse") {
-    const kids = store.links.filter(
-      (l) =>
-        l.relation === "child" &&
-        l.from_id === centre.id &&
-        (l.status === "verified" || l.proposed_by === session.userId || isStaff)
-    );
+    const kids = store.links.filter((l) => l.relation === "child" && l.from_id === centre.id && l.status !== "rejected");
     for (const kl of kids) {
       const already = store.links.some(
-        (l) =>
-          l.relation === "child" &&
-          l.from_id === other.id &&
-          l.to_id === kl.to_id
+        (l) => l.relation === "child" && l.from_id === other.id && l.to_id === kl.to_id && l.status !== "rejected"
       );
       if (already) continue;
-      const spouseKidLink: Link = {
-        id: uid(),
-        from_id: other.id,
-        to_id: kl.to_id,
-        relation: "child",
-        status,
-        proposed_by: session.userId,
-        created_at: new Date().toISOString(),
-      };
-      store.links.push(spouseKidLink);
+      const kidLink = mkLink(other.id, kl.to_id, "child");
+      store.links.push(kidLink);
+      newLinks.push(kidLink);
+    }
+  }
 
-      if (isRelational) {
-        try {
-          const { data: pOther } = await supabase
-            .from("vanshawali_persons")
-            .select("id")
-            .or(`id.eq.${other.id},legacy_id.eq.${other.id}`)
-            .single();
-          const { data: pKid } = await supabase
-            .from("vanshawali_persons")
-            .select("id")
-            .or(`id.eq.${kl.to_id},legacy_id.eq.${kl.to_id}`)
-            .single();
-          if (pOther && pKid) {
-            await supabase.from("vanshawali_relationships").insert({
-              legacy_id: spouseKidLink.id,
-              from_person_id: pOther.id,
-              to_person_id: pKid.id,
-              relation: "child",
-              status,
-              proposed_by: session.userId,
-            });
-          }
-        } catch (_err) {}
+  if (isRelational) {
+    try {
+      for (const l of newLinks) await insertLinkRow(supabase, ctx, l, session.userId);
+    } catch (e) {
+      // Person bana ho aur link fail ho to adhoora (ghost) person na bache
+      if (createdNewPerson) {
+        const pu = uuidOf(ctx, "person", other.id);
+        if (pu) await supabase.from("vanshawali_persons").delete().eq("id", pu).is("user_id", null);
       }
+      throw e;
     }
   }
 
   await persistStore(supabase, store, session.userId, isRelational);
+  await audit(supabase, session.userId, "add", "link", link.id, null, { link, person: other, extra_links: newLinks.length - 1 });
+
+  // Jis registered member ko jodha gaya use batao (approve karne ke liye)
+  if (status === "pending" && other.user_id && other.user_id !== session.userId) {
+    try {
+      await supabase.from("notifications").insert({
+        user_id: other.user_id,
+        title: "वंशावली: रिश्ते की request / Vanshawali request",
+        body: `${centre.display_name} ne aapko apni vanshawali me ${relation} ke roop me jodna chaha. Approve ya reject karne ke liye Vanshawali > Requests kholein.`.slice(0, 300),
+        type: "vansh_request",
+        ref_id: null,
+        is_read: false,
+      });
+    } catch {
+      /* optional */
+    }
+  }
   return NextResponse.json({ success: true, person: other, link });
 }
