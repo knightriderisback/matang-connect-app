@@ -26,7 +26,7 @@
     "arthik": "Economic Growth",
     "scan": "QR Scanner",
     "badges": "Credits & Badges",
-    "vanshawali": "Vanshawali Tree",
+    "vanshawali": "Vanshawali",
     "gaurav": "Matang Gaurav",
     "rides": "Rides Sharing",
     "titles": "City Titles",
@@ -335,7 +335,7 @@
     "noAlerts": "No active emergency alerts at this time."
   },
   "vanshawali": {
-    "title": "Vanshawali Tree",
+    "title": "Vanshawali",
     "subtitle": "Generational ancestry and lineage chart",
     "searchPerson": "Search person in family...",
     "addRelative": "Add Relative",

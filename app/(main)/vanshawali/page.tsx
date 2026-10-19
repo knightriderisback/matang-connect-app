@@ -1745,7 +1745,6 @@ function VanshawaliInner() {
         <div className="flex justify-center w-full px-14">
           <div className="vansh-heritage" role="heading" aria-level={1}>
             <p className="vh-title">Vansh Vruksh</p>
-            <p className="vh-sub">Vanshavali</p>
           </div>
         </div>
         <p className="text-[11px] text-gray-500 leading-snug mt-1.5 text-center px-2 max-w-md mx-auto">
@@ -2568,7 +2567,7 @@ function VanshawaliInner() {
                     setSelected(null);
                   }}
                 >
-                  <Focus size={16} className="text-amber-500" /> Open their tree
+                  <Focus size={16} className="text-amber-500" /> {lang === "hi" ? "इनकी वंशावली देखें" : "Open Vanshawali"}
                 </button>
                 <button
                   type="button"

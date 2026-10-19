@@ -312,7 +312,7 @@
     "occupation": "काम-धंधा",
     "about": "मोर बारे म",
     "qrId": "सदस्य QR ID",
-    "familyTree": "वंशावली वृक्ष",
+    "familyTree": "वंशावली",
     "openInDirectory": "निर्देशिका म देखव",
     "changeMpin": "एम-पिन बदलव",
     "logout": "लॉग आउट करव"
@@ -335,7 +335,7 @@
     "noAlerts": "ए समय म कोई विपत अलर्ट नइ हे।"
   },
   "vanshawali": {
-    "title": "वंशावली वृक्ष",
+    "title": "वंशावली",
     "subtitle": "पीढ़ी-दर-पीढ़ी के कुल वृक्ष अउ नाता-गोता",
     "searchPerson": "परिवार म खोजव...",
     "addRelative": "सगा-रिश्तेदार जोड़व",

@@ -26,7 +26,7 @@
     "arthik": "Arthik Vikas",
     "scan": "QR Scanner",
     "badges": "Credits & Badges",
-    "vanshawali": "Vanshawali Tree",
+    "vanshawali": "Vanshawali",
     "gaurav": "Matang Gaurav",
     "rides": "Rides Sharing",
     "titles": "City Titles",
@@ -312,7 +312,7 @@
     "occupation": "Occupation",
     "about": "Mere Baare Me",
     "qrId": "Member QR ID",
-    "familyTree": "Vanshawali Tree",
+    "familyTree": "Vanshawali",
     "openInDirectory": "Directory me dekhein",
     "changeMpin": "M-PIN Change Karein",
     "logout": "Log Out Karein"
@@ -335,7 +335,7 @@
     "noAlerts": "Abhi koi active emergency alert nahi hai."
   },
   "vanshawali": {
-    "title": "Vanshawali Tree",
+    "title": "Vanshawali",
     "subtitle": "Generational ancestry aur lineage chart",
     "searchPerson": "Family me search karein...",
     "addRelative": "Relative Add Karein",

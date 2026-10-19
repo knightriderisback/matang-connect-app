@@ -112,8 +112,8 @@ export default function Vanshawali3D({ rootId, onClose }: { rootId: string; onCl
     let live = true;
     fetch("/api/vanshawali?userId=" + encodeURIComponent(rootId), { cache: "no-store" })
       .then(r => r.json())
-      .then(d => { if (live) { if (!d.tree) throw Error(d.error || "Family tree unavailable"); setTree(d.tree); } })
-      .catch(e => live && setError(e.message || "Could not load family tree"))
+      .then(d => { if (live) { if (!d.tree) throw Error(d.error || "Vanshawali unavailable"); setTree(d.tree); } })
+      .catch(e => live && setError(e.message || "Could not load Vanshawali"))
       .finally(() => live && setLoading(false));
     return () => { live = false; };
   }, [rootId]);

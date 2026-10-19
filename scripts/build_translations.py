@@ -30,7 +30,7 @@ translations = {
             "arthik": "Economic Growth",
             "scan": "QR Scanner",
             "badges": "Credits & Badges",
-            "vanshawali": "Vanshawali Tree",
+            "vanshawali": "Vanshawali",
             "gaurav": "Matang Gaurav",
             "rides": "Rides Sharing",
             "titles": "City Titles",
@@ -339,7 +339,7 @@ translations = {
             "noAlerts": "No active emergency alerts at this time."
         },
         "vanshawali": {
-            "title": "Vanshawali Tree",
+            "title": "Vanshawali",
             "subtitle": "Generational ancestry and lineage chart",
             "searchPerson": "Search person in family...",
             "addRelative": "Add Relative",
@@ -886,7 +886,7 @@ translations = {
             "occupation": "व्यवसाय",
             "about": "मेरे बारे में",
             "qrId": "सदस्य QR ID",
-            "familyTree": "वंशावली वृक्ष",
+            "familyTree": "वंशावली",
             "openInDirectory": "निर्देशिका में देखें",
             "changeMpin": "एम-पिन बदलें",
             "logout": "लॉग आउट करें"
@@ -909,7 +909,7 @@ translations = {
             "noAlerts": "इस समय कोई आपातकालीन अलर्ट नहीं है।"
         },
         "vanshawali": {
-            "title": "वंशावली वृक्ष",
+            "title": "वंशावली",
             "subtitle": "पीढ़ियों का कुल वृक्ष और पारिवारिक संबंध",
             "searchPerson": "परिवार में व्यक्ति खोजें...",
             "addRelative": "रिश्तेदार जोड़ें",
@@ -1456,7 +1456,7 @@ translations = {
             "occupation": "व्यवसाय",
             "about": "माझ्याबद्दल",
             "qrId": "सदस्य QR ID",
-            "familyTree": "वंशावळ वृक्ष",
+            "familyTree": "वंशावळ",
             "openInDirectory": "निर्देशिकेत पहा",
             "changeMpin": "एम-पिन बदला",
             "logout": "लॉग आउट करा"
@@ -1479,7 +1479,7 @@ translations = {
             "noAlerts": "सध्या कोणतीही आपत्कालीन सूचना नाही."
         },
         "vanshawali": {
-            "title": "वंशावळ वृक्ष",
+            "title": "वंशावळ",
             "subtitle": "पिढ्यांची वंशावळ आणि कौटुंबिक नातेसंबंध",
             "searchPerson": "कुटुंबातील व्यक्ती शोधा...",
             "addRelative": "नातेवाईक जोडा",
@@ -2026,7 +2026,7 @@ translations = {
             "occupation": "काम-धंधा",
             "about": "मोर बारे म",
             "qrId": "सदस्य QR ID",
-            "familyTree": "वंशावली वृक्ष",
+            "familyTree": "वंशावली",
             "openInDirectory": "निर्देशिका म देखव",
             "changeMpin": "एम-पिन बदलव",
             "logout": "लॉग आउट करव"
@@ -2049,7 +2049,7 @@ translations = {
             "noAlerts": "ए समय म कोई विपत अलर्ट नइ हे।"
         },
         "vanshawali": {
-            "title": "वंशावली वृक्ष",
+            "title": "वंशावली",
             "subtitle": "पीढ़ी-दर-पीढ़ी के कुल वृक्ष अउ नाता-गोता",
             "searchPerson": "परिवार म खोजव...",
             "addRelative": "सगा-रिश्तेदार जोड़व",
@@ -2310,7 +2310,7 @@ translations = {
             "arthik": "Arthik Vikas",
             "scan": "QR Scanner",
             "badges": "Credits & Badges",
-            "vanshawali": "Vanshawali Tree",
+            "vanshawali": "Vanshawali",
             "gaurav": "Matang Gaurav",
             "rides": "Rides Sharing",
             "titles": "City Titles",
@@ -2596,7 +2596,7 @@ translations = {
             "occupation": "Occupation",
             "about": "Mere Baare Me",
             "qrId": "Member QR ID",
-            "familyTree": "Vanshawali Tree",
+            "familyTree": "Vanshawali",
             "openInDirectory": "Directory me dekhein",
             "changeMpin": "M-PIN Change Karein",
             "logout": "Log Out Karein"
@@ -2619,7 +2619,7 @@ translations = {
             "noAlerts": "Abhi koi active emergency alert nahi hai."
         },
         "vanshawali": {
-            "title": "Vanshawali Tree",
+            "title": "Vanshawali",
             "subtitle": "Generational ancestry aur lineage chart",
             "searchPerson": "Family me search karein...",
             "addRelative": "Relative Add Karein",
