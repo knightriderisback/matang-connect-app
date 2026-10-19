@@ -1731,8 +1731,24 @@ function VanshawaliInner() {
       </div>
 
       <div className="px-3 pt-2 pb-1 relative z-20 pointer-events-none">
-        {/* Heading removed per user request */}
-        <h1 className="sr-only">Vanshawali</h1>
+        {/* User-provided gold "वंशावली" heading image */}
+        <div className="flex justify-center w-full px-16 sm:px-20">
+          <h1 className="sr-only">वंशावली</h1>
+          <img
+            src="/vanshawali-title.png"
+            alt="वंशावली"
+            className="select-none pointer-events-none drop-shadow-sm"
+            draggable={false}
+            style={{
+              width: "auto",
+              maxWidth: "min(52vw, 240px)",
+              maxHeight: "clamp(36px, 8.5vw, 56px)",
+              height: "auto",
+              objectFit: "contain",
+              display: "block",
+            }}
+          />
+        </div>
         <p className="text-[11px] text-gray-500 leading-snug mt-1.5 text-center px-2 max-w-md mx-auto">
           {lang === "hi"
             ? "आपके परिवार की पीढ़ियाँ — ऊपर पूर्वज, बीच में आप, नीचे संतान। हर रेखा एक रिश्ता है।"
