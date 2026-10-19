@@ -1692,63 +1692,10 @@ function VanshawaliInner() {
         }
       `}</style>
 
-      <div className="absolute top-3 left-3 z-[70] flex flex-col gap-1.5 pointer-events-auto">
-        {isSA && !isOwner && (
-          <button
-            type="button"
-            onClick={() => setSaEditMode((v) => !v)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold shadow border ${
-              saEditMode
-                ? "bg-amber-400 text-white border-amber-500"
-                : "bg-white/90 text-gray-600 border-gray-200"
-            }`}
-          >
-            <Pencil size={12} />
-            {saEditMode ? "Edit ON" : "Edit"}
-          </button>
-        )}
-        {(canEdit || isOwnTree || isSA) && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              toggleArrange();
-            }}
-            className={`relative z-[70] flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold shadow border pointer-events-auto ${
-              arrangeMode
-                ? "bg-emerald-500 text-white border-emerald-600"
-                : "bg-white/90 text-gray-600 border-gray-200"
-            }`}
-          >
-            {arrangeMode
-              ? lang === "hi"
-                ? "✓ Save"
-                : "✓ Save"
-              : lang === "hi"
-                ? "Arrange"
-                : "Arrange"}
-          </button>
-        )}
-        {(isOwnTree || isSA || pendingCount > 0) && (
-          <button
-            type="button"
-            onClick={() => router.push("/vanshawali/requests")}
-            className="relative z-[70] flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold shadow border bg-white/90 text-gray-700 border-gray-200 pointer-events-auto hover:bg-white active:scale-95 transition-all"
-          >
-            {lang === "hi" ? "अनुरोध" : "Requests"}
-            {pendingCount > 0 && (
-              <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-bold">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-        )}
-      </div>
-
-      <div className="px-3 pt-2 pb-1 relative z-20 pointer-events-none">
-        {/* User-provided gold "वंशावली" heading image */}
-        <div className="flex justify-center w-full px-20 sm:px-24">
+      {/* Top Header & Action Controls Bar — 100% structured in flow, zero overlap */}
+      <div className="relative z-30 px-3 pt-3 pb-2 bg-[#fafafa]/95 backdrop-blur-xs border-b border-amber-100/70">
+        {/* Tier 1: Centered Gold "वंशावली" Image */}
+        <div className="flex justify-center items-center w-full">
           <h1 className="sr-only">वंशावली</h1>
           <img
             src="/vanshawali-title.png"
@@ -1757,53 +1704,115 @@ function VanshawaliInner() {
             draggable={false}
             style={{
               width: "auto",
-              maxWidth: "min(58vw, 300px)",
-              maxHeight: "clamp(46px, 11vw, 70px)",
+              maxWidth: "min(64vw, 320px)",
+              maxHeight: "clamp(48px, 12vw, 72px)",
               height: "auto",
               objectFit: "contain",
               display: "block",
             }}
           />
         </div>
-        <p className="text-[11px] text-gray-500 leading-snug mt-1.5 text-center px-2 max-w-md mx-auto">
+
+        {/* Tier 2: Subtitle & Mode Badge */}
+        <p className="text-[11px] text-gray-500 leading-snug mt-1 text-center px-4 max-w-lg mx-auto">
           {lang === "hi"
-            ? "आपके परिवार की पीढ़ियाँ — ऊपर पूर्वज, बीच में आप, नीचे संतान। हर रेखा एक रिश्ता है।"
-            : "Your family across generations — ancestors above, you at centre, children below. Every line is a living bond."}
+            ? "आपके परिवार की पीढ़ियाँ — ऊपर पूर्वज, बीच में आप, नीचे संतान।"
+            : "Your family across generations — ancestors above, you at centre, children below."}
+          <span className="inline-block mx-1.5 text-gray-300">·</span>
+          <span className="text-[10px] font-semibold text-amber-800/90">
+            {canEdit ? (lang === "hi" ? "संपादन मोड" : "Edit mode") : (lang === "hi" ? "केवल दर्शन" : "View only")}
+          </span>
         </p>
-        <p className="text-[10px] text-gray-400 text-center mt-0.5">
-          {canEdit ? "Edit mode" : "View only"}
-        </p>
-        {/* Legend overlays — does not push tree layout */}
-        <details className="absolute right-2 top-2 z-[70] max-w-[min(100%,280px)] rounded-xl border border-amber-200/40 bg-transparent px-2.5 py-1.5 text-[10px] text-gray-600 pointer-events-auto">
-          <summary className="cursor-pointer font-semibold text-amber-900/90 text-[11px] list-none">
-            {lang === "hi" ? "◎ गाइड" : "◎ Guide"}
-          </summary>
-          <div className="mt-2 grid grid-cols-1 gap-y-1.5 pb-1 bg-white/15 backdrop-blur-[2px] rounded-lg p-2">
-            <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(245,185,66,0.55)"}} />{lang==="hi"?"आप (Self)":"You (Self)"}</p>
-            <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(255,235,59,0.7)"}} />{lang==="hi"?"भाई / बहन":"Brother / Sister"}</p>
-            <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(244,114,182,0.45)"}} />{lang==="hi"?"पति / पत्नी":"Spouse"}</p>
-            <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(167,139,250,0.5)"}} />{lang==="hi"?"माता-पिता":"Parents"}</p>
-            <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(96,165,250,0.5)"}} />{lang==="hi"?"दादा-दादी / नाना-नानी":"Grandparents"}</p>
-            <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(52,211,153,0.5)"}} />{lang==="hi"?"संतान":"Children"}</p>
-            <p className="flex items-center gap-2 pt-1 border-t border-amber-50/50 mt-1">
-              <span className="w-6 h-0.5 bg-amber-500 rounded" />
-              {lang==="hi"?"सुनहरी = रक्त रिश्ता":"Gold = blood bond"}
-            </p>
-            <p className="flex items-center gap-2">
-              <span className="w-6 h-0.5 bg-yellow-300 rounded" />
-              {lang==="hi"?"पीली = भाई-बहन":"Yellow = siblings"}
-            </p>
-            <p className="flex items-center gap-2">
-              <span className="w-6 h-0.5 border-t-2 border-dashed border-emerald-400" />
-              {lang==="hi"?"हरी धराशायी = विवाह":"Green dashed = marriage"}
-            </p>
-            <p className="text-gray-400 pt-0.5">
-              {lang==="hi"
-                ? "बबल खींचें = float · टैप = मेनू · पिंच = ज़ूम"
-                : "Drag bubble = float · tap = menu · pinch = zoom"}
-            </p>
+
+        {/* Tier 3: Controls Toolbar (Arrange, Requests, Guide) — dedicated horizontal row */}
+        <div className="flex items-center justify-between gap-2 mt-2 max-w-md mx-auto w-full">
+          {/* Action buttons on the left */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {isSA && !isOwner && (
+              <button
+                type="button"
+                onClick={() => setSaEditMode((v) => !v)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold shadow-xs border transition-all active:scale-95 ${
+                  saEditMode
+                    ? "bg-amber-400 text-white border-amber-500 shadow-sm"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                <Pencil size={12} />
+                {saEditMode ? "Edit ON" : "Edit"}
+              </button>
+            )}
+
+            {(canEdit || isOwnTree || isSA) && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleArrange();
+                }}
+                className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold shadow-xs border transition-all active:scale-95 ${
+                  arrangeMode
+                    ? "bg-emerald-500 text-white border-emerald-600 shadow-sm ring-2 ring-emerald-200"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                {arrangeMode
+                  ? lang === "hi" ? "✓ Save" : "✓ Save"
+                  : lang === "hi" ? "Arrange" : "Arrange"}
+              </button>
+            )}
+
+            {(isOwnTree || isSA || pendingCount > 0) && (
+              <button
+                type="button"
+                onClick={() => router.push("/vanshawali/requests")}
+                className="relative flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold shadow-xs border bg-white text-gray-700 border-gray-200 hover:bg-gray-50 active:scale-95 transition-all"
+              >
+                {lang === "hi" ? "अनुरोध" : "Requests"}
+                {pendingCount > 0 && (
+                  <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-bold">
+                    {pendingCount}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
-        </details>
+
+          {/* Guide dropdown anchored to the right */}
+          <div className="relative">
+            <details className="group">
+              <summary className="cursor-pointer font-bold text-amber-900 text-[11px] list-none flex items-center gap-1 px-3 py-1 rounded-full border border-amber-200/80 bg-white hover:bg-amber-50/50 shadow-xs select-none">
+                {lang === "hi" ? "◎ गाइड" : "◎ Guide"}
+              </summary>
+              <div className="absolute right-0 top-full mt-1.5 z-50 w-64 p-3 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-amber-200/90 text-[10px] text-gray-700 space-y-1.5 animate-in fade-in zoom-in-95 duration-100">
+                <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(245,185,66,0.55)"}} />{lang==="hi"?"आप (Self)":"You (Self)"}</p>
+                <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(255,235,59,0.7)"}} />{lang==="hi"?"भाई / बहन":"Brother / Sister"}</p>
+                <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(244,114,182,0.45)"}} />{lang==="hi"?"पति / पत्नी":"Spouse"}</p>
+                <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(167,139,250,0.5)"}} />{lang==="hi"?"माता-पिता":"Parents"}</p>
+                <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(96,165,250,0.5)"}} />{lang==="hi"?"दादा-दादी / नाना-नानी":"Grandparents"}</p>
+                <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(52,211,153,0.5)"}} />{lang==="hi"?"संतान":"Children"}</p>
+                <p className="flex items-center gap-2 pt-1 border-t border-amber-100 mt-1">
+                  <span className="w-6 h-0.5 bg-amber-500 rounded" />
+                  {lang==="hi"?"सुनहरी = रक्त रिश्ता":"Gold = blood bond"}
+                </p>
+                <p className="flex items-center gap-2">
+                  <span className="w-6 h-0.5 bg-yellow-300 rounded" />
+                  {lang==="hi"?"पीली = भाई-बहन":"Yellow = siblings"}
+                </p>
+                <p className="flex items-center gap-2">
+                  <span className="w-6 h-0.5 border-t-2 border-dashed border-emerald-400" />
+                  {lang==="hi"?"हरी धराशायी = विवाह":"Green dashed = marriage"}
+                </p>
+                <p className="text-gray-400 pt-0.5">
+                  {lang==="hi"
+                    ? "बबल खींचें = float · टैप = मेनू · पिंच = ज़ूम"
+                    : "Drag bubble = float · tap = menu · pinch = zoom"}
+                </p>
+              </div>
+            </details>
+          </div>
+        </div>
       </div>
 
       {loading && <p className="text-center text-gray-400 py-20">Loading…</p>}
@@ -1814,44 +1823,47 @@ function VanshawaliInner() {
           className="flex-1 overflow-hidden pb-36 w-full relative touch-none"
           style={{ minHeight: "55vh" }}
         >
-          {/* Zoom toolbar */}
-          <div className="absolute bottom-28 right-3 z-30 flex flex-col items-center gap-1.5">
+          {/* Compact Zoom Toolbar — sleek dock at bottom-right, takes zero vertical canvas space */}
+          <div className="absolute bottom-20 right-3 z-30 flex items-center bg-white/95 backdrop-blur-md rounded-full shadow-lg border border-amber-200/90 px-1.5 py-1 gap-1">
             <button
               type="button"
-              onClick={() => zoomBy(ZOOM_STEP)}
-              className="w-10 h-10 rounded-full bg-white/95 border border-amber-200 shadow-md flex items-center justify-center text-amber-700 active:scale-95"
-              aria-label="Zoom in"
+              onClick={() => zoomBy(-ZOOM_STEP)}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-amber-800 hover:bg-amber-100/60 active:scale-95 transition-all cursor-pointer"
+              aria-label="Zoom out"
+              title="Zoom out (-)"
             >
-              <ZoomIn size={18} />
+              <ZoomOut size={16} />
             </button>
-            <span className="text-[10px] font-bold text-amber-800/80 bg-white/90 px-1.5 py-0.5 rounded-md border border-amber-100 tabular-nums">
+            <span className="text-[10px] font-bold text-amber-900/90 px-1 tabular-nums min-w-[34px] text-center select-none">
               {Math.round(zoom * 100)}%
             </span>
             <button
               type="button"
-              onClick={() => zoomBy(-ZOOM_STEP)}
-              className="w-10 h-10 rounded-full bg-white/95 border border-amber-200 shadow-md flex items-center justify-center text-amber-700 active:scale-95"
-              aria-label="Zoom out"
+              onClick={() => zoomBy(ZOOM_STEP)}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-amber-800 hover:bg-amber-100/60 active:scale-95 transition-all cursor-pointer"
+              aria-label="Zoom in"
+              title="Zoom in (+)"
             >
-              <ZoomOut size={18} />
+              <ZoomIn size={16} />
             </button>
+            <div className="w-[1px] h-4 bg-amber-200/80 mx-0.5" />
             <button
               type="button"
               onClick={fitAll}
-              className="w-10 h-10 rounded-full bg-white/95 border border-amber-200 shadow-md flex items-center justify-center text-amber-700 active:scale-95"
-              aria-label="Fit all"
-              title="Fit"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-amber-800 hover:bg-amber-100/60 active:scale-95 transition-all cursor-pointer"
+              aria-label="Fit to screen"
+              title="Fit to screen"
             >
-              <Maximize2 size={16} />
+              <Maximize2 size={15} />
             </button>
             <button
               type="button"
               onClick={zoomReset}
-              className="w-10 h-10 rounded-full bg-white/95 border border-amber-200 shadow-md flex items-center justify-center text-amber-700 active:scale-95"
-              aria-label="Reset 100%"
-              title="100%"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-amber-800 hover:bg-amber-100/60 active:scale-95 transition-all cursor-pointer"
+              aria-label="Reset to self"
+              title="Reset to 100%"
             >
-              <Home size={16} />
+              <Home size={15} />
             </button>
           </div>
           <div
@@ -2341,7 +2353,7 @@ function VanshawaliInner() {
       {/* ADD sheet with search */}
       {draft && canEdit && (
         <div
-          className="fixed inset-0 z-50 bg-black/30 flex items-end sm:items-center justify-center"
+          className="fixed inset-0 z-[100] bg-black/40 flex items-end sm:items-center justify-center backdrop-blur-xs"
           onClick={() => setDraft(null)}
         >
           <div
@@ -2480,7 +2492,7 @@ function VanshawaliInner() {
 
       {editDraft && canEdit && (
         <div
-          className="fixed inset-0 z-50 bg-black/30 flex items-end sm:items-center justify-center"
+          className="fixed inset-0 z-[100] bg-black/40 flex items-end sm:items-center justify-center backdrop-blur-xs"
           onClick={() => setEditDraft(null)}
         >
           <div
@@ -2562,7 +2574,7 @@ function VanshawaliInner() {
       {/* Node actions */}
       {selected && (
         <div
-          className="fixed inset-0 z-50 bg-black/25 flex items-end sm:items-center justify-center"
+          className="fixed inset-0 z-[100] bg-black/40 flex items-end sm:items-center justify-center backdrop-blur-xs"
           onClick={() => setSelected(null)}
         >
           <div
