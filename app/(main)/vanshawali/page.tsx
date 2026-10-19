@@ -1731,12 +1731,8 @@ function VanshawaliInner() {
       </div>
 
       <div className="px-3 pt-2 pb-1 relative z-20 pointer-events-none">
-        {/* Heritage letters — centre; does not capture clicks over Arrange */}
-        <div className="flex justify-center w-full px-14">
-          <div className="vansh-heritage" role="heading" aria-level={1}>
-            <p className="vh-title">Vansh Vruksh</p>
-          </div>
-        </div>
+        {/* Heading removed per user request */}
+        <h1 className="sr-only">Vanshawali</h1>
         <p className="text-[11px] text-gray-500 leading-snug mt-1.5 text-center px-2 max-w-md mx-auto">
           {lang === "hi"
             ? "आपके परिवार की पीढ़ियाँ — ऊपर पूर्वज, बीच में आप, नीचे संतान। हर रेखा एक रिश्ता है।"
