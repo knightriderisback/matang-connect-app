@@ -377,6 +377,7 @@ function VanshawaliInner() {
   const [isOwner, setIsOwner] = useState(false);
   const [saEditMode, setSaEditMode] = useState(false);
   const [selected, setSelected] = useState<Node | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
 
   // add form
   const [draft, setDraft] = useState<{
@@ -429,6 +430,7 @@ function VanshawaliInner() {
         setApiCanEdit(!!d.can_edit);
         setIsSA(!!d.is_super_admin);
         setIsOwner(!!d.is_owner);
+        setPendingCount(Number(d.pending_count) || 0);
         if (d.positions && Object.keys(d.positions).length > 0) {
           setFloatPos(d.positions);
           if (typeof window !== "undefined") {
@@ -1728,21 +1730,35 @@ function VanshawaliInner() {
                 : "Arrange"}
           </button>
         )}
+        {(isOwnTree || isSA || pendingCount > 0) && (
+          <button
+            type="button"
+            onClick={() => router.push("/vanshawali/requests")}
+            className="relative z-[70] flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold shadow border bg-white/90 text-gray-700 border-gray-200 pointer-events-auto hover:bg-white active:scale-95 transition-all"
+          >
+            {lang === "hi" ? "अनुरोध" : "Requests"}
+            {pendingCount > 0 && (
+              <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-bold">
+                {pendingCount}
+              </span>
+            )}
+          </button>
+        )}
       </div>
 
       <div className="px-3 pt-2 pb-1 relative z-20 pointer-events-none">
         {/* User-provided gold "वंशावली" heading image */}
-        <div className="flex justify-center w-full px-16 sm:px-20">
+        <div className="flex justify-center w-full px-20 sm:px-24">
           <h1 className="sr-only">वंशावली</h1>
           <img
             src="/vanshawali-title.png"
             alt="वंशावली"
-            className="select-none pointer-events-none drop-shadow-sm"
+            className="select-none pointer-events-none drop-shadow-md"
             draggable={false}
             style={{
               width: "auto",
-              maxWidth: "min(52vw, 240px)",
-              maxHeight: "clamp(36px, 8.5vw, 56px)",
+              maxWidth: "min(58vw, 300px)",
+              maxHeight: "clamp(46px, 11vw, 70px)",
               height: "auto",
               objectFit: "contain",
               display: "block",
