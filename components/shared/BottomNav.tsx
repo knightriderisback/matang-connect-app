@@ -55,23 +55,25 @@ export function BottomNav() {
               onClick={() => router.push(item.href)}
               className={cn(
                 "relative flex flex-col items-center justify-center flex-1 h-full py-1 transition-all select-none cursor-pointer active:scale-95",
-                active ? "text-matang-navy font-bold" : "text-gray-500 hover:text-gray-800"
+                active ? "text-matang-gold font-bold" : "text-gray-500 hover:text-gray-800"
               )}
             >
-              <div className="relative">
+              <div
+                className={cn(
+                  "relative flex items-center justify-center px-3.5 py-0.5 rounded-full transition-all",
+                  active ? "bg-matang-gold/15 text-matang-gold" : "text-gray-500"
+                )}
+              >
                 <item.icon
                   size={20}
-                  strokeWidth={active ? 2.5 : 1.8}
-                  className={active ? "text-matang-navy" : "text-gray-500"}
+                  strokeWidth={active ? 2.4 : 1.8}
+                  className={active ? "text-matang-gold" : "text-gray-500"}
                 />
-                {active && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-matang-gold shadow-xs" />
-                )}
               </div>
               <span
                 className={cn(
-                  "text-[11px] leading-tight mt-1 tracking-tight truncate max-w-[80px]",
-                  active ? "font-bold text-matang-navy" : "font-medium text-gray-500"
+                  "text-[11px] leading-tight mt-0.5 tracking-tight truncate max-w-[80px]",
+                  active ? "font-bold text-matang-gold" : "font-medium text-gray-500"
                 )}
               >
                 {item.label}

@@ -1619,17 +1619,7 @@ function VanshawaliInner() {
           z-index: 0;
           user-select: none;
         }
-        .vansh-logo-seal {
-          position: absolute;
-          right: 10px;
-          bottom: 100px;
-          width: 48px;
-          height: auto;
-          opacity: 0.11;
-          pointer-events: none;
-          z-index: 0;
-          user-select: none;
-        }
+
         /* Heritage 3D gold lettering — no plate */
         .vansh-heritage {
           text-align: center;
@@ -1991,17 +1981,7 @@ function VanshawaliInner() {
                 transform: "translate(-50%, -50%)",
               }}
             />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.png"
-              alt=""
-              className="vansh-logo-seal"
-              draggable={false}
-              style={{
-                left: W - 56,
-                top: H - 56,
-              }}
-            />
+
             <svg className="absolute inset-0 pointer-events-none" width={W} height={H}>
               {/* EXTRA marriage bonds — light green, couples only */}
               {marriagePairs.map((mp, i) => {
