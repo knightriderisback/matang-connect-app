@@ -48,7 +48,25 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
-import { Plus, Trash2, X, Focus, User, Pencil, Search, ZoomIn, ZoomOut, Maximize2, Home } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  Plus,
+  Trash2,
+  X,
+  Focus,
+  User,
+  Pencil,
+  Search,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Home,
+  Share2,
+  HeartHandshake,
+  TreePine,
+  ListFilter,
+  ChevronRight,
+} from "lucide-react";
 
 type Node = {
   id: string;
@@ -257,8 +275,67 @@ function undock(cx: number, topY: number, dir: "up" | "down"): { x: number; y: n
   return { x: cx, y };
 }
 
-function nameW(name: string, max = 148) {
-  return Math.min(max, Math.max(56, Math.round(Math.max((name || "?").length, 3) * 7.4 + 24)));
+function nameW(name: string, max = 175) {
+  const clean = (name || "?").replace(/^(स्व\.|late|sw\.)\s*/i, "");
+  return Math.min(max, Math.max(90, Math.round(Math.max(clean.length, 3) * 7.4 + 48)));
+}
+
+function getRelationshipExplanation(
+  n: Node,
+  tree: Tree | null,
+  lang: string
+): string {
+  const isHi = lang === "hi";
+  if (!tree) return n.display_name;
+  if (n.id === tree.centre.id || n.relation === "self") {
+    return isHi ? "आप स्वयं (मुख्य वंशावली प्रोफाइल)" : "You (Self / Main Profile)";
+  }
+  const sex = resolveSex(n.gender, n.relation);
+  const rel = (n.relation || "").toLowerCase();
+
+  if (rel === "father") {
+    return isHi ? "आपके पूज्य पिता जी" : "Your Respected Father";
+  }
+  if (rel === "mother") {
+    return isHi ? "आपकी पूज्य माता जी" : "Your Respected Mother";
+  }
+  if (rel === "spouse") {
+    return sex === "F"
+      ? isHi ? "आपकी धर्मपत्नी (Wife)" : "Your Wife"
+      : isHi ? "आपके पति (Husband)" : "Your Husband";
+  }
+  if (rel === "sibling" || rel === "brother" || rel === "sister") {
+    return sex === "F"
+      ? isHi ? "आपकी बहन (Sister)" : "Your Sister"
+      : isHi ? "आपके भाई (Brother)" : "Your Brother";
+  }
+  if (rel === "child" || rel === "son" || rel === "daughter") {
+    return sex === "F"
+      ? isHi ? "आपकी सुपुत्री (Daughter)" : "Your Daughter"
+      : isHi ? "आपके सुपुत्र (Son)" : "Your Son";
+  }
+  if (rel === "grandfather") {
+    const fatherId = (tree.parents || []).find((p) => p.relation === "father")?.id;
+    if (n.via_id && n.via_id === fatherId) {
+      return isHi ? "आपके दादा जी (पिताजी के पिता)" : "Your Paternal Grandfather";
+    }
+    return isHi ? "आपके नाना जी / दादा जी" : "Your Grandfather";
+  }
+  if (rel === "grandmother") {
+    const fatherId = (tree.parents || []).find((p) => p.relation === "father")?.id;
+    if (n.via_id && n.via_id === fatherId) {
+      return isHi ? "आपकी दादी जी (पिताजी की माता)" : "Your Paternal Grandmother";
+    }
+    return isHi ? "आपकी नानी जी / दादी जी" : "Your Grandmother";
+  }
+  if (rel === "grandchild") {
+    return sex === "F"
+      ? isHi ? "आपकी पोती / नातिन (Granddaughter)" : "Your Granddaughter"
+      : isHi ? "आपके पोते / नाती (Grandson)" : "Your Grandson";
+  }
+  return isHi
+    ? `आपके परिवार के सदस्य (${lbl(lang, n.relation, n.gender)})`
+    : `Family Member (${lbl(lang, n.relation, n.gender)})`;
 }
 
 /** Even slots inside [pad, W-pad], never outside screen */
@@ -378,6 +455,12 @@ function VanshawaliInner() {
   const [saEditMode, setSaEditMode] = useState(false);
   const [selected, setSelected] = useState<Node | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
+
+  // New UX: Dual view (Tree / List), Search, Highlight, Late/Deceased toggle
+  const [viewMode, setViewMode] = useState<"tree" | "list">("tree");
+  const [treeSearch, setTreeSearch] = useState("");
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [isDeceasedDraft, setIsDeceasedDraft] = useState(false);
 
   // add form
   const [draft, setDraft] = useState<{
@@ -592,6 +675,11 @@ function VanshawaliInner() {
       );
       return;
     }
+    const rawName = draft.name.trim();
+    const finalDisplayName =
+      isDeceasedDraft && rawName && !/^(स्व\.|late|sw\.)/i.test(rawName)
+        ? `स्व. ${rawName}`
+        : rawName;
     setSaving(true);
     try {
       const res = await fetch("/api/vanshawali", {
@@ -603,7 +691,7 @@ function VanshawaliInner() {
           centre_person_id: draft.centre_person_id || undefined,
           root_user_id: rootId,
           relation: draft.relation === "sibling" ? "child" : draft.relation,
-          display_name: draft.name.trim() || undefined,
+          display_name: finalDisplayName || undefined,
           birth_year: draft.birth_year || null,
           birth_date: draft.birth_date || null,
           member_user_id: draft.member_user_id || null,
@@ -629,6 +717,11 @@ function VanshawaliInner() {
       toast("Name required", "error");
       return;
     }
+    const rawName = editDraft.name.trim();
+    const finalDisplayName =
+      isDeceasedDraft && rawName && !/^(स्व\.|late|sw\.)/i.test(rawName)
+        ? `स्व. ${rawName}`
+        : rawName;
     setSaving(true);
     try {
       const res = await fetch("/api/vanshawali", {
@@ -639,7 +732,7 @@ function VanshawaliInner() {
           root_user_id: rootId,
           person_id: editDraft.person_id,
           link_id: editDraft.link_id || undefined,
-          display_name: editDraft.name.trim(),
+          display_name: finalDisplayName,
           birth_year: editDraft.birth_year || null,
           birth_date: editDraft.birth_date || null,
           gender: editDraft.gender || null,
@@ -702,6 +795,7 @@ function VanshawaliInner() {
 
   const openAdd = (relation: string, centrePersonId?: string) => {
     if (!canEdit) return;
+    setIsDeceasedDraft(false);
     setDraft({
       relation,
       centre_person_id: centrePersonId,
@@ -1542,6 +1636,100 @@ function VanshawaliInner() {
     centerSelfOnScreen(1);
   };
 
+  const allTreeMembers = useMemo(() => {
+    if (!tree) return [];
+    const map = new Map<string, Node>();
+    map.set(tree.centre.id, { ...tree.centre, relation: "self" });
+    (tree.parents || []).forEach((n) => map.set(n.id, n));
+    (tree.spouses || []).forEach((n) => map.set(n.id, n));
+    (tree.siblings || []).forEach((n) => map.set(n.id, n));
+    (tree.children || []).forEach((n) => map.set(n.id, n));
+    (tree.grandparents || []).forEach((n) => map.set(n.id, n));
+    (tree.grandchildren || []).forEach((n) => map.set(n.id, n));
+    (tree.levels_up || []).flat().forEach((n) => map.set(n.id, n));
+    (tree.levels_down || []).flat().forEach((n) => map.set(n.id, n));
+    if (tree.spouses_of) {
+      Object.values(tree.spouses_of).flat().forEach((n) => map.set(n.id, n));
+    }
+    if (tree.siblings_of) {
+      Object.values(tree.siblings_of).flat().forEach((n) => map.set(n.id, n));
+    }
+    return Array.from(map.values());
+  }, [tree]);
+
+  const searchMatches = useMemo(() => {
+    const qStr = treeSearch.trim().toLowerCase();
+    if (!qStr) return [];
+    return allTreeMembers.filter(
+      (m) =>
+        m.display_name.toLowerCase().includes(qStr) ||
+        lbl(lang, m.relation, m.gender).toLowerCase().includes(qStr)
+    );
+  }, [treeSearch, allTreeMembers, lang]);
+
+  const focusMember = (n: Node) => {
+    const pos = posById.get(n.id);
+    if (!pos) return;
+    setViewMode("tree");
+    const targetZoom = 1.15;
+    setZoom(targetZoom);
+    setPan({
+      x: vw / 2 - pos.x * targetZoom,
+      y: vh / 2 - (pos.top + BUBBLE_H / 2) * targetZoom,
+    });
+    setHighlightId(n.id);
+    setTimeout(() => setHighlightId(null), 3200);
+  };
+
+  const handleShare = () => {
+    const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+    const personName = tree?.centre.display_name || "Parivar";
+    const text = `${personName} ki Matang Vanshawali (Family Tree) Matang Connect par dekhein: ${shareUrl}`;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      navigator.share({ title: "Matang Vanshawali", text, url: shareUrl }).catch(() => {});
+    } else if (typeof window !== "undefined") {
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
+    }
+  };
+
+  const laneMarkers = useMemo(() => {
+    const lanes: { label: string; icon: string; top: number }[] = [];
+    if (gpPositions.length > 0 && yGpBase > 0) {
+      lanes.push({
+        label: lang === "hi" ? "पूर्वज (दादा-दादी / नाना-नानी)" : "Ancestors (Grandparents)",
+        icon: "🏛️",
+        top: Math.max(10, yGpBase - 18),
+      });
+    }
+    if (parentsSorted.length > 0 && yPar > 0) {
+      lanes.push({
+        label: lang === "hi" ? "माता-पिता की पीढ़ी" : "Parents Generation",
+        icon: "👨‍👩‍👧",
+        top: Math.max(10, yPar - 18),
+      });
+    }
+    lanes.push({
+      label: lang === "hi" ? "आपकी पीढ़ी (Self & Sahodhar)" : "Your Generation (Self & Siblings)",
+      icon: "🌟",
+      top: Math.max(10, yMidPos - 18),
+    });
+    if (children.length > 0 && yChild > 0) {
+      lanes.push({
+        label: lang === "hi" ? "संतान (पुत्र / पुत्री)" : "Children Generation",
+        icon: "👶",
+        top: Math.max(10, yChild - 18),
+      });
+    }
+    if (gcPositions.length > 0 && yGcBase > 0) {
+      lanes.push({
+        label: lang === "hi" ? "पौत्र / दौहित्र (Grandchildren)" : "Grandchildren Generation",
+        icon: "🍼",
+        top: Math.max(10, yGcBase - 18),
+      });
+    }
+    return lanes;
+  }, [gpPositions.length, yGpBase, parentsSorted.length, yPar, yMidPos, children.length, yChild, gcPositions.length, yGcBase, lang]);
+
   const line = "#E8A317";
   const marryLine = "#6EE7B7"; // very light green
 
@@ -1549,15 +1737,58 @@ function VanshawaliInner() {
     n,
     extra,
     gen = "up1",
+    isSelf = false,
   }: {
     n: Node;
     extra?: string;
     gen?: keyof typeof GEN_STYLE;
+    isSelf?: boolean;
   }) => {
-    const st = GEN_STYLE[gen] || GEN_STYLE.up1;
     const isMarried = marriedIdSet.has(n.id);
     const rel = extra || lbl(lang, n.relation, n.gender);
     const born = formatBirth(n);
+    const isLate = /^(स्व\.|late|sw\.)/i.test(n.display_name) || n.status === "deceased";
+    const cleanName = n.display_name.replace(/^(स्व\.|late|sw\.)\s*/i, "");
+    const sex = resolveSex(n.gender, n.relation);
+    const isHighlighted = highlightId === n.id;
+
+    // Elegant unified card theme
+    let borderCls = "border-gray-200/90";
+    let bgCls = "bg-white/95";
+    let textCls = "text-gray-900";
+    let badgeCls = "bg-gray-100 text-gray-700";
+
+    if (isSelf) {
+      borderCls = "border-amber-400 ring-2 ring-amber-300/40";
+      bgCls = "bg-amber-50/90";
+      textCls = "text-amber-950 font-bold";
+      badgeCls = "bg-amber-100/90 text-amber-900 font-semibold";
+    } else if (gen === "spouse") {
+      borderCls = "border-pink-300/90";
+      bgCls = "bg-rose-50/70";
+      textCls = "text-rose-950 font-semibold";
+      badgeCls = "bg-rose-100/80 text-rose-800";
+    } else if (gen === "sibling") {
+      borderCls = "border-amber-200/90";
+      bgCls = "bg-amber-50/60";
+      textCls = "text-amber-950 font-semibold";
+      badgeCls = "bg-amber-100/70 text-amber-900";
+    } else if (gen === "up1" || gen === "up2" || gen === "up3") {
+      borderCls = "border-indigo-200/90";
+      bgCls = "bg-indigo-50/60";
+      textCls = "text-indigo-950 font-semibold";
+      badgeCls = "bg-indigo-100/80 text-indigo-900";
+    } else if (gen === "down1" || gen === "down2") {
+      borderCls = "border-emerald-200/90";
+      bgCls = "bg-emerald-50/60";
+      textCls = "text-emerald-950 font-semibold";
+      badgeCls = "bg-emerald-100/80 text-emerald-900";
+    }
+
+    if (isMarried) {
+      borderCls += " border-emerald-400";
+    }
+
     return (
       <button
         type="button"
@@ -1569,28 +1800,168 @@ function VanshawaliInner() {
           }
           setSelected(n);
         }}
-        className="text-center"
+        className={`group text-left transition-all active:scale-95 ${
+          isHighlighted ? "scale-105 z-30" : ""
+        }`}
       >
-        <span
-          className="inline-flex flex-col items-center px-2.5 py-1 rounded-lg text-[12px] font-semibold leading-tight border whitespace-nowrap backdrop-blur-[3px]"
+        <div
+          className={cn(
+            "flex items-center gap-2 px-2.5 py-1.5 rounded-xl border backdrop-blur-md shadow-sm group-hover:shadow-md transition-all select-none min-h-[42px]",
+            borderCls,
+            bgCls,
+            isHighlighted && "ring-4 ring-amber-400 shadow-xl"
+          )}
           style={{
-            background: st.bg,
-            color: st.text,
-            borderColor: isMarried ? "rgba(52,211,153,0.9)" : st.border,
-            borderStyle: isMarried ? "dashed" : "solid",
-            borderWidth: isMarried ? 2 : 1,
             boxShadow: isMarried
-              ? `${BUBBLE_3D}, 0 0 0 1px rgba(110,231,183,0.25)`
-              : BUBBLE_3D,
+              ? "0 3px 8px rgba(16,185,129,0.15), 0 1px 2px rgba(0,0,0,0.06)"
+              : "0 2px 6px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
           }}
         >
-          <span style={{ textShadow: NAMEPLATE }}>{n.display_name}</span>
-          <span className="text-[9px] font-medium opacity-80 mt-0.5" style={{ textShadow: NAMEPLATE }}>
-            {rel}
-            {born ? ` · ${born}` : ""}
-          </span>
-        </span>
+          {/* Avatar / Photo */}
+          <div className="relative shrink-0">
+            {n.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={n.photo_url}
+                alt=""
+                className="w-7 h-7 rounded-full object-cover border border-white/90 shadow-2xs"
+              />
+            ) : (
+              <div
+                className={cn(
+                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-2xs border border-white/80",
+                  isSelf
+                    ? "bg-amber-400 text-amber-950"
+                    : sex === "F"
+                    ? "bg-rose-200 text-rose-800"
+                    : "bg-indigo-200 text-indigo-800"
+                )}
+              >
+                {cleanName.charAt(0).toUpperCase() || "?"}
+              </div>
+            )}
+            {isLate && (
+              <span
+                className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center text-[8px] shadow-2xs"
+                title={lang === "hi" ? "स्वर्गीय" : "Late"}
+              >
+                🕯️
+              </span>
+            )}
+          </div>
+
+          {/* Details */}
+          <div className="flex flex-col min-w-0 pr-0.5">
+            <div className="flex items-center gap-1">
+              {isLate && (
+                <span className="text-[9px] font-bold text-amber-800 shrink-0">
+                  स्व.
+                </span>
+              )}
+              <span
+                className={cn(
+                  "text-[12px] leading-tight truncate max-w-[125px]",
+                  textCls
+                )}
+              >
+                {cleanName}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 mt-0.5">
+              <span
+                className={cn(
+                  "text-[9px] leading-none px-1.5 py-0.5 rounded-full font-medium truncate max-w-[80px]",
+                  badgeCls
+                )}
+              >
+                {rel}
+              </span>
+              {born && (
+                <span className="text-[9px] text-gray-500 font-medium tabular-nums shrink-0">
+                  {born}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
       </button>
+    );
+  };
+
+  const renderMemberCard = (m: Node, roleLabel?: string) => {
+    const isLate = /^(स्व\.|late|sw\.)/i.test(m.display_name) || m.status === "deceased";
+    const cleanName = m.display_name.replace(/^(स्व\.|late|sw\.)\s*/i, "");
+    const sex = resolveSex(m.gender, m.relation);
+    const isSelf = m.id === tree?.centre.id;
+    const born = formatBirth(m);
+
+    return (
+      <div
+        key={m.id}
+        onClick={() => setSelected(m)}
+        className="flex items-center justify-between p-3 rounded-2xl bg-white border border-gray-100 hover:border-amber-300 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-[0.99]"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="relative shrink-0">
+            {m.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={m.photo_url}
+                alt=""
+                className="w-10 h-10 rounded-full object-cover border border-amber-200"
+              />
+            ) : (
+              <div
+                className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-2xs",
+                  isSelf
+                    ? "bg-amber-400 text-amber-950"
+                    : sex === "F"
+                    ? "bg-rose-100 text-rose-800"
+                    : "bg-indigo-100 text-indigo-800"
+                )}
+              >
+                {cleanName.charAt(0).toUpperCase() || "?"}
+              </div>
+            )}
+            {isLate && (
+              <span className="absolute -bottom-1 -right-1 text-[11px]" title="स्वर्गीय">
+                🕯️
+              </span>
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {isLate && (
+                <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 px-1.5 py-0.2 rounded">
+                  स्व.
+                </span>
+              )}
+              <p className="text-sm font-bold text-gray-900 truncate">{cleanName}</p>
+            </div>
+            <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5">
+              <span className="text-amber-800 font-medium">
+                {roleLabel || lbl(lang, m.relation, m.gender)}
+              </span>
+              {born && <span>· {born}</span>}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              focusMember(m);
+            }}
+            className="text-[11px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 px-2.5 py-1 rounded-full flex items-center gap-1 cursor-pointer"
+          >
+            <TreePine size={11} />
+            <span>{lang === "hi" ? "ट्री में" : "Tree"}</span>
+          </button>
+          <ChevronRight size={16} className="text-gray-400" />
+        </div>
+      </div>
     );
   };
 
@@ -1683,8 +2054,8 @@ function VanshawaliInner() {
       `}</style>
 
       {/* Top Header & Action Controls Bar — 100% structured in flow, zero overlap */}
-      <div className="relative z-30 px-3 pt-3 pb-2 bg-[#fafafa]/95 backdrop-blur-xs border-b border-amber-100/70">
-        {/* Tier 1: Centered Gold "वंशावली" Image */}
+      <div className="relative z-30 px-3 pt-2.5 pb-2 bg-[#fafafa]/95 backdrop-blur-xs border-b border-amber-100/70">
+        {/* Tier 1: Centered Gold "वंशावली" Image — Strictly Preserved */}
         <div className="flex justify-center items-center w-full">
           <h1 className="sr-only">वंशावली</h1>
           <img
@@ -1695,7 +2066,7 @@ function VanshawaliInner() {
             style={{
               width: "auto",
               maxWidth: "min(64vw, 320px)",
-              maxHeight: "clamp(48px, 12vw, 72px)",
+              maxHeight: "clamp(46px, 11vw, 68px)",
               height: "auto",
               objectFit: "contain",
               display: "block",
@@ -1703,111 +2074,314 @@ function VanshawaliInner() {
           />
         </div>
 
-        {/* Tier 2: Subtitle & Mode Badge */}
-        <p className="text-[11px] text-gray-500 leading-snug mt-1 text-center px-4 max-w-lg mx-auto">
-          {lang === "hi"
-            ? "आपके परिवार की पीढ़ियाँ — ऊपर पूर्वज, बीच में आप, नीचे संतान।"
-            : "Your family across generations — ancestors above, you at centre, children below."}
-          <span className="inline-block mx-1.5 text-gray-300">·</span>
-          <span className="text-[10px] font-semibold text-amber-800/90">
-            {canEdit ? (lang === "hi" ? "संपादन मोड" : "Edit mode") : (lang === "hi" ? "केवल दर्शन" : "View only")}
-          </span>
-        </p>
+        {/* Tier 2: View Switcher Pill (Tree View vs Family List) */}
+        <div className="flex items-center justify-center mt-1.5">
+          <div className="inline-flex items-center p-0.5 rounded-full bg-amber-100/70 border border-amber-200/80 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setViewMode("tree")}
+              className={cn(
+                "flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer",
+                viewMode === "tree"
+                  ? "bg-white text-amber-950 shadow-xs"
+                  : "text-amber-800/75 hover:text-amber-950"
+              )}
+            >
+              <TreePine size={13} className="text-amber-600" />
+              <span>{lang === "hi" ? "ट्री व्यू" : "Tree View"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("list")}
+              className={cn(
+                "flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer",
+                viewMode === "list"
+                  ? "bg-white text-amber-950 shadow-xs"
+                  : "text-amber-800/75 hover:text-amber-950"
+              )}
+            >
+              <ListFilter size={13} className="text-amber-600" />
+              <span>{lang === "hi" ? "परिवार सूची" : "Family List"}</span>
+            </button>
+          </div>
+        </div>
 
-        {/* Tier 3: Controls Toolbar (Arrange, Requests, Guide) — dedicated horizontal row */}
-        <div className="flex items-center justify-between gap-2 mt-2 max-w-md mx-auto w-full">
-          {/* Action buttons on the left */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {isSA && !isOwner && (
+        {/* Tier 3: Search Bar & Action Controls Bar */}
+        <div className="mt-2 max-w-lg mx-auto w-full space-y-1.5">
+          {/* Quick member search input with instant jump */}
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-2.5 text-amber-700/60 pointer-events-none" />
+            <input
+              type="text"
+              value={treeSearch}
+              onChange={(e) => setTreeSearch(e.target.value)}
+              placeholder={lang === "hi" ? "परिवार के सदस्य को खोजें..." : "Search family member..."}
+              className="w-full pl-9 pr-8 py-1.5 rounded-full text-xs bg-white border border-amber-200/80 shadow-2xs outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-300 text-gray-800 placeholder-gray-400 transition-all"
+            />
+            {treeSearch && (
               <button
                 type="button"
-                onClick={() => setSaEditMode((v) => !v)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold shadow-xs border transition-all active:scale-95 ${
-                  saEditMode
-                    ? "bg-amber-400 text-white border-amber-500 shadow-sm"
-                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-                }`}
+                onClick={() => setTreeSearch("")}
+                className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-600"
               >
-                <Pencil size={12} />
-                {saEditMode ? "Edit ON" : "Edit"}
+                <X size={14} />
               </button>
             )}
 
-            {(canEdit || isOwnTree || isSA) && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  toggleArrange();
-                }}
-                className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold shadow-xs border transition-all active:scale-95 ${
-                  arrangeMode
-                    ? "bg-emerald-500 text-white border-emerald-600 shadow-sm ring-2 ring-emerald-200"
-                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                {arrangeMode
-                  ? lang === "hi" ? "✓ Save" : "✓ Save"
-                  : lang === "hi" ? "Arrange" : "Arrange"}
-              </button>
-            )}
-
-            {(isOwnTree || isSA || pendingCount > 0) && (
-              <button
-                type="button"
-                onClick={() => router.push("/vanshawali/requests")}
-                className="relative flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold shadow-xs border bg-white text-gray-700 border-gray-200 hover:bg-gray-50 active:scale-95 transition-all"
-              >
-                {lang === "hi" ? "अनुरोध" : "Requests"}
-                {pendingCount > 0 && (
-                  <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-bold">
-                    {pendingCount}
-                  </span>
-                )}
-              </button>
+            {/* Search Dropdown Results */}
+            {searchMatches.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white/95 backdrop-blur-md rounded-2xl border border-amber-200 shadow-xl max-h-56 overflow-y-auto divide-y divide-amber-50">
+                {searchMatches.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => {
+                      focusMember(m);
+                      setTreeSearch("");
+                    }}
+                    className="w-full text-left px-3.5 py-2 hover:bg-amber-50/80 flex items-center justify-between transition-colors"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center text-[10px] font-bold shrink-0">
+                        {m.display_name.replace(/^(स्व\.|late|sw\.)\s*/i, "").charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-xs font-semibold text-gray-900 truncate">
+                        {m.display_name}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-full shrink-0 font-medium">
+                      {lbl(lang, m.relation, m.gender)}
+                    </span>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
-          {/* Guide dropdown anchored to the right */}
-          <div className="relative">
-            <details className="group">
-              <summary className="cursor-pointer font-bold text-amber-900 text-[11px] list-none flex items-center gap-1 px-3 py-1 rounded-full border border-amber-200/80 bg-white hover:bg-amber-50/50 shadow-xs select-none">
-                {lang === "hi" ? "◎ गाइड" : "◎ Guide"}
-              </summary>
-              <div className="absolute right-0 top-full mt-1.5 z-50 w-64 p-3 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-amber-200/90 text-[10px] text-gray-700 space-y-1.5 animate-in fade-in zoom-in-95 duration-100">
-                <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(245,185,66,0.55)"}} />{lang==="hi"?"आप (Self)":"You (Self)"}</p>
-                <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(255,235,59,0.7)"}} />{lang==="hi"?"भाई / बहन":"Brother / Sister"}</p>
-                <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(244,114,182,0.45)"}} />{lang==="hi"?"पति / पत्नी":"Spouse"}</p>
-                <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(167,139,250,0.5)"}} />{lang==="hi"?"माता-पिता":"Parents"}</p>
-                <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(96,165,250,0.5)"}} />{lang==="hi"?"दादा-दादी / नाना-नानी":"Grandparents"}</p>
-                <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5" style={{background:"rgba(52,211,153,0.5)"}} />{lang==="hi"?"संतान":"Children"}</p>
-                <p className="flex items-center gap-2 pt-1 border-t border-amber-100 mt-1">
-                  <span className="w-6 h-0.5 bg-amber-500 rounded" />
-                  {lang==="hi"?"सुनहरी = रक्त रिश्ता":"Gold = blood bond"}
-                </p>
-                <p className="flex items-center gap-2">
-                  <span className="w-6 h-0.5 bg-yellow-300 rounded" />
-                  {lang==="hi"?"पीली = भाई-बहन":"Yellow = siblings"}
-                </p>
-                <p className="flex items-center gap-2">
-                  <span className="w-6 h-0.5 border-t-2 border-dashed border-emerald-400" />
-                  {lang==="hi"?"हरी धराशायी = विवाह":"Green dashed = marriage"}
-                </p>
-                <p className="text-gray-400 pt-0.5">
-                  {lang==="hi"
-                    ? "बबल खींचें = float · टैप = मेनू · पिंच = ज़ूम"
-                    : "Drag bubble = float · tap = menu · pinch = zoom"}
-                </p>
-              </div>
-            </details>
+          {/* Action Toolbar */}
+          <div className="flex items-center justify-between gap-1.5 flex-wrap pt-0.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {isSA && !isOwner && (
+                <button
+                  type="button"
+                  onClick={() => setSaEditMode((v) => !v)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold shadow-xs border transition-all active:scale-95 cursor-pointer ${
+                    saEditMode
+                      ? "bg-amber-400 text-white border-amber-500 shadow-sm"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  <Pencil size={12} />
+                  {saEditMode ? "Edit ON" : "Edit"}
+                </button>
+              )}
+
+              {(canEdit || isOwnTree || isSA) && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleArrange();
+                  }}
+                  className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold shadow-xs border transition-all active:scale-95 cursor-pointer ${
+                    arrangeMode
+                      ? "bg-emerald-500 text-white border-emerald-600 shadow-sm ring-2 ring-emerald-200"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  {arrangeMode
+                    ? lang === "hi" ? "✓ Save" : "✓ Save"
+                    : lang === "hi" ? "Arrange" : "Arrange"}
+                </button>
+              )}
+
+              {(isOwnTree || isSA || pendingCount > 0) && (
+                <button
+                  type="button"
+                  onClick={() => router.push("/vanshawali/requests")}
+                  className="relative flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold shadow-xs border bg-white text-gray-700 border-gray-200 hover:bg-gray-50 active:scale-95 transition-all cursor-pointer"
+                >
+                  {lang === "hi" ? "अनुरोध" : "Requests"}
+                  {pendingCount > 0 && (
+                    <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-bold">
+                      {pendingCount}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {/* Share button */}
+              <button
+                type="button"
+                onClick={handleShare}
+                className="flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold shadow-xs border bg-white text-amber-900 border-amber-200/80 hover:bg-amber-50 active:scale-95 transition-all cursor-pointer"
+              >
+                <Share2 size={12} className="text-amber-600" />
+                <span>{lang === "hi" ? "शेयर" : "Share"}</span>
+              </button>
+            </div>
+
+            {/* Guide dropdown */}
+            <div className="relative">
+              <details className="group">
+                <summary className="cursor-pointer font-bold text-amber-900 text-[11px] list-none flex items-center gap-1 px-3 py-1 rounded-full border border-amber-200/80 bg-white hover:bg-amber-50/50 shadow-xs select-none">
+                  {lang === "hi" ? "◎ गाइड" : "◎ Guide"}
+                </summary>
+                <div className="absolute right-0 top-full mt-1.5 z-50 w-64 p-3 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-amber-200/90 text-[10px] text-gray-700 space-y-1.5 animate-in fade-in zoom-in-95 duration-100">
+                  <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5 bg-amber-400" />{lang==="hi"?"आप (Self)":"You (Self)"}</p>
+                  <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5 bg-amber-200" />{lang==="hi"?"भाई / बहन":"Brother / Sister"}</p>
+                  <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5 bg-rose-200" />{lang==="hi"?"पति / पत्नी":"Spouse"}</p>
+                  <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5 bg-indigo-200" />{lang==="hi"?"माता-पिता":"Parents"}</p>
+                  <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5 bg-indigo-100" />{lang==="hi"?"दादा-दादी / नाना-नानी":"Grandparents"}</p>
+                  <p><span className="inline-block w-3 h-3 rounded align-middle mr-1.5 bg-emerald-200" />{lang==="hi"?"संतान":"Children"}</p>
+                  <p className="flex items-center gap-2 pt-1 border-t border-amber-100 mt-1">
+                    <span className="w-6 h-0.5 bg-amber-500 rounded" />
+                    {lang==="hi"?"सुनहरी = रक्त रिश्ता":"Gold = blood bond"}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <span className="w-6 h-0.5 bg-yellow-400 rounded" />
+                    {lang==="hi"?"पीली = भाई-बहन":"Yellow = siblings"}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <span className="w-6 h-0.5 border-t-2 border-dashed border-emerald-400" />
+                    {lang==="hi"?"हरी धराशायी = विवाह":"Green dashed = marriage"}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <span className="text-xs">🕯️</span>
+                    {lang==="hi"?"दीया = स्वर्गीय (Late) सदस्य":"Diya = Late / Deceased"}
+                  </p>
+                </div>
+              </details>
+            </div>
           </div>
         </div>
       </div>
 
       {loading && <p className="text-center text-gray-400 py-20">Loading…</p>}
 
-      {!loading && tree && (
+      {/* View 1: Family List View (Clean & Mobile-Friendly) */}
+      {!loading && tree && viewMode === "list" && (
+        <div className="flex-1 max-w-2xl mx-auto w-full px-3 py-4 space-y-4 pb-36">
+          {/* Header Family Card */}
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-2xl p-4 shadow-xs flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="relative shrink-0">
+                {tree.centre.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={tree.centre.photo_url}
+                    alt=""
+                    className="w-12 h-12 rounded-full object-cover border-2 border-amber-400 shadow-xs"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-amber-400 text-amber-950 font-bold text-base flex items-center justify-center border-2 border-white shadow-xs">
+                    {tree.centre.display_name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-gray-900 truncate flex items-center gap-1.5">
+                  <span>{tree.centre.display_name}</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-200/70 text-amber-900 font-bold shrink-0">
+                    {lang === "hi" ? "आप (Self)" : "Self"}
+                  </span>
+                </h2>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  {lang === "hi" ? "कुल परिवार सदस्य:" : "Total family members:"}{" "}
+                  <strong className="text-amber-900">{allTreeMembers.length}</strong>
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleShare}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-xs font-bold shadow-xs transition-all shrink-0 cursor-pointer"
+            >
+              <Share2 size={13} />
+              <span>{lang === "hi" ? "शेयर" : "Share"}</span>
+            </button>
+          </div>
+
+          {/* Section 1: Purvaj / Grandparents */}
+          {grandparents.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-base">🏛️</span>
+                <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wide">
+                  {lang === "hi" ? "पूर्वज (दादा-दादी / नाना-नानी)" : "Ancestors & Grandparents"} ({grandparents.length})
+                </h3>
+              </div>
+              <div className="space-y-1.5">
+                {grandparents.map((m) => renderMemberCard(m))}
+              </div>
+            </div>
+          )}
+
+          {/* Section 2: Parents */}
+          {parents.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-base">👨‍👩‍👧</span>
+                <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wide">
+                  {lang === "hi" ? "माता-पिता" : "Parents"} ({parents.length})
+                </h3>
+              </div>
+              <div className="space-y-1.5">
+                {parents.map((m) => renderMemberCard(m))}
+              </div>
+            </div>
+          )}
+
+          {/* Section 3: Self, Spouses, Siblings */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
+              <span className="text-base">🌟</span>
+              <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wide">
+                {lang === "hi" ? "आपकी पीढ़ी (Self, जीवनसाथी व भाई-बहन)" : "Your Generation"} ({1 + spouses.length + (tree.siblings || []).length})
+              </h3>
+            </div>
+            <div className="space-y-1.5">
+              {renderMemberCard({ ...tree.centre, relation: "self" }, lang === "hi" ? "आप (Self)" : "Self")}
+              {spouses.map((m) => renderMemberCard(m))}
+              {(tree.siblings || []).map((m) => renderMemberCard(m))}
+            </div>
+          </div>
+
+          {/* Section 4: Children */}
+          {children.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-base">👶</span>
+                <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wide">
+                  {lang === "hi" ? "संतान (पुत्र / पुत्री)" : "Children"} ({children.length})
+                </h3>
+              </div>
+              <div className="space-y-1.5">
+                {children.map((m) => renderMemberCard(m))}
+              </div>
+            </div>
+          )}
+
+          {/* Section 5: Grandchildren */}
+          {grandchildren.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-base">🍼</span>
+                <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wide">
+                  {lang === "hi" ? "पौत्र / दौहित्र (Grandchildren)" : "Grandchildren"} ({grandchildren.length})
+                </h3>
+              </div>
+              <div className="space-y-1.5">
+                {grandchildren.map((m) => renderMemberCard(m))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* View 2: Interactive Tree View */}
+      {!loading && tree && viewMode === "tree" && (
         <div
           ref={wrapRef}
           className="flex-1 overflow-hidden pb-36 w-full relative touch-none"
@@ -1982,6 +2556,25 @@ function VanshawaliInner() {
               }}
             />
 
+            {/* Background Generation Guide Lanes */}
+            <div className="absolute inset-0 pointer-events-none select-none z-0">
+              {laneMarkers.map((lane) => (
+                <div
+                  key={lane.label}
+                  className="absolute left-0 right-0 flex items-center px-4"
+                  style={{ top: lane.top }}
+                >
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/80 backdrop-blur-xs border border-amber-200/60 shadow-2xs">
+                    <span className="text-xs">{lane.icon}</span>
+                    <span className="text-[10px] font-bold text-amber-950/70 tracking-wide uppercase">
+                      {lane.label}
+                    </span>
+                  </div>
+                  <div className="flex-1 ml-3 border-t border-dashed border-amber-300/40" />
+                </div>
+              ))}
+            </div>
+
             <svg className="absolute inset-0 pointer-events-none" width={W} height={H}>
               {/* EXTRA marriage bonds — light green, couples only */}
               {marriagePairs.map((mp, i) => {
@@ -2060,22 +2653,8 @@ function VanshawaliInner() {
             {/* All relative bubbles (auto levels) */}
             {placed.map((pl) => {
               if (tree && pl.n.id === tree.centre.id) return null;
-              // OPPOSITE directions:
-              // Sibling: LEFT = upar (−) · RIGHT = neeche (+)
-              // Spouse:  LEFT = neeche (+) · RIGHT = upar (−)  ← opposite of sibling
-              let tilt = 0;
-              const leftOfSelf = pl.x < centreX - 4;
-              const rightOfSelf = pl.x > centreX + 4;
-              if (pl.n.relation === "sibling" && selfSibOnly.has(pl.n.id)) {
-                if (leftOfSelf) tilt = 8;
-                else if (rightOfSelf) tilt = -8;
-                else tilt = 5;
-              } else if (pl.n.relation === "spouse") {
-                // opposite of sibling: RIGHT = upar · LEFT = neeche
-                if (rightOfSelf) tilt = 8;
-                else if (leftOfSelf) tilt = -8;
-                else tilt = 8; // spouse usually right of self → upar
-              }
+              // Clean horizontal orientation — NO messy tilts
+              const tilt = 0;
               return (
                 <div
                   key={pl.n.id}
@@ -2087,7 +2666,7 @@ function VanshawaliInner() {
                   style={{
                     left: pl.x,
                     top: pl.top,
-                    transform: `translateX(-50%)${tilt ? ` rotate(${tilt}deg)` : ""}`,
+                    transform: "translateX(-50%)",
                     transformOrigin: "center center",
                     filter:
                       moveTargetId === pl.n.id
@@ -2283,40 +2862,11 @@ function VanshawaliInner() {
                     Move
                   </button>
                 )}
-              <button type="button" className="text-center pointer-events-none">
-                <span
-                  className="inline-flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-[13px] font-bold whitespace-nowrap backdrop-blur-[2px] border"
-                  style={{
-                    background: GEN_STYLE.self.bg,
-                    color: GEN_STYLE.self.text,
-                    borderColor: marriedIdSet.has(tree.centre.id)
-                      ? "rgba(52,211,153,0.9)"
-                      : GEN_STYLE.self.border,
-                    borderStyle: marriedIdSet.has(tree.centre.id) ? "dashed" : "solid",
-                    borderWidth: marriedIdSet.has(tree.centre.id) ? 2 : 1,
-                    boxShadow: BUBBLE_3D,
-                  }}
-                >
-                  <span className="inline-flex items-center gap-1.5">
-                    {tree.centre.photo_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={tree.centre.photo_url}
-                        alt=""
-                        className="w-6 h-6 rounded-full object-cover shrink-0"
-                      />
-                    ) : null}
-                    <span style={{ textShadow: NAMEPLATE }}>{tree.centre.display_name}</span>
-                  </span>
-                  <span
-                    className="text-[9px] font-medium opacity-80"
-                    style={{ textShadow: NAMEPLATE }}
-                  >
-                    {L.self}
-                    {formatBirth(tree.centre) ? ` · ${formatBirth(tree.centre)}` : ""}
-                  </span>
-                </span>
-              </button>
+              <Tag
+                n={{ ...tree.centre, relation: "self" }}
+                gen="self"
+                isSelf
+              />
             </div>
 
             {/* Spouses */}
@@ -2448,6 +2998,18 @@ function VanshawaliInner() {
                     })
                   }
                 />
+                <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50/70 p-2.5 rounded-xl border border-amber-200/70 mt-1">
+                  <input
+                    type="checkbox"
+                    checked={isDeceasedDraft}
+                    onChange={(e) => setIsDeceasedDraft(e.target.checked)}
+                    className="rounded text-amber-600 focus:ring-amber-400 w-4 h-4 cursor-pointer"
+                  />
+                  <span className="text-xs font-semibold text-amber-950 flex items-center gap-1.5">
+                    <span>🕯️</span>
+                    {lang === "hi" ? "स्वर्गीय (Late / Deceased) सदस्य" : "Late / Deceased member"}
+                  </span>
+                </label>
               </>
             )}
 
@@ -2461,7 +3023,7 @@ function VanshawaliInner() {
               type="button"
               disabled={saving}
               onClick={saveAdd}
-              className="w-full py-3 rounded-2xl bg-amber-400 text-white text-sm font-bold"
+              className="w-full py-3 rounded-2xl bg-amber-400 text-white text-sm font-bold cursor-pointer"
             >
               {saving ? "…" : lang === "hi" ? "जोड़ें" : "Add"}
             </button>
@@ -2539,11 +3101,23 @@ function VanshawaliInner() {
                 <option value="child">{L.child}</option>
               </select>
             )}
+            <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50/70 p-2.5 rounded-xl border border-amber-200/70">
+              <input
+                type="checkbox"
+                checked={isDeceasedDraft}
+                onChange={(e) => setIsDeceasedDraft(e.target.checked)}
+                className="rounded text-amber-600 focus:ring-amber-400 w-4 h-4 cursor-pointer"
+              />
+              <span className="text-xs font-semibold text-amber-950 flex items-center gap-1.5">
+                <span>🕯️</span>
+                {lang === "hi" ? "स्वर्गीय (Late / Deceased) सदस्य" : "Late / Deceased member"}
+              </span>
+            </label>
             <button
               type="button"
               disabled={saving}
               onClick={saveEdit}
-              className="w-full py-3 rounded-2xl bg-amber-400 text-white text-sm font-bold"
+              className="w-full py-3 rounded-2xl bg-amber-400 text-white text-sm font-bold cursor-pointer"
             >
               {saving ? "…" : lang === "hi" ? "सेव" : "Save"}
             </button>
@@ -2561,12 +3135,71 @@ function VanshawaliInner() {
             className="w-full max-w-sm mx-3 mb-8 bg-white rounded-3xl p-4 shadow-2xl space-y-1"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="font-bold text-gray-900">{selected.display_name}</p>
-            <p className="text-xs text-gray-500 mb-2">
-              {lbl(lang, selected.relation, selected.gender)}
-              {formatBirth(selected) ? ` · ${formatBirth(selected)}` : ""}
-              {selected.user_id ? " · Registered" : " · Manual"}
-            </p>
+            {/* Header info */}
+            <div className="flex items-center gap-3 pb-2.5 border-b border-gray-100">
+              <div className="relative shrink-0">
+                {selected.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={selected.photo_url}
+                    alt=""
+                    className="w-12 h-12 rounded-full object-cover border border-amber-200 shadow-xs"
+                  />
+                ) : (
+                  <div
+                    className={cn(
+                      "w-12 h-12 rounded-full flex items-center justify-center text-base font-bold shadow-xs",
+                      selected.id === tree?.centre.id
+                        ? "bg-amber-400 text-amber-950"
+                        : resolveSex(selected.gender, selected.relation) === "F"
+                        ? "bg-rose-100 text-rose-800"
+                        : "bg-indigo-100 text-indigo-800"
+                    )}
+                  >
+                    {selected.display_name.replace(/^(स्व\.|late|sw\.)\s*/i, "").charAt(0).toUpperCase() || "?"}
+                  </div>
+                )}
+                {(/^(स्व\.|late|sw\.)/i.test(selected.display_name) || selected.status === "deceased") && (
+                  <span className="absolute -bottom-1 -right-1 text-xs" title="स्वर्गीय">
+                    🕯️
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {(/^(स्व\.|late|sw\.)/i.test(selected.display_name) || selected.status === "deceased") && (
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100/90 px-1.5 py-0.2 rounded">
+                      स्व.
+                    </span>
+                  )}
+                  <p className="font-bold text-gray-900 text-base truncate">
+                    {selected.display_name.replace(/^(स्व\.|late|sw\.)\s*/i, "")}
+                  </p>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {lbl(lang, selected.relation, selected.gender)}
+                  {formatBirth(selected) ? ` · ${formatBirth(selected)}` : ""}
+                  {selected.user_id ? " · Registered" : " · Manual"}
+                </p>
+              </div>
+            </div>
+
+            {/* Rishta Explainer Badge */}
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/90 rounded-2xl p-3 my-2 flex items-start gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-400/30 flex items-center justify-center shrink-0 text-amber-700">
+                <HeartHandshake size={18} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-amber-950">
+                  {getRelationshipExplanation(selected, tree, lang)}
+                </p>
+                <p className="text-[10px] text-amber-800/80 mt-0.5">
+                  {selected.relation === "self"
+                    ? (lang === "hi" ? "आपकी वंशावली का केंद्र बिंदु" : "Center of this Vanshawali")
+                    : (lang === "hi" ? "आपके परिवार का सम्मानीय रिश्ता" : "Respected Family Bond")}
+                </p>
+              </div>
+            </div>
             {selected.user_id && (
               <>
                 <button
@@ -2774,10 +3407,13 @@ function VanshawaliInner() {
                 type="button"
                 className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
                 onClick={() => {
+                  setIsDeceasedDraft(
+                    /^(स्व\.|late|sw\.)/i.test(selected.display_name) || selected.status === "deceased"
+                  );
                   setEditDraft({
                     person_id: selected.id,
                     link_id: selected.link_id,
-                    name: selected.display_name,
+                    name: selected.display_name.replace(/^(स्व\.|late|sw\.)\s*/i, ""),
                     birth_year: selected.birth_year ? String(selected.birth_year) : "",
                     birth_date: selected.birth_date || "",
                     gender: selected.gender || "",
