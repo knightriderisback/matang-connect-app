@@ -379,13 +379,28 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
 
   function parentsOf(personId: string): Row[] {
     const out: Row[] = [];
+    const seen = new Set<string>();
     for (const l of store.links) {
       if (!showLink(l)) continue;
       if (l.status === "rejected") continue;
+      let parentId: string | null = null;
+      let rel: "father" | "mother" = "father";
       if ((l.relation === "father" || l.relation === "mother") && l.to_id === personId) {
-        const p = byId(l.from_id);
-        if (p) out.push({ person: p, relation: l.relation, link: l, via_id: personId });
+        parentId = l.from_id;
+        rel = l.relation;
+      } else if (l.relation === "child" && l.to_id === personId) {
+        parentId = l.from_id;
+        const p = byId(parentId);
+        rel = p?.gender === "female" ? "mother" : "father";
+      } else if ((l.relation === "father" || l.relation === "mother") && l.from_id === personId) {
+        // Fallback for inverted legacy records
+        parentId = l.to_id;
+        rel = l.relation;
       }
+      if (!parentId || seen.has(parentId)) continue;
+      seen.add(parentId);
+      const p = byId(parentId);
+      if (p) out.push({ person: p, relation: rel, link: l, via_id: personId });
     }
     return out;
   }
@@ -466,24 +481,7 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
   const grandchildren = levels_down[1] || [];
   const spouses = spousesOf(centre.id);
 
-  const allTreeIds = new Set<string>([centre.id]);
-  for (const lvl of levels_up) for (const r of lvl) allTreeIds.add(r.person.id);
-  for (const lvl of levels_down) for (const r of lvl) allTreeIds.add(r.person.id);
-  for (const s of spouses) allTreeIds.add(s.person.id);
-
-  const spouses_of: Record<string, ReturnType<typeof mapNode>[]> = {};
-  for (const id of Array.from(allTreeIds)) {
-    const sp = spousesOf(id);
-    if (sp.length) {
-      spouses_of[id] = sp.map((row) => ({
-        ...mapNode(row),
-        via_id: id,
-        relation: "spouse",
-      }));
-      for (const row of sp) allTreeIds.add(row.person.id);
-    }
-  }
-
+  // 1. Siblings of centre (children of centre's parents)
   const siblingSeen = new Set<string>([centre.id]);
   const siblingRows: Row[] = [];
   for (const par of parents) {
@@ -498,6 +496,76 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
     }
   }
 
+  // 2. Uncles and aunts (siblings of centre's parents, i.e. children of grandparents)
+  const uncleAuntRows: Row[] = [];
+  const parentIds = new Set(parents.map((p) => p.person.id));
+  parentIds.add(centre.id);
+  for (const gp of grandparents) {
+    for (const row of childrenOf(gp.person.id)) {
+      if (parentIds.has(row.person.id)) continue;
+      parentIds.add(row.person.id);
+      uncleAuntRows.push({
+        ...row,
+        relation: "sibling",
+        via_id: gp.person.id,
+      });
+    }
+  }
+
+  // 3. Initial full tree IDs
+  const allTreeIds = new Set<string>([centre.id]);
+  for (const lvl of levels_up) for (const r of lvl) allTreeIds.add(r.person.id);
+  for (const lvl of levels_down) for (const r of lvl) allTreeIds.add(r.person.id);
+  for (const s of spouses) allTreeIds.add(s.person.id);
+  for (const s of siblingRows) allTreeIds.add(s.person.id);
+  for (const u of uncleAuntRows) allTreeIds.add(u.person.id);
+
+  // 4. Iteratively discover spouses and children (up to 3 passes to get full connected family)
+  const spouses_of: Record<string, ReturnType<typeof mapNode>[]> = {};
+  const children_of: Record<string, ReturnType<typeof mapNode>[]> = {};
+
+  for (let pass = 0; pass < 3; pass++) {
+    let newlyFound = 0;
+    const currentIds = Array.from(allTreeIds);
+    for (const id of currentIds) {
+      if (!spouses_of[id]) {
+        const sp = spousesOf(id);
+        if (sp.length) {
+          spouses_of[id] = sp.map((row) => ({
+            ...mapNode(row),
+            via_id: id,
+            relation: "spouse",
+          }));
+          for (const row of sp) {
+            if (!allTreeIds.has(row.person.id)) {
+              allTreeIds.add(row.person.id);
+              newlyFound++;
+            }
+          }
+        }
+      }
+
+      if (!children_of[id]) {
+        const ch = childrenOf(id);
+        if (ch.length) {
+          children_of[id] = ch.map((row) => ({
+            ...mapNode(row),
+            via_id: id,
+            relation: "child",
+          }));
+          for (const row of ch) {
+            if (!allTreeIds.has(row.person.id)) {
+              allTreeIds.add(row.person.id);
+              newlyFound++;
+            }
+          }
+        }
+      }
+    }
+    if (newlyFound === 0) break;
+  }
+
+  // 5. Siblings of everyone in the tree
   const siblings_of: Record<string, ReturnType<typeof mapNode>[]> = {};
   for (const id of Array.from(allTreeIds)) {
     const pParents = parentsOf(id);
@@ -548,8 +616,14 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
       relation: "sibling",
       via_id: row.via_id,
     })),
+    uncles_and_aunts: uncleAuntRows.map((row) => ({
+      ...mapNode(row),
+      relation: "sibling",
+      via_id: row.via_id,
+    })),
     siblings_of,
     spouses_of,
+    children_of,
     levels_up: levels_up.map((lvl) =>
       lvl.map((row) => ({ ...mapNode(row), via_id: row.via_id, via_parent_id: row.via_id }))
     ),

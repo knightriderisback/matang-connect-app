@@ -93,8 +93,10 @@ type Tree = {
   grandparents?: Node[];
   grandchildren?: Node[];
   siblings?: Node[];
+  uncles_and_aunts?: Node[];
   siblings_of?: Record<string, Node[]>;
   spouses_of?: Record<string, Node[]>;
+  children_of?: Record<string, Node[]>;
   levels_up?: Node[][];
   levels_down?: Node[][];
 };
@@ -327,6 +329,7 @@ function resolveIndianRelationship(
   (tree.children || []).forEach((m) => allNodes.set(m.id, m));
   (tree.grandparents || []).forEach((m) => allNodes.set(m.id, m));
   (tree.grandchildren || []).forEach((m) => allNodes.set(m.id, m));
+  (tree.uncles_and_aunts || []).forEach((m) => allNodes.set(m.id, m));
   (tree.levels_up || []).flat().forEach((m) => allNodes.set(m.id, m));
   (tree.levels_down || []).flat().forEach((m) => allNodes.set(m.id, m));
   if (tree.spouses_of) {
@@ -334,6 +337,9 @@ function resolveIndianRelationship(
   }
   if (tree.siblings_of) {
     Object.values(tree.siblings_of).flat().forEach((m) => allNodes.set(m.id, m));
+  }
+  if (tree.children_of) {
+    Object.values(tree.children_of).flat().forEach((m) => allNodes.set(m.id, m));
   }
 
   const spouseMap = new Map<string, Set<string>>();
@@ -394,6 +400,22 @@ function resolveIndianRelationship(
       }
     });
   });
+
+  if (tree.children_of) {
+    Object.entries(tree.children_of).forEach(([parentId, list]) => {
+      list.forEach((c) => {
+        linkParentChild(parentId, c.id);
+        const sps = spouseMap.get(parentId);
+        if (sps) sps.forEach((spId) => linkParentChild(spId, c.id));
+      });
+    });
+  }
+
+  if (tree.uncles_and_aunts) {
+    tree.uncles_and_aunts.forEach((u) => {
+      if (u.via_id) linkParentChild(u.via_id, u.id);
+    });
+  }
 
   const siblingsMap = new Map<string, Set<string>>();
   const linkSibling = (a: string, b: string) => {
@@ -456,6 +478,58 @@ function resolveIndianRelationship(
   const mother = (tree.parents || []).find(
     (p) => p.relation === "mother" || resolveSex(p.gender, p.relation) === "F"
   );
+
+  const paternalGrandfather = (tree.grandparents || []).find(
+    (g) => (g.via_id === father?.id || g.via_parent_id === father?.id) && resolveSex(g.gender, g.relation) === "M"
+  );
+  const paternalGrandmother = (tree.grandparents || []).find(
+    (g) => (g.via_id === father?.id || g.via_parent_id === father?.id) && resolveSex(g.gender, g.relation) === "F"
+  );
+
+  const maternalGrandfather = (tree.grandparents || []).find(
+    (g) => (g.via_id === mother?.id || g.via_parent_id === mother?.id) && resolveSex(g.gender, g.relation) === "M"
+  );
+  const maternalGrandmother = (tree.grandparents || []).find(
+    (g) => (g.via_id === mother?.id || g.via_parent_id === mother?.id) && resolveSex(g.gender, g.relation) === "F"
+  );
+
+  // Self siblings set
+  const selfSiblings = new Set<string>();
+  (siblingsMap.get(centre.id) || []).forEach((id) => selfSiblings.add(id));
+  (tree.siblings || []).forEach((s) => selfSiblings.add(s.id));
+  (tree.siblings_of?.[centre.id] || []).forEach((s) => selfSiblings.add(s.id));
+
+  // Self direct children set
+  const selfChildren = new Set<string>();
+  (childrenMap.get(centre.id) || []).forEach((id) => selfChildren.add(id));
+  (tree.children || []).forEach((c) => selfChildren.add(c.id));
+  (tree.spouses || []).forEach((sp) => {
+    (childrenMap.get(sp.id) || []).forEach((id) => selfChildren.add(id));
+  });
+
+  // Father siblings set (Tau, Chacha, Bua)
+  const fatherSiblings = new Set<string>();
+  if (father) {
+    (siblingsMap.get(father.id) || []).forEach((id) => fatherSiblings.add(id));
+    (tree.siblings_of?.[father.id] || []).forEach((s) => fatherSiblings.add(s.id));
+    if (paternalGrandfather) {
+      (childrenMap.get(paternalGrandfather.id) || []).forEach((id) => {
+        if (id !== father.id && id !== centre.id) fatherSiblings.add(id);
+      });
+    }
+  }
+
+  // Mother siblings set (Mama, Mausi)
+  const motherSiblings = new Set<string>();
+  if (mother) {
+    (siblingsMap.get(mother.id) || []).forEach((id) => motherSiblings.add(id));
+    (tree.siblings_of?.[mother.id] || []).forEach((s) => motherSiblings.add(s.id));
+    if (maternalGrandfather) {
+      (childrenMap.get(maternalGrandfather.id) || []).forEach((id) => {
+        if (id !== mother.id && id !== centre.id) motherSiblings.add(id);
+      });
+    }
+  }
 
   // Helper to construct multiple roles
   const buildMultipleRoles = (
@@ -540,7 +614,7 @@ function resolveIndianRelationship(
   };
 
   // -------------------------------------------------------------
-  // CASE 1: SELF (The center person of Vanshawali)
+  // 1. SELF (Vanshawali Center)
   // -------------------------------------------------------------
   if (n.id === centre.id || n.relation === "self") {
     const tierLabel = isHi ? "आपकी पीढ़ी (Self)" : "Your Generation (Self)";
@@ -562,7 +636,7 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // CASE 2: DIRECT SPOUSE OF SELF (Wife / Husband)
+  // 2. DIRECT SPOUSE OF SELF (Wife / Husband)
   // -------------------------------------------------------------
   const isDirectSpouse =
     spouseMap.get(centre.id)?.has(n.id) ||
@@ -571,12 +645,8 @@ function resolveIndianRelationship(
 
   if (isDirectSpouse) {
     const isWife = targetSex === "F" || centreSex === "M";
-    const shortTag = isWife
-      ? isHi ? "धर्मपत्नी" : "Wife"
-      : isHi ? "पति" : "Husband";
-    const primaryTitle = isWife
-      ? isHi ? "आपकी धर्मपत्नी (Wife)" : "Your Wife"
-      : isHi ? "आपके पति (Husband)" : "Your Husband";
+    const shortTag = isWife ? (isHi ? "धर्मपत्नी" : "Wife") : (isHi ? "पति" : "Husband");
+    const primaryTitle = isWife ? (isHi ? "आपकी धर्मपत्नी (Wife)" : "Your Wife") : (isHi ? "आपके पति (Husband)" : "Your Husband");
     const tierLabel = isHi ? "आपकी पीढ़ी (जीवनसाथी)" : "Your Generation (Spouse)";
 
     return {
@@ -589,9 +659,7 @@ function resolveIndianRelationship(
       generationLabel: tierLabel,
       multipleRoles: buildMultipleRoles(
         primaryTitle,
-        isHi
-          ? "आपकी अर्धांगिनी / जीवनसाथी के रूप में समान पीढ़ी का सर्वोच्च आदरणीय संबंध"
-          : "Your life partner in the same generation tier",
+        isHi ? "आपकी अर्धांगिनी / जीवनसाथी के रूप में समान पीढ़ी का सर्वोच्च आदरणीय संबंध" : "Your life partner in the same generation tier",
         tierLabel,
         0
       ),
@@ -599,11 +667,10 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // CASE 3: SIBLING OF SELF (Brother / Sister)
+  // 3. DIRECT SIBLING OF SELF (Brother / Sister)
   // -------------------------------------------------------------
   const isDirectSibling =
-    siblingsMap.get(centre.id)?.has(n.id) ||
-    (tree.siblings || []).some((s) => s.id === n.id) ||
+    selfSiblings.has(n.id) ||
     (n.relation === "sibling" && (!n.via_id || n.via_id === father?.id || n.via_id === mother?.id));
 
   if (isDirectSibling) {
@@ -614,34 +681,27 @@ function resolveIndianRelationship(
 
     let shortTag = "";
     let primaryTitle = "";
-    let shortTagEn = "";
 
     if (targetSex === "F") {
       if (isElder) {
         shortTag = isHi ? "बड़ी बहन" : "Elder Sister";
-        shortTagEn = "Elder Sister";
         primaryTitle = isHi ? "आपकी बड़ी बहन (Elder Sister)" : "Your Elder Sister";
       } else if (isYounger) {
         shortTag = isHi ? "छोटी बहन" : "Younger Sister";
-        shortTagEn = "Younger Sister";
         primaryTitle = isHi ? "आपकी छोटी बहन (Younger Sister)" : "Your Younger Sister";
       } else {
         shortTag = isHi ? "बहन" : "Sister";
-        shortTagEn = "Sister";
         primaryTitle = isHi ? "आपकी बहन (Sister)" : "Your Sister";
       }
     } else {
       if (isElder) {
         shortTag = isHi ? "बड़े भाई" : "Elder Brother";
-        shortTagEn = "Elder Brother";
         primaryTitle = isHi ? "आपके बड़े भाई (Elder Brother)" : "Your Elder Brother";
       } else if (isYounger) {
         shortTag = isHi ? "छोटे भाई" : "Younger Brother";
-        shortTagEn = "Younger Brother";
         primaryTitle = isHi ? "आपके छोटे भाई (Younger Brother)" : "Your Younger Brother";
       } else {
         shortTag = isHi ? "भाई" : "Brother";
-        shortTagEn = "Brother";
         primaryTitle = isHi ? "आपके भाई (Brother)" : "Your Brother";
       }
     }
@@ -650,7 +710,7 @@ function resolveIndianRelationship(
 
     return {
       shortTag,
-      shortTagEn,
+      shortTagEn: targetSex === "F" ? "Sister" : "Brother",
       primaryTitle,
       primaryTitleEn: primaryTitle,
       category: "sibling",
@@ -666,22 +726,24 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // CASE 4: SPOUSE OF SIBLING (Bhabhi / Jija ji)
+  // 4. SPOUSE OF SIBLING (Bhabhi / Jija ji)
   // -------------------------------------------------------------
-  const marriedSiblingId = Array.from(spouseMap.get(n.id) || []).find((pId) =>
-    siblingsMap.get(centre.id)?.has(pId) || (tree.siblings || []).some((s) => s.id === pId)
-  ) || ((tree.siblings || []).some((s) => s.id === n.via_id) ? n.via_id : undefined);
+  const marriedSiblingId = Array.from(spouseMap.get(n.id) || []).find((pId) => selfSiblings.has(pId)) ||
+    (selfSiblings.has(n.via_id || "") ? n.via_id : undefined);
 
   if (marriedSiblingId) {
     const sibNode = allNodes.get(marriedSiblingId);
     const sibSex = resolveSex(sibNode?.gender, sibNode?.relation);
     const sibCleanName = sibNode?.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, "") || "";
+    const cBorn = centre.birth_year || (centre.birth_date ? parseInt(centre.birth_date.slice(0, 4), 10) : null);
+    const sBorn = sibNode?.birth_year || (sibNode?.birth_date ? parseInt(sibNode.birth_date.slice(0, 4), 10) : null);
+    const isElderSib = cBorn && sBorn ? sBorn < cBorn : false;
 
     if (sibSex === "M" || targetSex === "F") {
       // Brother's Wife -> BHABHI
-      const shortTag = isHi ? "भाभी" : "Bhabhi (Sister-in-law)";
+      const shortTag = isElderSib ? (isHi ? "बड़ी भाभी" : "Elder Bhabhi") : (isHi ? "भाभी" : "Bhabhi (Sister-in-law)");
       const primaryTitle = isHi
-        ? `आपकी भाभी (${sibCleanName ? `${sibCleanName} की धर्मपत्नी` : "भाई की पत्नी"})`
+        ? `आपकी ${isElderSib ? "बड़ी भाभी" : "भाभी"} (${sibCleanName ? `${sibCleanName} की धर्मपत्नी` : "भाई की पत्नी"})`
         : `Your Sister-in-law (${sibCleanName ? `Wife of ${sibCleanName}` : "Brother's Wife"})`;
       const tierLabel = isHi ? "आपकी पीढ़ी (भाभी)" : "Your Generation (Sister-in-law)";
 
@@ -695,9 +757,7 @@ function resolveIndianRelationship(
         generationLabel: tierLabel,
         multipleRoles: buildMultipleRoles(
           primaryTitle,
-          isHi
-            ? `आपके भाई ${sibCleanName} की धर्मपत्नी होने के नाते आपके परिवार में भाभी`
-            : `Wife of your brother ${sibCleanName}`,
+          isHi ? `आपके भाई ${sibCleanName} की धर्मपत्नी होने के नाते परिवार में आपकी भाभी` : `Wife of your brother ${sibCleanName}`,
           tierLabel,
           0
         ),
@@ -706,13 +766,13 @@ function resolveIndianRelationship(
       // Sister's Husband -> JIJA JI
       const shortTag = isHi ? "जीजा जी" : "Brother-in-law";
       const primaryTitle = isHi
-        ? `आपके जीजा जी (${sibCleanName ? `${sibCleanName} के पति` : "बहन के पति"})`
+        ? `आपके जीजा जी / बहनोई (${sibCleanName ? `${sibCleanName} के पति` : "बहन के पति"})`
         : `Your Brother-in-law (${sibCleanName ? `Husband of ${sibCleanName}` : "Sister's Husband"})`;
       const tierLabel = isHi ? "आपकी पीढ़ी (जीजा जी)" : "Your Generation (Brother-in-law)";
 
       return {
         shortTag,
-        shortTagEn: "Brother-in-law",
+        shortTagEn: "Brother-in-law (Jija ji)",
         primaryTitle,
         primaryTitleEn: primaryTitle,
         category: "spouse",
@@ -720,9 +780,7 @@ function resolveIndianRelationship(
         generationLabel: tierLabel,
         multipleRoles: buildMultipleRoles(
           primaryTitle,
-          isHi
-            ? `आपकी बहन ${sibCleanName} के पति होने के नाते परिवार में आपके जीजा जी`
-            : `Husband of your sister ${sibCleanName}`,
+          isHi ? `आपकी बहन ${sibCleanName} के पति होने के नाते परिवार में आपके जीजा जी` : `Husband of your sister ${sibCleanName}`,
           tierLabel,
           0
         ),
@@ -731,21 +789,16 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // CASE 5: DIRECT CHILD OF SELF (Son / Daughter)
+  // 5. DIRECT CHILD OF SELF (Son / Daughter)
   // -------------------------------------------------------------
   const isDirectChild =
-    childrenMap.get(centre.id)?.has(n.id) ||
-    (tree.children || []).some((c) => c.id === n.id) ||
+    selfChildren.has(n.id) ||
     (n.relation === "child" && (!n.via_id || n.via_id === centre.id || (tree.spouses || []).some((s) => s.id === n.via_id)));
 
   if (isDirectChild) {
     const isDaughter = targetSex === "F";
-    const shortTag = isDaughter
-      ? isHi ? "सुपुत्री" : "Daughter"
-      : isHi ? "सुपुत्र" : "Son";
-    const primaryTitle = isDaughter
-      ? isHi ? "आपकी सुपुत्री / बेटी (Daughter)" : "Your Daughter"
-      : isHi ? "आपके सुपुत्र / बेटा (Son)" : "Your Son";
+    const shortTag = isDaughter ? (isHi ? "सुपुत्री" : "Daughter") : (isHi ? "सुपुत्र" : "Son");
+    const primaryTitle = isDaughter ? (isHi ? "आपकी सुपुत्री / बेटी (Daughter)" : "Your Daughter") : (isHi ? "आपके सुपुत्र / बेटा (Son)" : "Your Son");
     const tierLabel = isHi ? "संतान की पीढ़ी (Direct Lineage)" : "Children Generation (Direct)";
 
     return {
@@ -758,7 +811,7 @@ function resolveIndianRelationship(
       generationLabel: tierLabel,
       multipleRoles: buildMultipleRoles(
         primaryTitle,
-        isHi ? "आपकी प्रत्यक्ष संतान (प्रथम अधोगामी पीढ़ी)" : "Your direct child (First downward generation)",
+        isHi ? "आपकी प्रत्यक्ष संतान (प्रथम अधोगामी पीढ़ी)" : "Your direct child",
         tierLabel,
         -1
       ),
@@ -766,11 +819,10 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // CASE 6: SPOUSE OF DIRECT CHILD (Bahu / Damaad)
+  // 6. SPOUSE OF DIRECT CHILD (Bahu / Damaad)
   // -------------------------------------------------------------
-  const marriedChildId = Array.from(spouseMap.get(n.id) || []).find((pId) =>
-    childrenMap.get(centre.id)?.has(pId) || (tree.children || []).some((c) => c.id === pId)
-  ) || ((tree.children || []).some((c) => c.id === n.via_id) ? n.via_id : undefined);
+  const marriedChildId = Array.from(spouseMap.get(n.id) || []).find((pId) => selfChildren.has(pId)) ||
+    (selfChildren.has(n.via_id || "") ? n.via_id : undefined);
 
   if (marriedChildId) {
     const chNode = allNodes.get(marriedChildId);
@@ -795,9 +847,7 @@ function resolveIndianRelationship(
         generationLabel: tierLabel,
         multipleRoles: buildMultipleRoles(
           primaryTitle,
-          isHi
-            ? `आपके सुपुत्र ${chCleanName} की धर्मपत्नी होने के नाते आपके परिवार की बहू`
-            : `Wife of your son ${chCleanName}`,
+          isHi ? `आपके सुपुत्र ${chCleanName} की धर्मपत्नी होने के नाते आपके परिवार की बहू` : `Wife of your son ${chCleanName}`,
           tierLabel,
           -1
         ),
@@ -820,9 +870,7 @@ function resolveIndianRelationship(
         generationLabel: tierLabel,
         multipleRoles: buildMultipleRoles(
           primaryTitle,
-          isHi
-            ? `आपकी सुपुत्री ${chCleanName} के पति होने के नाते आपके परिवार के दामाद`
-            : `Husband of your daughter ${chCleanName}`,
+          isHi ? `आपकी सुपुत्री ${chCleanName} के पति होने के नाते आपके परिवार के दामाद` : `Husband of your daughter ${chCleanName}`,
           tierLabel,
           -1
         ),
@@ -831,11 +879,10 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // CASE 7: CHILD OF SIBLING (Bhatija / Bhatiji / Bhanja / Bhanji)
+  // 7. NEPHEWS & NIECES (Children of Brother or Sister)
   // -------------------------------------------------------------
-  const parentSibId = Array.from(parentsMap.get(n.id) || []).find((pId) =>
-    siblingsMap.get(centre.id)?.has(pId) || (tree.siblings || []).some((s) => s.id === pId)
-  ) || ((tree.siblings || []).some((s) => s.id === n.via_id) ? n.via_id : undefined);
+  const parentSibId = Array.from(parentsMap.get(n.id) || []).find((pId) => selfSiblings.has(pId)) ||
+    (selfSiblings.has(n.via_id || "") ? n.via_id : undefined);
 
   if (parentSibId) {
     const sibNode = allNodes.get(parentSibId);
@@ -845,9 +892,7 @@ function resolveIndianRelationship(
     if (sibSex === "M") {
       // Brother's Child -> Bhatija / Bhatiji
       const isFemale = targetSex === "F";
-      const shortTag = isFemale
-        ? isHi ? "भतीजी" : "Niece"
-        : isHi ? "भतीजा" : "Nephew";
+      const shortTag = isFemale ? (isHi ? "भतीजी" : "Niece") : (isHi ? "भतीजा" : "Nephew");
       const primaryTitle = isFemale
         ? isHi ? `आपकी भतीजी (${sibCleanName ? `${sibCleanName} की सुपुत्री` : "भाई की पुत्री"})` : `Your Niece (Daughter of ${sibCleanName || "Brother"})`
         : isHi ? `आपका भतीजा (${sibCleanName ? `${sibCleanName} के सुपुत्र` : "भाई का पुत्र"})` : `Your Nephew (Son of ${sibCleanName || "Brother"})`;
@@ -871,9 +916,7 @@ function resolveIndianRelationship(
     } else {
       // Sister's Child -> Bhanja / Bhanji
       const isFemale = targetSex === "F";
-      const shortTag = isFemale
-        ? isHi ? "भांजी" : "Niece"
-        : isHi ? "भांजा" : "Nephew";
+      const shortTag = isFemale ? (isHi ? "भांजी" : "Niece") : (isHi ? "भांजा" : "Nephew");
       const primaryTitle = isFemale
         ? isHi ? `आपकी भांजी (${sibCleanName ? `${sibCleanName} की सुपुत्री` : "बहन की पुत्री"})` : `Your Niece (Daughter of ${sibCleanName || "Sister"})`
         : isHi ? `आपका भांजा (${sibCleanName ? `${sibCleanName} के सुपुत्र` : "बहन का पुत्र"})` : `Your Nephew (Son of ${sibCleanName || "Sister"})`;
@@ -898,20 +941,100 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // CASE 8: GRANDCHILD OF SELF (Pota / Poti / Naati / Naatin)
+  // 8. SPOUSE OF NEPHEW / NIECE (Bhatij-bahu, Bhatij-damaad, Bhanj-bahu, Bhanj-damaad)
   // -------------------------------------------------------------
-  const parentDirectChildId = Array.from(parentsMap.get(n.id) || []).find((pId) =>
-    childrenMap.get(centre.id)?.has(pId) || (tree.children || []).some((c) => c.id === pId)
-  ) || ((tree.children || []).some((c) => c.id === n.via_id || c.id === n.via_child_id) ? (n.via_id || n.via_child_id) : undefined);
+  const nephewNiecePartnerId = Array.from(spouseMap.get(n.id) || []).find((pId) =>
+    Array.from(parentsMap.get(pId) || []).some((parId) => selfSiblings.has(parId))
+  );
+
+  if (nephewNiecePartnerId) {
+    const partnerNode = allNodes.get(nephewNiecePartnerId);
+    const partnerParentId = Array.from(parentsMap.get(nephewNiecePartnerId) || []).find((parId) => selfSiblings.has(parId));
+    const partnerParentNode = allNodes.get(partnerParentId || "");
+    const parentIsBrother = resolveSex(partnerParentNode?.gender, partnerParentNode?.relation) === "M";
+    const partnerSex = resolveSex(partnerNode?.gender, partnerNode?.relation);
+
+    if (parentIsBrother) {
+      if (partnerSex === "M" || targetSex === "F") {
+        const shortTag = isHi ? "भतीज बहू" : "Nephew's Wife";
+        const primaryTitle = isHi
+          ? `आपकी भतीज बहू (${partnerNode?.display_name || "भतीजे"} की धर्मपत्नी)`
+          : `Your Nephew's Wife (${partnerNode?.display_name || "Nephew"}'s Wife)`;
+        return {
+          shortTag,
+          shortTagEn: "Nephew's Wife",
+          primaryTitle,
+          primaryTitleEn: primaryTitle,
+          category: "child",
+          generationTier: -1,
+          generationLabel: isHi ? "भतीजा-बहू पीढ़ी" : "Next Generation (Nephew In-Law)",
+          multipleRoles: buildMultipleRoles(primaryTitle, isHi ? "भतीजे की धर्मपत्नी" : "Wife of your nephew", isHi ? "संतान पीढ़ी" : "Generation -1", -1),
+        };
+      } else {
+        const shortTag = isHi ? "भतीज दामाद" : "Niece's Husband";
+        const primaryTitle = isHi
+          ? `आपके भतीज दामाद (${partnerNode?.display_name || "भतीजी"} के पति)`
+          : `Your Niece's Husband`;
+        return {
+          shortTag,
+          shortTagEn: "Niece's Husband",
+          primaryTitle,
+          primaryTitleEn: primaryTitle,
+          category: "child",
+          generationTier: -1,
+          generationLabel: isHi ? "भतीजी-दामाद पीढ़ी" : "Next Generation (Niece In-Law)",
+          multipleRoles: buildMultipleRoles(primaryTitle, isHi ? "भतीजी के पति" : "Husband of your niece", isHi ? "संतान पीढ़ी" : "Generation -1", -1),
+        };
+      }
+    } else {
+      if (partnerSex === "M" || targetSex === "F") {
+        const shortTag = isHi ? "भांज बहू" : "Nephew's Wife (Bhanja)";
+        const primaryTitle = isHi
+          ? `आपकी भांज बहू (${partnerNode?.display_name || "भांजे"} की धर्मपत्नी)`
+          : `Your Nephew's Wife`;
+        return {
+          shortTag,
+          shortTagEn: "Nephew's Wife",
+          primaryTitle,
+          primaryTitleEn: primaryTitle,
+          category: "child",
+          generationTier: -1,
+          generationLabel: isHi ? "भांजा-बहू पीढ़ी" : "Next Generation",
+          multipleRoles: buildMultipleRoles(primaryTitle, isHi ? "भांजे की धर्मपत्नी" : "Wife of your nephew", isHi ? "संतान पीढ़ी" : "Generation -1", -1),
+        };
+      } else {
+        const shortTag = isHi ? "भांज दामाद" : "Niece's Husband (Bhanji)";
+        const primaryTitle = isHi
+          ? `आपके भांज दामाद (${partnerNode?.display_name || "भांजी"} के पति)`
+          : `Your Niece's Husband`;
+        return {
+          shortTag,
+          shortTagEn: "Niece's Husband",
+          primaryTitle,
+          primaryTitleEn: primaryTitle,
+          category: "child",
+          generationTier: -1,
+          generationLabel: isHi ? "भांजी-दामाद पीढ़ी" : "Next Generation",
+          multipleRoles: buildMultipleRoles(primaryTitle, isHi ? "भांजी के पति" : "Husband of your niece", isHi ? "संतान पीढ़ी" : "Generation -1", -1),
+        };
+      }
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 9. GRANDCHILDREN (Son's or Daughter's Children: Pota / Poti / Naati / Naatin)
+  // -------------------------------------------------------------
+  const parentOfGcId = Array.from(parentsMap.get(n.id) || []).find((pId) => selfChildren.has(pId)) ||
+    (selfChildren.has(n.via_id || n.via_child_id || "") ? (n.via_id || n.via_child_id) : undefined);
 
   const isGrandChild =
-    parentDirectChildId ||
+    parentOfGcId ||
     (tree.grandchildren || []).some((g) => g.id === n.id) ||
     (tree.levels_down?.[1] || []).some((g) => g.id === n.id) ||
     n.relation === "grandchild";
 
   if (isGrandChild) {
-    const parNode = allNodes.get(parentDirectChildId || n.via_id || n.via_child_id || "");
+    const parNode = allNodes.get(parentOfGcId || n.via_id || n.via_child_id || "");
     const parSex = resolveSex(parNode?.gender, parNode?.relation);
     const parCleanName = parNode?.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, "") || "";
     const isFemale = targetSex === "F";
@@ -958,7 +1081,82 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // CASE 9: DIRECT PARENT OF SELF (Father / Mother)
+  // 10. SPOUSE OF GRANDCHILD (Pautra-vadhu / Naati-bahu)
+  // -------------------------------------------------------------
+  const gcPartnerId = Array.from(spouseMap.get(n.id) || []).find((pId) =>
+    Array.from(parentsMap.get(pId) || []).some((parId) => selfChildren.has(parId))
+  );
+
+  if (gcPartnerId) {
+    const gcNode = allNodes.get(gcPartnerId);
+    const gcParId = Array.from(parentsMap.get(gcPartnerId) || []).find((parId) => selfChildren.has(parId));
+    const gcParNode = allNodes.get(gcParId || "");
+    const isSonBranch = resolveSex(gcParNode?.gender, gcParNode?.relation) === "M";
+
+    if (isSonBranch) {
+      const shortTag = isHi ? "पौत्र-वधू" : "Grandson's Wife";
+      const primaryTitle = isHi
+        ? `आपकी पौत्र-वधू (${gcNode?.display_name || "पोते"} की धर्मपत्नी)`
+        : `Your Grandson's Wife`;
+      return {
+        shortTag,
+        shortTagEn: "Grandson's Wife",
+        primaryTitle,
+        primaryTitleEn: primaryTitle,
+        category: "grandchild",
+        generationTier: -2,
+        generationLabel: isHi ? "पौत्र-वधू पीढ़ी" : "Grandchild In-Law",
+        multipleRoles: buildMultipleRoles(primaryTitle, isHi ? "पोते की धर्मपत्नी" : "Wife of grandson", isHi ? "पौत्र पीढ़ी" : "Generation -2", -2),
+      };
+    } else {
+      const shortTag = isHi ? "नाती बहू" : "Granddaughter's In-Law";
+      const primaryTitle = isHi
+        ? `आपकी नाती बहू (${gcNode?.display_name || "नाती"} की धर्मपत्नी)`
+        : `Your Grandson's Wife (Maternal)`;
+      return {
+        shortTag,
+        shortTagEn: "Grandson's Wife",
+        primaryTitle,
+        primaryTitleEn: primaryTitle,
+        category: "grandchild",
+        generationTier: -2,
+        generationLabel: isHi ? "नाती-बहू पीढ़ी" : "Grandchild In-Law",
+        multipleRoles: buildMultipleRoles(primaryTitle, isHi ? "नाती की धर्मपत्नी" : "Wife of grandson", isHi ? "पौत्र पीढ़ी" : "Generation -2", -2),
+      };
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 11. GREAT-GRANDCHILDREN (Generation -3)
+  // -------------------------------------------------------------
+  const isGreatGrandchild = (tree.levels_down?.[2] || []).some((g) => g.id === n.id);
+  if (isGreatGrandchild) {
+    const isFemale = targetSex === "F";
+    const shortTag = isFemale ? (isHi ? "परपोती" : "Great-granddaughter") : (isHi ? "परपोता" : "Great-grandson");
+    const primaryTitle = isFemale
+      ? isHi ? "आपकी परपोती / परनातिन (Great-granddaughter)" : "Your Great-granddaughter"
+      : isHi ? "आपका परपोता / परनाती (Great-grandson)" : "Your Great-grandson";
+    const tierLabel = isHi ? "परपौत्र पीढ़ी (Great-grandchildren)" : "Great-grandchildren Generation";
+
+    return {
+      shortTag,
+      shortTagEn: isFemale ? "Great-granddaughter" : "Great-grandson",
+      primaryTitle,
+      primaryTitleEn: primaryTitle,
+      category: "grandchild",
+      generationTier: -3,
+      generationLabel: tierLabel,
+      multipleRoles: buildMultipleRoles(
+        primaryTitle,
+        isHi ? "परिवार की चौथी पीढ़ी (परपौत्र/परनातिन)" : "Fourth generation descendant",
+        tierLabel,
+        -3
+      ),
+    };
+  }
+
+  // -------------------------------------------------------------
+  // 12. DIRECT PARENTS (Father / Mother)
   // -------------------------------------------------------------
   const isDirectParent =
     parentsMap.get(centre.id)?.has(n.id) ||
@@ -968,12 +1166,8 @@ function resolveIndianRelationship(
 
   if (isDirectParent) {
     const isMother = targetSex === "F" || n.relation === "mother";
-    const shortTag = isMother
-      ? isHi ? "माता जी" : "Mother"
-      : isHi ? "पिता जी" : "Father";
-    const primaryTitle = isMother
-      ? isHi ? "आपकी पूज्य माता जी (Mother)" : "Your Respected Mother"
-      : isHi ? "आपके पूज्य पिता जी (Father)" : "Your Respected Father";
+    const shortTag = isMother ? (isHi ? "माता जी" : "Mother") : (isHi ? "पिता जी" : "Father");
+    const primaryTitle = isMother ? (isHi ? "आपकी पूज्य माता जी (Mother)" : "Your Respected Mother") : (isHi ? "आपके पूज्य पिता जी (Father)" : "Your Respected Father");
     const tierLabel = isHi ? "माता-पिता की पीढ़ी (Parents)" : "Parents Generation";
 
     return {
@@ -994,22 +1188,15 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // CASE 10: FATHER'S / MOTHER'S SIBLINGS & THEIR SPOUSES (Tau, Chacha, Bua, Mama, Mausi)
+  // 13. FATHER'S SIBLINGS (Tau, Chacha, Bua)
   // -------------------------------------------------------------
-  const isFatherSib =
-    father &&
-    (siblingsMap.get(father.id)?.has(n.id) ||
-      (tree.siblings_of?.[father.id] || []).some((s) => s.id === n.id));
-
-  if (isFatherSib) {
+  if (fatherSiblings.has(n.id)) {
     const fBorn = father?.birth_year || null;
     const nBorn = n.birth_year || null;
     const isOlderThanFather = fBorn && nBorn ? nBorn < fBorn : false;
 
     if (targetSex === "M") {
-      const shortTag = isOlderThanFather
-        ? isHi ? "ताऊ जी" : "Elder Uncle (Tau)"
-        : isHi ? "चाचा जी" : "Paternal Uncle (Chacha)";
+      const shortTag = isOlderThanFather ? (isHi ? "ताऊ जी" : "Elder Uncle (Tau)") : (isHi ? "चाचा जी" : "Paternal Uncle (Chacha)");
       const primaryTitle = isOlderThanFather
         ? isHi ? "आपके ताऊ जी / बड़े पापा (पिताजी के बड़े भाई)" : "Your Elder Paternal Uncle (Tau)"
         : isHi ? "आपके चाचा जी / काका जी (पिताजी के भाई)" : "Your Paternal Uncle (Chacha)";
@@ -1032,9 +1219,7 @@ function resolveIndianRelationship(
       };
     } else {
       const shortTag = isHi ? "बुआ जी" : "Paternal Aunt (Bua)";
-      const primaryTitle = isHi
-        ? "आपकी बुआ जी / फूफी (पिताजी की बहन)"
-        : "Your Paternal Aunt (Bua)";
+      const primaryTitle = isHi ? "आपकी बुआ जी / फूफी (पिताजी की बहन)" : "Your Paternal Aunt (Bua)";
       const tierLabel = isHi ? "माता-पिता की पीढ़ी (बुआ जी)" : "Parents Generation (Aunt)";
 
       return {
@@ -1055,17 +1240,66 @@ function resolveIndianRelationship(
     }
   }
 
-  const isMotherSib =
-    mother &&
-    (siblingsMap.get(mother.id)?.has(n.id) ||
-      (tree.siblings_of?.[mother.id] || []).some((s) => s.id === n.id));
+  // -------------------------------------------------------------
+  // 14. SPOUSE OF FATHER'S SIBLINGS (Tai, Chachi, Fufa)
+  // -------------------------------------------------------------
+  const marriedFatherSibId = Array.from(spouseMap.get(n.id) || []).find((pId) => fatherSiblings.has(pId)) ||
+    (fatherSiblings.has(n.via_id || "") ? n.via_id : undefined);
 
-  if (isMotherSib) {
+  if (marriedFatherSibId) {
+    const sibNode = allNodes.get(marriedFatherSibId);
+    const sibSex = resolveSex(sibNode?.gender, sibNode?.relation);
+    const sibCleanName = sibNode?.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, "") || "";
+    const fBorn = father?.birth_year || null;
+    const sBorn = sibNode?.birth_year || null;
+    const isOlderSib = fBorn && sBorn ? sBorn < fBorn : false;
+
+    if (sibSex === "M" || targetSex === "F") {
+      // Uncle's Wife -> TAI or CHACHI
+      const shortTag = isOlderSib ? (isHi ? "ताई जी" : "Tai ji") : (isHi ? "चाची जी" : "Chachi ji");
+      const primaryTitle = isOlderSib
+        ? isHi ? `आपकी ताई जी / बड़ी माँ (${sibCleanName} की धर्मपत्नी)` : `Your Elder Paternal Aunt (${sibCleanName}'s Wife)`
+        : isHi ? `आपकी चाची जी / काकी जी (${sibCleanName} की धर्मपत्नी)` : `Your Paternal Aunt (${sibCleanName}'s Wife)`;
+      const tierLabel = isHi ? "माता-पिता की पीढ़ी (ताई/चाची)" : "Parents Generation";
+
+      return {
+        shortTag,
+        shortTagEn: isOlderSib ? "Elder Aunt (Tai)" : "Aunt (Chachi)",
+        primaryTitle,
+        primaryTitleEn: primaryTitle,
+        category: "parent",
+        generationTier: 1,
+        generationLabel: tierLabel,
+        multipleRoles: buildMultipleRoles(primaryTitle, isHi ? `${sibCleanName} की धर्मपत्नी` : `Wife of ${sibCleanName}`, tierLabel, 1),
+      };
+    } else {
+      // Aunt's Husband -> FUFA JI
+      const shortTag = isHi ? "फूफा जी" : "Fufa ji";
+      const primaryTitle = isHi
+        ? `आपके फूफा जी (${sibCleanName ? `${sibCleanName} के पति` : "बुआ जी के पति"})`
+        : `Your Paternal Uncle (Fufa ji)`;
+      const tierLabel = isHi ? "माता-पिता की पीढ़ी (फूफा जी)" : "Parents Generation";
+
+      return {
+        shortTag,
+        shortTagEn: "Uncle (Fufa ji)",
+        primaryTitle,
+        primaryTitleEn: primaryTitle,
+        category: "parent",
+        generationTier: 1,
+        generationLabel: tierLabel,
+        multipleRoles: buildMultipleRoles(primaryTitle, isHi ? `बुआ जी ${sibCleanName} के पति` : `Husband of ${sibCleanName}`, tierLabel, 1),
+      };
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 15. MOTHER'S SIBLINGS (Mama, Mausi)
+  // -------------------------------------------------------------
+  if (motherSiblings.has(n.id)) {
     if (targetSex === "M") {
       const shortTag = isHi ? "मामा जी" : "Maternal Uncle (Mama)";
-      const primaryTitle = isHi
-        ? "आपके मामा जी (माताजी के भाई)"
-        : "Your Maternal Uncle (Mama)";
+      const primaryTitle = isHi ? "आपके मामा जी (माताजी के भाई)" : "Your Maternal Uncle (Mama)";
       const tierLabel = isHi ? "माता-पिता की पीढ़ी (मामा जी)" : "Parents Generation (Maternal Uncle)";
 
       return {
@@ -1085,9 +1319,7 @@ function resolveIndianRelationship(
       };
     } else {
       const shortTag = isHi ? "मौसी जी" : "Maternal Aunt (Mausi)";
-      const primaryTitle = isHi
-        ? "आपकी मौसी जी (माताजी की बहन)"
-        : "Your Maternal Aunt (Mausi)";
+      const primaryTitle = isHi ? "आपकी मौसी जी (माताजी की बहन)" : "Your Maternal Aunt (Mausi)";
       const tierLabel = isHi ? "माता-पिता की पीढ़ी (मौसी जी)" : "Parents Generation (Maternal Aunt)";
 
       return {
@@ -1109,7 +1341,120 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // CASE 11: GRANDPARENTS (Dada / Dadi / Nana / Nani)
+  // 16. SPOUSE OF MOTHER'S SIBLINGS (Mami, Mausa)
+  // -------------------------------------------------------------
+  const marriedMotherSibId = Array.from(spouseMap.get(n.id) || []).find((pId) => motherSiblings.has(pId)) ||
+    (motherSiblings.has(n.via_id || "") ? n.via_id : undefined);
+
+  if (marriedMotherSibId) {
+    const sibNode = allNodes.get(marriedMotherSibId);
+    const sibSex = resolveSex(sibNode?.gender, sibNode?.relation);
+    const sibCleanName = sibNode?.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, "") || "";
+
+    if (sibSex === "M" || targetSex === "F") {
+      // Mama's Wife -> MAMI
+      const shortTag = isHi ? "मामी जी" : "Mami ji";
+      const primaryTitle = isHi
+        ? `आपकी मामी जी (${sibCleanName ? `${sibCleanName} की धर्मपत्नी` : "मामा जी की पत्नी"})`
+        : `Your Maternal Aunt (Mami ji)`;
+      const tierLabel = isHi ? "माता-पिता की पीढ़ी (मामी जी)" : "Parents Generation (Maternal Aunt)";
+
+      return {
+        shortTag,
+        shortTagEn: "Maternal Aunt (Mami)",
+        primaryTitle,
+        primaryTitleEn: primaryTitle,
+        category: "parent",
+        generationTier: 1,
+        generationLabel: tierLabel,
+        multipleRoles: buildMultipleRoles(primaryTitle, isHi ? `मामा जी ${sibCleanName} की धर्मपत्नी` : `Wife of ${sibCleanName}`, tierLabel, 1),
+      };
+    } else {
+      // Mausi's Husband -> MAUSA JI
+      const shortTag = isHi ? "मौसा जी" : "Mausa ji";
+      const primaryTitle = isHi
+        ? `आपके मौसा जी (${sibCleanName ? `${sibCleanName} के पति` : "मौसी जी के पति"})`
+        : `Your Maternal Uncle (Mausa ji)`;
+      const tierLabel = isHi ? "माता-पिता की पीढ़ी (मौसा जी)" : "Parents Generation (Maternal Uncle)";
+
+      return {
+        shortTag,
+        shortTagEn: "Maternal Uncle (Mausa)",
+        primaryTitle,
+        primaryTitleEn: primaryTitle,
+        category: "parent",
+        generationTier: 1,
+        generationLabel: tierLabel,
+        multipleRoles: buildMultipleRoles(primaryTitle, isHi ? `मौसी जी ${sibCleanName} के पति` : `Husband of ${sibCleanName}`, tierLabel, 1),
+      };
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 17. COUSINS (Children of Father's Siblings or Mother's Siblings)
+  // -------------------------------------------------------------
+  const cousinParentId = Array.from(parentsMap.get(n.id) || []).find(
+    (pId) => fatherSiblings.has(pId) || motherSiblings.has(pId)
+  ) || (fatherSiblings.has(n.via_id || "") || motherSiblings.has(n.via_id || "") ? n.via_id : undefined);
+
+  if (cousinParentId) {
+    const pNode = allNodes.get(cousinParentId);
+    const pName = pNode?.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, "") || "";
+    const isPaternal = fatherSiblings.has(cousinParentId);
+    const pSex = resolveSex(pNode?.gender, pNode?.relation);
+
+    let shortTag = "";
+    let primaryTitle = "";
+
+    if (isPaternal) {
+      if (pSex === "M") {
+        // Tau / Chacha's child -> Chachera / Tautera
+        const isMale = targetSex === "M";
+        shortTag = isMale ? (isHi ? "चचेरे भाई" : "Cousin Brother") : (isHi ? "चचेरी बहन" : "Cousin Sister");
+        primaryTitle = isMale
+          ? isHi ? `आपके चचेरे भाई (${pName ? `${pName} के सुपुत्र` : "चाचा/ताऊ के पुत्र"})` : `Your Cousin Brother (Son of ${pName || "Uncle"})`
+          : isHi ? `आपकी चचेरी बहन (${pName ? `${pName} की सुपुत्री` : "चाचा/ताऊ की पुत्री"})` : `Your Cousin Sister (Daughter of ${pName || "Uncle"})`;
+      } else {
+        // Bua's child -> Fufere
+        const isMale = targetSex === "M";
+        shortTag = isMale ? (isHi ? "फुफेरे भाई" : "Cousin Brother") : (isHi ? "फुफेरी बहन" : "Cousin Sister");
+        primaryTitle = isMale
+          ? isHi ? `आपके फुफेरे भाई (${pName ? `${pName} के सुपुत्र` : "बुआ जी के पुत्र"})` : `Your Cousin Brother (Son of ${pName || "Bua"})`
+          : isHi ? `आपकी फुफेरी बहन (${pName ? `${pName} की सुपुत्री` : "बुआ जी की पुत्री"})` : `Your Cousin Sister (Daughter of ${pName || "Bua"})`;
+      }
+    } else {
+      if (pSex === "M") {
+        // Mama's child -> Mamera
+        const isMale = targetSex === "M";
+        shortTag = isMale ? (isHi ? "ममेरे भाई" : "Cousin Brother") : (isHi ? "ममेरी बहन" : "Cousin Sister");
+        primaryTitle = isMale
+          ? isHi ? `आपके ममेरे भाई (${pName ? `${pName} के सुपुत्र` : "मामा जी के पुत्र"})` : `Your Cousin Brother (Son of ${pName || "Mama"})`
+          : isHi ? `आपकी ममेरी बहन (${pName ? `${pName} की सुपुत्री` : "मामा जी की पुत्री"})` : `Your Cousin Sister (Daughter of ${pName || "Mama"})`;
+      } else {
+        // Mausi's child -> Mausera
+        const isMale = targetSex === "M";
+        shortTag = isMale ? (isHi ? "मौसेरे भाई" : "Cousin Brother") : (isHi ? "मौसेरी बहन" : "Cousin Sister");
+        primaryTitle = isMale
+          ? isHi ? `आपके मौसेरे भाई (${pName ? `${pName} के सुपुत्र` : "मौसी जी के पुत्र"})` : `Your Cousin Brother (Son of ${pName || "Mausi"})`
+          : isHi ? `आपकी मौसेरी बहन (${pName ? `${pName} की सुपुत्री` : "मौसी जी की पुत्री"})` : `Your Cousin Sister (Daughter of ${pName || "Mausi"})`;
+      }
+    }
+
+    const tierLabel = isHi ? "आपकी पीढ़ी (कजिन भाई-बहन)" : "Same Generation (Cousin)";
+    return {
+      shortTag,
+      shortTagEn: targetSex === "M" ? "Cousin Brother" : "Cousin Sister",
+      primaryTitle,
+      primaryTitleEn: primaryTitle,
+      category: "sibling",
+      generationTier: 0,
+      generationLabel: tierLabel,
+      multipleRoles: buildMultipleRoles(primaryTitle, isHi ? `${pName} की संतान` : `Child of ${pName}`, tierLabel, 0),
+    };
+  }
+
+  // -------------------------------------------------------------
+  // 18. GRANDPARENTS (Dada / Dadi / Nana / Nani)
   // -------------------------------------------------------------
   const isGrandparent =
     (tree.grandparents || []).some((g) => g.id === n.id) ||
@@ -1163,7 +1508,7 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // CASE 12: GREAT-GRANDPARENTS (Generation Tier 3)
+  // 19. GREAT-GRANDPARENTS (Generation 3)
   // -------------------------------------------------------------
   const isGreatGrandparent = (tree.levels_up?.[2] || []).some((g) => g.id === n.id);
   if (isGreatGrandparent) {
@@ -1192,36 +1537,32 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // CASE 13: GREAT-GRANDCHILDREN (Generation Tier -3)
+  // 20. IN-LAWS (via Spouse)
   // -------------------------------------------------------------
-  const isGreatGrandchild = (tree.levels_down?.[2] || []).some((g) => g.id === n.id);
-  if (isGreatGrandchild) {
-    const isFemale = targetSex === "F";
-    const shortTag = isFemale ? (isHi ? "परपोती" : "Great-granddaughter") : (isHi ? "परपोता" : "Great-grandson");
-    const primaryTitle = isFemale
-      ? isHi ? "आपकी परपोती / परनातिन (Great-granddaughter)" : "Your Great-granddaughter"
-      : isHi ? "आपका परपोता / परनाती (Great-grandson)" : "Your Great-grandson";
-    const tierLabel = isHi ? "परपौत्र पीढ़ी (Great-grandchildren)" : "Great-grandchildren Generation";
+  const isSpouseParent = Array.from(tree.spouses || []).some((sp) =>
+    Array.from(parentsMap.get(sp.id) || []).includes(n.id)
+  );
 
+  if (isSpouseParent) {
+    const isFemale = targetSex === "F";
+    const shortTag = isFemale ? (isHi ? "सास जी" : "Mother-in-law") : (isHi ? "ससुर जी" : "Father-in-law");
+    const primaryTitle = isFemale
+      ? isHi ? "आपकी पूज्य सास जी (Mother-in-law)" : "Your Mother-in-law"
+      : isHi ? "आपके पूज्य ससुर जी (Father-in-law)" : "Your Father-in-law";
     return {
       shortTag,
-      shortTagEn: isFemale ? "Great-granddaughter" : "Great-grandson",
+      shortTagEn: isFemale ? "Mother-in-law" : "Father-in-law",
       primaryTitle,
       primaryTitleEn: primaryTitle,
-      category: "grandchild",
-      generationTier: -3,
-      generationLabel: tierLabel,
-      multipleRoles: buildMultipleRoles(
-        primaryTitle,
-        isHi ? "परिवार की चौथी पीढ़ी (परपौत्र/परनातिन)" : "Fourth generation descendant",
-        tierLabel,
-        -3
-      ),
+      category: "parent",
+      generationTier: 1,
+      generationLabel: isHi ? "ससुराल पक्ष (सास-ससुर)" : "In-Laws (Parents)",
+      multipleRoles: buildMultipleRoles(primaryTitle, isHi ? "जीवनसाथी के पूज्य माता-पिता" : "Parents of your spouse", isHi ? "वरिष्ठ पीढ़ी" : "Generation +1", 1),
     };
   }
 
   // -------------------------------------------------------------
-  // CASE 14: SMART FALLBACK (via owner generation or link analysis)
+  // 21. SMART FALLBACK
   // -------------------------------------------------------------
   let inferredTier = 0;
   if ((tree.levels_up || []).some((lvl) => lvl.some((m) => m.id === n.id))) {
@@ -1871,111 +2212,250 @@ function VanshawaliInner() {
     const level = levelsUp[di];
     const genKey = (di === 0 ? "up1" : di === 1 ? "up2" : "up3") as keyof typeof GEN_STYLE;
 
-    // Group father+mother by via as couples; singles alone
-    const byVia = new Map<string, Node[]>();
-    level.forEach((n) => {
-      const k = n.via_id || n.via_parent_id || n.id;
-      if (!byVia.has(k)) byVia.set(k, []);
-      byVia.get(k)!.push(n);
-    });
+    // For di === 0 (Parents generation), include uncles and aunts if available
+    const levelNodes = di === 0
+      ? [...level, ...(tree?.uncles_and_aunts || []).filter((u) => !level.some((p) => p.id === u.id))]
+      : level;
 
-    type Unit = { nodes: Node[]; w: number };
-    const units: Unit[] = [];
-    byVia.forEach((list) => {
-      const f = list.find((n) => n.relation === "father");
-      const m = list.find((n) => n.relation === "mother");
-      const rest = list.filter((n) => n !== f && n !== m);
-      if (f && m) {
-        const w = nameW(f.display_name) + coupleGap + nameW(m.display_name);
-        units.push({ nodes: [f, m], w });
+    type UpUnit = { nodes: Node[]; w: number };
+    const units: UpUnit[] = [];
+    const usedUp = new Set<string>();
+
+    // 1. Group father & mother as couples if present
+    const f = levelNodes.find(
+      (n) => n.relation === "father" || (parents.some((p) => p.id === n.id) && resolveSex(n.gender, n.relation) === "M")
+    );
+    const m = levelNodes.find(
+      (n) => n.relation === "mother" || (parents.some((p) => p.id === n.id) && resolveSex(n.gender, n.relation) === "F")
+    );
+    if (f && m) {
+      usedUp.add(f.id);
+      usedUp.add(m.id);
+      const w = nameW(f.display_name) + coupleGap + nameW(m.display_name);
+      units.push({ nodes: [f, m], w });
+    }
+
+    // 2. For each other relative in level, group with their spouses from spousesOfMap
+    levelNodes.forEach((n) => {
+      if (usedUp.has(n.id) || posById.has(n.id)) return;
+      usedUp.add(n.id);
+      const sps = (spousesOfMap[n.id] || []).filter((s) => !usedUp.has(s.id) && !posById.has(s.id));
+      sps.forEach((s) => usedUp.add(s.id));
+      if (sps.length > 0) {
+        let w = nameW(n.display_name);
+        sps.forEach((s) => {
+          w += coupleGap + nameW(s.display_name);
+        });
+        units.push({ nodes: [n, ...sps], w });
       } else {
-        list.forEach((n) => units.push({ nodes: [n], w: nameW(n.display_name) }));
+        units.push({ nodes: [n], w: nameW(n.display_name) });
       }
-      rest.forEach((n) => {
-        if (!(f && m && (n === f || n === m))) {
-          /* already handled */
-        }
-      });
-    });
-    // dedupe units by node ids
-    const seenU = new Set<string>();
-    const unitsClean: Unit[] = [];
-    units.forEach((u) => {
-      const key = u.nodes.map((n) => n.id).sort().join("|");
-      if (seenU.has(key)) return;
-      seenU.add(key);
-      unitsClean.push(u);
     });
 
     const totalW =
-      unitsClean.reduce((s, u) => s + u.w, 0) + gap * Math.max(0, unitsClean.length - 1);
+      units.reduce((s, u) => s + u.w, 0) + gap * Math.max(0, units.length - 1);
     contentW = Math.max(contentW, totalW + pad * 2);
     let cursor = (contentW - totalW) / 2;
-    unitsClean.forEach((u) => {
-      const unitCx = cursor + u.w / 2;
-      if (u.nodes.length === 2) {
-        placeCouple(u.nodes[0], u.nodes[1], unitCx, yCursor, genKey, genKey);
-      } else {
-        placeNode(u.nodes[0], unitCx, yCursor, genKey);
+
+    units.forEach((u) => {
+      let x = cursor;
+      const mw = nameW(u.nodes[0].display_name);
+      placeNode(u.nodes[0], x + mw / 2, yCursor, genKey);
+      x += mw;
+      for (let ni = 1; ni < u.nodes.length; ni++) {
+        x += coupleGap;
+        const sw = nameW(u.nodes[ni].display_name);
+        placeNode(
+          { ...u.nodes[ni], relation: "spouse", via_id: u.nodes[0].id },
+          x + sw / 2,
+          yCursor,
+          "spouse"
+        );
+        x += sw;
       }
       cursor += u.w + gap;
     });
     yCursor += subRowH + levelGap;
   }
 
-  // —— Centre + spouse ——
-  const centreW = nameW(tree?.centre.display_name || "Self", 180);
+  // —— Middle Row (Generation 0: Self + Siblings + Spouses) ——
   const spousesList = spouses.slice();
-  let centreBandW = centreW;
-  spousesList.forEach((s) => {
-    centreBandW += coupleGap + nameW(s.display_name);
-  });
-  // siblings on left of centre
   const siblings = tree?.siblings || [];
-  let sibW = 0;
-  siblings.forEach((s) => {
-    sibW += nameW(s.display_name) + gap;
+
+  // Deduplicate all siblings of centre
+  const centreSiblingMap = new Map<string, Node>();
+  siblings.forEach((s) => centreSiblingMap.set(s.id, s));
+  (tree?.siblings_of?.[tree.centre.id] || []).forEach((s) => centreSiblingMap.set(s.id, s));
+  const allSiblings = Array.from(centreSiblingMap.values());
+
+  type Gen0Unit = {
+    main: Node;
+    spouses: Node[];
+    width: number;
+    isSelf: boolean;
+    orderWeight: number;
+  };
+
+  const gen0Units: Gen0Unit[] = [];
+
+  // Build sibling couple units
+  allSiblings.forEach((s) => {
+    if (posById.has(s.id)) return;
+    const sps = (spousesOfMap[s.id] || []).filter(
+      (sp) => sp.id !== tree?.centre.id && !posById.has(sp.id)
+    );
+    let w = nameW(s.display_name);
+    sps.forEach((sp) => {
+      w += coupleGap + nameW(sp.display_name);
+    });
+
+    const relInfo = resolveIndianRelationship(s, tree, lang);
+    const isElder =
+      relInfo.shortTag.includes("बड़े") ||
+      relInfo.shortTag.includes("बड़ी") ||
+      relInfo.shortTagEn.toLowerCase().includes("elder") ||
+      relInfo.primaryTitle.includes("बड़े") ||
+      relInfo.primaryTitle.includes("बड़ी");
+    const isSister =
+      relInfo.shortTag.includes("बहन") || relInfo.shortTagEn.toLowerCase().includes("sister");
+
+    // Order: Elder brothers leftmost (-200), Elder sisters (-100), Younger brothers (+100), Younger sisters (+200)
+    let weight = 0;
+    if (isElder) {
+      weight = isSister ? -100 : -200;
+    } else {
+      weight = isSister ? 200 : 100;
+    }
+
+    gen0Units.push({
+      main: { ...s, relation: "sibling" },
+      spouses: sps,
+      width: w,
+      isSelf: false,
+      orderWeight: weight,
+    });
   });
-  contentW = Math.max(contentW, centreBandW + sibW + pad * 2 + 40);
+
+  // Sort sibling units so elders are on left, younger on right
+  gen0Units.sort((a, b) => a.orderWeight - b.orderWeight);
+
+  // Self + Spouses unit
+  let selfBandW = nameW(tree?.centre.display_name || "Self", 180);
+  const selfSpouses = spousesList.filter((sp) => !posById.has(sp.id));
+  selfSpouses.forEach((sp) => {
+    selfBandW += coupleGap + nameW(sp.display_name);
+  });
+
+  const selfUnit: Gen0Unit = {
+    main: tree
+      ? { ...tree.centre, relation: "self" }
+      : { id: "self", display_name: "Self", relation: "self" },
+    spouses: selfSpouses,
+    width: selfBandW,
+    isSelf: true,
+    orderWeight: 0,
+  };
+
+  // Insert Self in the center between negative and positive weights
+  const splitIdx = gen0Units.findIndex((u) => u.orderWeight > 0);
+  if (splitIdx === -1) {
+    gen0Units.push(selfUnit);
+  } else {
+    gen0Units.splice(splitIdx, 0, selfUnit);
+  }
+
+  // Calculate total row width
+  const totalGen0W =
+    gen0Units.reduce((acc, u) => acc + u.width, 0) +
+    gap * Math.max(0, gen0Units.length - 1);
+  contentW = Math.max(contentW, totalGen0W + pad * 2 + 40);
 
   const yMid = yCursor + 8;
-  let bandStart = (contentW - (centreBandW + sibW)) / 2;
-  // siblings left
-  siblings.forEach((s) => {
-    if (posById.has(s.id)) return;
-    const w = nameW(s.display_name);
-    placeNode({ ...s, relation: "sibling" }, bandStart + w / 2, yMid, "sibling");
-    bandStart += w + gap;
+  let cursor = (contentW - totalGen0W) / 2;
+  let centreX = cursor + selfBandW / 2;
+
+  gen0Units.forEach((u) => {
+    let x = cursor;
+    const mw = nameW(u.main.display_name, u.isSelf ? 180 : undefined);
+    const mainCx = x + mw / 2;
+    placeNode(u.main, mainCx, yMid, u.isSelf ? "self" : "sibling");
+    if (u.isSelf) {
+      centreX = mainCx;
+    }
+    x += mw;
+
+    u.spouses.forEach((sp) => {
+      x += coupleGap;
+      const sw = nameW(sp.display_name);
+      const spCx = x + sw / 2;
+      placeNode(
+        { ...sp, relation: "spouse", via_id: u.main.id },
+        spCx,
+        yMid,
+        "spouse"
+      );
+      x += sw;
+    });
+
+    cursor += u.width + gap;
   });
-  // centre
-  const centreX = bandStart + centreW / 2;
-  if (tree) {
-    placeNode(
-      { ...tree.centre, relation: "self" },
-      centreX,
-      yMid,
-      "self"
-    );
-  }
-  bandStart += centreW + coupleGap;
-  // centre spouses
-  const spousePositions: { x: number; w: number }[] = [];
-  spousesList.forEach((s) => {
-    const w = nameW(s.display_name);
-    const x = bandStart + w / 2;
-    placeNode({ ...s, relation: "spouse" }, x, yMid, "spouse");
-    spousePositions.push({ x, w });
-    bandStart += w + coupleGap;
-  });
+
   yCursor = yMid + subRowH + levelGap;
 
-  // —— DOWN levels: each person + their spouses as a couple unit ——
-  for (let di = 0; di < levelsDown.length; di++) {
-    const level = levelsDown[di];
+  // —— DOWN levels: Generation -1 (Children & Nephews/Nieces) and Generation -2 (Grandchildren) ——
+  // Gather Generation -1 nodes
+  const genMinus1Nodes: Node[] = [];
+  const seenGen1 = new Set<string>();
+  const addGen1 = (n: Node) => {
+    if (!n || !n.id || seenGen1.has(n.id) || posById.has(n.id)) return;
+    seenGen1.add(n.id);
+    genMinus1Nodes.push(n);
+  };
+
+  (tree?.children || []).forEach(addGen1);
+  (levelsDown[0] || []).forEach(addGen1);
+  if (tree?.centre) {
+    (tree?.children_of?.[tree.centre.id] || []).forEach(addGen1);
+  }
+  // Nephews & nieces (children of siblings)
+  allSiblings.forEach((s) => {
+    (tree?.children_of?.[s.id] || []).forEach((c) => {
+      addGen1({ ...c, relation: "child", via_id: s.id });
+    });
+  });
+
+  // Gather Generation -2 nodes
+  const genMinus2Nodes: Node[] = [];
+  const seenGen2 = new Set<string>();
+  const addGen2 = (n: Node) => {
+    if (!n || !n.id || seenGen2.has(n.id) || seenGen1.has(n.id) || posById.has(n.id)) return;
+    seenGen2.add(n.id);
+    genMinus2Nodes.push(n);
+  };
+
+  (tree?.grandchildren || []).forEach(addGen2);
+  (levelsDown[1] || []).forEach(addGen2);
+  genMinus1Nodes.forEach((c) => {
+    (tree?.children_of?.[c.id] || []).forEach((gc) => {
+      addGen2({ ...gc, relation: "grandchild", via_id: c.id });
+    });
+  });
+
+  const downLevelsNodes = [genMinus1Nodes, genMinus2Nodes].filter((l) => l.length > 0);
+
+  for (let di = 0; di < downLevelsNodes.length; di++) {
+    const level = downLevelsNodes[di];
     const genKey = (di === 0 ? "down1" : "down2") as keyof typeof GEN_STYLE;
 
-    type Unit = { main: Node; sps: Node[]; w: number; preferX: number };
-    const units: Unit[] = [];
+    type DownUnit = {
+      main: Node;
+      sps: Node[];
+      w: number;
+      preferX: number;
+      idealLeft: number;
+      actualLeft: number;
+    };
+    const units: DownUnit[] = [];
     const usedSp = new Set<string>();
 
     level.forEach((n) => {
@@ -1989,42 +2469,62 @@ function VanshawaliInner() {
         w += coupleGap + nameW(s.display_name);
       });
       const via = n.via_id || n.via_child_id || tree?.centre.id || "";
-      const preferX = posById.get(via)?.x ?? contentW / 2;
-      units.push({ main: n, sps, w, preferX });
+      const preferX = posById.get(via)?.x ?? centreX;
+      units.push({
+        main: n,
+        sps,
+        w,
+        preferX,
+        idealLeft: preferX - w / 2,
+        actualLeft: preferX - w / 2,
+      });
     });
 
-    // sort by preferX so children stay under parent roughly
-    units.sort((a, b) => a.preferX - b.preferX);
+    if (units.length === 0) continue;
+
+    // Sort by preferX so children naturally stay beneath their own parent
+    units.sort((a, b) => a.preferX - b.preferX || a.idealLeft - b.idealLeft);
 
     const totalW =
       units.reduce((s, u) => s + u.w, 0) + gap * Math.max(0, units.length - 1);
     contentW = Math.max(contentW, totalW + pad * 2);
 
-    // distribute units centered under average prefer, but expand
-    let cursor = (contentW - totalW) / 2;
-    // if prefers pull layout, try weighted
     if (units.length === 1) {
-      cursor = Math.max(pad, Math.min(contentW - pad - units[0].w, units[0].preferX - units[0].w / 2));
+      units[0].actualLeft = Math.max(
+        pad,
+        Math.min(contentW - pad - units[0].w, units[0].preferX - units[0].w / 2)
+      );
+    } else {
+      let cur = pad;
+      units.forEach((u) => {
+        u.actualLeft = Math.max(cur, u.preferX - u.w / 2);
+        cur = u.actualLeft + u.w + gap;
+      });
+      const overflow = cur - gap - (contentW - pad);
+      if (overflow > 0) {
+        contentW += overflow;
+      }
     }
 
     units.forEach((u) => {
-      const unitCx = cursor + u.w / 2;
-      if (u.sps.length === 0) {
-        placeNode(u.main, unitCx, yCursor, genKey);
-      } else {
-        // main then spouses to the right
-        let x = cursor;
-        const mw = nameW(u.main.display_name);
-        placeNode(u.main, x + mw / 2, yCursor, genKey);
-        x += mw + coupleGap;
-        u.sps.forEach((s) => {
-          const sw = nameW(s.display_name);
-          placeNode({ ...s, relation: "spouse", via_id: u.main.id }, x + sw / 2, yCursor, "spouse");
-          x += sw + coupleGap;
-        });
-      }
-      cursor += u.w + gap;
+      let x = u.actualLeft;
+      const mw = nameW(u.main.display_name);
+      placeNode(u.main, x + mw / 2, yCursor, genKey);
+      x += mw;
+
+      u.sps.forEach((s) => {
+        x += coupleGap;
+        const sw = nameW(s.display_name);
+        placeNode(
+          { ...s, relation: "spouse", via_id: u.main.id },
+          x + sw / 2,
+          yCursor,
+          "spouse"
+        );
+        x += sw;
+      });
     });
+
     yCursor += subRowH + levelGap;
   }
 
@@ -2604,6 +3104,7 @@ function VanshawaliInner() {
     (tree.children || []).forEach((n) => map.set(n.id, n));
     (tree.grandparents || []).forEach((n) => map.set(n.id, n));
     (tree.grandchildren || []).forEach((n) => map.set(n.id, n));
+    (tree.uncles_and_aunts || []).forEach((n) => map.set(n.id, n));
     (tree.levels_up || []).flat().forEach((n) => map.set(n.id, n));
     (tree.levels_down || []).flat().forEach((n) => map.set(n.id, n));
     if (tree.spouses_of) {
@@ -2611,6 +3112,9 @@ function VanshawaliInner() {
     }
     if (tree.siblings_of) {
       Object.values(tree.siblings_of).flat().forEach((n) => map.set(n.id, n));
+    }
+    if (tree.children_of) {
+      Object.values(tree.children_of).flat().forEach((n) => map.set(n.id, n));
     }
     return Array.from(map.values());
   }, [tree]);
