@@ -379,8 +379,7 @@ function DiamondGem({
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={cn("vansh-gem-glint shrink-0 select-none", className)}
-      style={{ filter: `drop-shadow(0 0 2px ${color})` }}
+      className={cn("shrink-0 select-none", className)}
     >
       {/* Crown / Top table */}
       <polygon points="6,2 18,2 23,8 1,8" fill={color} />
@@ -389,10 +388,213 @@ function DiamondGem({
       <polygon points="1,8 23,8 12,22" fill={color} />
       <polygon points="6,8 18,8 12,22" fill={sparkle} opacity="0.32" />
       <polygon points="10,8 14,8 12,22" fill={sparkle} opacity="0.6" />
-      {/* Brilliant star sparkle glint */}
-      <circle cx="7" cy="5" r="1.5" fill="#FFFFFF" opacity="0.95" />
+      {/* Facet highlight */}
+      <circle cx="7" cy="5" r="1.2" fill="#FFFFFF" opacity="0.9" />
     </svg>
   );
+}
+
+function SolitaireRingAvatar({
+  node,
+  ring,
+  isSelf,
+  isLate,
+  cleanName,
+  sex,
+  size = 38,
+}: {
+  node: Node;
+  ring?: RingStyle;
+  isSelf?: boolean;
+  isLate?: boolean;
+  cleanName: string;
+  sex?: string | null;
+  size?: number;
+}) {
+  const s = size;
+  const cx = s / 2;
+  const cy = s / 2;
+  const r = (s - 6) / 2;
+  const circ = 2 * Math.PI * r;
+
+  // Rotated mount at angle -45° (top-left / 10:30 o'clock)
+  const mx = cx - r * 0.707;
+  const my = cy - r * 0.707;
+
+  return (
+    <div
+      className="relative shrink-0 flex items-center justify-center select-none"
+      style={{ width: s, height: s }}
+    >
+      {ring ? (
+        <>
+          {/* Circular Metallic Diamond Ring with rotated diamond crown and travelling light shine */}
+          <svg
+            className="absolute inset-0 pointer-events-none z-20 overflow-visible"
+            width={s}
+            height={s}
+            viewBox={`0 0 ${s} ${s}`}
+          >
+            <defs>
+              <linearGradient id={`ringGrad-${ring.id}-${s}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor={ring.bandBorder} />
+                <stop offset="35%" stopColor="#FFFFFF" />
+                <stop offset="70%" stopColor={ring.bandBorder} />
+                <stop offset="100%" stopColor={ring.sparkleColor} />
+              </linearGradient>
+            </defs>
+
+            {/* Base Metallic Ring Band */}
+            <circle
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill="none"
+              stroke={ring.bandBorder}
+              strokeWidth={3}
+              opacity={0.88}
+            />
+            <circle
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill="none"
+              stroke={`url(#ringGrad-${ring.id}-${s})`}
+              strokeWidth={2.2}
+            />
+
+            {/* Light travelling shine along the circular ring band */}
+            <circle
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill="none"
+              stroke="#FFFFFF"
+              strokeWidth={2.4}
+              strokeDasharray={`${circ * 0.22} ${circ * 0.78}`}
+              strokeLinecap="round"
+              className="vansh-ring-travel"
+              opacity={0.95}
+            />
+
+            {/* Solitaire Diamond Mount rotated to top-left (-45° / 10:30 o'clock) */}
+            <g transform={`translate(${mx}, ${my}) rotate(-45)`}>
+              {/* Metallic setting / prongs holding the diamond on the band */}
+              <path
+                d="M -4.5 4 L -4.5 0 L -2 -3 L 2 -3 L 4.5 0 L 4.5 4 Z"
+                fill={ring.bandBorder}
+                stroke="#FFFFFF"
+                strokeWidth={0.5}
+              />
+              {/* Faceted Solitaire Diamond Gem (Static, NO animation) */}
+              <polygon
+                points="-3.8,0 3.8,0 2.4,-3.5 -2.4,-3.5"
+                fill={ring.gemColor}
+              />
+              <polygon
+                points="-1.8,-3.5 1.8,-3.5 1.2,-4.2 -1.2,-4.2"
+                fill={ring.sparkleColor}
+                opacity={0.85}
+              />
+              <polygon
+                points="-3.8,0 3.8,0 0,3.6"
+                fill={ring.gemColor}
+              />
+              <polygon
+                points="-1.4,0 1.4,0 0,3.6"
+                fill={ring.sparkleColor}
+                opacity={0.55}
+              />
+              {/* Left and Right Prongs beads clamping the diamond */}
+              <circle cx="-3.6" cy="-0.5" r="0.8" fill="#FFFFFF" />
+              <circle cx="3.6" cy="-0.5" r="0.8" fill="#FFFFFF" />
+            </g>
+          </svg>
+
+          {/* Centered Avatar Image / Fallback inside the ring */}
+          <div
+            className="rounded-full overflow-hidden flex items-center justify-center z-10"
+            style={{ width: s - 10, height: s - 10 }}
+          >
+            {node.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={node.photo_url}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div
+                className={cn(
+                  "w-full h-full flex items-center justify-center text-xs font-bold",
+                  isSelf
+                    ? "bg-amber-400 text-amber-950"
+                    : sex === "F"
+                    ? "bg-rose-200 text-rose-800"
+                    : "bg-indigo-200 text-indigo-800"
+                )}
+              >
+                {cleanName.charAt(0).toUpperCase() || "?"}
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        /* Unmarried member avatar with neat border */
+        <div
+          className="relative rounded-full overflow-hidden flex items-center justify-center border border-gray-200 shadow-2xs"
+          style={{ width: s - 6, height: s - 6 }}
+        >
+          {node.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={node.photo_url}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div
+              className={cn(
+                "w-full h-full flex items-center justify-center text-xs font-bold",
+                isSelf
+                  ? "bg-amber-400 text-amber-950"
+                  : sex === "F"
+                  ? "bg-rose-200 text-rose-800"
+                  : "bg-indigo-200 text-indigo-800"
+              )}
+            >
+              {cleanName.charAt(0).toUpperCase() || "?"}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Late Candle badge at bottom-right */}
+      {isLate && (
+        <span
+          className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center text-[8px] shadow-2xs z-30"
+          title="स्वर्गीय"
+        >
+          🕯️
+        </span>
+      )}
+    </div>
+  );
+}
+
+function getDockOffset(id: string, isTop: boolean): number {
+  let h = isTop ? 17 : 37;
+  for (let i = 0; i < id.length; i++) {
+    h = (h * 31 + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h % 27) - 12;
+}
+
+function bezierCurve(p1: { x: number; y: number }, p2: { x: number; y: number }): string {
+  const dy = Math.max(16, p2.y - p1.y);
+  const cp1y = p1.y + dy * 0.45;
+  const cp2y = p2.y - dy * 0.45;
+  return `M ${p1.x} ${p1.y} C ${p1.x} ${cp1y}, ${p2.x} ${cp2y}, ${p2.x} ${p2.y}`;
 }
 
 function getRelationshipStyle(relTag = "", sex?: string | null) {
@@ -3704,216 +3906,179 @@ function VanshawaliInner() {
     relTag?: string;
     sex?: string | null;
   };
-  const linesBlood: BloodLine[] = [];
+  type BloodSegment = {
+    key: string;
+    d: string;
+    isLeaf?: boolean;
+    relTag?: string;
+    tagX?: number;
+    tagY?: number;
+  };
+  type BloodJunction = {
+    key: string;
+    x: number;
+    y: number;
+  };
+
+  const bloodSegments: BloodSegment[] = [];
+  const bloodJunctions: BloodJunction[] = [];
   type SibLn = { x1: number; y1: number; x2: number; y2: number; key: string; label?: string };
   const linesSibling: SibLn[] = [];
 
-  if (is2ColActive) {
-    const bloodDrawn = new Set<string>();
-    const addBlood = (
-      fromId: string,
-      toId: string,
-      origin: { x: number; y: number },
-      dest: { x: number; y: number },
-      relTag: string,
-      sex?: string | null
-    ) => {
-      const k = `blood-${fromId}-${toId}`;
-      if (bloodDrawn.has(k)) return;
-      bloodDrawn.add(k);
-      linesBlood.push({
-        x1: origin.x,
-        y1: origin.y,
-        x2: dest.x,
-        y2: dest.y,
-        key: k,
-        fromId,
-        toId,
+  const bloodUnitDrawn = new Set<string>();
+  const createBloodUnit = (
+    unitKey: string,
+    parent1Id: string | null | undefined,
+    parent2Id: string | null | undefined,
+    childIds: (string | null | undefined)[],
+    customTags?: Record<string, string>
+  ) => {
+    if (bloodUnitDrawn.has(unitKey)) return;
+    bloodUnitDrawn.add(unitKey);
+    if (!parent1Id && !parent2Id) return;
+
+    const validP1 = parent1Id ? posById.get(parent1Id) : null;
+    const validP2 = parent2Id ? posById.get(parent2Id) : null;
+    if (!validP1 && !validP2) return;
+
+    const p1 = validP1 ? { id: parent1Id!, pos: validP1 } : { id: parent2Id!, pos: validP2! };
+    const p2 = validP1 && validP2 ? { id: parent2Id!, pos: validP2 } : null;
+
+    const validChildren = (childIds || [])
+      .filter((cid): cid is string => Boolean(cid && posById.has(cid)))
+      .map((cid) => ({ id: cid, pos: posById.get(cid)! }));
+
+    if (validChildren.length === 0) return;
+
+    const cardH = is2ColActive ? 66 : BUBBLE_H;
+
+    // 1. Natural dock points at bottom of parent card(s)
+    const off1 = getDockOffset(p1.id, false);
+    const p1Bottom = { x: p1.pos.x + off1, y: p1.pos.top + cardH };
+    const p2Bottom = p2 ? { x: p2.pos.x + getDockOffset(p2.id, false), y: p2.pos.top + cardH } : null;
+
+    // 2. Junction coordinates in inter-generation gap
+    const jx = p2Bottom ? (p1Bottom.x + p2Bottom.x) / 2 : p1Bottom.x;
+    const maxPBottom = Math.max(p1Bottom.y, p2Bottom ? p2Bottom.y : p1Bottom.y);
+    const minCTop = Math.min(...validChildren.map((c) => c.pos.top));
+    const jy = minCTop > maxPBottom + 20
+      ? maxPBottom + (minCTop - maxPBottom) * 0.35
+      : maxPBottom + 18;
+
+    const junc = { x: jx, y: jy };
+    bloodJunctions.push({ key: `junc-${unitKey}`, x: jx, y: jy });
+
+    // 3. Parent 1 to Junction
+    bloodSegments.push({
+      key: `bseg-p1-${unitKey}`,
+      d: bezierCurve(p1Bottom, junc),
+      isLeaf: false,
+    });
+
+    // 4. Parent 2 to Junction (if present)
+    if (p2Bottom) {
+      bloodSegments.push({
+        key: `bseg-p2-${unitKey}`,
+        d: bezierCurve(p2Bottom, junc),
+        isLeaf: false,
+      });
+    }
+
+    // 5. Junction to each Child (with natural top dock offset)
+    validChildren.forEach((c) => {
+      const cOff = getDockOffset(c.id, true);
+      const cTop = { x: c.pos.x + cOff, y: c.pos.top };
+      const cNode = allNodesMap.get(c.id);
+      const rInfo = cNode ? resolveIndianRelationship(cNode, tree, lang) : null;
+      const relTag = customTags?.[c.id] || rInfo?.shortTag;
+
+      bloodSegments.push({
+        key: `bseg-c-${unitKey}-${c.id}`,
+        d: bezierCurve(junc, cTop),
+        isLeaf: true,
         relTag,
-        sex,
+        tagX: cTop.x,
+        tagY: cTop.y - 12,
       });
-    };
+    });
+  };
 
-    const CARD_H_2COL = 66;
-    const cx = contentW / 2;
+  // 1. Grandparents -> Parents
+  const gpList = (tree?.grandparents || []).concat(levelsUp[1] || []);
+  const dada = gpList.find((g) => resolveSex(g.gender, g.relation) === "M" && (!g.via_id || g.via_id === father?.id));
+  const dadi = gpList.find((g) => resolveSex(g.gender, g.relation) === "F" && (!g.via_id || g.via_id === father?.id));
+  if (father && (dada || dadi)) {
+    createBloodUnit("gp-paternal", dada?.id, dadi?.id, [father.id], { [father.id]: lang === "hi" ? "पुत्र" : "Son" });
+  }
+  const nana = gpList.find((g) => resolveSex(g.gender, g.relation) === "M" && g.id !== dada?.id);
+  const nani = gpList.find((g) => resolveSex(g.gender, g.relation) === "F" && g.id !== dadi?.id);
+  if (mother && (nana || nani)) {
+    createBloodUnit("gp-maternal", nana?.id, nani?.id, [mother.id], { [mother.id]: lang === "hi" ? "पुत्री" : "Daughter" });
+  }
 
-    // 1. Grandparents -> Parents
-    if (yGrandparents > 0 && tree) {
-      const gpOriginY = yGrandparents + CARD_H_2COL;
-      if (father && posById.has(father.id)) {
-        const fp = posById.get(father.id)!;
-        addBlood("gp", father.id, { x: cx, y: gpOriginY }, { x: fp.x, y: fp.top }, lang === "hi" ? "पुत्र" : "Son", "M");
+  // 2. Parents -> Self & Siblings
+  if (tree && (father || mother)) {
+    const sibIds = (tree.siblings || []).map((s) => s.id);
+    const soSibs = ((tree.siblings_of || {})[tree.centre.id] || []).map((s) => s.id);
+    const selfAndSibs = Array.from(new Set([tree.centre.id, ...sibIds, ...soSibs]));
+    createBloodUnit("parents-to-self-sibs", father?.id, mother?.id, selfAndSibs);
+  }
+
+  // 3. Self & Spouse -> Children
+  if (tree?.centre) {
+    const kidIds = (tree.children || []).concat(levelsDown[0] || []).concat((tree.children_of || {})[tree.centre.id] || []).map((c) => c.id);
+    const uniqKids = Array.from(new Set(kidIds));
+    const selfSpouse = spouses[0] || (spousesOfMap[tree.centre.id] || [])[0];
+    createBloodUnit("self-to-kids", tree.centre.id, selfSpouse?.id, uniqKids);
+  }
+
+  // 4. Siblings & Sibling Spouses -> Nephews/Nieces
+  if (tree) {
+    const centreSibMap = new Map<string, Node>();
+    (tree.siblings || []).forEach((s) => centreSibMap.set(s.id, s));
+    (tree.siblings_of?.[tree.centre.id] || []).forEach((s) => centreSibMap.set(s.id, s));
+    const allSiblingsList = Array.from(centreSibMap.values());
+
+    allSiblingsList.forEach((s) => {
+      const sKids = ((tree.children_of || {})[s.id] || []).map((c) => c.id);
+      if (sKids.length > 0) {
+        const sSpouse = getSpouseOf(s.id) || (spousesOfMap[s.id] || [])[0];
+        createBloodUnit(`sib-kids-${s.id}`, s.id, sSpouse?.id, sKids);
       }
-      if (mother && posById.has(mother.id)) {
-        const mp = posById.get(mother.id)!;
-        addBlood("gp", mother.id, { x: cx, y: gpOriginY }, { x: mp.x, y: mp.top }, lang === "hi" ? "पुत्री" : "Daughter", "F");
-      }
-    }
+    });
+  }
 
-    // 2. Parents -> Self & Siblings
-    if (tree) {
-      const parOriginX = cx;
-      const parOriginY = yParents > 0 ? yParents + CARD_H_2COL : (ySelf > 80 ? ySelf - 40 : 80);
-
-      // Self
-      const sp = posById.get(tree.centre.id);
-      if (sp) {
-        const selfSex = resolveSex(tree.centre.gender, tree.centre.relation);
-        const selfTag = selfSex === "F" ? (lang === "hi" ? "पुत्री" : "Daughter") : (lang === "hi" ? "पुत्र" : "Son");
-        addBlood(father?.id || mother?.id || "parent", tree.centre.id, { x: parOriginX, y: parOriginY }, { x: sp.x, y: sp.top }, selfTag, selfSex);
-      }
-      // Siblings of Self
-      const centreSiblingMap = new Map<string, Node>();
-      (tree.siblings || []).forEach((s) => centreSiblingMap.set(s.id, s));
-      (tree.siblings_of?.[tree.centre.id] || []).forEach((s) => centreSiblingMap.set(s.id, s));
-      centreSiblingMap.forEach((s) => {
-        const sibPos = posById.get(s.id);
-        if (!sibPos) return;
-        const sSex = resolveSex(s.gender, s.relation);
-        const sTag = sSex === "F" ? (lang === "hi" ? "पुत्री" : "Daughter") : (lang === "hi" ? "पुत्र" : "Son");
-        addBlood(father?.id || mother?.id || "parent", s.id, { x: parOriginX, y: parOriginY }, { x: sibPos.x, y: sibPos.top }, sTag, sSex);
-      });
-    }
-
-    // 3. Self & Spouse -> Children
-    if (tree) {
-      const selfCoupleOriginX = cx;
-      const selfCoupleOriginY = ySelf + CARD_H_2COL;
-      const allKids: Node[] = [];
-      const kidSeen = new Set<string>();
-      const addKid = (c: Node) => {
-        if (!c || !c.id || kidSeen.has(c.id)) return;
-        kidSeen.add(c.id);
-        allKids.push(c);
-      };
-      (tree.children || []).forEach(addKid);
-      (levelsDown[0] || []).forEach(addKid);
-      (tree.children_of?.[tree.centre.id] || []).forEach(addKid);
-
-      allKids.forEach((c) => {
-        const cp = posById.get(c.id);
-        if (!cp) return;
-        const cSex = resolveSex(c.gender, c.relation);
-        const cTag = cSex === "F" ? (lang === "hi" ? "पुत्री" : "Daughter") : (lang === "hi" ? "पुत्र" : "Son");
-        addBlood(tree.centre.id, c.id, { x: selfCoupleOriginX, y: selfCoupleOriginY }, { x: cp.x, y: cp.top }, cTag, cSex);
-      });
-    }
-
-    // 4. Siblings -> Nephews/Nieces
-    if (tree) {
-      Object.entries(tree.children_of || {}).forEach(([parentId, cList]) => {
-        if (parentId === tree.centre.id) return;
-        const pPos = posById.get(parentId);
-        if (!pPos) return;
-        cList.forEach((c) => {
-          const cp = posById.get(c.id);
-          if (!cp) return;
-          const cSex = resolveSex(c.gender, c.relation);
-          const cTag = cSex === "F" ? (lang === "hi" ? "भतीजी" : "Niece") : (lang === "hi" ? "भतीजा" : "Nephew");
-          addBlood(parentId, c.id, { x: pPos.x, y: pPos.top + CARD_H_2COL }, { x: cp.x, y: cp.top }, cTag, cSex);
-        });
-      });
-    }
-
-    // 5. Children -> Grandchildren
-    if (tree) {
+  // 5. Children & Children Spouses -> Grandchildren
+  if (tree) {
+    const allKidsList = (tree.children || []).concat(levelsDown[0] || []);
+    const handledGkids = new Set<string>();
+    allKidsList.forEach((c) => {
+      const cGkids = ((tree.children_of || {})[c.id] || []).map((gc) => gc.id);
       (tree.grandchildren || []).concat(levelsDown[1] || []).forEach((gc) => {
-        const gcp = posById.get(gc.id);
-        if (!gcp) return;
-        const via = gc.via_id || gc.via_child_id;
-        const viaPos = via ? posById.get(via) : null;
-        const ox = viaPos ? viaPos.x : cx;
-        const oy = viaPos ? viaPos.top + CARD_H_2COL : yChildren + CARD_H_2COL;
-        const gcSex = resolveSex(gc.gender, gc.relation);
-        const gcTag = gcSex === "F" ? (lang === "hi" ? "पोती" : "Granddaughter") : (lang === "hi" ? "पोता" : "Grandson");
-        addBlood(via || "child", gc.id, { x: ox, y: oy }, { x: gcp.x, y: gcp.top }, gcTag, gcSex);
+        if (gc.via_id === c.id || gc.via_child_id === c.id) {
+          if (!cGkids.includes(gc.id)) cGkids.push(gc.id);
+        }
       });
-    }
-  } else {
-    // Blood lines for wide canvas mode
-    const selfSibOnly = new Set<string>((tree?.siblings || []).map((s) => s.id));
-    if (tree) selfSibOnly.add(tree.centre.id);
-    placed.forEach((pl) => {
-      if (pl.n.relation === "spouse" || pl.n.relation === "self" || pl.n.relation === "sibling")
-        return;
-      const via = pl.n.via_id || pl.n.via_parent_id || pl.n.via_child_id;
-      let parentPos = via ? posById.get(via) : undefined;
-      if (!parentPos && parents.some((p) => p.id === pl.n.id) && tree) {
-        parentPos = posById.get(tree.centre.id);
-      }
-      if (!parentPos && children.some((c) => c.id === pl.n.id) && tree) {
-        parentPos = posById.get(tree.centre.id);
-      }
-      if (!parentPos) return;
-      const rInfo = resolveIndianRelationship(pl.n, tree, lang);
-      const relTag = rInfo.shortTag;
-      if (pl.top > parentPos.top) {
-        const start = undock(parentPos.x, parentPos.top, "down");
-        const end = dock(pl.x, pl.top, pl.w, "up", pl.n.gender, pl.n.relation);
-        linesBlood.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y, key: `b-${pl.n.id}`, relTag, fromId: via, toId: pl.n.id });
-      } else {
-        const start = undock(parentPos.x, parentPos.top, "up");
-        const end = dock(pl.x, pl.top, pl.w, "down", pl.n.gender, pl.n.relation);
-        linesBlood.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y, key: `b-${pl.n.id}`, relTag, fromId: via, toId: pl.n.id });
+      if (cGkids.length > 0) {
+        cGkids.forEach((gkid) => handledGkids.add(gkid));
+        const cSpouse = getSpouseOf(c.id) || (spousesOfMap[c.id] || [])[0];
+        createBloodUnit(`child-gkids-${c.id}`, c.id, cSpouse?.id, cGkids);
       }
     });
 
-    const spousesOfPerson = (personId: string): Node[] => {
-      if (!tree) return [];
-      if (personId === tree.centre.id) return spouses;
-      return (tree.spouses_of || {})[personId] || [];
-    };
-    const isUpRelation = (rel?: string) =>
-      !!rel &&
-      ["father", "mother", "grandfather", "grandmother"].includes(rel);
-    const dualParentDrawn = new Set<string>();
-    const linkSpouseToChild = (parentId: string, childId: string) => {
-      const pp = posById.get(parentId);
-      const cp = posById.get(childId);
-      if (!pp || !cp) return;
-      if (cp.top < pp.top - 2) return;
-      spousesOfPerson(parentId).forEach((sp) => {
-        const key = `scl-${sp.id}-${childId}`;
-        if (dualParentDrawn.has(key) || linesBlood.some((ln) => ln.key === key)) return;
-        const spos = posById.get(sp.id);
-        if (!spos) return;
-        dualParentDrawn.add(key);
-        const start = undock(spos.x, spos.top, "down");
-        const end = dock(cp.x, cp.top, cp.w, "up", null, "child");
-        if (![start.x, start.y, end.x, end.y].every((n) => Number.isFinite(n))) return;
-        const cNode = allNodesMap.get(childId);
-        const rInfo = cNode ? resolveIndianRelationship(cNode, tree, lang) : null;
-        linesBlood.push({
-          x1: start.x,
-          y1: start.y,
-          x2: end.x,
-          y2: end.y,
-          key,
-          relTag: rInfo?.shortTag,
-          fromId: sp.id,
-          toId: childId,
-        });
-      });
-    };
-    children.forEach((c) => {
-      if (tree) linkSpouseToChild(tree.centre.id, c.id);
-    });
-    levelsDown.forEach((lvl) => {
-      lvl.forEach((n) => {
-        if (isUpRelation(n.relation)) return;
-        const via = n.via_id || n.via_child_id;
-        if (via) linkSpouseToChild(via, n.id);
-      });
-    });
-    placed.forEach((pl) => {
-      const rel = pl.n.relation || "";
-      if (rel === "spouse" || rel === "self" || rel === "sibling") return;
-      if (isUpRelation(rel)) return;
-      if (rel !== "child" && !rel.startsWith("child")) return;
-      const via = pl.n.via_id || pl.n.via_parent_id || pl.n.via_child_id;
-      if (!via || via === pl.n.id) return;
-      linkSpouseToChild(via, pl.n.id);
-    });
+    const remainingGkids = (tree.grandchildren || []).concat(levelsDown[1] || []).filter((gc) => !handledGkids.has(gc.id)).map((gc) => gc.id);
+    if (remainingGkids.length > 0) {
+      const repChild = allKidsList[0];
+      if (repChild) {
+        createBloodUnit("gkids-fallback", repChild.id, null, remainingGkids);
+      }
+    }
+  }
+
+  if (is2ColActive) {
+    // 2-col active setup complete
+  } else {
+    // Wide canvas mode: Bloodline network is unified via createBloodUnit above
 
     if (tree) {
       const pairDrawn = new Set<string>();
@@ -3954,66 +4119,17 @@ function VanshawaliInner() {
         }
       };
 
-      const goldParentChild = (parentId: string, childId: string) => {
-        if (!parentId || !childId || parentId === childId) return;
-        const pp = posById.get(parentId);
-        const cp = posById.get(childId);
-        if (!pp || !cp) return;
-        const key = `sibp-${parentId}-${childId}`;
-        if (linesBlood.some((ln) => ln.key === key)) return;
-        const childBelow = cp.top >= pp.top - 2;
-        const start = undock(pp.x, pp.top, childBelow ? "down" : "up");
-        const end = dock(cp.x, cp.top, cp.w, childBelow ? "up" : "down", null, "child");
-        if (![start.x, start.y, end.x, end.y].every((n) => Number.isFinite(n))) return;
-        const cNode = allNodesMap.get(childId);
-        const rInfo = cNode ? resolveIndianRelationship(cNode, tree, lang) : null;
-        linesBlood.push({
-          x1: start.x,
-          y1: start.y,
-          x2: end.x,
-          y2: end.y,
-          key,
-          relTag: rInfo?.shortTag,
-          fromId: parentId,
-          toId: childId,
-        });
-      };
-
       // Group 1: Self + Self siblings
       const selfGroup = tree?.centre ? [tree.centre.id, ...siblings.map((s) => s.id)] : [];
       linkSiblingSet(selfGroup);
-      parents.forEach((par) => {
-        selfGroup.forEach((cid) => goldParentChild(par.id, cid));
-      });
 
       // Group 2+: Father+uncles, GP+his brothers…
       const so = tree.siblings_of || {};
-      const levels = tree.levels_up || [];
-
-      const directParentsOf = (personId: string): string[] => {
-        const ids: string[] = [];
-        if (personId === tree.centre.id) {
-          parents.forEach((p) => ids.push(p.id));
-          return ids;
-        }
-        for (const lvl of levels) {
-          for (const n of lvl) {
-            if (n.via_id === personId || n.via_parent_id === personId) {
-              ids.push(n.id);
-            }
-          }
-        }
-        return Array.from(new Set(ids));
-      };
 
       for (const [ownerId, list] of Object.entries(so)) {
         if (ownerId === tree.centre.id) continue;
         const setIds = [ownerId, ...list.map((s) => s.id)];
         linkSiblingSet(setIds);
-        const parentIds = directParentsOf(ownerId);
-        parentIds.forEach((pid) => {
-          setIds.forEach((cid) => goldParentChild(pid, cid));
-        });
       }
 
       if (children.length >= 2) {
@@ -4389,84 +4505,16 @@ function VanshawaliInner() {
               : "0 2px 6px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
           }}
         >
-          {/* Avatar / Diamond Ring Bezel */}
-          <div className="relative shrink-0 flex items-center justify-center">
-            {ring ? (
-              /* Diamond Ring for married couples with diamond mounted at top-left corner */
-              <div
-                className="relative p-[2.5px] rounded-full transition-all shrink-0 flex items-center justify-center vansh-ring-shine"
-                style={{
-                  background: `linear-gradient(135deg, ${ring.bandBorder}, #FFFFFF 50%, ${ring.bandBorder})`,
-                  boxShadow: `0 0 7px ${ring.shadowColor}`,
-                  // @ts-ignore
-                  "--ring-glow": ring.shadowColor,
-                } as React.CSSProperties}
-              >
-                {/* Mounted Solitaire Diamond Gem at top-left rim */}
-                <div
-                  className="absolute -top-1 -left-1 z-20 flex items-center justify-center select-none pointer-events-none vansh-gem-glint"
-                >
-                  <DiamondGem color={ring.gemColor} sparkle={ring.sparkleColor} size={13} />
-                </div>
-
-                {n.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={n.photo_url}
-                    alt=""
-                    className="w-8 h-8 rounded-full object-cover border border-white"
-                  />
-                ) : (
-                  <div
-                    className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border border-white",
-                      selfNode
-                        ? "bg-amber-400 text-amber-950"
-                        : sex === "F"
-                        ? "bg-rose-200 text-rose-800"
-                        : "bg-indigo-200 text-indigo-800"
-                    )}
-                  >
-                    {cleanName.charAt(0).toUpperCase() || "?"}
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Standard neat circle for unmarried members */
-              <div className="relative shrink-0">
-                {n.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={n.photo_url}
-                    alt=""
-                    className="w-8 h-8 rounded-full object-cover border border-white/90 shadow-2xs"
-                  />
-                ) : (
-                  <div
-                    className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-2xs border border-white/80",
-                      selfNode
-                        ? "bg-amber-400 text-amber-950"
-                        : sex === "F"
-                        ? "bg-rose-200 text-rose-800"
-                        : "bg-indigo-200 text-indigo-800"
-                    )}
-                  >
-                    {cleanName.charAt(0).toUpperCase() || "?"}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {isLate && (
-              <span
-                className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center text-[8px] shadow-2xs z-20"
-                title={lang === "hi" ? "स्वर्गीय" : "Late"}
-              >
-                🕯️
-              </span>
-            )}
-          </div>
+          {/* Avatar with Solitaire Diamond Ring */}
+          <SolitaireRingAvatar
+            node={n}
+            ring={ring}
+            isSelf={selfNode}
+            isLate={isLate}
+            cleanName={cleanName}
+            sex={sex}
+            size={38}
+          />
 
           {/* Details: 2 to 3 vertical lines under the name */}
           <div className="flex flex-col min-w-0 flex-1 justify-center py-0.5 leading-tight">
@@ -4531,75 +4579,15 @@ function VanshawaliInner() {
         className="flex items-center justify-between p-3 rounded-2xl bg-white border border-gray-100 hover:border-amber-300 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-[0.99]"
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="relative shrink-0 flex items-center justify-center">
-            {ring ? (
-              <div
-                className="relative p-0.5 rounded-full transition-all shrink-0 flex items-center justify-center vansh-ring-shine"
-                style={{
-                  background: `linear-gradient(135deg, ${ring.bandBorder}, #FFFFFF 50%, ${ring.bandBorder})`,
-                  boxShadow: `0 0 6px ${ring.shadowColor}`,
-                  // @ts-ignore
-                  "--ring-glow": ring.shadowColor,
-                } as React.CSSProperties}
-              >
-                <div
-                  className="absolute -top-1 -left-1 z-20 flex items-center justify-center select-none pointer-events-none vansh-gem-glint"
-                >
-                  <DiamondGem color={ring.gemColor} sparkle={ring.sparkleColor} size={13} />
-                </div>
-                {m.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={m.photo_url}
-                    alt=""
-                    className="w-10 h-10 rounded-full object-cover border border-white"
-                  />
-                ) : (
-                  <div
-                    className={cn(
-                      "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border border-white",
-                      isSelf
-                        ? "bg-amber-400 text-amber-950"
-                        : sex === "F"
-                        ? "bg-rose-100 text-rose-800"
-                        : "bg-indigo-100 text-indigo-800"
-                    )}
-                  >
-                    {cleanName.charAt(0).toUpperCase() || "?"}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="relative shrink-0">
-                {m.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={m.photo_url}
-                    alt=""
-                    className="w-10 h-10 rounded-full object-cover border border-amber-200"
-                  />
-                ) : (
-                  <div
-                    className={cn(
-                      "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-2xs",
-                      isSelf
-                        ? "bg-amber-400 text-amber-950"
-                        : sex === "F"
-                        ? "bg-rose-100 text-rose-800"
-                        : "bg-indigo-100 text-indigo-800"
-                    )}
-                  >
-                    {cleanName.charAt(0).toUpperCase() || "?"}
-                  </div>
-                )}
-              </div>
-            )}
-            {isLate && (
-              <span className="absolute -bottom-1 -right-1 text-[11px] z-20" title="स्वर्गीय">
-                🕯️
-              </span>
-            )}
-          </div>
+          <SolitaireRingAvatar
+            node={m}
+            ring={ring}
+            isSelf={isSelf}
+            isLate={isLate}
+            cleanName={cleanName}
+            sex={sex}
+            size={44}
+          />
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               {isLate && (
@@ -4649,29 +4637,81 @@ function VanshawaliInner() {
         }
         .vansh-marry-float {
         }
-        @keyframes ringShine {
-          0%, 100% {
-            filter: brightness(1) drop-shadow(0 0 4px var(--ring-glow, rgba(217, 119, 6, 0.4)));
-          }
-          50% {
-            filter: brightness(1.22) drop-shadow(0 0 9px var(--ring-glow, rgba(217, 119, 6, 0.75)));
-          }
+        @keyframes ringLightTravel {
+          from { stroke-dashoffset: 0; }
+          to { stroke-dashoffset: -120; }
         }
-        @keyframes gemSparkle {
+        .vansh-ring-travel {
+          animation: ringLightTravel 2.2s linear infinite;
+        }
+        @keyframes bloodPulse {
           0%, 100% {
-            transform: scale(1) rotate(0deg);
-            opacity: 0.95;
+            stroke: #DC2626;
+            stroke-width: 2.2;
+            filter: drop-shadow(0 0 2px rgba(220, 38, 38, 0.45));
+            opacity: 0.9;
           }
-          50% {
-            transform: scale(1.15) rotate(6deg);
+          14% {
+            stroke: #EF4444;
+            stroke-width: 3.4;
+            filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.95));
             opacity: 1;
           }
+          28% {
+            stroke: #DC2626;
+            stroke-width: 2.2;
+            filter: drop-shadow(0 0 2px rgba(220, 38, 38, 0.45));
+            opacity: 0.9;
+          }
+          42% {
+            stroke: #F87171;
+            stroke-width: 3.0;
+            filter: drop-shadow(0 0 6px rgba(248, 113, 113, 0.85));
+            opacity: 1;
+          }
+          56% {
+            stroke: #DC2626;
+            stroke-width: 2.2;
+            filter: drop-shadow(0 0 2px rgba(220, 38, 38, 0.45));
+            opacity: 0.9;
+          }
         }
-        .vansh-ring-shine {
-          animation: ringShine 3.6s ease-in-out infinite;
+        @keyframes bloodFlow {
+          from { stroke-dashoffset: 48; }
+          to { stroke-dashoffset: 0; }
         }
-        .vansh-gem-glint {
-          animation: gemSparkle 2.8s ease-in-out infinite;
+        @keyframes pulseNode {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 0.55;
+          }
+          14% {
+            transform: scale(1.6);
+            opacity: 1;
+          }
+          28% {
+            transform: scale(1);
+            opacity: 0.55;
+          }
+          42% {
+            transform: scale(1.35);
+            opacity: 0.9;
+          }
+          56% {
+            transform: scale(1);
+            opacity: 0.55;
+          }
+        }
+        .vansh-blood-line {
+          animation: bloodPulse 2.0s ease-in-out infinite;
+        }
+        .vansh-blood-flow {
+          stroke-dasharray: 6 18;
+          animation: bloodFlow 1.8s linear infinite;
+        }
+        .vansh-pulse-node {
+          transform-origin: center;
+          animation: pulseNode 2.0s ease-in-out infinite;
         }
         .vansh-logo-watermark {
           position: absolute;
@@ -5395,6 +5435,9 @@ function VanshawaliInner() {
 
             <svg className="absolute inset-0 pointer-events-none z-10" width={W} height={H}>
               <defs>
+                <marker id="arrow-blood" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto">
+                  <path d="M1 1 L5 3 L1 5 Z" fill="#DC2626" />
+                </marker>
                 <marker id="arrow-gold" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
                   <path d="M1 1 L6 3.5 L1 6 Z" fill="#D97706" />
                 </marker>
@@ -5486,93 +5529,72 @@ function VanshawaliInner() {
                 );
               })}
 
-              {/* Blood / parent–child lineage lines with consistent warm gold theme */}
-              {linesBlood
-                .filter((ln) => !ln.key.startsWith("sib-"))
-                .map((ln) => {
-                  if (is2ColActive) {
-                    const midY = ln.y1 + (ln.y2 - ln.y1) * 0.45;
-                    const d = Math.abs(ln.x1 - ln.x2) < 4
-                      ? `M ${ln.x1} ${ln.y1} L ${ln.x2} ${ln.y2}`
-                      : `M ${ln.x1} ${ln.y1} V ${midY} H ${ln.x2} V ${ln.y2}`;
-                    return (
-                      <g key={ln.key}>
-                        <path
-                          d={d}
-                          fill="none"
-                          stroke="#D97706"
-                          strokeWidth={2.2}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          markerEnd="url(#arrow-gold)"
-                          opacity={0.95}
-                        />
-                        {ln.relTag && (
-                          <g transform={`translate(${ln.x2}, ${ln.y2 - 11})`}>
-                            <rect
-                              x={-28}
-                              y={-7}
-                              width={56}
-                              height={14}
-                              rx={7}
-                              fill="#FEF3C7"
-                              stroke="#F59E0B"
-                              strokeWidth={1}
-                            />
-                            <text
-                              x={0}
-                              y={1}
-                              textAnchor="middle"
-                              dominantBaseline="central"
-                              fontSize={8.5}
-                              fontWeight="bold"
-                              fill="#92400E"
-                            >
-                              ↓ {ln.relTag}
-                            </text>
-                          </g>
-                        )}
-                      </g>
-                    );
-                  }
-                  return (
-                    <g key={ln.key}>
-                      <path
-                        d={curve(ln.x1, ln.y1, ln.x2, ln.y2)}
-                        fill="none"
-                        stroke="#D97706"
-                        strokeWidth={2.4}
-                        strokeLinecap="round"
-                        opacity={0.9}
+              {/* Bloodline Living Curvy Segments (Parents <-> Children) with Heartbeat Blood Pumping */}
+              {bloodSegments.map((seg) => (
+                <g key={seg.key}>
+                  {/* Base arterial pulsating stroke */}
+                  <path
+                    d={seg.d}
+                    fill="none"
+                    stroke="#DC2626"
+                    strokeWidth={2.4}
+                    strokeLinecap="round"
+                    className="vansh-blood-line"
+                    markerEnd={seg.isLeaf ? "url(#arrow-blood)" : undefined}
+                  />
+                  {/* Living blood flow moving dashes */}
+                  <path
+                    d={seg.d}
+                    fill="none"
+                    stroke="#FCA5A5"
+                    strokeWidth={1.3}
+                    strokeLinecap="round"
+                    className="vansh-blood-flow"
+                    opacity={0.85}
+                  />
+                  {/* Relationship badge at destination card top */}
+                  {seg.relTag && seg.tagX !== undefined && seg.tagY !== undefined && (
+                    <g transform={`translate(${seg.tagX}, ${seg.tagY})`}>
+                      <rect
+                        x={-24}
+                        y={-6.5}
+                        width={48}
+                        height={13}
+                        rx={6.5}
+                        fill="#FEF2F2"
+                        stroke="#EF4444"
+                        strokeWidth={0.9}
                       />
-                      {ln.relTag && (
-                        <g transform={`translate(${(ln.x1 + ln.x2) / 2}, ${(ln.y1 + ln.y2) / 2})`}>
-                          <rect
-                            x={-24}
-                            y={-6}
-                            width={48}
-                            height={13}
-                            rx={6.5}
-                            fill="#FEF3C7"
-                            stroke="#F59E0B"
-                            strokeWidth={0.9}
-                          />
-                          <text
-                            x={0}
-                            y={0.5}
-                            textAnchor="middle"
-                            dominantBaseline="central"
-                            fontSize={8}
-                            fontWeight="bold"
-                            fill="#92400E"
-                          >
-                            {ln.relTag}
-                          </text>
-                        </g>
-                      )}
+                      <text
+                        x={0}
+                        y={0.5}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        fontSize={8}
+                        fontWeight="bold"
+                        fill="#991B1B"
+                      >
+                        ↓ {seg.relTag}
+                      </text>
                     </g>
-                  );
-                })}
+                  )}
+                </g>
+              ))}
+
+              {/* Pulsing Parental Junction Nodes */}
+              {bloodJunctions.map((j) => (
+                <g key={j.key} transform={`translate(${j.x}, ${j.y})`}>
+                  <circle r={3.5} fill="#DC2626" />
+                  <circle
+                    r={7}
+                    fill="none"
+                    stroke="#EF4444"
+                    strokeWidth={1.2}
+                    className="vansh-pulse-node"
+                  />
+                  <circle r={1.5} fill="#FFFFFF" />
+                </g>
+              ))}
 
               {/* Sibling amber lines */}
               {linesSibling.map((ln) => {
