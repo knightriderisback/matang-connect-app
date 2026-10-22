@@ -1807,6 +1807,7 @@ function VanshawaliInner() {
 
   // 2-card mobile stream vs wide tree toggle
   const [viewMode2Col, setViewMode2Col] = useState<boolean | null>(null);
+  const is2ColActive = viewMode2Col !== null ? viewMode2Col : vw < 768;
 
   // Request relationship change modal states
   const [changeRelTarget, setChangeRelTarget] = useState<Node | null>(null);
@@ -1966,6 +1967,14 @@ function VanshawaliInner() {
     const { W: cW, H: cH } = canvasSizeRef.current;
     if (cW < 10 || cH < 10) return;
     didCenterRef.current = true;
+    if (is2ColActive) {
+      setZoom(1);
+      setPan({
+        x: Math.max(0, (vw - cW) / 2),
+        y: 20,
+      });
+      return;
+    }
     const padFit = 36;
     const zx = (vw - padFit) / Math.max(cW, 1);
     const zy = (vh - padFit) / Math.max(cH, 1);
@@ -1975,11 +1984,11 @@ function VanshawaliInner() {
       x: vw / 2 - (cW / 2) * z,
       y: vh / 2 - (cH / 2) * z,
     });
-  }, [loading, tree, vw, vh]);
+  }, [loading, tree, vw, vh, is2ColActive]);
 
   // Auto-freeze all bubble positions — stay put until Arrange-move (survive delete/reload)
   useEffect(() => {
-    if (loading || !tree) return;
+    if (loading || !tree || is2ColActive) return;
     const snap = placedLayoutRef.current;
     const ids = Object.keys(snap);
     if (!ids.length) return;
@@ -2290,6 +2299,8 @@ function VanshawaliInner() {
     marriedIdSet.add(b.id);
   };
 
+  const cardW = is2ColActive ? Math.min(150, Math.max(130, Math.floor((Math.max(vw, 360) - 54) / 2))) : 140;
+
   /** Tentative width — grows if content needs more space (L/R extend) */
   let contentW = Math.max(vw, 360);
   const cx0 = () => contentW / 2;
@@ -2300,9 +2311,9 @@ function VanshawaliInner() {
     top: number,
     genKey: keyof typeof GEN_STYLE
   ) => {
-    const w = nameW(n.display_name);
-    // Locked position until user Arrange-moves
-    const pinned = floatPos[n.id];
+    const w = is2ColActive ? cardW : nameW(n.display_name);
+    // Locked position ONLY in desktop wide mode, NEVER in 2-card stream mode
+    const pinned = !is2ColActive ? floatPos[n.id] : undefined;
     const fx = pinned ? pinned.x : x;
     const ft = pinned ? pinned.top : top;
     const pl: Placed = { n, x: fx, top: ft, w, genKey };
@@ -2348,9 +2359,13 @@ function VanshawaliInner() {
   };
 
   let yCursor = 20;
-  const is2ColActive = viewMode2Col !== null ? viewMode2Col : vw < 768;
   let centreX = cx0();
   let yMid = 180;
+  let yGrandparents = 0;
+  let yParents = 0;
+  let ySelf = 0;
+  let yChildren = 0;
+  let yGrandchildren = 0;
 
   if (is2ColActive) {
     // -----------------------------------------------------------------
@@ -2358,11 +2373,10 @@ function VanshawaliInner() {
     // -----------------------------------------------------------------
     contentW = Math.max(vw, 360);
     const cx = contentW / 2;
-    const cardW = Math.min(150, Math.max(130, Math.floor((contentW - 54) / 2)));
-    const cGap = 14;
+    const cGap = 16;
     const sRowH = 58;
     const lGap = 16;
-    const gGap = 42;
+    const gGap = 44;
 
     yCursor = 24;
 
@@ -2390,20 +2404,20 @@ function VanshawaliInner() {
     // 1. Generation +2 (Grandparents - Dada/Dadi, Nana/Nani)
     const gpList = [...(tree?.grandparents || []), ...(levelsUp[1] || [])];
     const gpSeen = new Set<string>();
-    const gpPairs: [Node, Node | null][] = [];
+    const gpPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE][] = [];
 
     const pDada = gpList.find((g) => resolveSex(g.gender, g.relation) === "M" && (!g.via_id || g.via_id === father?.id));
     const pDadi = gpList.find((g) => resolveSex(g.gender, g.relation) === "F" && (!g.via_id || g.via_id === father?.id));
     if (pDada || pDadi) {
       if (pDada && pDadi && pDada.id !== pDadi.id) {
-        gpPairs.push([pDada, pDadi]);
+        gpPairs.push([pDada, pDadi, "up2", "up2"]);
         gpSeen.add(pDada.id);
         gpSeen.add(pDadi.id);
       } else if (pDada) {
-        gpPairs.push([pDada, null]);
+        gpPairs.push([pDada, null, "up2", "up2"]);
         gpSeen.add(pDada.id);
       } else if (pDadi) {
-        gpPairs.push([pDadi, null]);
+        gpPairs.push([pDadi, null, "up2", "up2"]);
         gpSeen.add(pDadi.id);
       }
     }
@@ -2411,27 +2425,35 @@ function VanshawaliInner() {
     const mNana = gpList.find((g) => !gpSeen.has(g.id) && resolveSex(g.gender, g.relation) === "M");
     const mNani = gpList.find((g) => !gpSeen.has(g.id) && resolveSex(g.gender, g.relation) === "F");
     if (mNana && mNani && mNana.id !== mNani.id) {
-      gpPairs.push([mNana, mNani]);
+      gpPairs.push([mNana, mNani, "up2", "up2"]);
       gpSeen.add(mNana.id);
       gpSeen.add(mNani.id);
     } else {
-      if (mNana && !gpSeen.has(mNana.id)) { gpPairs.push([mNana, null]); gpSeen.add(mNana.id); }
-      if (mNani && !gpSeen.has(mNani.id)) { gpPairs.push([mNani, null]); gpSeen.add(mNani.id); }
+      if (mNana && !gpSeen.has(mNana.id)) { gpPairs.push([mNana, null, "up2", "up2"]); gpSeen.add(mNana.id); }
+      if (mNani && !gpSeen.has(mNani.id)) { gpPairs.push([mNani, null, "up2", "up2"]); gpSeen.add(mNani.id); }
     }
 
-    gpList.forEach((g) => {
-      if (!gpSeen.has(g.id)) {
-        gpSeen.add(g.id);
-        gpPairs.push([g, null]);
+    // Remaining single grandparents -> pair two-by-two in lines of 2
+    const otherGps = gpList.filter((g) => !gpSeen.has(g.id) && !posById.has(g.id));
+    for (let i = 0; i < otherGps.length; i += 2) {
+      if (i + 1 < otherGps.length) {
+        gpPairs.push([otherGps[i], otherGps[i + 1], "up2", "up2"]);
+        gpSeen.add(otherGps[i].id);
+        gpSeen.add(otherGps[i + 1].id);
+      } else {
+        gpPairs.push([otherGps[i], null, "up2", "up2"]);
+        gpSeen.add(otherGps[i].id);
       }
-    });
+    }
 
     if (gpPairs.length > 0) {
-      gpPairs.forEach(([a, b]) => placePair(a, b, "up2", "up2"));
+      yGrandparents = yCursor;
+      gpPairs.forEach(([a, b, ga, gb]) => placePair(a, b, ga, gb));
       yCursor += gGap;
     }
 
     // 2. Generation +1 (Parents & Uncles/Aunts)
+    yParents = yCursor;
     const parList = [...parents, ...(tree?.uncles_and_aunts || [])];
     const parSeen = new Set<string>();
     const parPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE][] = [];
@@ -2445,17 +2467,32 @@ function VanshawaliInner() {
       if (mother) { parPairs.push([mother, null, "up1", "up1"]); parSeen.add(mother.id); }
     }
 
+    // Uncles / Aunts with their spouses in couples
     parList.forEach((n) => {
       if (parSeen.has(n.id) || posById.has(n.id)) return;
-      parSeen.add(n.id);
       const sp = (spousesOfMap[n.id] || []).find((s) => !parSeen.has(s.id) && !posById.has(s.id));
       if (sp) {
+        parSeen.add(n.id);
         parSeen.add(sp.id);
         parPairs.push([n, sp, "up1", "spouse"]);
-      } else {
-        parPairs.push([n, null, "up1", "up1"]);
       }
     });
+
+    // Remaining single uncles / aunts -> pair two-by-two in lines of 2
+    const singlePars: Node[] = [];
+    parList.forEach((n) => {
+      if (!parSeen.has(n.id) && !posById.has(n.id)) {
+        parSeen.add(n.id);
+        singlePars.push(n);
+      }
+    });
+    for (let i = 0; i < singlePars.length; i += 2) {
+      if (i + 1 < singlePars.length) {
+        parPairs.push([singlePars[i], singlePars[i + 1], "up1", "up1"]);
+      } else {
+        parPairs.push([singlePars[i], null, "up1", "up1"]);
+      }
+    }
 
     if (parPairs.length > 0) {
       parPairs.forEach(([a, b, ga, gb]) => placePair(a, b, ga, gb));
@@ -2463,6 +2500,7 @@ function VanshawaliInner() {
     }
 
     // 3. Generation 0 (Self & Same Generation)
+    ySelf = yCursor;
     yMid = yCursor;
     centreX = cx;
 
@@ -2483,16 +2521,41 @@ function VanshawaliInner() {
       (tree?.siblings_of?.[tree.centre.id] || []).forEach((s) => centreSiblingMap.set(s.id, s));
     }
     const allSiblingsList = Array.from(centreSiblingMap.values());
+    const sibSeen = new Set<string>();
+    const sibPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE][] = [];
 
+    // Siblings with spouses (Bhabhi / Jija ji)
     allSiblingsList.forEach((s) => {
-      if (posById.has(s.id)) return;
-      const sp = (spousesOfMap[s.id] || []).find((x) => !posById.has(x.id) && x.id !== tree?.centre.id);
-      placePair({ ...s, relation: "sibling" }, sp ? { ...sp, relation: "spouse", via_id: s.id } : null, "sibling", "spouse");
+      if (sibSeen.has(s.id) || posById.has(s.id)) return;
+      const sp = (spousesOfMap[s.id] || []).find((x) => !sibSeen.has(x.id) && !posById.has(x.id) && x.id !== tree?.centre.id);
+      if (sp) {
+        sibSeen.add(s.id);
+        sibSeen.add(sp.id);
+        sibPairs.push([{ ...s, relation: "sibling" }, { ...sp, relation: "spouse", via_id: s.id }, "sibling", "spouse"]);
+      }
     });
 
+    // Remaining single siblings -> pair two-by-two in lines of 2
+    const singleSibs: Node[] = [];
+    allSiblingsList.forEach((s) => {
+      if (!sibSeen.has(s.id) && !posById.has(s.id)) {
+        sibSeen.add(s.id);
+        singleSibs.push(s);
+      }
+    });
+    for (let i = 0; i < singleSibs.length; i += 2) {
+      if (i + 1 < singleSibs.length) {
+        sibPairs.push([{ ...singleSibs[i], relation: "sibling" }, { ...singleSibs[i + 1], relation: "sibling" }, "sibling", "sibling"]);
+      } else {
+        sibPairs.push([{ ...singleSibs[i], relation: "sibling" }, null, "sibling", "sibling"]);
+      }
+    }
+
+    sibPairs.forEach(([a, b, ga, gb]) => placePair(a, b, ga, gb));
     yCursor += gGap;
 
     // 4. Generation -1 (Children & Nephews/Nieces)
+    yChildren = yCursor;
     const allGenMinus1: Node[] = [];
     const gen1Seen = new Set<string>();
     const addGen1M = (c: Node) => {
@@ -2509,15 +2572,41 @@ function VanshawaliInner() {
       (tree?.children_of?.[s.id] || []).forEach((c) => addGen1M({ ...c, relation: "child", via_id: s.id }));
     });
 
+    const chSeen = new Set<string>();
+    const chPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE][] = [];
+
+    // Children with spouses (Bahu / Damaad)
     allGenMinus1.forEach((c) => {
-      if (posById.has(c.id)) return;
-      const sp = (spousesOfMap[c.id] || []).find((s) => !posById.has(s.id));
-      placePair(c, sp ? { ...sp, relation: "spouse", via_id: c.id } : null, "down1", "spouse");
+      if (chSeen.has(c.id) || posById.has(c.id)) return;
+      const sp = (spousesOfMap[c.id] || []).find((s) => !chSeen.has(s.id) && !posById.has(s.id));
+      if (sp) {
+        chSeen.add(c.id);
+        chSeen.add(sp.id);
+        chPairs.push([c, { ...sp, relation: "spouse", via_id: c.id }, "down1", "spouse"]);
+      }
     });
 
+    // Single children & nephews -> pair two-by-two in lines of 2
+    const singleChs: Node[] = [];
+    allGenMinus1.forEach((c) => {
+      if (!chSeen.has(c.id) && !posById.has(c.id)) {
+        chSeen.add(c.id);
+        singleChs.push(c);
+      }
+    });
+    for (let i = 0; i < singleChs.length; i += 2) {
+      if (i + 1 < singleChs.length) {
+        chPairs.push([singleChs[i], singleChs[i + 1], "down1", "down1"]);
+      } else {
+        chPairs.push([singleChs[i], null, "down1", "down1"]);
+      }
+    }
+
+    chPairs.forEach(([a, b, ga, gb]) => placePair(a, b, ga, gb));
     yCursor += gGap;
 
     // 5. Generation -2 (Grandchildren)
+    yGrandchildren = yCursor;
     const allGenMinus2: Node[] = [];
     const gen2Seen = new Set<string>();
     const addGen2M = (gc: Node) => {
@@ -2531,12 +2620,35 @@ function VanshawaliInner() {
       (tree?.children_of?.[c.id] || []).forEach((gc) => addGen2M({ ...gc, relation: "grandchild", via_id: c.id }));
     });
 
+    const gcSeen = new Set<string>();
+    const gcPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE][] = [];
+
     allGenMinus2.forEach((gc) => {
-      if (posById.has(gc.id)) return;
+      if (gcSeen.has(gc.id) || posById.has(gc.id)) return;
       const sp = (spousesOfMap[gc.id] || []).find((s) => !posById.has(s.id));
-      placePair(gc, sp ? { ...sp, relation: "spouse", via_id: gc.id } : null, "down2", "spouse");
+      if (sp) {
+        gcSeen.add(gc.id);
+        gcSeen.add(sp.id);
+        gcPairs.push([gc, { ...sp, relation: "spouse", via_id: gc.id }, "down2", "spouse"]);
+      }
     });
 
+    const singleGcs: Node[] = [];
+    allGenMinus2.forEach((gc) => {
+      if (!gcSeen.has(gc.id) && !posById.has(gc.id)) {
+        gcSeen.add(gc.id);
+        singleGcs.push(gc);
+      }
+    });
+    for (let i = 0; i < singleGcs.length; i += 2) {
+      if (i + 1 < singleGcs.length) {
+        gcPairs.push([singleGcs[i], singleGcs[i + 1], "down2", "down2"]);
+      } else {
+        gcPairs.push([singleGcs[i], null, "down2", "down2"]);
+      }
+    }
+
+    gcPairs.forEach(([a, b, ga, gb]) => placePair(a, b, ga, gb));
     yCursor += 40;
   } else {
     // -----------------------------------------------------------------
@@ -3018,72 +3130,74 @@ function VanshawaliInner() {
   const centreSpouseIds = new Set((spousesList || []).map((s) => s.id));
   const placedIds = new Set(placed.map((p) => p.n.id));
   if (tree) placedIds.add(tree.centre.id);
-  for (const [ownerId, list] of Object.entries(sibOf)) {
-    if (ownerId === tree?.centre.id) continue; // centre siblings already on row
-    const owner = posById.get(ownerId);
-    if (!owner) continue;
-    const ownerGen = (placed.find((p) => p.n.id === ownerId)?.genKey ||
-      "up1") as keyof typeof GEN_STYLE;
-    // Spouse of centre → same generation as Self → yellow sibling colour
-    const isCentreSpouse = centreSpouseIds.has(ownerId);
-    const genForSib = isCentreSpouse ? ("sibling" as keyof typeof GEN_STYLE) : ownerGen;
-    let i = 0;
-    for (const s of list) {
-      if (placedIds.has(s.id)) continue;
-      if (centreSibIds.has(s.id)) continue;
-      const w = nameW(s.display_name);
-      const parentVia = s.via_id || s.via_parent_id || undefined;
-      if (isCentreSpouse) {
-        // same row as Self/Spouse (yMid), to the right of spouse cluster
-        const side = i % 2 === 0 ? 1 : -1;
-        const rank = Math.floor(i / 2) + 1;
-        const x = owner.x + side * (owner.w / 2 + w / 2 + 18 + rank * 10);
-        placeNode(
-          {
-            ...s,
-            relation: "sibling",
-            via_id: parentVia,
-            via_parent_id: parentVia,
-          },
-          x,
-          yMid,
-          genForSib
-        );
-        contentW = Math.max(contentW, x + w / 2 + pad);
-      } else {
-        const side = i % 2 === 0 ? -1 : 1;
-        const rank = Math.floor(i / 2) + 1;
-        const x = owner.x + side * (owner.w / 2 + w / 2 + 20 + rank * 10);
-        const top = owner.top + (side < 0 ? -4 : 4) * (rank % 2);
-        placeNode(
-          {
-            ...s,
-            relation: "sibling",
-            via_id: parentVia,
-            via_parent_id: parentVia,
-          },
-          x,
-          top,
-          genForSib
-        );
+  if (!is2ColActive) {
+    for (const [ownerId, list] of Object.entries(sibOf)) {
+      if (ownerId === tree?.centre.id) continue; // centre siblings already on row
+      const owner = posById.get(ownerId);
+      if (!owner) continue;
+      const ownerGen = (placed.find((p) => p.n.id === ownerId)?.genKey ||
+        "up1") as keyof typeof GEN_STYLE;
+      // Spouse of centre → same generation as Self → yellow sibling colour
+      const isCentreSpouse = centreSpouseIds.has(ownerId);
+      const genForSib = isCentreSpouse ? ("sibling" as keyof typeof GEN_STYLE) : ownerGen;
+      let i = 0;
+      for (const s of list) {
+        if (placedIds.has(s.id)) continue;
+        if (centreSibIds.has(s.id)) continue;
+        const w = nameW(s.display_name);
+        const parentVia = s.via_id || s.via_parent_id || undefined;
+        if (isCentreSpouse) {
+          // same row as Self/Spouse (yMid), to the right of spouse cluster
+          const side = i % 2 === 0 ? 1 : -1;
+          const rank = Math.floor(i / 2) + 1;
+          const x = owner.x + side * (owner.w / 2 + w / 2 + 18 + rank * 10);
+          placeNode(
+            {
+              ...s,
+              relation: "sibling",
+              via_id: parentVia,
+              via_parent_id: parentVia,
+            },
+            x,
+            yMid,
+            genForSib
+          );
+          contentW = Math.max(contentW, x + w / 2 + pad);
+        } else {
+          const side = i % 2 === 0 ? -1 : 1;
+          const rank = Math.floor(i / 2) + 1;
+          const x = owner.x + side * (owner.w / 2 + w / 2 + 20 + rank * 10);
+          const top = owner.top + (side < 0 ? -4 : 4) * (rank % 2);
+          placeNode(
+            {
+              ...s,
+              relation: "sibling",
+              via_id: parentVia,
+              via_parent_id: parentVia,
+            },
+            x,
+            top,
+            genForSib
+          );
+        }
+        placedIds.add(s.id);
+        i++;
       }
-      placedIds.add(s.id);
-      i++;
     }
-  }
 
-  // Apply free-float drag overrides (lines track these)
-  Object.keys(floatPos).forEach((id) => {
-    const fp = floatPos[id];
-    if (!fp) return;
-    const cur = posById.get(id);
-    if (cur) posById.set(id, { x: fp.x, top: fp.top, w: cur.w });
-    const pl = placed.find((p) => p.n.id === id);
-    if (pl) {
-      pl.x = fp.x;
-      pl.top = fp.top;
-    }
-  });
+    // Apply free-float drag overrides (lines track these)
+    Object.keys(floatPos).forEach((id) => {
+      const fp = floatPos[id];
+      if (!fp) return;
+      const cur = posById.get(id);
+      if (cur) posById.set(id, { x: fp.x, top: fp.top, w: cur.w });
+      const pl = placed.find((p) => p.n.id === id);
+      if (pl) {
+        pl.x = fp.x;
+        pl.top = fp.top;
+      }
+    });
+  }
   // Snapshot for auto-freeze (delete must not reshuffle others)
   {
     const snapPos: Record<string, { x: number; top: number }> = {};
@@ -3525,6 +3639,43 @@ function VanshawaliInner() {
 
   const laneMarkers = useMemo(() => {
     const lanes: { label: string; icon: string; top: number }[] = [];
+    if (is2ColActive) {
+      if (yGrandparents > 0) {
+        lanes.push({
+          label: lang === "hi" ? "पूर्वज (दादा-दादी / नाना-नानी)" : "Ancestors (Grandparents)",
+          icon: "🏛️",
+          top: yGrandparents - 16,
+        });
+      }
+      if (yParents > 0) {
+        lanes.push({
+          label: lang === "hi" ? "माता-पिता व अभिभावक" : "Parents & Guardians",
+          icon: "👨‍👩‍👧",
+          top: yParents - 16,
+        });
+      }
+      lanes.push({
+        label: lang === "hi" ? "आपकी पीढ़ी (Self & जीवनसाथी/भाई-बहन)" : "Your Generation (Self & Siblings)",
+        icon: "🌟",
+        top: Math.max(10, ySelf - 16),
+      });
+      if (yChildren > 0) {
+        lanes.push({
+          label: lang === "hi" ? "संतान पीढ़ी (पुत्र / पुत्री / बहू / दामाद)" : "Children Generation",
+          icon: "👶",
+          top: yChildren - 16,
+        });
+      }
+      if (yGrandchildren > 0) {
+        lanes.push({
+          label: lang === "hi" ? "पौत्र व नाती पीढ़ी (Grandchildren)" : "Grandchildren Generation",
+          icon: "🍼",
+          top: yGrandchildren - 16,
+        });
+      }
+      return lanes;
+    }
+
     if (gpPositions.length > 0 && yGpBase > 0) {
       lanes.push({
         label: lang === "hi" ? "पूर्वज (दादा-दादी / नाना-नानी)" : "Ancestors (Grandparents)",
@@ -3559,7 +3710,7 @@ function VanshawaliInner() {
       });
     }
     return lanes;
-  }, [gpPositions.length, yGpBase, parentsSorted.length, yPar, yMidPos, children.length, yChild, gcPositions.length, yGcBase, lang]);
+  }, [is2ColActive, yGrandparents, yParents, ySelf, yChildren, yGrandchildren, gpPositions.length, yGpBase, parentsSorted.length, yPar, yMidPos, children.length, yChild, gcPositions.length, yGcBase, lang]);
 
   const line = "#E8A317";
   const marryLine = "#6EE7B7"; // very light green
@@ -4058,15 +4209,25 @@ function VanshawaliInner() {
               {/* 2-Card Stream vs Wide Canvas Toggle */}
               <button
                 type="button"
-                onClick={() => setViewMode2Col(!is2ColActive)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold shadow-xs border transition-all active:scale-95 cursor-pointer ${
+                onClick={() => {
+                  const nextMode = !is2ColActive;
+                  setViewMode2Col(nextMode);
+                  didCenterRef.current = false;
+                  if (nextMode) {
+                    setZoom(1);
+                    setPan({ x: Math.max(0, (vw - 360) / 2), y: 20 });
+                  } else {
+                    fitTreeInView(W, H);
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold shadow-xs border transition-all active:scale-95 cursor-pointer ${
                   is2ColActive
-                    ? "bg-amber-100 text-amber-950 border-amber-300 ring-1 ring-amber-300/60 font-black"
+                    ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white border-amber-600 ring-2 ring-amber-300 shadow-sm"
                     : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
                 }`}
                 title={lang === "hi" ? "2-सदस्य प्रति पंक्ति व्यू / विस्तृत ट्री व्यू" : "2-card per row stream / Wide canvas"}
               >
-                <span>{is2ColActive ? "📱 2-Card" : "🌐 Wide"}</span>
+                <span>{is2ColActive ? "📱 2-Card View" : "🌐 Wide Canvas"}</span>
               </button>
             </div>
 
