@@ -4123,7 +4123,7 @@ function VanshawaliInner() {
 
     // Sacred tied thread knot at parent origin(s)
     addKnot(p1.id, p1Bottom.x, p1Bottom.y, true);
-    if (p2) addKnot(p2.id, p2Bottom.x, p2Bottom.y, true);
+    if (p2 && p2Bottom) addKnot(p2.id, p2Bottom.x, p2Bottom.y, true);
 
     // 2. Junction coordinates in inter-generation corridor
     let jx = cx;
