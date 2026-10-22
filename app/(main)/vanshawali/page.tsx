@@ -252,6 +252,7 @@ export type RingStyle = {
   name: string;
   bandGradient: string;
   bandBorder: string;
+  bandGradientStops: { offset: string; color: string }[];
   gemColor: string;
   sparkleColor: string;
   lineColor: string;
@@ -260,21 +261,49 @@ export type RingStyle = {
 
 const COUPLE_RING_STYLES: RingStyle[] = [
   {
+    id: "silver",
+    name: "Sterling Silver",
+    bandGradient: "from-slate-200 via-white to-slate-400",
+    bandBorder: "#94A3B8",
+    bandGradientStops: [
+      { offset: "0%", color: "#94A3B8" },
+      { offset: "28%", color: "#FFFFFF" },
+      { offset: "62%", color: "#CBD5E1" },
+      { offset: "100%", color: "#64748B" },
+    ],
+    gemColor: "#FFFFFF",
+    sparkleColor: "#BAE6FD",
+    lineColor: "#64748B",
+    shadowColor: "rgba(148, 163, 184, 0.45)",
+  },
+  {
     id: "gold",
-    name: "Gold",
+    name: "24K Gold",
     bandGradient: "from-amber-300 via-yellow-100 to-amber-500",
     bandBorder: "#D97706",
-    gemColor: "#F59E0B",
-    sparkleColor: "#FEF08A",
+    bandGradientStops: [
+      { offset: "0%", color: "#D97706" },
+      { offset: "28%", color: "#FEF3C7" },
+      { offset: "62%", color: "#F59E0B" },
+      { offset: "100%", color: "#92400E" },
+    ],
+    gemColor: "#FBBF24",
+    sparkleColor: "#FEF9C3",
     lineColor: "#D97706",
     shadowColor: "rgba(217, 119, 6, 0.45)",
   },
   {
     id: "ruby",
-    name: "Ruby",
+    name: "Rose Ruby",
     bandGradient: "from-rose-300 via-pink-100 to-rose-500",
     bandBorder: "#E11D48",
-    gemColor: "#E11D48",
+    bandGradientStops: [
+      { offset: "0%", color: "#BE123C" },
+      { offset: "28%", color: "#FFE4E6" },
+      { offset: "62%", color: "#FB7185" },
+      { offset: "100%", color: "#881337" },
+    ],
+    gemColor: "#BE123C",
     sparkleColor: "#FDA4AF",
     lineColor: "#E11D48",
     shadowColor: "rgba(225, 29, 72, 0.45)",
@@ -284,7 +313,13 @@ const COUPLE_RING_STYLES: RingStyle[] = [
     name: "Sapphire",
     bandGradient: "from-sky-300 via-blue-100 to-indigo-500",
     bandBorder: "#2563EB",
-    gemColor: "#2563EB",
+    bandGradientStops: [
+      { offset: "0%", color: "#1D4ED8" },
+      { offset: "28%", color: "#EFF6FF" },
+      { offset: "62%", color: "#60A5FA" },
+      { offset: "100%", color: "#1E3A8A" },
+    ],
+    gemColor: "#1D4ED8",
     sparkleColor: "#93C5FD",
     lineColor: "#2563EB",
     shadowColor: "rgba(37, 99, 235, 0.45)",
@@ -294,6 +329,12 @@ const COUPLE_RING_STYLES: RingStyle[] = [
     name: "Emerald",
     bandGradient: "from-emerald-300 via-teal-100 to-emerald-500",
     bandBorder: "#059669",
+    bandGradientStops: [
+      { offset: "0%", color: "#047857" },
+      { offset: "28%", color: "#ECFDF5" },
+      { offset: "62%", color: "#34D399" },
+      { offset: "100%", color: "#064E3B" },
+    ],
     gemColor: "#059669",
     sparkleColor: "#6EE7B7",
     lineColor: "#059669",
@@ -304,8 +345,14 @@ const COUPLE_RING_STYLES: RingStyle[] = [
     name: "Amethyst",
     bandGradient: "from-purple-300 via-fuchsia-100 to-purple-600",
     bandBorder: "#7C3AED",
-    gemColor: "#7C3AED",
-    sparkleColor: "#C4B5FD",
+    bandGradientStops: [
+      { offset: "0%", color: "#5B21B6" },
+      { offset: "28%", color: "#FAF5FF" },
+      { offset: "62%", color: "#A78BFA" },
+      { offset: "100%", color: "#3B0764" },
+    ],
+    gemColor: "#7E22CE",
+    sparkleColor: "#DDD6FE",
     lineColor: "#7C3AED",
     shadowColor: "rgba(124, 58, 237, 0.45)",
   },
@@ -314,8 +361,14 @@ const COUPLE_RING_STYLES: RingStyle[] = [
     name: "Turquoise",
     bandGradient: "from-cyan-300 via-teal-100 to-cyan-600",
     bandBorder: "#0891B2",
-    gemColor: "#0891B2",
-    sparkleColor: "#67E8F9",
+    bandGradientStops: [
+      { offset: "0%", color: "#0E7490" },
+      { offset: "28%", color: "#ECFEFF" },
+      { offset: "62%", color: "#22D3EE" },
+      { offset: "100%", color: "#155E75" },
+    ],
+    gemColor: "#06B6D4",
+    sparkleColor: "#A5F3FC",
     lineColor: "#0891B2",
     shadowColor: "rgba(8, 145, 178, 0.45)",
   },
@@ -324,36 +377,44 @@ const COUPLE_RING_STYLES: RingStyle[] = [
     name: "Coral",
     bandGradient: "from-orange-300 via-amber-100 to-rose-500",
     bandBorder: "#EA580C",
+    bandGradientStops: [
+      { offset: "0%", color: "#C2410C" },
+      { offset: "28%", color: "#FFF7ED" },
+      { offset: "62%", color: "#FB923C" },
+      { offset: "100%", color: "#7C2D12" },
+    ],
     gemColor: "#EA580C",
-    sparkleColor: "#FDBA74",
+    sparkleColor: "#FED7AA",
     lineColor: "#EA580C",
     shadowColor: "rgba(234, 88, 12, 0.45)",
   },
   {
-    id: "platinum",
-    name: "Platinum",
-    bandGradient: "from-slate-200 via-white to-slate-400",
-    bandBorder: "#475569",
-    gemColor: "#64748B",
-    sparkleColor: "#F1F5F9",
-    lineColor: "#475569",
-    shadowColor: "rgba(71, 85, 105, 0.45)",
-  },
-  {
-    id: "bronze",
-    name: "Bronze",
-    bandGradient: "from-amber-200 via-orange-100 to-yellow-600",
-    bandBorder: "#B45309",
-    gemColor: "#D97706",
-    sparkleColor: "#FDE68A",
-    lineColor: "#B45309",
-    shadowColor: "rgba(180, 83, 9, 0.45)",
+    id: "garnet",
+    name: "Garnet",
+    bandGradient: "from-slate-700 via-slate-400 to-slate-900",
+    bandBorder: "#991B1B",
+    bandGradientStops: [
+      { offset: "0%", color: "#334155" },
+      { offset: "28%", color: "#F1F5F9" },
+      { offset: "62%", color: "#64748B" },
+      { offset: "100%", color: "#0F172A" },
+    ],
+    gemColor: "#991B1B",
+    sparkleColor: "#FCA5A5",
+    lineColor: "#991B1B",
+    shadowColor: "rgba(153, 27, 27, 0.45)",
   },
   {
     id: "fuchsia",
     name: "Fuchsia",
     bandGradient: "from-fuchsia-300 via-pink-100 to-rose-600",
     bandBorder: "#C026D3",
+    bandGradientStops: [
+      { offset: "0%", color: "#A21CAF" },
+      { offset: "28%", color: "#FDF4FF" },
+      { offset: "62%", color: "#E879F9" },
+      { offset: "100%", color: "#701A75" },
+    ],
     gemColor: "#C026D3",
     sparkleColor: "#F0ABFC",
     lineColor: "#C026D3",
@@ -416,15 +477,16 @@ function SolitaireRingAvatar({
   const cy = s / 2;
   const r = (s - 7) / 2;
   const circ = 2 * Math.PI * r;
+  const activeRing = ring || (isSelf ? COUPLE_RING_STYLES[0] : undefined);
 
   return (
     <div
       className="relative shrink-0 flex items-center justify-center select-none"
       style={{ width: s, height: s }}
     >
-      {ring ? (
+      {activeRing ? (
         <>
-          {/* Complete Solitaire Ring rotated to the left (-38° / 10:45 o'clock) with travelling light shine */}
+          {/* Complete Solitaire Ring rotated to the left (-38° / 10:45 o'clock) with 3D luxury specular light sheen */}
           <svg
             className="absolute inset-0 pointer-events-none z-20 overflow-visible"
             width={s}
@@ -432,47 +494,46 @@ function SolitaireRingAvatar({
             viewBox={`0 0 ${s} ${s}`}
           >
             <defs>
-              <linearGradient id={`ringGrad-${ring.id}-${s}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor={ring.bandBorder} />
-                <stop offset="35%" stopColor="#FFFFFF" />
-                <stop offset="70%" stopColor={ring.bandBorder} />
-                <stop offset="100%" stopColor={ring.sparkleColor} />
+              <linearGradient id={`ringGrad-${activeRing.id}-${s}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                {activeRing.bandGradientStops.map((st, i) => (
+                  <stop key={i} offset={st.offset} stopColor={st.color} />
+                ))}
               </linearGradient>
             </defs>
 
             {/* Whole ring assembly rotated -38° to the left so diamond sits firmly on the band */}
             <g transform={`rotate(-38, ${cx}, ${cy})`}>
-              {/* Metallic Base Ring Band */}
+              {/* Metallic Base Ring Band (Outer depth contour) */}
               <circle
                 cx={cx}
                 cy={cy}
                 r={r}
                 fill="none"
-                stroke={ring.bandBorder}
+                stroke={activeRing.bandBorder}
                 strokeWidth={2.8}
-                opacity={0.9}
+                opacity={0.88}
               />
+              {/* 3D Tubular Metallic Gradient */}
               <circle
                 cx={cx}
                 cy={cy}
                 r={r}
                 fill="none"
-                stroke={`url(#ringGrad-${ring.id}-${s})`}
+                stroke={`url(#ringGrad-${activeRing.id}-${s})`}
                 strokeWidth={2.0}
               />
 
-              {/* Light travelling specular shine moving smoothly along circular band */}
+              {/* Proper 3D luxury specular light sheen that slowly glides across the top shoulder */}
               <circle
                 cx={cx}
                 cy={cy}
                 r={r}
                 fill="none"
                 stroke="#FFFFFF"
-                strokeWidth={2.2}
-                strokeDasharray={`${circ * 0.24} ${circ * 0.76}`}
+                strokeWidth={2.4}
+                strokeDasharray={`${circ * 0.15} ${circ * 0.85}`}
                 strokeLinecap="round"
-                className="vansh-ring-travel"
-                opacity={0.95}
+                className="vansh-3d-shine"
               />
 
               {/* Solitaire Diamond Setting Mount seated directly ON the outer rim of the band */}
@@ -480,40 +541,40 @@ function SolitaireRingAvatar({
                 {/* Setting basket base supporting the diamond */}
                 <path
                   d="M -3.8 2.2 L -3 0 L 3 0 L 3.8 2.2 Z"
-                  fill={ring.bandBorder}
+                  fill={activeRing.bandBorder}
                   stroke="#FFFFFF"
                   strokeWidth={0.5}
                 />
                 {/* 4-Prong Setting holding the diamond */}
                 <path
                   d="M -3.2 0 L -3 -3 L -2.2 -3 L -2.4 0 Z"
-                  fill={ring.bandBorder}
+                  fill={activeRing.bandBorder}
                 />
                 <path
                   d="M 3.2 0 L 3 -3 L 2.2 -3 L 2.4 0 Z"
-                  fill={ring.bandBorder}
+                  fill={activeRing.bandBorder}
                 />
 
                 {/* Static Solitaire Diamond Gem (NO animation, crisp brilliant facets) */}
                 {/* Diamond Pavilion (lower V) */}
                 <polygon
                   points="-3,0 3,0 0,3.2"
-                  fill={ring.gemColor}
+                  fill={activeRing.gemColor}
                 />
                 <polygon
                   points="-1.2,0 1.2,0 0,3.2"
-                  fill={ring.sparkleColor}
+                  fill={activeRing.sparkleColor}
                   opacity={0.65}
                 />
 
                 {/* Diamond Crown (upper facets) */}
                 <polygon
                   points="-3,0 3,0 2.2,-3 -2.2,-3"
-                  fill={ring.gemColor}
+                  fill={activeRing.gemColor}
                 />
                 <polygon
                   points="-1.4,-3 1.4,-3 2,0 -2,0"
-                  fill={ring.sparkleColor}
+                  fill={activeRing.sparkleColor}
                   opacity={0.8}
                 />
                 {/* Diamond Table facet highlight */}
@@ -616,37 +677,78 @@ function bezierCurve(p1: { x: number; y: number }, p2: { x: number; y: number })
   return `M ${p1.x} ${p1.y} C ${p1.x} ${cp1y}, ${p2.x} ${cp2y}, ${p2.x} ${p2.y}`;
 }
 
+function ThreadKnot({
+  x,
+  y,
+  isBottom = false,
+}: {
+  x: number;
+  y: number;
+  isBottom?: boolean;
+}) {
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      {/* Sacred Mauli / Kalava tied thread knot with golden bead seal */}
+      <g transform={isBottom ? "rotate(180)" : undefined}>
+        {/* Left thread loop */}
+        <path
+          d="M 0 0 C -3 -2, -4.5 -0.5, -3 1.5 C -1.8 2.5, 0 1, 0 0"
+          fill="#DC2626"
+          stroke="#991B1B"
+          strokeWidth={0.6}
+        />
+        {/* Right thread loop */}
+        <path
+          d="M 0 0 C 3 -2, 4.5 -0.5, 3 1.5 C 1.8 2.5, 0 1, 0 0"
+          fill="#DC2626"
+          stroke="#991B1B"
+          strokeWidth={0.6}
+        />
+        {/* Two tied thread trailing strand tips */}
+        <path
+          d="M -1 1.2 Q -2.5 3 -3.5 4.5 M 1 1.2 Q 2.5 3 3.5 4.5"
+          fill="none"
+          stroke="#EF4444"
+          strokeWidth={1.2}
+          strokeLinecap="round"
+        />
+        {/* Center golden knot binding bead seal */}
+        <circle r={2.0} fill="#F59E0B" stroke="#B45309" strokeWidth={0.6} />
+        <circle r={0.7} fill="#FEF3C7" />
+      </g>
+    </g>
+  );
+}
+
 /**
- * Precision bloodline router that maneuvers through the 14px central corridor
- * and 22px row gaps in 2-column mobile mode without slicing through intermediate cards.
+ * Precision bloodline router that maneuvers through separated parallel lanes
+ * in 2-column mobile mode without touching or entangling other lines.
  */
-function routeBloodLine(
-  from: { x: number; y: number },
+function routeTangleFreeChildLine(
+  junc: { x: number; y: number },
   to: { x: number; y: number },
   cx: number,
-  isMultiRow: boolean
+  is2Col: boolean,
+  isMultiRow: boolean,
+  isLeftCol: boolean
 ): string {
-  if (!isMultiRow) {
-    const dy = Math.max(16, to.y - from.y);
-    const c1y = from.y + dy * 0.45;
+  if (!is2Col || !isMultiRow) {
+    const dy = Math.max(16, to.y - junc.y);
+    const c1y = junc.y + dy * 0.45;
     const c2y = to.y - dy * 0.45;
-    return `M ${from.x} ${from.y} C ${from.x} ${c1y}, ${to.x} ${c2y}, ${to.x} ${to.y}`;
+    return `M ${junc.x} ${junc.y} C ${junc.x} ${c1y}, ${to.x} ${c2y}, ${to.x} ${to.y}`;
   }
 
-  // Multi-row route via clear central highway at x = cx (14px empty space between columns)
-  const dy = to.y - from.y;
-  const entryY = from.y + Math.min(24, Math.max(14, dy * 0.18));
+  // Multi-row route via dedicated highway lane so parallel lines never touch
+  const laneX = isLeftCol ? cx - 3.5 : cx + 3.5;
+  const dy = to.y - junc.y;
+  const entryY = junc.y + Math.min(22, Math.max(12, dy * 0.16));
   const exitY = to.y - 14; // in the 22px clear row gap above destination card
 
-  if (Math.abs(from.x - cx) < 4) {
-    // Already in central corridor
-    const cExitY = (exitY + to.y) / 2;
-    return `M ${from.x} ${from.y} L ${cx} ${exitY} C ${cx} ${cExitY}, ${to.x} ${cExitY}, ${to.x} ${to.y}`;
-  }
-
-  const cEntryY = (from.y + entryY) / 2;
+  const cEntryY = (junc.y + entryY) / 2;
   const cExitY = (exitY + to.y) / 2;
-  return `M ${from.x} ${from.y} C ${from.x} ${cEntryY}, ${cx} ${cEntryY}, ${cx} ${entryY} L ${cx} ${exitY} C ${cx} ${cExitY}, ${to.x} ${cExitY}, ${to.x} ${to.y}`;
+
+  return `M ${junc.x} ${junc.y} C ${junc.x} ${cEntryY}, ${laneX} ${cEntryY}, ${laneX} ${entryY} L ${laneX} ${exitY} C ${laneX} ${cExitY}, ${to.x} ${cExitY}, ${to.x} ${to.y}`;
 }
 
 function getRelationshipStyle(relTag = "", sex?: string | null) {
@@ -2830,19 +2932,32 @@ function VanshawaliInner() {
   const marriedIdSet = new Set<string>();
   const coupleSeen = new Set<string>();
   const coupleRingMap = new Map<string, RingStyle>();
-  let nextRingIdx = 0;
+  const SILVER_RING = COUPLE_RING_STYLES[0];
+  let nextRingIdx = 1; // 0 is reserved for Self (Silver)
 
   const registerCoupleRing = (id1?: string | null, id2?: string | null) => {
     if (!id1 || !id2 || id1 === id2) return;
     let ring = coupleRingMap.get(id1) || coupleRingMap.get(id2);
     if (!ring) {
-      ring = COUPLE_RING_STYLES[nextRingIdx++ % COUPLE_RING_STYLES.length];
+      const isSelfCouple = (tree?.centre && (id1 === tree.centre.id || id2 === tree.centre.id));
+      if (isSelfCouple) {
+        ring = SILVER_RING;
+      } else {
+        const otherStyles = COUPLE_RING_STYLES.slice(1);
+        ring = otherStyles[nextRingIdx++ % otherStyles.length];
+      }
       coupleRingMap.set(id1, ring);
       coupleRingMap.set(id2, ring);
     }
   };
 
-  // Pre-seed couple ring assignments across the tree
+  // Pre-seed Self & Spouse first so Self ALWAYS has Silver ring
+  if (tree?.centre) {
+    coupleRingMap.set(tree.centre.id, SILVER_RING);
+    spouses.forEach((s) => coupleRingMap.set(s.id, SILVER_RING));
+  }
+
+  // Pre-seed couple ring assignments across the tree with distinct metals & gems
   if (father && mother) registerCoupleRing(father.id, mother.id);
   const gpAllNodes = [...(tree?.grandparents || []), ...(tree?.levels_up?.[1] || [])];
   const pDadaPre = gpAllNodes.find((g) => resolveSex(g.gender, g.relation) === "M" && (!g.via_id || g.via_id === father?.id));
@@ -3947,33 +4062,29 @@ function VanshawaliInner() {
     if (sp) selfLayoutRef.current = { x: sp.x, y: sp.top + BUBBLE_H / 2 };
   }
 
-  type BloodLine = {
-    x1: number;
-    y1: number;
-    x2: number;
-    y2: number;
-    key: string;
-    fromId?: string;
-    toId?: string;
-    relTag?: string;
-    sex?: string | null;
-  };
   type BloodSegment = {
     key: string;
     d: string;
     isLeaf?: boolean;
-    relTag?: string;
-    tagX?: number;
-    tagY?: number;
   };
-  type BloodJunction = {
+  type ThreadKnotAnchor = {
     key: string;
     x: number;
     y: number;
+    isBottom?: boolean;
   };
 
   const bloodSegments: BloodSegment[] = [];
-  const bloodJunctions: BloodJunction[] = [];
+  const bloodKnots: ThreadKnotAnchor[] = [];
+  const knotSeen = new Set<string>();
+
+  const addKnot = (id: string, x: number, y: number, isBottom: boolean) => {
+    const k = `${id}-${isBottom ? "bot" : "top"}`;
+    if (knotSeen.has(k)) return;
+    knotSeen.add(k);
+    bloodKnots.push({ key: `knot-${k}`, x, y, isBottom });
+  };
+
   type SibLn = { x1: number; y1: number; x2: number; y2: number; key: string; label?: string };
   const linesSibling: SibLn[] = [];
 
@@ -3983,7 +4094,7 @@ function VanshawaliInner() {
     parent1Id: string | null | undefined,
     parent2Id: string | null | undefined,
     childIds: (string | null | undefined)[],
-    customTags?: Record<string, string>
+    preferredLane?: "left" | "right" | "center"
   ) => {
     if (bloodUnitDrawn.has(unitKey)) return;
     bloodUnitDrawn.add(unitKey);
@@ -4003,23 +4114,34 @@ function VanshawaliInner() {
     if (validChildren.length === 0) return;
 
     const cardH = is2ColActive ? 66 : BUBBLE_H;
-    const centralX = is2ColActive ? W / 2 : (p2 ? (p1.pos.x + p2.pos.x) / 2 : p1.pos.x);
+    const cx = is2ColActive ? W / 2 : (p2 ? (p1.pos.x + p2.pos.x) / 2 : p1.pos.x);
 
-    // 1. Natural dock points at bottom of parent card(s) (with deterministic pseudo-random offset)
+    // 1. Natural dock points at bottom of parent card(s)
     const off1 = getDockOffset(p1.id, false);
     const p1Bottom = { x: p1.pos.x + off1, y: p1.pos.top + cardH };
     const p2Bottom = p2 ? { x: p2.pos.x + getDockOffset(p2.id, false), y: p2.pos.top + cardH } : null;
 
+    // Sacred tied thread knot at parent origin(s)
+    addKnot(p1.id, p1Bottom.x, p1Bottom.y, true);
+    if (p2) addKnot(p2.id, p2Bottom.x, p2Bottom.y, true);
+
     // 2. Junction coordinates in inter-generation corridor
-    const jx = is2ColActive ? centralX : (p2Bottom ? (p1Bottom.x + p2Bottom.x) / 2 : p1Bottom.x);
+    let jx = cx;
+    if (preferredLane === "left") {
+      jx = p1Bottom.x;
+    } else if (preferredLane === "right") {
+      jx = p2Bottom ? p2Bottom.x : cx;
+    } else if (!is2ColActive) {
+      jx = p2Bottom ? (p1Bottom.x + p2Bottom.x) / 2 : p1Bottom.x;
+    }
+
     const maxPBottom = Math.max(p1Bottom.y, p2Bottom ? p2Bottom.y : p1Bottom.y);
     const minCTop = Math.min(...validChildren.map((c) => c.pos.top));
     const jy = minCTop > maxPBottom + 20
-      ? maxPBottom + (minCTop - maxPBottom) * 0.35
+      ? maxPBottom + (minCTop - maxPBottom) * 0.38
       : maxPBottom + 18;
 
     const junc = { x: jx, y: jy };
-    bloodJunctions.push({ key: `junc-${unitKey}`, x: jx, y: jy });
 
     // 3. Parent 1 to Junction
     bloodSegments.push({
@@ -4037,74 +4159,52 @@ function VanshawaliInner() {
       });
     }
 
-    // 5. Junction to each Child (with natural top dock offset & collision-free corridor routing)
+    // 5. Junction to each Child (with dedicated untangled lanes & sacred thread knot)
     validChildren.forEach((c) => {
       const cOff = getDockOffset(c.id, true);
       const cTop = { x: c.pos.x + cOff, y: c.pos.top };
+
+      // Sacred tied thread knot at destination child card top
+      addKnot(c.id, cTop.x, cTop.y, false);
+
       const isMultiRow = is2ColActive && c.pos.top > minCTop + 30;
+      const isLeftCol = c.pos.x < cx;
 
       bloodSegments.push({
         key: `bseg-c-${unitKey}-${c.id}`,
-        d: routeBloodLine(junc, cTop, centralX, isMultiRow),
+        d: routeTangleFreeChildLine(junc, cTop, cx, is2ColActive, isMultiRow, isLeftCol),
         isLeaf: true,
       });
     });
   };
 
-  // 1. Grandparents -> Parents
+  // 1. Grandparents -> Parents (Paternal strictly left, Maternal strictly right)
   const gpList = (tree?.grandparents || []).concat(levelsUp[1] || []);
   const dada = gpList.find((g) => resolveSex(g.gender, g.relation) === "M" && (!g.via_id || g.via_id === father?.id));
   const dadi = gpList.find((g) => resolveSex(g.gender, g.relation) === "F" && (!g.via_id || g.via_id === father?.id));
   if (father && (dada || dadi)) {
-    const patUncles = (tree?.uncles_and_aunts || [])
-      .filter((u) => resolveSex(u.gender, u.relation) === "M" && (!u.via_id || u.via_id === father?.id))
-      .map((u) => u.id);
-    const allFatherSibs = Array.from(new Set([father.id, ...patUncles, ...((tree?.siblings_of || {})[father.id] || []).map((s) => s.id)]));
-    createBloodUnit("gp-paternal", dada?.id, dadi?.id, allFatherSibs, { [father.id]: lang === "hi" ? "पुत्र" : "Son" });
+    createBloodUnit("gp-paternal", dada?.id, dadi?.id, [father.id], "left");
   }
   const nana = gpList.find((g) => resolveSex(g.gender, g.relation) === "M" && g.id !== dada?.id);
   const nani = gpList.find((g) => resolveSex(g.gender, g.relation) === "F" && g.id !== dadi?.id);
   if (mother && (nana || nani)) {
-    const matUncles = (tree?.uncles_and_aunts || [])
-      .filter((u) => u.via_id === mother?.id || ((tree?.siblings_of || {})[mother?.id || ""] || []).some((s) => s.id === u.id))
-      .map((u) => u.id);
-    const allMotherSibs = Array.from(new Set([mother.id, ...matUncles, ...((tree?.siblings_of || {})[mother.id] || []).map((s) => s.id)]));
-    createBloodUnit("gp-maternal", nana?.id, nani?.id, allMotherSibs, { [mother.id]: lang === "hi" ? "पुत्री" : "Daughter" });
+    createBloodUnit("gp-maternal", nana?.id, nani?.id, [mother.id], "right");
   }
 
-  // 2. Parents -> Self & Siblings
+  // 2. Parents -> Self (Y-fork from Self up to Mother & Father)
   if (tree && (father || mother)) {
-    const sibIds = (tree.siblings || []).map((s) => s.id);
-    const soSibs = ((tree.siblings_of || {})[tree.centre.id] || []).map((s) => s.id);
-    const selfAndSibs = Array.from(new Set([tree.centre.id, ...sibIds, ...soSibs]));
-    createBloodUnit("parents-to-self-sibs", father?.id, mother?.id, selfAndSibs);
+    createBloodUnit("parents-to-self", father?.id, mother?.id, [tree.centre.id], "center");
   }
 
-  // 3. Self & Spouse -> Children
+  // 3. Self & Spouse -> Children (Dual fork from Self & Spouse down to all children)
   if (tree?.centre) {
     const kidIds = (tree.children || []).concat(levelsDown[0] || []).concat((tree.children_of || {})[tree.centre.id] || []).map((c) => c.id);
     const uniqKids = Array.from(new Set(kidIds));
     const selfSpouse = spouses[0] || (spousesOfMap[tree.centre.id] || [])[0];
-    createBloodUnit("self-to-kids", tree.centre.id, selfSpouse?.id, uniqKids);
+    createBloodUnit("self-to-kids", tree.centre.id, selfSpouse?.id, uniqKids, "center");
   }
 
-  // 4. Siblings & Sibling Spouses -> Nephews/Nieces
-  if (tree) {
-    const centreSibMap = new Map<string, Node>();
-    (tree.siblings || []).forEach((s) => centreSibMap.set(s.id, s));
-    (tree.siblings_of?.[tree.centre.id] || []).forEach((s) => centreSibMap.set(s.id, s));
-    const allSiblingsList = Array.from(centreSibMap.values());
-
-    allSiblingsList.forEach((s) => {
-      const sKids = ((tree.children_of || {})[s.id] || []).map((c) => c.id);
-      if (sKids.length > 0) {
-        const sSpouse = getSpouseOf(s.id) || (spousesOfMap[s.id] || [])[0];
-        createBloodUnit(`sib-kids-${s.id}`, s.id, sSpouse?.id, sKids);
-      }
-    });
-  }
-
-  // 5. Children & Children Spouses -> Grandchildren
+  // 4. Children & Children Spouses -> Grandchildren
   if (tree) {
     const allKidsList = (tree.children || []).concat(levelsDown[0] || []);
     const handledGkids = new Set<string>();
@@ -4118,7 +4218,7 @@ function VanshawaliInner() {
       if (cGkids.length > 0) {
         cGkids.forEach((gkid) => handledGkids.add(gkid));
         const cSpouse = getSpouseOf(c.id) || (spousesOfMap[c.id] || [])[0];
-        createBloodUnit(`child-gkids-${c.id}`, c.id, cSpouse?.id, cGkids);
+        createBloodUnit(`child-gkids-${c.id}`, c.id, cSpouse?.id, cGkids, "center");
       }
     });
 
@@ -4485,9 +4585,9 @@ function VanshawaliInner() {
     gen?: keyof typeof GEN_STYLE;
     isSelf?: boolean;
   }) => {
-    const ring = coupleRingMap.get(n.id);
-    const isMarried = !!ring || marriedIdSet.has(n.id);
     const selfNode = isSelf || n.id === tree?.centre.id || n.relation === "self";
+    const ring = coupleRingMap.get(n.id) || (selfNode ? SILVER_RING : undefined);
+    const isMarried = !!ring || marriedIdSet.has(n.id) || selfNode;
     const relInfo = resolveIndianRelationship(n, tree, lang);
     const rel = extra || relInfo.shortTag;
     const born = formatBirth(n);
@@ -4619,12 +4719,12 @@ function VanshawaliInner() {
   };
 
   const renderMemberCard = (m: Node, roleLabel?: string) => {
-    const ring = coupleRingMap.get(m.id);
-    const isMarried = !!ring || marriedIdSet.has(m.id);
+    const isSelf = m.id === tree?.centre.id;
+    const ring = coupleRingMap.get(m.id) || (isSelf ? SILVER_RING : undefined);
+    const isMarried = !!ring || marriedIdSet.has(m.id) || isSelf;
     const isLate = /^(स्व\.|late|sw\.)/i.test(m.display_name) || m.status === "deceased";
     const cleanName = m.display_name.replace(/^(स्व\.|late|sw\.)\s*/i, "");
     const sex = resolveSex(m.gender, m.relation);
-    const isSelf = m.id === tree?.centre.id;
     const born = formatBirth(m);
     const relInfo = resolveIndianRelationship(m, tree, lang);
 
@@ -4693,12 +4793,29 @@ function VanshawaliInner() {
         }
         .vansh-marry-float {
         }
-        @keyframes ringLightTravel {
-          from { stroke-dashoffset: 0; }
-          to { stroke-dashoffset: -120; }
+        @keyframes ring3dShine {
+          0% {
+            stroke-dashoffset: 14;
+            opacity: 0;
+          }
+          12% {
+            opacity: 0.95;
+          }
+          45% {
+            stroke-dashoffset: -36;
+            opacity: 0.95;
+          }
+          58% {
+            stroke-dashoffset: -46;
+            opacity: 0;
+          }
+          100% {
+            stroke-dashoffset: -46;
+            opacity: 0;
+          }
         }
-        .vansh-ring-travel {
-          animation: ringLightTravel 2.2s linear infinite;
+        .vansh-3d-shine {
+          animation: ring3dShine 4.0s ease-in-out infinite;
         }
         @keyframes bloodPulse {
           0%, 100% {
@@ -4709,8 +4826,8 @@ function VanshawaliInner() {
           }
           14% {
             stroke: #EF4444;
-            stroke-width: 3.4;
-            filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.95));
+            stroke-width: 3.2;
+            filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.9));
             opacity: 1;
           }
           28% {
@@ -4720,9 +4837,9 @@ function VanshawaliInner() {
             opacity: 0.9;
           }
           42% {
-            stroke: #F87171;
-            stroke-width: 3.0;
-            filter: drop-shadow(0 0 6px rgba(248, 113, 113, 0.85));
+            stroke: #EF4444;
+            stroke-width: 3.4;
+            filter: drop-shadow(0 0 7px rgba(239, 68, 68, 0.9));
             opacity: 1;
           }
           56% {
@@ -4736,38 +4853,12 @@ function VanshawaliInner() {
           from { stroke-dashoffset: 48; }
           to { stroke-dashoffset: 0; }
         }
-        @keyframes pulseNode {
-          0%, 100% {
-            transform: scale(1);
-            opacity: 0.55;
-          }
-          14% {
-            transform: scale(1.6);
-            opacity: 1;
-          }
-          28% {
-            transform: scale(1);
-            opacity: 0.55;
-          }
-          42% {
-            transform: scale(1.35);
-            opacity: 0.9;
-          }
-          56% {
-            transform: scale(1);
-            opacity: 0.55;
-          }
-        }
         .vansh-blood-line {
           animation: bloodPulse 2.0s ease-in-out infinite;
         }
         .vansh-blood-flow {
           stroke-dasharray: 6 18;
           animation: bloodFlow 1.8s linear infinite;
-        }
-        .vansh-pulse-node {
-          transform-origin: center;
-          animation: pulseNode 2.0s ease-in-out infinite;
         }
         .vansh-logo-watermark {
           position: absolute;
@@ -5491,9 +5582,6 @@ function VanshawaliInner() {
 
             <svg className="absolute inset-0 pointer-events-none z-10" width={W} height={H}>
               <defs>
-                <marker id="arrow-blood" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto">
-                  <path d="M1 1 L5 3 L1 5 Z" fill="#DC2626" />
-                </marker>
                 <marker id="arrow-gold" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
                   <path d="M1 1 L6 3.5 L1 6 Z" fill="#D97706" />
                 </marker>
@@ -5596,7 +5684,6 @@ function VanshawaliInner() {
                     strokeWidth={2.4}
                     strokeLinecap="round"
                     className="vansh-blood-line"
-                    markerEnd={seg.isLeaf ? "url(#arrow-blood)" : undefined}
                   />
                   {/* Living blood flow moving dashes */}
                   <path
@@ -5611,19 +5698,14 @@ function VanshawaliInner() {
                 </g>
               ))}
 
-              {/* Pulsing Parental Junction Nodes */}
-              {bloodJunctions.map((j) => (
-                <g key={j.key} transform={`translate(${j.x}, ${j.y})`}>
-                  <circle r={3.5} fill="#DC2626" />
-                  <circle
-                    r={7}
-                    fill="none"
-                    stroke="#EF4444"
-                    strokeWidth={1.2}
-                    className="vansh-pulse-node"
-                  />
-                  <circle r={1.5} fill="#FFFFFF" />
-                </g>
+              {/* Sacred Mauli / Kalava tied thread knots at line origins & destinations (NO floating red circle) */}
+              {bloodKnots.map((knot) => (
+                <ThreadKnot
+                  key={knot.key}
+                  x={knot.x}
+                  y={knot.y}
+                  isBottom={knot.isBottom}
+                />
               ))}
 
               {/* Sibling amber lines */}
