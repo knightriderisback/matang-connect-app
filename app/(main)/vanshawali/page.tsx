@@ -414,12 +414,8 @@ function SolitaireRingAvatar({
   const s = size;
   const cx = s / 2;
   const cy = s / 2;
-  const r = (s - 6) / 2;
+  const r = (s - 7) / 2;
   const circ = 2 * Math.PI * r;
-
-  // Rotated mount at angle -45° (top-left / 10:30 o'clock)
-  const mx = cx - r * 0.707;
-  const my = cy - r * 0.707;
 
   return (
     <div
@@ -428,7 +424,7 @@ function SolitaireRingAvatar({
     >
       {ring ? (
         <>
-          {/* Circular Metallic Diamond Ring with rotated diamond crown and travelling light shine */}
+          {/* Complete Solitaire Ring rotated to the left (-38° / 10:45 o'clock) with travelling light shine */}
           <svg
             className="absolute inset-0 pointer-events-none z-20 overflow-visible"
             width={s}
@@ -444,70 +440,93 @@ function SolitaireRingAvatar({
               </linearGradient>
             </defs>
 
-            {/* Base Metallic Ring Band */}
-            <circle
-              cx={cx}
-              cy={cy}
-              r={r}
-              fill="none"
-              stroke={ring.bandBorder}
-              strokeWidth={3}
-              opacity={0.88}
-            />
-            <circle
-              cx={cx}
-              cy={cy}
-              r={r}
-              fill="none"
-              stroke={`url(#ringGrad-${ring.id}-${s})`}
-              strokeWidth={2.2}
-            />
+            {/* Whole ring assembly rotated -38° to the left so diamond sits firmly on the band */}
+            <g transform={`rotate(-38, ${cx}, ${cy})`}>
+              {/* Metallic Base Ring Band */}
+              <circle
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill="none"
+                stroke={ring.bandBorder}
+                strokeWidth={2.8}
+                opacity={0.9}
+              />
+              <circle
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill="none"
+                stroke={`url(#ringGrad-${ring.id}-${s})`}
+                strokeWidth={2.0}
+              />
 
-            {/* Light travelling shine along the circular ring band */}
-            <circle
-              cx={cx}
-              cy={cy}
-              r={r}
-              fill="none"
-              stroke="#FFFFFF"
-              strokeWidth={2.4}
-              strokeDasharray={`${circ * 0.22} ${circ * 0.78}`}
-              strokeLinecap="round"
-              className="vansh-ring-travel"
-              opacity={0.95}
-            />
-
-            {/* Solitaire Diamond Mount rotated to top-left (-45° / 10:30 o'clock) */}
-            <g transform={`translate(${mx}, ${my}) rotate(-45)`}>
-              {/* Metallic setting / prongs holding the diamond on the band */}
-              <path
-                d="M -4.5 4 L -4.5 0 L -2 -3 L 2 -3 L 4.5 0 L 4.5 4 Z"
-                fill={ring.bandBorder}
+              {/* Light travelling specular shine moving smoothly along circular band */}
+              <circle
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill="none"
                 stroke="#FFFFFF"
-                strokeWidth={0.5}
+                strokeWidth={2.2}
+                strokeDasharray={`${circ * 0.24} ${circ * 0.76}`}
+                strokeLinecap="round"
+                className="vansh-ring-travel"
+                opacity={0.95}
               />
-              {/* Faceted Solitaire Diamond Gem (Static, NO animation) */}
-              <polygon
-                points="-3.8,0 3.8,0 2.4,-3.5 -2.4,-3.5"
-                fill={ring.gemColor}
-              />
-              <polygon
-                points="-1.8,-3.5 1.8,-3.5 1.2,-4.2 -1.2,-4.2"
-                fill={ring.sparkleColor}
-                opacity={0.85}
-              />
-              <polygon
-                points="-3.8,0 3.8,0 0,3.6"
-                fill={ring.gemColor}
-              />
-              <polygon
-                points="-1.4,0 1.4,0 0,3.6"
-                fill={ring.sparkleColor}
-                opacity={0.55}
-              />
-              {/* Left and Right Prongs beads clamping the diamond */}
-              <circle cx="-3.6" cy="-0.5" r="0.8" fill="#FFFFFF" />
-              <circle cx="3.6" cy="-0.5" r="0.8" fill="#FFFFFF" />
+
+              {/* Solitaire Diamond Setting Mount seated directly ON the outer rim of the band */}
+              <g transform={`translate(${cx}, ${cy - r})`}>
+                {/* Setting basket base supporting the diamond */}
+                <path
+                  d="M -3.8 2.2 L -3 0 L 3 0 L 3.8 2.2 Z"
+                  fill={ring.bandBorder}
+                  stroke="#FFFFFF"
+                  strokeWidth={0.5}
+                />
+                {/* 4-Prong Setting holding the diamond */}
+                <path
+                  d="M -3.2 0 L -3 -3 L -2.2 -3 L -2.4 0 Z"
+                  fill={ring.bandBorder}
+                />
+                <path
+                  d="M 3.2 0 L 3 -3 L 2.2 -3 L 2.4 0 Z"
+                  fill={ring.bandBorder}
+                />
+
+                {/* Static Solitaire Diamond Gem (NO animation, crisp brilliant facets) */}
+                {/* Diamond Pavilion (lower V) */}
+                <polygon
+                  points="-3,0 3,0 0,3.2"
+                  fill={ring.gemColor}
+                />
+                <polygon
+                  points="-1.2,0 1.2,0 0,3.2"
+                  fill={ring.sparkleColor}
+                  opacity={0.65}
+                />
+
+                {/* Diamond Crown (upper facets) */}
+                <polygon
+                  points="-3,0 3,0 2.2,-3 -2.2,-3"
+                  fill={ring.gemColor}
+                />
+                <polygon
+                  points="-1.4,-3 1.4,-3 2,0 -2,0"
+                  fill={ring.sparkleColor}
+                  opacity={0.8}
+                />
+                {/* Diamond Table facet highlight */}
+                <polygon
+                  points="-1,-3 1,-3 0.6,-1.2 -0.6,-1.2"
+                  fill="#FFFFFF"
+                  opacity={0.9}
+                />
+
+                {/* Left & Right prong beads clamping diamond girdle */}
+                <circle cx="-2.8" cy="-1.5" r="0.6" fill="#FFFFFF" />
+                <circle cx="2.8" cy="-1.5" r="0.6" fill="#FFFFFF" />
+              </g>
             </g>
           </svg>
 
@@ -595,6 +614,39 @@ function bezierCurve(p1: { x: number; y: number }, p2: { x: number; y: number })
   const cp1y = p1.y + dy * 0.45;
   const cp2y = p2.y - dy * 0.45;
   return `M ${p1.x} ${p1.y} C ${p1.x} ${cp1y}, ${p2.x} ${cp2y}, ${p2.x} ${p2.y}`;
+}
+
+/**
+ * Precision bloodline router that maneuvers through the 14px central corridor
+ * and 22px row gaps in 2-column mobile mode without slicing through intermediate cards.
+ */
+function routeBloodLine(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  cx: number,
+  isMultiRow: boolean
+): string {
+  if (!isMultiRow) {
+    const dy = Math.max(16, to.y - from.y);
+    const c1y = from.y + dy * 0.45;
+    const c2y = to.y - dy * 0.45;
+    return `M ${from.x} ${from.y} C ${from.x} ${c1y}, ${to.x} ${c2y}, ${to.x} ${to.y}`;
+  }
+
+  // Multi-row route via clear central highway at x = cx (14px empty space between columns)
+  const dy = to.y - from.y;
+  const entryY = from.y + Math.min(24, Math.max(14, dy * 0.18));
+  const exitY = to.y - 14; // in the 22px clear row gap above destination card
+
+  if (Math.abs(from.x - cx) < 4) {
+    // Already in central corridor
+    const cExitY = (exitY + to.y) / 2;
+    return `M ${from.x} ${from.y} L ${cx} ${exitY} C ${cx} ${cExitY}, ${to.x} ${cExitY}, ${to.x} ${to.y}`;
+  }
+
+  const cEntryY = (from.y + entryY) / 2;
+  const cExitY = (exitY + to.y) / 2;
+  return `M ${from.x} ${from.y} C ${from.x} ${cEntryY}, ${cx} ${cEntryY}, ${cx} ${entryY} L ${cx} ${exitY} C ${cx} ${cExitY}, ${to.x} ${cExitY}, ${to.x} ${to.y}`;
 }
 
 function getRelationshipStyle(relTag = "", sex?: string | null) {
@@ -3951,14 +4003,15 @@ function VanshawaliInner() {
     if (validChildren.length === 0) return;
 
     const cardH = is2ColActive ? 66 : BUBBLE_H;
+    const centralX = is2ColActive ? W / 2 : (p2 ? (p1.pos.x + p2.pos.x) / 2 : p1.pos.x);
 
-    // 1. Natural dock points at bottom of parent card(s)
+    // 1. Natural dock points at bottom of parent card(s) (with deterministic pseudo-random offset)
     const off1 = getDockOffset(p1.id, false);
     const p1Bottom = { x: p1.pos.x + off1, y: p1.pos.top + cardH };
     const p2Bottom = p2 ? { x: p2.pos.x + getDockOffset(p2.id, false), y: p2.pos.top + cardH } : null;
 
-    // 2. Junction coordinates in inter-generation gap
-    const jx = p2Bottom ? (p1Bottom.x + p2Bottom.x) / 2 : p1Bottom.x;
+    // 2. Junction coordinates in inter-generation corridor
+    const jx = is2ColActive ? centralX : (p2Bottom ? (p1Bottom.x + p2Bottom.x) / 2 : p1Bottom.x);
     const maxPBottom = Math.max(p1Bottom.y, p2Bottom ? p2Bottom.y : p1Bottom.y);
     const minCTop = Math.min(...validChildren.map((c) => c.pos.top));
     const jy = minCTop > maxPBottom + 20
@@ -3984,21 +4037,16 @@ function VanshawaliInner() {
       });
     }
 
-    // 5. Junction to each Child (with natural top dock offset)
+    // 5. Junction to each Child (with natural top dock offset & collision-free corridor routing)
     validChildren.forEach((c) => {
       const cOff = getDockOffset(c.id, true);
       const cTop = { x: c.pos.x + cOff, y: c.pos.top };
-      const cNode = allNodesMap.get(c.id);
-      const rInfo = cNode ? resolveIndianRelationship(cNode, tree, lang) : null;
-      const relTag = customTags?.[c.id] || rInfo?.shortTag;
+      const isMultiRow = is2ColActive && c.pos.top > minCTop + 30;
 
       bloodSegments.push({
         key: `bseg-c-${unitKey}-${c.id}`,
-        d: bezierCurve(junc, cTop),
+        d: routeBloodLine(junc, cTop, centralX, isMultiRow),
         isLeaf: true,
-        relTag,
-        tagX: cTop.x,
-        tagY: cTop.y - 12,
       });
     });
   };
@@ -4008,12 +4056,20 @@ function VanshawaliInner() {
   const dada = gpList.find((g) => resolveSex(g.gender, g.relation) === "M" && (!g.via_id || g.via_id === father?.id));
   const dadi = gpList.find((g) => resolveSex(g.gender, g.relation) === "F" && (!g.via_id || g.via_id === father?.id));
   if (father && (dada || dadi)) {
-    createBloodUnit("gp-paternal", dada?.id, dadi?.id, [father.id], { [father.id]: lang === "hi" ? "पुत्र" : "Son" });
+    const patUncles = (tree?.uncles_and_aunts || [])
+      .filter((u) => resolveSex(u.gender, u.relation) === "M" && (!u.via_id || u.via_id === father?.id))
+      .map((u) => u.id);
+    const allFatherSibs = Array.from(new Set([father.id, ...patUncles, ...((tree?.siblings_of || {})[father.id] || []).map((s) => s.id)]));
+    createBloodUnit("gp-paternal", dada?.id, dadi?.id, allFatherSibs, { [father.id]: lang === "hi" ? "पुत्र" : "Son" });
   }
   const nana = gpList.find((g) => resolveSex(g.gender, g.relation) === "M" && g.id !== dada?.id);
   const nani = gpList.find((g) => resolveSex(g.gender, g.relation) === "F" && g.id !== dadi?.id);
   if (mother && (nana || nani)) {
-    createBloodUnit("gp-maternal", nana?.id, nani?.id, [mother.id], { [mother.id]: lang === "hi" ? "पुत्री" : "Daughter" });
+    const matUncles = (tree?.uncles_and_aunts || [])
+      .filter((u) => u.via_id === mother?.id || ((tree?.siblings_of || {})[mother?.id || ""] || []).some((s) => s.id === u.id))
+      .map((u) => u.id);
+    const allMotherSibs = Array.from(new Set([mother.id, ...matUncles, ...((tree?.siblings_of || {})[mother.id] || []).map((s) => s.id)]));
+    createBloodUnit("gp-maternal", nana?.id, nani?.id, allMotherSibs, { [mother.id]: lang === "hi" ? "पुत्री" : "Daughter" });
   }
 
   // 2. Parents -> Self & Siblings
@@ -5552,32 +5608,6 @@ function VanshawaliInner() {
                     className="vansh-blood-flow"
                     opacity={0.85}
                   />
-                  {/* Relationship badge at destination card top */}
-                  {seg.relTag && seg.tagX !== undefined && seg.tagY !== undefined && (
-                    <g transform={`translate(${seg.tagX}, ${seg.tagY})`}>
-                      <rect
-                        x={-24}
-                        y={-6.5}
-                        width={48}
-                        height={13}
-                        rx={6.5}
-                        fill="#FEF2F2"
-                        stroke="#EF4444"
-                        strokeWidth={0.9}
-                      />
-                      <text
-                        x={0}
-                        y={0.5}
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                        fontSize={8}
-                        fontWeight="bold"
-                        fill="#991B1B"
-                      >
-                        ↓ {seg.relTag}
-                      </text>
-                    </g>
-                  )}
                 </g>
               ))}
 
