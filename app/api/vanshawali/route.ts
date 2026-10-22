@@ -392,10 +392,6 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
         parentId = l.from_id;
         const p = byId(parentId);
         rel = p?.gender === "female" ? "mother" : "father";
-      } else if ((l.relation === "father" || l.relation === "mother") && l.from_id === personId) {
-        // Fallback for inverted legacy records
-        parentId = l.to_id;
-        rel = l.relation;
       }
       if (!parentId || seen.has(parentId)) continue;
       seen.add(parentId);
@@ -834,6 +830,47 @@ async function handlePost(
     await persistStore(supabase, store, session.userId, isRelational);
     await audit(supabase, session.userId, action, "link", link.id, before, link);
     return NextResponse.json({ success: true, link });
+  }
+
+  // ACTION: PROPOSE_RELATION_CHANGE (Bubble tap se rishta badalne ka request)
+  if (action === "propose_relation_change") {
+    const personId = String(body.person_id || "");
+    const targetRelation = String(body.relation || "").toLowerCase();
+    const note = String(body.note || "").trim();
+    const rootUserId = String(body.root_user_id || session.userId);
+
+    const person = store.persons.find((p) => p.id === personId);
+    if (!person) throw new ApiError("Member not found", 404);
+
+    const treeOwner = store.persons.find((p) => p.user_id === rootUserId);
+
+    if (treeOwner?.user_id && treeOwner.user_id !== session.userId) {
+      try {
+        await supabase.from("notifications").insert({
+          user_id: treeOwner.user_id,
+          title: "वंशावली: रिश्ते में बदलाव का अनुरोध / Relationship change request",
+          body: `${person.display_name} ke liye naye rishte (${targetRelation}) ka anurodh prapt hua hai.${note ? ` Note: ${note}` : ""}`.slice(0, 300),
+          type: "vansh_request",
+          ref_id: person.id,
+          is_read: false,
+        });
+      } catch {
+        /* notification best-effort */
+      }
+    }
+
+    await audit(supabase, session.userId, "propose_relation_change", "person", person.id, null, {
+      person_name: person.display_name,
+      proposed_relation: targetRelation,
+      note,
+      root_user_id: rootUserId,
+      status: "pending",
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Rishta badalne ka anurodh safaltapoorvak bhej diya gaya hai. Approved hone ke baad vanshawali me reflect hoga.",
+    });
   }
 
   // ACTION: REMOVE

@@ -498,6 +498,14 @@ function resolveIndianRelationship(
   (siblingsMap.get(centre.id) || []).forEach((id) => selfSiblings.add(id));
   (tree.siblings || []).forEach((s) => selfSiblings.add(s.id));
   (tree.siblings_of?.[centre.id] || []).forEach((s) => selfSiblings.add(s.id));
+  selfSiblings.delete(centre.id);
+  if (father) selfSiblings.delete(father.id);
+  if (mother) selfSiblings.delete(mother.id);
+  (tree.parents || []).forEach((p) => selfSiblings.delete(p.id));
+  (tree.children || []).forEach((c) => selfSiblings.delete(c.id));
+  (tree.spouses || []).forEach((s) => selfSiblings.delete(s.id));
+  (tree.grandparents || []).forEach((g) => selfSiblings.delete(g.id));
+  (tree.grandchildren || []).forEach((gc) => selfSiblings.delete(gc.id));
 
   // Self direct children set
   const selfChildren = new Set<string>();
@@ -506,6 +514,12 @@ function resolveIndianRelationship(
   (tree.spouses || []).forEach((sp) => {
     (childrenMap.get(sp.id) || []).forEach((id) => selfChildren.add(id));
   });
+  selfChildren.delete(centre.id);
+  if (father) selfChildren.delete(father.id);
+  if (mother) selfChildren.delete(mother.id);
+  (tree.parents || []).forEach((p) => selfChildren.delete(p.id));
+  (tree.siblings || []).forEach((s) => selfChildren.delete(s.id));
+  (tree.spouses || []).forEach((s) => selfChildren.delete(s.id));
 
   // Father siblings set (Tau, Chacha, Bua)
   const fatherSiblings = new Set<string>();
@@ -518,6 +532,9 @@ function resolveIndianRelationship(
       });
     }
   }
+  fatherSiblings.delete(centre.id);
+  if (father) fatherSiblings.delete(father.id);
+  if (mother) fatherSiblings.delete(mother.id);
 
   // Mother siblings set (Mama, Mausi)
   const motherSiblings = new Set<string>();
@@ -530,6 +547,9 @@ function resolveIndianRelationship(
       });
     }
   }
+  motherSiblings.delete(centre.id);
+  if (father) motherSiblings.delete(father.id);
+  if (mother) motherSiblings.delete(mother.id);
 
   // Helper to construct multiple roles
   const buildMultipleRoles = (
@@ -636,12 +656,47 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // 2. DIRECT SPOUSE OF SELF (Wife / Husband)
+  // 2. DIRECT PARENTS (Father / Mother) - HIGHEST PRIORITY AFTER SELF!
+  // -------------------------------------------------------------
+  const isDirectParent =
+    (tree.parents || []).some((p) => p.id === n.id) ||
+    n.relation === "father" ||
+    n.relation === "mother" ||
+    parentsMap.get(centre.id)?.has(n.id) ||
+    (tree.levels_up?.[0] || []).some((p) => p.id === n.id);
+
+  if (isDirectParent) {
+    const isMother = targetSex === "F" || n.relation === "mother";
+    const shortTag = isMother ? (isHi ? "माता जी" : "Mother") : (isHi ? "पिता जी" : "Father");
+    const primaryTitle = isMother
+      ? (isHi ? "आपकी पूज्य माता जी (Mother)" : "Your Respected Mother")
+      : (isHi ? "आपके पूज्य पिता जी (Father)" : "Your Respected Father");
+    const tierLabel = isHi ? "माता-पिता की पीढ़ी (Parents)" : "Parents Generation";
+
+    return {
+      shortTag,
+      shortTagEn: isMother ? "Mother" : "Father",
+      primaryTitle,
+      primaryTitleEn: primaryTitle,
+      category: "parent",
+      generationTier: 1,
+      generationLabel: tierLabel,
+      multipleRoles: buildMultipleRoles(
+        primaryTitle,
+        isHi ? "आपके पूज्य जन्मदाता एवं वरिष्ठ अभिभावक" : "Your respected parent and guardian",
+        tierLabel,
+        1
+      ),
+    };
+  }
+
+  // -------------------------------------------------------------
+  // 3. DIRECT SPOUSE OF SELF (Wife / Husband)
   // -------------------------------------------------------------
   const isDirectSpouse =
     spouseMap.get(centre.id)?.has(n.id) ||
     (tree.spouses || []).some((s) => s.id === n.id) ||
-    (n.relation === "spouse" && n.via_id === centre.id);
+    (n.relation === "spouse" && (!n.via_id || n.via_id === centre.id));
 
   if (isDirectSpouse) {
     const isWife = targetSex === "F" || centreSex === "M";
@@ -667,11 +722,43 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // 3. DIRECT SIBLING OF SELF (Brother / Sister)
+  // 4. DIRECT CHILD OF SELF (Son / Daughter)
+  // -------------------------------------------------------------
+  const isDirectChild =
+    (tree.children || []).some((c) => c.id === n.id) ||
+    selfChildren.has(n.id) ||
+    (n.relation === "child" && (!n.via_id || n.via_id === centre.id || (tree.spouses || []).some((s) => s.id === n.via_id)));
+
+  if (isDirectChild) {
+    const isDaughter = targetSex === "F";
+    const shortTag = isDaughter ? (isHi ? "सुपुत्री" : "Daughter") : (isHi ? "सुपुत्र" : "Son");
+    const primaryTitle = isDaughter ? (isHi ? "आपकी सुपुत्री / बेटी (Daughter)" : "Your Daughter") : (isHi ? "आपके सुपुत्र / बेटा (Son)" : "Your Son");
+    const tierLabel = isHi ? "संतान की पीढ़ी (Direct Lineage)" : "Children Generation (Direct)";
+
+    return {
+      shortTag,
+      shortTagEn: isDaughter ? "Daughter" : "Son",
+      primaryTitle,
+      primaryTitleEn: primaryTitle,
+      category: "child",
+      generationTier: -1,
+      generationLabel: tierLabel,
+      multipleRoles: buildMultipleRoles(
+        primaryTitle,
+        isHi ? "आपकी प्रत्यक्ष संतान (प्रथम अधोगामी पीढ़ी)" : "Your direct child",
+        tierLabel,
+        -1
+      ),
+    };
+  }
+
+  // -------------------------------------------------------------
+  // 5. DIRECT SIBLING OF SELF (Brother / Sister)
   // -------------------------------------------------------------
   const isDirectSibling =
+    (tree.siblings || []).some((s) => s.id === n.id) ||
     selfSiblings.has(n.id) ||
-    (n.relation === "sibling" && (!n.via_id || n.via_id === father?.id || n.via_id === mother?.id));
+    (n.relation === "sibling" && (!n.via_id || n.via_id === centre.id || n.via_id === father?.id || n.via_id === mother?.id));
 
   if (isDirectSibling) {
     const cBorn = centre.birth_year || (centre.birth_date ? parseInt(centre.birth_date.slice(0, 4), 10) : null);
@@ -726,12 +813,159 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // 4. SPOUSE OF SIBLING (Bhabhi / Jija ji)
+  // 6. DIRECT GRANDPARENTS (Dada / Dadi / Nana / Nani)
   // -------------------------------------------------------------
-  const marriedSiblingId = Array.from(spouseMap.get(n.id) || []).find((pId) => selfSiblings.has(pId)) ||
-    (selfSiblings.has(n.via_id || "") ? n.via_id : undefined);
+  const isDirectGrandparent =
+    (tree.grandparents || []).some((g) => g.id === n.id) ||
+    n.relation === "grandfather" ||
+    n.relation === "grandmother" ||
+    (tree.levels_up?.[1] || []).some((g) => g.id === n.id);
 
-  if (marriedSiblingId) {
+  if (isDirectGrandparent) {
+    const isMaternal =
+      (mother && (n.via_id === mother.id || n.via_parent_id === mother.id)) ||
+      (maternalGrandfather && n.id === maternalGrandfather.id) ||
+      (maternalGrandmother && n.id === maternalGrandmother.id);
+    const isFemale = targetSex === "F" || n.relation === "grandmother";
+
+    let shortTag = "";
+    let primaryTitle = "";
+
+    if (isMaternal) {
+      shortTag = isFemale ? (isHi ? "नानी जी" : "Maternal Grandmother (Nani)") : (isHi ? "नाना जी" : "Maternal Grandfather (Nana)");
+      primaryTitle = isFemale ? (isHi ? "आपकी पूज्य नानी जी (Nani)" : "Your Respected Maternal Grandmother") : (isHi ? "आपके पूज्य नाना जी (Nana)" : "Your Respected Maternal Grandfather");
+    } else {
+      shortTag = isFemale ? (isHi ? "दादी जी" : "Paternal Grandmother (Dadi)") : (isHi ? "दादा जी" : "Paternal Grandfather (Dada)");
+      primaryTitle = isFemale ? (isHi ? "आपकी पूज्य दादी जी (Dadi)" : "Your Respected Paternal Grandmother") : (isHi ? "आपके पूज्य दादा जी (Dada)" : "Your Respected Paternal Grandfather");
+    }
+
+    const tierLabel = isHi ? "दादा-दादी / नाना-नानी पीढ़ी (Grandparents)" : "Grandparents Generation";
+
+    return {
+      shortTag,
+      shortTagEn: isFemale ? (isMaternal ? "Maternal Grandmother" : "Grandmother") : (isMaternal ? "Maternal Grandfather" : "Grandfather"),
+      primaryTitle,
+      primaryTitleEn: primaryTitle,
+      category: "grandparent",
+      generationTier: 2,
+      generationLabel: tierLabel,
+      multipleRoles: buildMultipleRoles(
+        primaryTitle,
+        isHi ? "परिवार के वरिष्ठतम पूज्य बुजुर्ग" : "Respected elders of family",
+        tierLabel,
+        2
+      ),
+    };
+  }
+
+  // -------------------------------------------------------------
+  // 7. DIRECT GRANDCHILDREN (Pota / Poti / Naati / Naatin)
+  // -------------------------------------------------------------
+  const isDirectGrandchild =
+    (tree.grandchildren || []).some((g) => g.id === n.id) ||
+    n.relation === "grandchild" ||
+    (tree.levels_down?.[1] || []).some((g) => g.id === n.id);
+
+  if (isDirectGrandchild) {
+    const parNode = allNodes.get(n.via_id || n.via_child_id || "");
+    const parSex = resolveSex(parNode?.gender, parNode?.relation);
+    const isFemale = targetSex === "F";
+
+    let shortTag = "";
+    let primaryTitle = "";
+
+    if (parSex === "F") {
+      shortTag = isFemale ? (isHi ? "नातिन" : "Maternal Granddaughter") : (isHi ? "नाती" : "Maternal Grandson");
+      primaryTitle = isFemale ? (isHi ? "आपकी नातिन (सुपुत्री की पुत्री)" : "Your Maternal Granddaughter") : (isHi ? "आपका नाती (सुपुत्री का पुत्र)" : "Your Maternal Grandson");
+    } else {
+      shortTag = isFemale ? (isHi ? "पोती" : "Granddaughter") : (isHi ? "पोता" : "Grandson");
+      primaryTitle = isFemale ? (isHi ? "आपकी पोती / पौत्री" : "Your Granddaughter") : (isHi ? "आपका पोता / पौत्र" : "Your Grandson");
+    }
+
+    const tierLabel = isHi ? "पौत्र-पौत्री / नाती पीढ़ी" : "Grandchildren Generation";
+
+    return {
+      shortTag,
+      shortTagEn: isFemale ? "Granddaughter" : "Grandson",
+      primaryTitle,
+      primaryTitleEn: primaryTitle,
+      category: "grandchild",
+      generationTier: -2,
+      generationLabel: tierLabel,
+      multipleRoles: buildMultipleRoles(
+        primaryTitle,
+        isHi ? "परिवार की तीसरी पीढ़ी की संतान" : "Third generation descendant",
+        tierLabel,
+        -2
+      ),
+    };
+  }
+
+  // -------------------------------------------------------------
+  // 8. SPOUSE OF DIRECT CHILD (Bahu / Damaad)
+  // -------------------------------------------------------------
+  const marriedChildId = Array.from(spouseMap.get(n.id) || []).find((pId) => selfChildren.has(pId));
+
+  if (marriedChildId && !isDirectParent) {
+    const chNode = allNodes.get(marriedChildId);
+    const chSex = resolveSex(chNode?.gender, chNode?.relation);
+    const chCleanName = chNode?.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, "") || "";
+
+    if (chSex === "M" || targetSex === "F") {
+      // Son's Wife -> BAHU (Daughter-in-law)
+      const shortTag = isHi ? "बहू" : "Daughter-in-law";
+      const primaryTitle = isHi
+        ? `आपकी बहू / पुत्र-वधू (${chCleanName ? `${chCleanName} की धर्मपत्नी` : "सुपुत्र की पत्नी"})`
+        : `Your Daughter-in-law (${chCleanName ? `Wife of ${chCleanName}` : "Son's Wife"})`;
+      const tierLabel = isHi ? "संतान की पीढ़ी (पुत्र-वधू)" : "Children Generation (Daughter-in-law)";
+
+      return {
+        shortTag,
+        shortTagEn: "Daughter-in-law",
+        primaryTitle,
+        primaryTitleEn: primaryTitle,
+        category: "child",
+        generationTier: -1,
+        generationLabel: tierLabel,
+        multipleRoles: buildMultipleRoles(
+          primaryTitle,
+          isHi ? `आपके सुपुत्र ${chCleanName} की धर्मपत्नी होने के नाते आपके परिवार की बहू` : `Wife of your son ${chCleanName}`,
+          tierLabel,
+          -1
+        ),
+      };
+    } else {
+      // Daughter's Husband -> DAMAAD (Son-in-law)
+      const shortTag = isHi ? "दामाद" : "Son-in-law";
+      const primaryTitle = isHi
+        ? `आपके दामाद जी (${chCleanName ? `${chCleanName} के पति` : "सुपुत्री के पति"})`
+        : `Your Son-in-law (${chCleanName ? `Husband of ${chCleanName}` : "Daughter's Husband"})`;
+      const tierLabel = isHi ? "संतान की पीढ़ी (दामाद)" : "Children Generation (Son-in-law)";
+
+      return {
+        shortTag,
+        shortTagEn: "Son-in-law",
+        primaryTitle,
+        primaryTitleEn: primaryTitle,
+        category: "child",
+        generationTier: -1,
+        generationLabel: tierLabel,
+        multipleRoles: buildMultipleRoles(
+          primaryTitle,
+          isHi ? `आपकी सुपुत्री ${chCleanName} के पति होने के नाते आपके परिवार के दामाद` : `Husband of your daughter ${chCleanName}`,
+          tierLabel,
+          -1
+        ),
+      };
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 9. SPOUSE OF SIBLING (Bhabhi / Jija ji) - STRICT SAFEGUARDS
+  // -------------------------------------------------------------
+  const marriedSiblingId = Array.from(spouseMap.get(n.id) || []).find((pId) => selfSiblings.has(pId));
+
+  if (marriedSiblingId && !isDirectParent && !isDirectChild && !isDirectSpouse && !isDirectGrandparent && !isDirectSibling) {
     const sibNode = allNodes.get(marriedSiblingId);
     const sibSex = resolveSex(sibNode?.gender, sibNode?.relation);
     const sibCleanName = sibNode?.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, "") || "";
@@ -783,96 +1017,6 @@ function resolveIndianRelationship(
           isHi ? `आपकी बहन ${sibCleanName} के पति होने के नाते परिवार में आपके जीजा जी` : `Husband of your sister ${sibCleanName}`,
           tierLabel,
           0
-        ),
-      };
-    }
-  }
-
-  // -------------------------------------------------------------
-  // 5. DIRECT CHILD OF SELF (Son / Daughter)
-  // -------------------------------------------------------------
-  const isDirectChild =
-    selfChildren.has(n.id) ||
-    (n.relation === "child" && (!n.via_id || n.via_id === centre.id || (tree.spouses || []).some((s) => s.id === n.via_id)));
-
-  if (isDirectChild) {
-    const isDaughter = targetSex === "F";
-    const shortTag = isDaughter ? (isHi ? "सुपुत्री" : "Daughter") : (isHi ? "सुपुत्र" : "Son");
-    const primaryTitle = isDaughter ? (isHi ? "आपकी सुपुत्री / बेटी (Daughter)" : "Your Daughter") : (isHi ? "आपके सुपुत्र / बेटा (Son)" : "Your Son");
-    const tierLabel = isHi ? "संतान की पीढ़ी (Direct Lineage)" : "Children Generation (Direct)";
-
-    return {
-      shortTag,
-      shortTagEn: isDaughter ? "Daughter" : "Son",
-      primaryTitle,
-      primaryTitleEn: primaryTitle,
-      category: "child",
-      generationTier: -1,
-      generationLabel: tierLabel,
-      multipleRoles: buildMultipleRoles(
-        primaryTitle,
-        isHi ? "आपकी प्रत्यक्ष संतान (प्रथम अधोगामी पीढ़ी)" : "Your direct child",
-        tierLabel,
-        -1
-      ),
-    };
-  }
-
-  // -------------------------------------------------------------
-  // 6. SPOUSE OF DIRECT CHILD (Bahu / Damaad)
-  // -------------------------------------------------------------
-  const marriedChildId = Array.from(spouseMap.get(n.id) || []).find((pId) => selfChildren.has(pId)) ||
-    (selfChildren.has(n.via_id || "") ? n.via_id : undefined);
-
-  if (marriedChildId) {
-    const chNode = allNodes.get(marriedChildId);
-    const chSex = resolveSex(chNode?.gender, chNode?.relation);
-    const chCleanName = chNode?.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, "") || "";
-
-    if (chSex === "M" || targetSex === "F") {
-      // Son's Wife -> BAHU (Daughter-in-law)
-      const shortTag = isHi ? "बहू" : "Daughter-in-law";
-      const primaryTitle = isHi
-        ? `आपकी बहू / पुत्र-वधू (${chCleanName ? `${chCleanName} की धर्मपत्नी` : "सुपुत्र की पत्नी"})`
-        : `Your Daughter-in-law (${chCleanName ? `Wife of ${chCleanName}` : "Son's Wife"})`;
-      const tierLabel = isHi ? "संतान की पीढ़ी (पुत्र-वधू)" : "Children Generation (Daughter-in-law)";
-
-      return {
-        shortTag,
-        shortTagEn: "Daughter-in-law",
-        primaryTitle,
-        primaryTitleEn: primaryTitle,
-        category: "child",
-        generationTier: -1,
-        generationLabel: tierLabel,
-        multipleRoles: buildMultipleRoles(
-          primaryTitle,
-          isHi ? `आपके सुपुत्र ${chCleanName} की धर्मपत्नी होने के नाते आपके परिवार की बहू` : `Wife of your son ${chCleanName}`,
-          tierLabel,
-          -1
-        ),
-      };
-    } else {
-      // Daughter's Husband -> DAMAAD (Son-in-law)
-      const shortTag = isHi ? "दामाद" : "Son-in-law";
-      const primaryTitle = isHi
-        ? `आपके दामाद जी (${chCleanName ? `${chCleanName} के पति` : "सुपुत्री के पति"})`
-        : `Your Son-in-law (${chCleanName ? `Husband of ${chCleanName}` : "Daughter's Husband"})`;
-      const tierLabel = isHi ? "संतान की पीढ़ी (दामाद)" : "Children Generation (Son-in-law)";
-
-      return {
-        shortTag,
-        shortTagEn: "Son-in-law",
-        primaryTitle,
-        primaryTitleEn: primaryTitle,
-        category: "child",
-        generationTier: -1,
-        generationLabel: tierLabel,
-        multipleRoles: buildMultipleRoles(
-          primaryTitle,
-          isHi ? `आपकी सुपुत्री ${chCleanName} के पति होने के नाते आपके परिवार के दामाद` : `Husband of your daughter ${chCleanName}`,
-          tierLabel,
-          -1
         ),
       };
     }
@@ -1022,65 +1166,6 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // 9. GRANDCHILDREN (Son's or Daughter's Children: Pota / Poti / Naati / Naatin)
-  // -------------------------------------------------------------
-  const parentOfGcId = Array.from(parentsMap.get(n.id) || []).find((pId) => selfChildren.has(pId)) ||
-    (selfChildren.has(n.via_id || n.via_child_id || "") ? (n.via_id || n.via_child_id) : undefined);
-
-  const isGrandChild =
-    parentOfGcId ||
-    (tree.grandchildren || []).some((g) => g.id === n.id) ||
-    (tree.levels_down?.[1] || []).some((g) => g.id === n.id) ||
-    n.relation === "grandchild";
-
-  if (isGrandChild) {
-    const parNode = allNodes.get(parentOfGcId || n.via_id || n.via_child_id || "");
-    const parSex = resolveSex(parNode?.gender, parNode?.relation);
-    const parCleanName = parNode?.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, "") || "";
-    const isFemale = targetSex === "F";
-
-    let shortTag = "";
-    let primaryTitle = "";
-
-    if (parSex === "M") {
-      // Son's Child -> POTA / POTI
-      shortTag = isFemale ? (isHi ? "पोती" : "Granddaughter") : (isHi ? "पोता" : "Grandson");
-      primaryTitle = isFemale
-        ? isHi ? `आपकी पोती / पौत्री (${parCleanName ? `${parCleanName} की सुपुत्री` : "सुपुत्र की पुत्री"})` : `Your Granddaughter (Daughter of ${parCleanName || "Son"})`
-        : isHi ? `आपका पोता / पौत्र (${parCleanName ? `${parCleanName} के सुपुत्र` : "सुपुत्र का पुत्र"})` : `Your Grandson (Son of ${parCleanName || "Son"})`;
-    } else if (parSex === "F") {
-      // Daughter's Child -> NAATI / NAATIN
-      shortTag = isFemale ? (isHi ? "नातिन" : "Granddaughter") : (isHi ? "नाती" : "Grandson");
-      primaryTitle = isFemale
-        ? isHi ? `आपकी नातिन / दौहित्री (${parCleanName ? `${parCleanName} की सुपुत्री` : "सुपुत्री की पुत्री"})` : `Your Granddaughter (Daughter of ${parCleanName || "Daughter"})`
-        : isHi ? `आपका नाती / दौहित्र (${parCleanName ? `${parCleanName} के सुपुत्र` : "सुपुत्री का पुत्र"})` : `Your Grandson (Son of ${parCleanName || "Daughter"})`;
-    } else {
-      shortTag = isFemale ? (isHi ? "पोती / नातिन" : "Granddaughter") : (isHi ? "पोता / नाती" : "Grandson");
-      primaryTitle = isFemale
-        ? isHi ? "आपकी पोती / नातिन (Granddaughter)" : "Your Granddaughter"
-        : isHi ? "आपका पोता / नाती (Grandson)" : "Your Grandson";
-    }
-
-    const tierLabel = isHi ? "पौत्र व नाती पीढ़ी (Grandchildren)" : "Grandchildren Generation";
-
-    return {
-      shortTag,
-      shortTagEn: isFemale ? "Granddaughter" : "Grandson",
-      primaryTitle,
-      primaryTitleEn: primaryTitle,
-      category: "grandchild",
-      generationTier: -2,
-      generationLabel: tierLabel,
-      multipleRoles: buildMultipleRoles(
-        primaryTitle,
-        isHi ? "परिवार की तीसरी पीढ़ी (पौत्र/नाती)" : "Third generation of the family",
-        tierLabel,
-        -2
-      ),
-    };
-  }
-
-  // -------------------------------------------------------------
   // 10. SPOUSE OF GRANDCHILD (Pautra-vadhu / Naati-bahu)
   // -------------------------------------------------------------
   const gcPartnerId = Array.from(spouseMap.get(n.id) || []).find((pId) =>
@@ -1151,38 +1236,6 @@ function resolveIndianRelationship(
         isHi ? "परिवार की चौथी पीढ़ी (परपौत्र/परनातिन)" : "Fourth generation descendant",
         tierLabel,
         -3
-      ),
-    };
-  }
-
-  // -------------------------------------------------------------
-  // 12. DIRECT PARENTS (Father / Mother)
-  // -------------------------------------------------------------
-  const isDirectParent =
-    parentsMap.get(centre.id)?.has(n.id) ||
-    (tree.parents || []).some((p) => p.id === n.id) ||
-    n.relation === "father" ||
-    n.relation === "mother";
-
-  if (isDirectParent) {
-    const isMother = targetSex === "F" || n.relation === "mother";
-    const shortTag = isMother ? (isHi ? "माता जी" : "Mother") : (isHi ? "पिता जी" : "Father");
-    const primaryTitle = isMother ? (isHi ? "आपकी पूज्य माता जी (Mother)" : "Your Respected Mother") : (isHi ? "आपके पूज्य पिता जी (Father)" : "Your Respected Father");
-    const tierLabel = isHi ? "माता-पिता की पीढ़ी (Parents)" : "Parents Generation";
-
-    return {
-      shortTag,
-      shortTagEn: isMother ? "Mother" : "Father",
-      primaryTitle,
-      primaryTitleEn: primaryTitle,
-      category: "parent",
-      generationTier: 1,
-      generationLabel: tierLabel,
-      multipleRoles: buildMultipleRoles(
-        primaryTitle,
-        isHi ? "आपके पूज्य जन्मदाता एवं वरिष्ठ अभिभावक" : "Your respected parent and guardian",
-        tierLabel,
-        1
       ),
     };
   }
@@ -1751,6 +1804,62 @@ function VanshawaliInner() {
   const [apiCanEdit, setApiCanEdit] = useState(false);
   const [isSA, setIsSA] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+
+  // 2-card mobile stream vs wide tree toggle
+  const [viewMode2Col, setViewMode2Col] = useState<boolean | null>(null);
+
+  // Request relationship change modal states
+  const [changeRelTarget, setChangeRelTarget] = useState<Node | null>(null);
+  const [newProposedRel, setNewProposedRel] = useState("father");
+  const [relChangeNote, setRelChangeNote] = useState("");
+  const [submittingChangeRel, setSubmittingChangeRel] = useState(false);
+  const [changeRelMsg, setChangeRelMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const handleProposeRelChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!changeRelTarget) return;
+    setSubmittingChangeRel(true);
+    setChangeRelMsg(null);
+    try {
+      const res = await fetch("/api/vanshawali", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "propose_relation_change",
+          person_id: changeRelTarget.id,
+          relation: newProposedRel,
+          note: relChangeNote,
+          root_user_id: rootId,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setChangeRelMsg({
+          text:
+            lang === "hi"
+              ? "रिश्ते में बदलाव का अनुरोध भेज दिया गया है! Super Admin / Core Committee द्वारा स्वीकृत (Approved) होने के बाद यह वंशावली में दिखाई देगा।"
+              : "Relationship change request submitted! It will appear in Vanshawali after approval by Core Committee / Super Admin.",
+          ok: true,
+        });
+        setTimeout(() => {
+          setChangeRelTarget(null);
+          setChangeRelMsg(null);
+        }, 3500);
+      } else {
+        setChangeRelMsg({
+          text: data.error || (lang === "hi" ? "अनुरोध भेजने में समस्या आई" : "Failed to submit request"),
+          ok: false,
+        });
+      }
+    } catch (err: any) {
+      setChangeRelMsg({
+        text: err.message || (lang === "hi" ? "नेटवर्क त्रुटि" : "Network error"),
+        ok: false,
+      });
+    } finally {
+      setSubmittingChangeRel(false);
+    }
+  };
   const [saEditMode, setSaEditMode] = useState(false);
   const [selected, setSelected] = useState<Node | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
@@ -2129,6 +2238,10 @@ function VanshawaliInner() {
   const grandparents = levelsUp[1] || tree?.grandparents || [];
   const grandchildren = levelsDown[1] || tree?.grandchildren || [];
   const spousesOfMap = tree?.spouses_of || {};
+  const siblings = tree?.siblings || [];
+  const spousesList = spouses.slice();
+  const father = parents.find((p) => p.relation === "father" || resolveSex(p.gender, p.relation) === "M");
+  const mother = parents.find((p) => p.relation === "mother" || resolveSex(p.gender, p.relation) === "F");
 
   const pad = 16;
   const gap = 16;
@@ -2206,421 +2319,608 @@ function VanshawaliInner() {
   };
 
   let yCursor = 20;
+  const is2ColActive = viewMode2Col !== null ? viewMode2Col : vw < 768;
+  let centreX = cx0();
+  let yMid = 180;
 
-  // —— UP levels (farthest first) ——
-  for (let di = levelsUp.length - 1; di >= 0; di--) {
-    const level = levelsUp[di];
-    const genKey = (di === 0 ? "up1" : di === 1 ? "up2" : "up3") as keyof typeof GEN_STYLE;
+  if (is2ColActive) {
+    // -----------------------------------------------------------------
+    // MOBILE / 2-MEMBERS-PER-LINE VERTICAL STREAM
+    // -----------------------------------------------------------------
+    contentW = Math.max(vw, 360);
+    const cx = contentW / 2;
+    const cardW = Math.min(150, Math.max(130, Math.floor((contentW - 54) / 2)));
+    const cGap = 14;
+    const sRowH = 58;
+    const lGap = 16;
+    const gGap = 42;
 
-    // For di === 0 (Parents generation), include uncles and aunts if available
-    const levelNodes = di === 0
-      ? [...level, ...(tree?.uncles_and_aunts || []).filter((u) => !level.some((p) => p.id === u.id))]
-      : level;
+    yCursor = 24;
 
-    type UpUnit = { nodes: Node[]; w: number };
-    const units: UpUnit[] = [];
-    const usedUp = new Set<string>();
+    const placePair = (
+      nodeA: Node,
+      nodeB?: Node | null,
+      genA: keyof typeof GEN_STYLE = "sibling",
+      genB: keyof typeof GEN_STYLE = "spouse"
+    ) => {
+      if (nodeB) {
+        const leftCx = cx - cGap / 2 - cardW / 2;
+        const rightCx = cx + cGap / 2 + cardW / 2;
+        placeNode(nodeA, leftCx, yCursor, genA);
+        placeNode(nodeB, rightCx, yCursor, genB);
+        pushCouple(
+          { id: nodeA.id, x: leftCx, top: yCursor, w: cardW },
+          { id: nodeB.id, x: rightCx, top: yCursor, w: cardW }
+        );
+      } else {
+        placeNode(nodeA, cx, yCursor, genA);
+      }
+      yCursor += sRowH + lGap;
+    };
 
-    // 1. Group father & mother as couples if present
-    const f = levelNodes.find(
-      (n) => n.relation === "father" || (parents.some((p) => p.id === n.id) && resolveSex(n.gender, n.relation) === "M")
-    );
-    const m = levelNodes.find(
-      (n) => n.relation === "mother" || (parents.some((p) => p.id === n.id) && resolveSex(n.gender, n.relation) === "F")
-    );
-    if (f && m) {
-      usedUp.add(f.id);
-      usedUp.add(m.id);
-      const w = nameW(f.display_name) + coupleGap + nameW(m.display_name);
-      units.push({ nodes: [f, m], w });
+    // 1. Generation +2 (Grandparents - Dada/Dadi, Nana/Nani)
+    const gpList = [...(tree?.grandparents || []), ...(levelsUp[1] || [])];
+    const gpSeen = new Set<string>();
+    const gpPairs: [Node, Node | null][] = [];
+
+    const pDada = gpList.find((g) => resolveSex(g.gender, g.relation) === "M" && (!g.via_id || g.via_id === father?.id));
+    const pDadi = gpList.find((g) => resolveSex(g.gender, g.relation) === "F" && (!g.via_id || g.via_id === father?.id));
+    if (pDada || pDadi) {
+      if (pDada && pDadi && pDada.id !== pDadi.id) {
+        gpPairs.push([pDada, pDadi]);
+        gpSeen.add(pDada.id);
+        gpSeen.add(pDadi.id);
+      } else if (pDada) {
+        gpPairs.push([pDada, null]);
+        gpSeen.add(pDada.id);
+      } else if (pDadi) {
+        gpPairs.push([pDadi, null]);
+        gpSeen.add(pDadi.id);
+      }
     }
 
-    // 2. For each other relative in level, group with their spouses from spousesOfMap
-    levelNodes.forEach((n) => {
-      if (usedUp.has(n.id) || posById.has(n.id)) return;
-      usedUp.add(n.id);
-      const sps = (spousesOfMap[n.id] || []).filter((s) => !usedUp.has(s.id) && !posById.has(s.id));
-      sps.forEach((s) => usedUp.add(s.id));
-      if (sps.length > 0) {
+    const mNana = gpList.find((g) => !gpSeen.has(g.id) && resolveSex(g.gender, g.relation) === "M");
+    const mNani = gpList.find((g) => !gpSeen.has(g.id) && resolveSex(g.gender, g.relation) === "F");
+    if (mNana && mNani && mNana.id !== mNani.id) {
+      gpPairs.push([mNana, mNani]);
+      gpSeen.add(mNana.id);
+      gpSeen.add(mNani.id);
+    } else {
+      if (mNana && !gpSeen.has(mNana.id)) { gpPairs.push([mNana, null]); gpSeen.add(mNana.id); }
+      if (mNani && !gpSeen.has(mNani.id)) { gpPairs.push([mNani, null]); gpSeen.add(mNani.id); }
+    }
+
+    gpList.forEach((g) => {
+      if (!gpSeen.has(g.id)) {
+        gpSeen.add(g.id);
+        gpPairs.push([g, null]);
+      }
+    });
+
+    if (gpPairs.length > 0) {
+      gpPairs.forEach(([a, b]) => placePair(a, b, "up2", "up2"));
+      yCursor += gGap;
+    }
+
+    // 2. Generation +1 (Parents & Uncles/Aunts)
+    const parList = [...parents, ...(tree?.uncles_and_aunts || [])];
+    const parSeen = new Set<string>();
+    const parPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE][] = [];
+
+    if (father && mother && father.id !== mother.id) {
+      parPairs.push([father, mother, "up1", "up1"]);
+      parSeen.add(father.id);
+      parSeen.add(mother.id);
+    } else {
+      if (father) { parPairs.push([father, null, "up1", "up1"]); parSeen.add(father.id); }
+      if (mother) { parPairs.push([mother, null, "up1", "up1"]); parSeen.add(mother.id); }
+    }
+
+    parList.forEach((n) => {
+      if (parSeen.has(n.id) || posById.has(n.id)) return;
+      parSeen.add(n.id);
+      const sp = (spousesOfMap[n.id] || []).find((s) => !parSeen.has(s.id) && !posById.has(s.id));
+      if (sp) {
+        parSeen.add(sp.id);
+        parPairs.push([n, sp, "up1", "spouse"]);
+      } else {
+        parPairs.push([n, null, "up1", "up1"]);
+      }
+    });
+
+    if (parPairs.length > 0) {
+      parPairs.forEach(([a, b, ga, gb]) => placePair(a, b, ga, gb));
+      yCursor += gGap;
+    }
+
+    // 3. Generation 0 (Self & Same Generation)
+    yMid = yCursor;
+    centreX = cx;
+
+    const primarySpouse = spouses.find((s) => !posById.has(s.id));
+    const selfNode = tree ? { ...tree.centre, relation: "self" } : { id: "self", display_name: "Self", relation: "self" };
+    if (primarySpouse) {
+      placePair(selfNode, primarySpouse, "self", "spouse");
+    } else {
+      placePair(selfNode, null, "self");
+    }
+
+    // Deduplicate all siblings of centre
+    const centreSiblingMap = new Map<string, Node>();
+    (tree?.siblings || []).forEach((s) => centreSiblingMap.set(s.id, s));
+    (tree?.siblings_of?.[tree.centre.id] || []).forEach((s) => centreSiblingMap.set(s.id, s));
+    const allSiblingsList = Array.from(centreSiblingMap.values());
+
+    allSiblingsList.forEach((s) => {
+      if (posById.has(s.id)) return;
+      const sp = (spousesOfMap[s.id] || []).find((x) => !posById.has(x.id) && x.id !== tree?.centre.id);
+      placePair({ ...s, relation: "sibling" }, sp ? { ...sp, relation: "spouse", via_id: s.id } : null, "sibling", "spouse");
+    });
+
+    yCursor += gGap;
+
+    // 4. Generation -1 (Children & Nephews/Nieces)
+    const allGenMinus1: Node[] = [];
+    const gen1Seen = new Set<string>();
+    const addGen1M = (c: Node) => {
+      if (!c || !c.id || gen1Seen.has(c.id) || posById.has(c.id)) return;
+      gen1Seen.add(c.id);
+      allGenMinus1.push(c);
+    };
+    (tree?.children || []).forEach(addGen1M);
+    (levelsDown[0] || []).forEach(addGen1M);
+    if (tree?.centre) {
+      (tree?.children_of?.[tree.centre.id] || []).forEach(addGen1M);
+    }
+    allSiblingsList.forEach((s) => {
+      (tree?.children_of?.[s.id] || []).forEach((c) => addGen1M({ ...c, relation: "child", via_id: s.id }));
+    });
+
+    allGenMinus1.forEach((c) => {
+      if (posById.has(c.id)) return;
+      const sp = (spousesOfMap[c.id] || []).find((s) => !posById.has(s.id));
+      placePair(c, sp ? { ...sp, relation: "spouse", via_id: c.id } : null, "down1", "spouse");
+    });
+
+    yCursor += gGap;
+
+    // 5. Generation -2 (Grandchildren)
+    const allGenMinus2: Node[] = [];
+    const gen2Seen = new Set<string>();
+    const addGen2M = (gc: Node) => {
+      if (!gc || !gc.id || gen2Seen.has(gc.id) || gen1Seen.has(gc.id) || posById.has(gc.id)) return;
+      gen2Seen.add(gc.id);
+      allGenMinus2.push(gc);
+    };
+    (tree?.grandchildren || []).forEach(addGen2M);
+    (levelsDown[1] || []).forEach(addGen2M);
+    allGenMinus1.forEach((c) => {
+      (tree?.children_of?.[c.id] || []).forEach((gc) => addGen2M({ ...gc, relation: "grandchild", via_id: c.id }));
+    });
+
+    allGenMinus2.forEach((gc) => {
+      if (posById.has(gc.id)) return;
+      const sp = (spousesOfMap[gc.id] || []).find((s) => !posById.has(s.id));
+      placePair(gc, sp ? { ...sp, relation: "spouse", via_id: gc.id } : null, "down2", "spouse");
+    });
+
+    yCursor += 40;
+  } else {
+    // -----------------------------------------------------------------
+    // DESKTOP / WIDE TREE CANVAS (Couple Units Layout)
+    // -----------------------------------------------------------------
+    // —— UP levels (farthest first) ——
+    for (let di = levelsUp.length - 1; di >= 0; di--) {
+      const level = levelsUp[di];
+      const genKey = (di === 0 ? "up1" : di === 1 ? "up2" : "up3") as keyof typeof GEN_STYLE;
+
+      // For di === 0 (Parents generation), include uncles and aunts if available
+      const levelNodes = di === 0
+        ? [...level, ...(tree?.uncles_and_aunts || []).filter((u) => !level.some((p) => p.id === u.id))]
+        : level;
+
+      type UpUnit = { nodes: Node[]; w: number };
+      const units: UpUnit[] = [];
+      const usedUp = new Set<string>();
+
+      // 1. Group father & mother as couples if present
+      const f = levelNodes.find(
+        (n) => n.relation === "father" || (parents.some((p) => p.id === n.id) && resolveSex(n.gender, n.relation) === "M")
+      );
+      const m = levelNodes.find(
+        (n) => n.relation === "mother" || (parents.some((p) => p.id === n.id) && resolveSex(n.gender, n.relation) === "F")
+      );
+      if (f && m) {
+        usedUp.add(f.id);
+        usedUp.add(m.id);
+        const w = nameW(f.display_name) + coupleGap + nameW(m.display_name);
+        units.push({ nodes: [f, m], w });
+      }
+
+      // 2. For each other relative in level, group with their spouses from spousesOfMap
+      levelNodes.forEach((n) => {
+        if (usedUp.has(n.id) || posById.has(n.id)) return;
+        usedUp.add(n.id);
+        const sps = (spousesOfMap[n.id] || []).filter((s) => !usedUp.has(s.id) && !posById.has(s.id));
+        sps.forEach((s) => usedUp.add(s.id));
+        if (sps.length > 0) {
+          let w = nameW(n.display_name);
+          sps.forEach((s) => {
+            w += coupleGap + nameW(s.display_name);
+          });
+          units.push({ nodes: [n, ...sps], w });
+        } else {
+          units.push({ nodes: [n], w: nameW(n.display_name) });
+        }
+      });
+
+      const totalW =
+        units.reduce((s, u) => s + u.w, 0) + gap * Math.max(0, units.length - 1);
+      contentW = Math.max(contentW, totalW + pad * 2);
+      let cursor = (contentW - totalW) / 2;
+
+      units.forEach((u) => {
+        let x = cursor;
+        const mw = nameW(u.nodes[0].display_name);
+        placeNode(u.nodes[0], x + mw / 2, yCursor, genKey);
+        x += mw;
+        for (let ni = 1; ni < u.nodes.length; ni++) {
+          x += coupleGap;
+          const sw = nameW(u.nodes[ni].display_name);
+          placeNode(
+            { ...u.nodes[ni], relation: "spouse", via_id: u.nodes[0].id },
+            x + sw / 2,
+            yCursor,
+            "spouse"
+          );
+          x += sw;
+        }
+        cursor += u.w + gap;
+      });
+      yCursor += subRowH + levelGap;
+    }
+
+    // —— Middle Row (Generation 0: Self + Siblings + Spouses) ——
+    // Deduplicate all siblings of centre
+    const centreSiblingMap = new Map<string, Node>();
+    siblings.forEach((s) => centreSiblingMap.set(s.id, s));
+    (tree?.siblings_of?.[tree.centre.id] || []).forEach((s) => centreSiblingMap.set(s.id, s));
+    const allSiblings = Array.from(centreSiblingMap.values());
+
+    type Gen0Unit = {
+      main: Node;
+      spouses: Node[];
+      width: number;
+      isSelf: boolean;
+      orderWeight: number;
+    };
+
+    const gen0Units: Gen0Unit[] = [];
+
+    // Build sibling couple units
+    allSiblings.forEach((s) => {
+      if (posById.has(s.id)) return;
+      const sps = (spousesOfMap[s.id] || []).filter(
+        (sp) => sp.id !== tree?.centre.id && !posById.has(sp.id)
+      );
+      let w = nameW(s.display_name);
+      sps.forEach((sp) => {
+        w += coupleGap + nameW(sp.display_name);
+      });
+
+      const relInfo = resolveIndianRelationship(s, tree, lang);
+      const isElder =
+        relInfo.shortTag.includes("बड़े") ||
+        relInfo.shortTag.includes("बड़ी") ||
+        relInfo.shortTagEn.toLowerCase().includes("elder") ||
+        relInfo.primaryTitle.includes("बड़े") ||
+        relInfo.primaryTitle.includes("बड़ी");
+      const isSister =
+        relInfo.shortTag.includes("बहन") || relInfo.shortTagEn.toLowerCase().includes("sister");
+
+      // Order: Elder brothers leftmost (-200), Elder sisters (-100), Younger brothers (+100), Younger sisters (+200)
+      let weight = 0;
+      if (isElder) {
+        weight = isSister ? -100 : -200;
+      } else {
+        weight = isSister ? 200 : 100;
+      }
+
+      gen0Units.push({
+        main: { ...s, relation: "sibling" },
+        spouses: sps,
+        width: w,
+        isSelf: false,
+        orderWeight: weight,
+      });
+    });
+
+    // Sort sibling units so elders are on left, younger on right
+    gen0Units.sort((a, b) => a.orderWeight - b.orderWeight);
+
+    // Self + Spouses unit
+    let selfBandW = nameW(tree?.centre.display_name || "Self", 180);
+    const selfSpouses = spousesList.filter((sp) => !posById.has(sp.id));
+    selfSpouses.forEach((sp) => {
+      selfBandW += coupleGap + nameW(sp.display_name);
+    });
+
+    const selfUnit: Gen0Unit = {
+      main: tree
+        ? { ...tree.centre, relation: "self" }
+        : { id: "self", display_name: "Self", relation: "self" },
+      spouses: selfSpouses,
+      width: selfBandW,
+      isSelf: true,
+      orderWeight: 0,
+    };
+
+    // Insert Self in the center between negative and positive weights
+    const splitIdx = gen0Units.findIndex((u) => u.orderWeight > 0);
+    if (splitIdx === -1) {
+      gen0Units.push(selfUnit);
+    } else {
+      gen0Units.splice(splitIdx, 0, selfUnit);
+    }
+
+    // Calculate total row width
+    const totalGen0W =
+      gen0Units.reduce((acc, u) => acc + u.width, 0) +
+      gap * Math.max(0, gen0Units.length - 1);
+    contentW = Math.max(contentW, totalGen0W + pad * 2 + 40);
+
+    yMid = yCursor + 8;
+    let cursor = (contentW - totalGen0W) / 2;
+    centreX = cursor + selfBandW / 2;
+
+    gen0Units.forEach((u) => {
+      let x = cursor;
+      const mw = nameW(u.main.display_name, u.isSelf ? 180 : undefined);
+      const mainCx = x + mw / 2;
+      placeNode(u.main, mainCx, yMid, u.isSelf ? "self" : "sibling");
+      if (u.isSelf) {
+        centreX = mainCx;
+      }
+      x += mw;
+
+      u.spouses.forEach((sp) => {
+        x += coupleGap;
+        const sw = nameW(sp.display_name);
+        const spCx = x + sw / 2;
+        placeNode(
+          { ...sp, relation: "spouse", via_id: u.main.id },
+          spCx,
+          yMid,
+          "spouse"
+        );
+        x += sw;
+      });
+
+      cursor += u.width + gap;
+    });
+
+    yCursor = yMid + subRowH + levelGap;
+
+    // —— DOWN levels: Generation -1 (Children & Nephews/Nieces) and Generation -2 (Grandchildren) ——
+    // Gather Generation -1 nodes
+    const genMinus1Nodes: Node[] = [];
+    const seenGen1 = new Set<string>();
+    const addGen1 = (n: Node) => {
+      if (!n || !n.id || seenGen1.has(n.id) || posById.has(n.id)) return;
+      seenGen1.add(n.id);
+      genMinus1Nodes.push(n);
+    };
+
+    (tree?.children || []).forEach(addGen1);
+    (levelsDown[0] || []).forEach(addGen1);
+    if (tree?.centre) {
+      (tree?.children_of?.[tree.centre.id] || []).forEach(addGen1);
+    }
+    // Nephews & nieces (children of siblings)
+    allSiblings.forEach((s) => {
+      (tree?.children_of?.[s.id] || []).forEach((c) => {
+        addGen1({ ...c, relation: "child", via_id: s.id });
+      });
+    });
+
+    // Gather Generation -2 nodes
+    const genMinus2Nodes: Node[] = [];
+    const seenGen2 = new Set<string>();
+    const addGen2 = (n: Node) => {
+      if (!n || !n.id || seenGen2.has(n.id) || seenGen1.has(n.id) || posById.has(n.id)) return;
+      seenGen2.add(n.id);
+      genMinus2Nodes.push(n);
+    };
+
+    (tree?.grandchildren || []).forEach(addGen2);
+    (levelsDown[1] || []).forEach(addGen2);
+    genMinus1Nodes.forEach((c) => {
+      (tree?.children_of?.[c.id] || []).forEach((gc) => {
+        addGen2({ ...gc, relation: "grandchild", via_id: c.id });
+      });
+    });
+
+    const downLevelsNodes = [genMinus1Nodes, genMinus2Nodes].filter((l) => l.length > 0);
+
+    for (let di = 0; di < downLevelsNodes.length; di++) {
+      const level = downLevelsNodes[di];
+      const genKey = (di === 0 ? "down1" : "down2") as keyof typeof GEN_STYLE;
+
+      type DownUnit = {
+        main: Node;
+        sps: Node[];
+        w: number;
+        preferX: number;
+        idealLeft: number;
+        actualLeft: number;
+      };
+      const units: DownUnit[] = [];
+      const usedSp = new Set<string>();
+
+      level.forEach((n) => {
+        if (posById.has(n.id)) return;
+        const sps = (spousesOfMap[n.id] || []).filter(
+          (s) => !posById.has(s.id) && !usedSp.has(s.id)
+        );
+        sps.forEach((s) => usedSp.add(s.id));
         let w = nameW(n.display_name);
         sps.forEach((s) => {
           w += coupleGap + nameW(s.display_name);
         });
-        units.push({ nodes: [n, ...sps], w });
+        const via = n.via_id || n.via_child_id || tree?.centre.id || "";
+        const preferX = posById.get(via)?.x ?? centreX;
+        units.push({
+          main: n,
+          sps,
+          w,
+          preferX,
+          idealLeft: preferX - w / 2,
+          actualLeft: preferX - w / 2,
+        });
+      });
+
+      if (units.length === 0) continue;
+
+      // Sort by preferX so children naturally stay beneath their own parent
+      units.sort((a, b) => a.preferX - b.preferX || a.idealLeft - b.idealLeft);
+
+      const totalW =
+        units.reduce((s, u) => s + u.w, 0) + gap * Math.max(0, units.length - 1);
+      contentW = Math.max(contentW, totalW + pad * 2);
+
+      if (units.length === 1) {
+        units[0].actualLeft = Math.max(
+          pad,
+          Math.min(contentW - pad - units[0].w, units[0].preferX - units[0].w / 2)
+        );
       } else {
-        units.push({ nodes: [n], w: nameW(n.display_name) });
-      }
-    });
-
-    const totalW =
-      units.reduce((s, u) => s + u.w, 0) + gap * Math.max(0, units.length - 1);
-    contentW = Math.max(contentW, totalW + pad * 2);
-    let cursor = (contentW - totalW) / 2;
-
-    units.forEach((u) => {
-      let x = cursor;
-      const mw = nameW(u.nodes[0].display_name);
-      placeNode(u.nodes[0], x + mw / 2, yCursor, genKey);
-      x += mw;
-      for (let ni = 1; ni < u.nodes.length; ni++) {
-        x += coupleGap;
-        const sw = nameW(u.nodes[ni].display_name);
-        placeNode(
-          { ...u.nodes[ni], relation: "spouse", via_id: u.nodes[0].id },
-          x + sw / 2,
-          yCursor,
-          "spouse"
-        );
-        x += sw;
-      }
-      cursor += u.w + gap;
-    });
-    yCursor += subRowH + levelGap;
-  }
-
-  // —— Middle Row (Generation 0: Self + Siblings + Spouses) ——
-  const spousesList = spouses.slice();
-  const siblings = tree?.siblings || [];
-
-  // Deduplicate all siblings of centre
-  const centreSiblingMap = new Map<string, Node>();
-  siblings.forEach((s) => centreSiblingMap.set(s.id, s));
-  (tree?.siblings_of?.[tree.centre.id] || []).forEach((s) => centreSiblingMap.set(s.id, s));
-  const allSiblings = Array.from(centreSiblingMap.values());
-
-  type Gen0Unit = {
-    main: Node;
-    spouses: Node[];
-    width: number;
-    isSelf: boolean;
-    orderWeight: number;
-  };
-
-  const gen0Units: Gen0Unit[] = [];
-
-  // Build sibling couple units
-  allSiblings.forEach((s) => {
-    if (posById.has(s.id)) return;
-    const sps = (spousesOfMap[s.id] || []).filter(
-      (sp) => sp.id !== tree?.centre.id && !posById.has(sp.id)
-    );
-    let w = nameW(s.display_name);
-    sps.forEach((sp) => {
-      w += coupleGap + nameW(sp.display_name);
-    });
-
-    const relInfo = resolveIndianRelationship(s, tree, lang);
-    const isElder =
-      relInfo.shortTag.includes("बड़े") ||
-      relInfo.shortTag.includes("बड़ी") ||
-      relInfo.shortTagEn.toLowerCase().includes("elder") ||
-      relInfo.primaryTitle.includes("बड़े") ||
-      relInfo.primaryTitle.includes("बड़ी");
-    const isSister =
-      relInfo.shortTag.includes("बहन") || relInfo.shortTagEn.toLowerCase().includes("sister");
-
-    // Order: Elder brothers leftmost (-200), Elder sisters (-100), Younger brothers (+100), Younger sisters (+200)
-    let weight = 0;
-    if (isElder) {
-      weight = isSister ? -100 : -200;
-    } else {
-      weight = isSister ? 200 : 100;
-    }
-
-    gen0Units.push({
-      main: { ...s, relation: "sibling" },
-      spouses: sps,
-      width: w,
-      isSelf: false,
-      orderWeight: weight,
-    });
-  });
-
-  // Sort sibling units so elders are on left, younger on right
-  gen0Units.sort((a, b) => a.orderWeight - b.orderWeight);
-
-  // Self + Spouses unit
-  let selfBandW = nameW(tree?.centre.display_name || "Self", 180);
-  const selfSpouses = spousesList.filter((sp) => !posById.has(sp.id));
-  selfSpouses.forEach((sp) => {
-    selfBandW += coupleGap + nameW(sp.display_name);
-  });
-
-  const selfUnit: Gen0Unit = {
-    main: tree
-      ? { ...tree.centre, relation: "self" }
-      : { id: "self", display_name: "Self", relation: "self" },
-    spouses: selfSpouses,
-    width: selfBandW,
-    isSelf: true,
-    orderWeight: 0,
-  };
-
-  // Insert Self in the center between negative and positive weights
-  const splitIdx = gen0Units.findIndex((u) => u.orderWeight > 0);
-  if (splitIdx === -1) {
-    gen0Units.push(selfUnit);
-  } else {
-    gen0Units.splice(splitIdx, 0, selfUnit);
-  }
-
-  // Calculate total row width
-  const totalGen0W =
-    gen0Units.reduce((acc, u) => acc + u.width, 0) +
-    gap * Math.max(0, gen0Units.length - 1);
-  contentW = Math.max(contentW, totalGen0W + pad * 2 + 40);
-
-  const yMid = yCursor + 8;
-  let cursor = (contentW - totalGen0W) / 2;
-  let centreX = cursor + selfBandW / 2;
-
-  gen0Units.forEach((u) => {
-    let x = cursor;
-    const mw = nameW(u.main.display_name, u.isSelf ? 180 : undefined);
-    const mainCx = x + mw / 2;
-    placeNode(u.main, mainCx, yMid, u.isSelf ? "self" : "sibling");
-    if (u.isSelf) {
-      centreX = mainCx;
-    }
-    x += mw;
-
-    u.spouses.forEach((sp) => {
-      x += coupleGap;
-      const sw = nameW(sp.display_name);
-      const spCx = x + sw / 2;
-      placeNode(
-        { ...sp, relation: "spouse", via_id: u.main.id },
-        spCx,
-        yMid,
-        "spouse"
-      );
-      x += sw;
-    });
-
-    cursor += u.width + gap;
-  });
-
-  yCursor = yMid + subRowH + levelGap;
-
-  // —— DOWN levels: Generation -1 (Children & Nephews/Nieces) and Generation -2 (Grandchildren) ——
-  // Gather Generation -1 nodes
-  const genMinus1Nodes: Node[] = [];
-  const seenGen1 = new Set<string>();
-  const addGen1 = (n: Node) => {
-    if (!n || !n.id || seenGen1.has(n.id) || posById.has(n.id)) return;
-    seenGen1.add(n.id);
-    genMinus1Nodes.push(n);
-  };
-
-  (tree?.children || []).forEach(addGen1);
-  (levelsDown[0] || []).forEach(addGen1);
-  if (tree?.centre) {
-    (tree?.children_of?.[tree.centre.id] || []).forEach(addGen1);
-  }
-  // Nephews & nieces (children of siblings)
-  allSiblings.forEach((s) => {
-    (tree?.children_of?.[s.id] || []).forEach((c) => {
-      addGen1({ ...c, relation: "child", via_id: s.id });
-    });
-  });
-
-  // Gather Generation -2 nodes
-  const genMinus2Nodes: Node[] = [];
-  const seenGen2 = new Set<string>();
-  const addGen2 = (n: Node) => {
-    if (!n || !n.id || seenGen2.has(n.id) || seenGen1.has(n.id) || posById.has(n.id)) return;
-    seenGen2.add(n.id);
-    genMinus2Nodes.push(n);
-  };
-
-  (tree?.grandchildren || []).forEach(addGen2);
-  (levelsDown[1] || []).forEach(addGen2);
-  genMinus1Nodes.forEach((c) => {
-    (tree?.children_of?.[c.id] || []).forEach((gc) => {
-      addGen2({ ...gc, relation: "grandchild", via_id: c.id });
-    });
-  });
-
-  const downLevelsNodes = [genMinus1Nodes, genMinus2Nodes].filter((l) => l.length > 0);
-
-  for (let di = 0; di < downLevelsNodes.length; di++) {
-    const level = downLevelsNodes[di];
-    const genKey = (di === 0 ? "down1" : "down2") as keyof typeof GEN_STYLE;
-
-    type DownUnit = {
-      main: Node;
-      sps: Node[];
-      w: number;
-      preferX: number;
-      idealLeft: number;
-      actualLeft: number;
-    };
-    const units: DownUnit[] = [];
-    const usedSp = new Set<string>();
-
-    level.forEach((n) => {
-      if (posById.has(n.id)) return;
-      const sps = (spousesOfMap[n.id] || []).filter(
-        (s) => !posById.has(s.id) && !usedSp.has(s.id)
-      );
-      sps.forEach((s) => usedSp.add(s.id));
-      let w = nameW(n.display_name);
-      sps.forEach((s) => {
-        w += coupleGap + nameW(s.display_name);
-      });
-      const via = n.via_id || n.via_child_id || tree?.centre.id || "";
-      const preferX = posById.get(via)?.x ?? centreX;
-      units.push({
-        main: n,
-        sps,
-        w,
-        preferX,
-        idealLeft: preferX - w / 2,
-        actualLeft: preferX - w / 2,
-      });
-    });
-
-    if (units.length === 0) continue;
-
-    // Sort by preferX so children naturally stay beneath their own parent
-    units.sort((a, b) => a.preferX - b.preferX || a.idealLeft - b.idealLeft);
-
-    const totalW =
-      units.reduce((s, u) => s + u.w, 0) + gap * Math.max(0, units.length - 1);
-    contentW = Math.max(contentW, totalW + pad * 2);
-
-    if (units.length === 1) {
-      units[0].actualLeft = Math.max(
-        pad,
-        Math.min(contentW - pad - units[0].w, units[0].preferX - units[0].w / 2)
-      );
-    } else {
-      let cur = pad;
-      units.forEach((u) => {
-        u.actualLeft = Math.max(cur, u.preferX - u.w / 2);
-        cur = u.actualLeft + u.w + gap;
-      });
-      const overflow = cur - gap - (contentW - pad);
-      if (overflow > 0) {
-        contentW += overflow;
-      }
-    }
-
-    units.forEach((u) => {
-      let x = u.actualLeft;
-      const mw = nameW(u.main.display_name);
-      placeNode(u.main, x + mw / 2, yCursor, genKey);
-      x += mw;
-
-      u.sps.forEach((s) => {
-        x += coupleGap;
-        const sw = nameW(s.display_name);
-        placeNode(
-          { ...s, relation: "spouse", via_id: u.main.id },
-          x + sw / 2,
-          yCursor,
-          "spouse"
-        );
-        x += sw;
-      });
-    });
-
-    yCursor += subRowH + levelGap;
-  }
-
-  // Any remaining spouses_of not placed
-  Object.entries(spousesOfMap).forEach(([ownerId, list]) => {
-    const owner = posById.get(ownerId);
-    if (!owner) return;
-    list.forEach((s, i) => {
-      if (posById.has(s.id)) return;
-      const w = nameW(s.display_name);
-      const x = owner.x + owner.w / 2 + coupleGap + w / 2 + i * (w + gap);
-      placeNode({ ...s, relation: "spouse", via_id: ownerId }, x, owner.top, "spouse");
-      contentW = Math.max(contentW, x + w / 2 + pad);
-    });
-  });
-
-  // —— Global no-overlap resolve (pinned / arranged bubbles never auto-move) ——
-  {
-    type Box = { id: string; x: number; top: number; w: number };
-    const pinnedIds = new Set(Object.keys(floatPos));
-    const boxes: Box[] = placed.map((pl) => ({
-      id: pl.n.id,
-      x: pl.x,
-      top: pl.top,
-      w: pl.w,
-    }));
-    const GAP_X = 12;
-    const GAP_Y = 8;
-    for (let iter = 0; iter < 40; iter++) {
-      let moved = false;
-      for (let i = 0; i < boxes.length; i++) {
-        for (let j = i + 1; j < boxes.length; j++) {
-          const a = boxes[i];
-          const b = boxes[j];
-          // User-arranged positions are locked until they Move again
-          if (pinnedIds.has(a.id) || pinnedIds.has(b.id)) continue;
-          const ax0 = a.x - a.w / 2;
-          const ax1 = a.x + a.w / 2;
-          const bx0 = b.x - b.w / 2;
-          const bx1 = b.x + b.w / 2;
-          const ay0 = a.top;
-          const ay1 = a.top + BH;
-          const by0 = b.top;
-          const by1 = b.top + BH;
-          if (ax0 >= bx1 + GAP_X || bx0 >= ax1 + GAP_X) continue;
-          if (ay0 >= by1 + GAP_Y || by0 >= ay1 + GAP_Y) continue;
-          const sameRow = Math.abs(a.top - b.top) < BH * 0.6;
-          if (sameRow) {
-            const need = (a.w + b.w) / 2 + GAP_X;
-            const mid = (a.x + b.x) / 2;
-            if (a.x <= b.x) {
-              a.x = mid - need / 2;
-              b.x = mid + need / 2;
-            } else {
-              b.x = mid - need / 2;
-              a.x = mid + need / 2;
-            }
-            // still overlap? stagger vertical
-            if (Math.abs(a.x - b.x) < need - 1) {
-              if (a.top <= b.top) b.top = a.top + BH + GAP_Y;
-              else a.top = b.top + BH + GAP_Y;
-            }
-          } else {
-            if (a.top <= b.top) b.top = Math.max(b.top, a.top + BH + GAP_Y);
-            else a.top = Math.max(a.top, b.top + BH + GAP_Y);
-          }
-          moved = true;
+        let cur = pad;
+        units.forEach((u) => {
+          u.actualLeft = Math.max(cur, u.preferX - u.w / 2);
+          cur = u.actualLeft + u.w + gap;
+        });
+        const overflow = cur - gap - (contentW - pad);
+        if (overflow > 0) {
+          contentW += overflow;
         }
       }
-      if (!moved) break;
+
+      units.forEach((u) => {
+        let x = u.actualLeft;
+        const mw = nameW(u.main.display_name);
+        placeNode(u.main, x + mw / 2, yCursor, genKey);
+        x += mw;
+
+        u.sps.forEach((s) => {
+          x += coupleGap;
+          const sw = nameW(s.display_name);
+          placeNode(
+            { ...s, relation: "spouse", via_id: u.main.id },
+            x + sw / 2,
+            yCursor,
+            "spouse"
+          );
+          x += sw;
+        });
+      });
+
+      yCursor += subRowH + levelGap;
     }
-    // normalize: shift so min left >= pad, expand contentW
-    let minL = Infinity;
-    let maxR = 0;
-    let maxBottom = 0;
-    boxes.forEach((b) => {
-      minL = Math.min(minL, b.x - b.w / 2);
-      maxR = Math.max(maxR, b.x + b.w / 2);
-      maxBottom = Math.max(maxBottom, b.top + BH);
+
+    // Any remaining spouses_of not placed
+    Object.entries(spousesOfMap).forEach(([ownerId, list]) => {
+      const owner = posById.get(ownerId);
+      if (!owner) return;
+      list.forEach((s, i) => {
+        if (posById.has(s.id)) return;
+        const w = nameW(s.display_name);
+        const x = owner.x + owner.w / 2 + coupleGap + w / 2 + i * (w + gap);
+        placeNode({ ...s, relation: "spouse", via_id: ownerId }, x, owner.top, "spouse");
+        contentW = Math.max(contentW, x + w / 2 + pad);
+      });
     });
-    const shift = minL < pad ? pad - minL : 0;
-    boxes.forEach((b) => {
-      b.x += shift;
-    });
-    contentW = Math.max(contentW, maxR + shift + pad);
-    boxes.forEach((b) => {
-      posById.set(b.id, { x: b.x, top: b.top, w: b.w });
-    });
-    placed.forEach((pl) => {
-      const p = posById.get(pl.n.id);
-      if (p) {
-        pl.x = p.x;
-        pl.top = p.top;
+
+    // —— Global no-overlap resolve (pinned / arranged bubbles never auto-move) ——
+    {
+      type Box = { id: string; x: number; top: number; w: number };
+      const pinnedIds = new Set(Object.keys(floatPos));
+      const boxes: Box[] = placed.map((pl) => ({
+        id: pl.n.id,
+        x: pl.x,
+        top: pl.top,
+        w: pl.w,
+      }));
+      const GAP_X = 12;
+      const GAP_Y = 8;
+      for (let iter = 0; iter < 40; iter++) {
+        let moved = false;
+        for (let i = 0; i < boxes.length; i++) {
+          for (let j = i + 1; j < boxes.length; j++) {
+            const a = boxes[i];
+            const b = boxes[j];
+            // User-arranged positions are locked until they Move again
+            if (pinnedIds.has(a.id) || pinnedIds.has(b.id)) continue;
+            const ax0 = a.x - a.w / 2;
+            const ax1 = a.x + a.w / 2;
+            const bx0 = b.x - b.w / 2;
+            const bx1 = b.x + b.w / 2;
+            const ay0 = a.top;
+            const ay1 = a.top + BH;
+            const by0 = b.top;
+            const by1 = b.top + BH;
+            if (ax0 >= bx1 + GAP_X || bx0 >= ax1 + GAP_X) continue;
+            if (ay0 >= by1 + GAP_Y || by0 >= ay1 + GAP_Y) continue;
+            const sameRow = Math.abs(a.top - b.top) < BH * 0.6;
+            if (sameRow) {
+              const need = (a.w + b.w) / 2 + GAP_X;
+              const mid = (a.x + b.x) / 2;
+              if (a.x <= b.x) {
+                a.x = mid - need / 2;
+                b.x = mid + need / 2;
+              } else {
+                b.x = mid - need / 2;
+                a.x = mid + need / 2;
+              }
+              // still overlap? stagger vertical
+              if (Math.abs(a.x - b.x) < need - 1) {
+                if (a.top <= b.top) b.top = a.top + BH + GAP_Y;
+                else a.top = b.top + BH + GAP_Y;
+              }
+            } else {
+              if (a.top <= b.top) b.top = Math.max(b.top, a.top + BH + GAP_Y);
+              else a.top = Math.max(a.top, b.top + BH + GAP_Y);
+            }
+            moved = true;
+          }
+        }
+        if (!moved) break;
       }
-    });
-    yCursor = Math.max(yCursor, maxBottom + 32);
+      // normalize: shift so min left >= pad, expand contentW
+      let minL = Infinity;
+      let maxR = 0;
+      let maxBottom = 0;
+      boxes.forEach((b) => {
+        minL = Math.min(minL, b.x - b.w / 2);
+        maxR = Math.max(maxR, b.x + b.w / 2);
+        maxBottom = Math.max(maxBottom, b.top + BH);
+      });
+      const shift = minL < pad ? pad - minL : 0;
+      boxes.forEach((b) => {
+        b.x += shift;
+      });
+      contentW = Math.max(contentW, maxR + shift + pad);
+      boxes.forEach((b) => {
+        posById.set(b.id, { x: b.x, top: b.top, w: b.w });
+      });
+      placed.forEach((pl) => {
+        const p = posById.get(pl.n.id);
+        if (p) {
+          pl.x = p.x;
+          pl.top = p.top;
+        }
+      });
+      yCursor = Math.max(yCursor, maxBottom + 32);
+    }
   }
 
   const W = contentW;
@@ -3744,6 +4044,20 @@ function VanshawaliInner() {
               >
                 <Share2 size={12} className="text-amber-600" />
                 <span>{lang === "hi" ? "शेयर" : "Share"}</span>
+              </button>
+
+              {/* 2-Card Stream vs Wide Canvas Toggle */}
+              <button
+                type="button"
+                onClick={() => setViewMode2Col(!is2ColActive)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold shadow-xs border transition-all active:scale-95 cursor-pointer ${
+                  is2ColActive
+                    ? "bg-amber-100 text-amber-950 border-amber-300 ring-1 ring-amber-300/60 font-black"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                }`}
+                title={lang === "hi" ? "2-सदस्य प्रति पंक्ति व्यू / विस्तृत ट्री व्यू" : "2-card per row stream / Wide canvas"}
+              >
+                <span>{is2ColActive ? "📱 2-Card" : "🌐 Wide"}</span>
               </button>
             </div>
 
@@ -5029,9 +5343,173 @@ function VanshawaliInner() {
                 <Trash2 size={16} /> Remove
               </button>
             )}
+
+            {/* Bubble tap se rishta badalne ka anurodh (For any member except self) */}
+            {selected.relation !== "self" && selected.id !== tree?.centre.id && (
+              <button
+                type="button"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-300 shadow-2xs transition-all active:scale-[0.98] cursor-pointer mt-1"
+                onClick={() => {
+                  setChangeRelTarget(selected);
+                  setNewProposedRel(selected.relation || "relative");
+                  setRelChangeNote("");
+                  setChangeRelMsg(null);
+                  setSelected(null);
+                }}
+              >
+                <HeartHandshake size={15} className="text-amber-600 shrink-0" />
+                <span>
+                  {lang === "hi" ? "रिश्ता बदलने का अनुरोध (Request Change)" : "Request Relationship Change"}
+                </span>
+              </button>
+            )}
+
             <button type="button" className="w-full py-2 text-sm text-gray-400" onClick={() => setSelected(null)}>
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Request Relationship Change (Bubble Tap -> Pending Approval) */}
+      {changeRelTarget && (
+        <div
+          className="fixed inset-0 z-[110] bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-3 animate-in fade-in duration-150"
+          onClick={() => {
+            if (!submittingChangeRel) {
+              setChangeRelTarget(null);
+              setChangeRelMsg(null);
+            }
+          }}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-3xl p-5 shadow-2xl border border-amber-200 space-y-3.5 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-sm">
+                  🔄
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-sm">
+                    {lang === "hi" ? "रिश्ता बदलने का अनुरोध" : "Request Relationship Change"}
+                  </h3>
+                  <p className="text-[11px] text-gray-500">
+                    {changeRelTarget.display_name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={submittingChangeRel}
+                onClick={() => {
+                  setChangeRelTarget(null);
+                  setChangeRelMsg(null);
+                }}
+                className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {changeRelMsg && (
+              <div
+                className={`p-3 rounded-2xl text-xs font-semibold leading-relaxed ${
+                  changeRelMsg.ok
+                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                    : "bg-red-50 text-red-800 border border-red-200"
+                }`}
+              >
+                {changeRelMsg.text}
+              </div>
+            )}
+
+            {!changeRelMsg?.ok && (
+              <form onSubmit={handleProposeRelChange} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    {lang === "hi" ? "नया प्रस्तावित रिश्ता चुनें" : "Select Proposed Relationship"}
+                  </label>
+                  <select
+                    value={newProposedRel}
+                    onChange={(e) => setNewProposedRel(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-amber-200/90 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  >
+                    <option value="father">{lang === "hi" ? "पिता जी (Father)" : "Father"}</option>
+                    <option value="mother">{lang === "hi" ? "माता जी (Mother)" : "Mother"}</option>
+                    <option value="spouse">{lang === "hi" ? "जीवनसाथी - पति/पत्नी (Spouse)" : "Spouse"}</option>
+                    <option value="son">{lang === "hi" ? "पुत्र / सुपुत्र (Son)" : "Son"}</option>
+                    <option value="daughter">{lang === "hi" ? "पुत्री / सुपुत्री (Daughter)" : "Daughter"}</option>
+                    <option value="brother">{lang === "hi" ? "भाई (Brother)" : "Brother"}</option>
+                    <option value="sister">{lang === "hi" ? "बहन (Sister)" : "Sister"}</option>
+                    <option value="grandfather_paternal">{lang === "hi" ? "दादा जी (Paternal Grandfather)" : "Paternal Grandfather"}</option>
+                    <option value="grandmother_paternal">{lang === "hi" ? "दादी जी (Paternal Grandmother)" : "Paternal Grandmother"}</option>
+                    <option value="grandfather_maternal">{lang === "hi" ? "नाना जी (Maternal Grandfather)" : "Maternal Grandfather"}</option>
+                    <option value="grandmother_maternal">{lang === "hi" ? "नानी जी (Maternal Grandmother)" : "Maternal Grandmother"}</option>
+                    <option value="uncle_chacha">{lang === "hi" ? "चाचा जी (Younger Paternal Uncle)" : "Younger Paternal Uncle"}</option>
+                    <option value="uncle_tau">{lang === "hi" ? "ताऊ जी (Elder Paternal Uncle)" : "Elder Paternal Uncle"}</option>
+                    <option value="aunt_bua">{lang === "hi" ? "बुआ जी (Paternal Aunt)" : "Paternal Aunt"}</option>
+                    <option value="uncle_mama">{lang === "hi" ? "मामा जी (Maternal Uncle)" : "Maternal Uncle"}</option>
+                    <option value="aunt_masi">{lang === "hi" ? "मौसी जी (Maternal Aunt)" : "Maternal Aunt"}</option>
+                    <option value="bhabhi">{lang === "hi" ? "भाभी जी (Sister-in-law / Brother's Wife)" : "Sister-in-law"}</option>
+                    <option value="jija">{lang === "hi" ? "जीजा जी (Brother-in-law / Sister's Husband)" : "Brother-in-law"}</option>
+                    <option value="nephew">{lang === "hi" ? "भतीजा / भांजा (Nephew)" : "Nephew"}</option>
+                    <option value="niece">{lang === "hi" ? "भतीजी / भांजी (Niece)" : "Niece"}</option>
+                    <option value="other">{lang === "hi" ? "अन्य रिश्तेदार (Other Relative)" : "Other Relative"}</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    {lang === "hi" ? "टिप्पणी / स्पष्टीकरण (वैकल्पिक)" : "Note / Reason (Optional)"}
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={relChangeNote}
+                    onChange={(e) => setRelChangeNote(e.target.value)}
+                    placeholder={
+                      lang === "hi"
+                        ? "जैसे: यह मेरे बड़े भाई हैं या चाचा जी के लड़के हैं..."
+                        : "e.g., Elder brother or cousin..."
+                    }
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-300 resize-none"
+                  />
+                </div>
+
+                <div className="bg-amber-50/80 border border-amber-200/60 rounded-xl p-2.5 text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
+                  <span className="text-sm shrink-0">ℹ️</span>
+                  <span>
+                    {lang === "hi"
+                      ? "यह अनुरोध Super Admin / Core Committee के पास सत्यापन के लिए जाएगा। उनके अनुमोदन (Approval) के पश्चात ही वंशावली में यह रिश्ता अपडेट होगा।"
+                      : "This request will be sent to the Super Admin / Core Committee for review. Once approved, the relationship will be updated in the tree."}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={submittingChangeRel}
+                    onClick={() => {
+                      setChangeRelTarget(null);
+                      setChangeRelMsg(null);
+                    }}
+                    className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 active:scale-95 transition-all cursor-pointer"
+                  >
+                    {lang === "hi" ? "रद्द करें" : "Cancel"}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingChangeRel}
+                    className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-xs font-bold shadow-md transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {submittingChangeRel
+                      ? (lang === "hi" ? "भेज रहे हैं..." : "Sending...")
+                      : (lang === "hi" ? "अनुरोध भेजें" : "Submit Request")}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
