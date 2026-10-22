@@ -2244,6 +2244,31 @@ function VanshawaliInner() {
           ...(tree?.grandchildren?.length ? [tree.grandchildren] : []),
         ].filter((l) => l.length);
 
+  const allNodesMap = useMemo(() => {
+    const map = new Map<string, Node>();
+    if (!tree) return map;
+    map.set(tree.centre.id, { ...tree.centre, relation: "self" });
+    (tree.parents || []).forEach((n) => map.set(n.id, n));
+    (tree.spouses || []).forEach((n) => map.set(n.id, n));
+    (tree.siblings || []).forEach((n) => map.set(n.id, n));
+    (tree.children || []).forEach((n) => map.set(n.id, n));
+    (tree.grandparents || []).forEach((n) => map.set(n.id, n));
+    (tree.grandchildren || []).forEach((n) => map.set(n.id, n));
+    (tree.uncles_and_aunts || []).forEach((n) => map.set(n.id, n));
+    (tree.levels_up || []).flat().forEach((n) => map.set(n.id, n));
+    (tree.levels_down || []).flat().forEach((n) => map.set(n.id, n));
+    if (tree.spouses_of) {
+      Object.values(tree.spouses_of).flat().forEach((n) => map.set(n.id, n));
+    }
+    if (tree.siblings_of) {
+      Object.values(tree.siblings_of).flat().forEach((n) => map.set(n.id, n));
+    }
+    if (tree.children_of) {
+      Object.values(tree.children_of).flat().forEach((n) => map.set(n.id, n));
+    }
+    return map;
+  }, [tree]);
+
   const parents = levelsUp[0] || tree?.parents || [];
   const spouses = tree?.spouses || [];
   const children = levelsDown[0] || tree?.children || [];
@@ -2254,6 +2279,78 @@ function VanshawaliInner() {
   const spousesList = spouses.slice();
   const father = parents.find((p) => p.relation === "father" || resolveSex(p.gender, p.relation) === "M");
   const mother = parents.find((p) => p.relation === "mother" || resolveSex(p.gender, p.relation) === "F");
+
+  // Universal bidirectional spouse mapping
+  const spousePairs = useMemo(() => {
+    const pairs = new Map<string, Set<string>>();
+    const add = (idA?: string | null, idB?: string | null) => {
+      if (!idA || !idB || idA === idB) return;
+      if (!pairs.has(idA)) pairs.set(idA, new Set());
+      if (!pairs.has(idB)) pairs.set(idB, new Set());
+      pairs.get(idA)!.add(idB);
+      pairs.get(idB)!.add(idA);
+    };
+    if (!tree) return pairs;
+
+    // 1. Centre + spouses
+    (tree.spouses || []).forEach((s) => add(tree.centre.id, s.id));
+
+    // 2. spouses_of map in both directions
+    Object.entries(tree.spouses_of || {}).forEach(([ownerId, list]) => {
+      list.forEach((s) => add(ownerId, s.id));
+    });
+
+    // 3. Father & Mother of centre
+    const pars = tree.parents || (tree.levels_up && tree.levels_up[0]) || [];
+    const fNode = pars.find((p) => p.relation === "father" || resolveSex(p.gender, p.relation) === "M");
+    const mNode = pars.find((p) => p.relation === "mother" || resolveSex(p.gender, p.relation) === "F");
+    if (fNode && mNode && fNode.id !== mNode.id) {
+      add(fNode.id, mNode.id);
+    }
+
+    // 4. Any node with relation === "spouse" and via_id
+    allNodesMap.forEach((n) => {
+      if (n.relation === "spouse" && n.via_id) {
+        add(n.via_id, n.id);
+      }
+    });
+
+    // 5. Grandparents (Dada + Dadi, Nana + Nani)
+    const allGps = [...(tree.grandparents || []), ...(tree.levels_up?.[1] || [])];
+    const pDada = allGps.find((g) => resolveSex(g.gender, g.relation) === "M" && (!g.via_id || g.via_id === fNode?.id));
+    const pDadi = allGps.find((g) => resolveSex(g.gender, g.relation) === "F" && (!g.via_id || g.via_id === fNode?.id));
+    if (pDada && pDadi && pDada.id !== pDadi.id) add(pDada.id, pDadi.id);
+
+    const mNana = allGps.find((g) => g.id !== pDada?.id && resolveSex(g.gender, g.relation) === "M" && (!g.via_id || g.via_id === mNode?.id));
+    const mNani = allGps.find((g) => g.id !== pDadi?.id && resolveSex(g.gender, g.relation) === "F" && (!g.via_id || g.via_id === mNode?.id));
+    if (mNana && mNani && mNana.id !== mNani.id) add(mNana.id, mNani.id);
+
+    return pairs;
+  }, [tree, allNodesMap]);
+
+  const getSpouseOf = useCallback(
+    (personId: string): Node | null => {
+      const set = spousePairs.get(personId);
+      if (!set || set.size === 0) return null;
+      for (const spId of Array.from(set)) {
+        const spNode = allNodesMap.get(spId);
+        if (spNode) return spNode;
+      }
+      return null;
+    },
+    [spousePairs, allNodesMap]
+  );
+
+  const orderCouple = (nodeA: Node, nodeB: Node): [Node, Node] => {
+    const sexA = resolveSex(nodeA.gender, nodeA.relation);
+    const sexB = resolveSex(nodeB.gender, nodeB.relation);
+    // Husband on left, Wife on right
+    if (sexA === "M" && sexB === "F") return [nodeA, nodeB];
+    if (sexA === "F" && sexB === "M") return [nodeB, nodeA];
+    if (nodeA.relation === "self") return [nodeA, nodeB];
+    if (nodeB.relation === "self") return [nodeB, nodeA];
+    return [nodeA, nodeB];
+  };
 
   const pad = 16;
   const gap = 16;
@@ -2384,17 +2481,31 @@ function VanshawaliInner() {
       nodeA: Node,
       nodeB?: Node | null,
       genA: keyof typeof GEN_STYLE = "sibling",
-      genB: keyof typeof GEN_STYLE = "spouse"
+      genB: keyof typeof GEN_STYLE = "spouse",
+      isMarriedCouple: boolean = false
     ) => {
       if (nodeB) {
+        let first = nodeA;
+        let second = nodeB;
+        let g1 = genA;
+        let g2 = genB;
+        if (isMarriedCouple) {
+          const [hus, wif] = orderCouple(nodeA, nodeB);
+          first = hus;
+          second = wif;
+          g1 = hus.id === nodeA.id ? genA : genB;
+          g2 = hus.id === nodeA.id ? genB : genA;
+        }
         const leftCx = cx - cGap / 2 - cardW / 2;
         const rightCx = cx + cGap / 2 + cardW / 2;
-        placeNode(nodeA, leftCx, yCursor, genA);
-        placeNode(nodeB, rightCx, yCursor, genB);
-        pushCouple(
-          { id: nodeA.id, x: leftCx, top: yCursor, w: cardW },
-          { id: nodeB.id, x: rightCx, top: yCursor, w: cardW }
-        );
+        placeNode(first, leftCx, yCursor, g1);
+        placeNode(second, rightCx, yCursor, g2);
+        if (isMarriedCouple) {
+          pushCouple(
+            { id: first.id, x: leftCx, top: yCursor, w: cardW },
+            { id: second.id, x: rightCx, top: yCursor, w: cardW }
+          );
+        }
       } else {
         placeNode(nodeA, cx, yCursor, genA);
       }
@@ -2404,51 +2515,61 @@ function VanshawaliInner() {
     // 1. Generation +2 (Grandparents - Dada/Dadi, Nana/Nani)
     const gpList = [...(tree?.grandparents || []), ...(levelsUp[1] || [])];
     const gpSeen = new Set<string>();
-    const gpPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE][] = [];
+    const gpPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE, boolean][] = [];
 
+    // Check Dada + Dadi
     const pDada = gpList.find((g) => resolveSex(g.gender, g.relation) === "M" && (!g.via_id || g.via_id === father?.id));
     const pDadi = gpList.find((g) => resolveSex(g.gender, g.relation) === "F" && (!g.via_id || g.via_id === father?.id));
-    if (pDada || pDadi) {
-      if (pDada && pDadi && pDada.id !== pDadi.id) {
-        gpPairs.push([pDada, pDadi, "up2", "up2"]);
-        gpSeen.add(pDada.id);
-        gpSeen.add(pDadi.id);
-      } else if (pDada) {
-        gpPairs.push([pDada, null, "up2", "up2"]);
-        gpSeen.add(pDada.id);
-      } else if (pDadi) {
-        gpPairs.push([pDadi, null, "up2", "up2"]);
-        gpSeen.add(pDadi.id);
-      }
+    if (pDada && pDadi && pDada.id !== pDadi.id) {
+      gpPairs.push([pDada, pDadi, "up2", "up2", true]);
+      gpSeen.add(pDada.id);
+      gpSeen.add(pDadi.id);
+    } else {
+      if (pDada) { gpPairs.push([pDada, null, "up2", "up2", false]); gpSeen.add(pDada.id); }
+      if (pDadi) { gpPairs.push([pDadi, null, "up2", "up2", false]); gpSeen.add(pDadi.id); }
     }
 
+    // Check Nana + Nani
     const mNana = gpList.find((g) => !gpSeen.has(g.id) && resolveSex(g.gender, g.relation) === "M");
     const mNani = gpList.find((g) => !gpSeen.has(g.id) && resolveSex(g.gender, g.relation) === "F");
     if (mNana && mNani && mNana.id !== mNani.id) {
-      gpPairs.push([mNana, mNani, "up2", "up2"]);
+      gpPairs.push([mNana, mNani, "up2", "up2", true]);
       gpSeen.add(mNana.id);
       gpSeen.add(mNani.id);
     } else {
-      if (mNana && !gpSeen.has(mNana.id)) { gpPairs.push([mNana, null, "up2", "up2"]); gpSeen.add(mNana.id); }
-      if (mNani && !gpSeen.has(mNani.id)) { gpPairs.push([mNani, null, "up2", "up2"]); gpSeen.add(mNani.id); }
+      if (mNana && !gpSeen.has(mNana.id)) { gpPairs.push([mNana, null, "up2", "up2", false]); gpSeen.add(mNana.id); }
+      if (mNani && !gpSeen.has(mNani.id)) { gpPairs.push([mNani, null, "up2", "up2", false]); gpSeen.add(mNani.id); }
     }
 
-    // Remaining single grandparents -> pair two-by-two in lines of 2
+    // Other married grandparents from spousePairs
+    gpList.forEach((g) => {
+      if (gpSeen.has(g.id)) return;
+      const sp = getSpouseOf(g.id);
+      if (sp && !gpSeen.has(sp.id)) {
+        gpPairs.push([g, sp, "up2", "up2", true]);
+        gpSeen.add(g.id);
+        gpSeen.add(sp.id);
+      }
+    });
+
+    // Remaining single grandparents -> 2 per line, but NOT married!
     const otherGps = gpList.filter((g) => !gpSeen.has(g.id) && !posById.has(g.id));
     for (let i = 0; i < otherGps.length; i += 2) {
       if (i + 1 < otherGps.length) {
-        gpPairs.push([otherGps[i], otherGps[i + 1], "up2", "up2"]);
+        gpPairs.push([otherGps[i], otherGps[i + 1], "up2", "up2", false]);
         gpSeen.add(otherGps[i].id);
         gpSeen.add(otherGps[i + 1].id);
       } else {
-        gpPairs.push([otherGps[i], null, "up2", "up2"]);
+        gpPairs.push([otherGps[i], null, "up2", "up2", false]);
         gpSeen.add(otherGps[i].id);
       }
     }
 
     if (gpPairs.length > 0) {
       yGrandparents = yCursor;
-      gpPairs.forEach(([a, b, ga, gb]) => placePair(a, b, ga, gb));
+      gpPairs.forEach(([a, b, ga, gb, isMar]) => {
+        if (a) placePair(a, b, ga, gb, isMar);
+      });
       yCursor += gGap;
     }
 
@@ -2456,29 +2577,30 @@ function VanshawaliInner() {
     yParents = yCursor;
     const parList = [...parents, ...(tree?.uncles_and_aunts || [])];
     const parSeen = new Set<string>();
-    const parPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE][] = [];
+    const parPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE, boolean][] = [];
 
+    // Father + Mother ALWAYS together!
     if (father && mother && father.id !== mother.id) {
-      parPairs.push([father, mother, "up1", "up1"]);
+      parPairs.push([father, mother, "up1", "up1", true]);
       parSeen.add(father.id);
       parSeen.add(mother.id);
     } else {
-      if (father) { parPairs.push([father, null, "up1", "up1"]); parSeen.add(father.id); }
-      if (mother) { parPairs.push([mother, null, "up1", "up1"]); parSeen.add(mother.id); }
+      if (father) { parPairs.push([father, null, "up1", "up1", false]); parSeen.add(father.id); }
+      if (mother) { parPairs.push([mother, null, "up1", "up1", false]); parSeen.add(mother.id); }
     }
 
     // Uncles / Aunts with their spouses in couples
     parList.forEach((n) => {
       if (parSeen.has(n.id) || posById.has(n.id)) return;
-      const sp = (spousesOfMap[n.id] || []).find((s) => !parSeen.has(s.id) && !posById.has(s.id));
-      if (sp) {
+      const sp = getSpouseOf(n.id) || (spousesOfMap[n.id] || []).find((s) => !parSeen.has(s.id) && !posById.has(s.id));
+      if (sp && !parSeen.has(sp.id) && !posById.has(sp.id)) {
         parSeen.add(n.id);
         parSeen.add(sp.id);
-        parPairs.push([n, sp, "up1", "spouse"]);
+        parPairs.push([n, sp, "up1", "spouse", true]);
       }
     });
 
-    // Remaining single uncles / aunts -> pair two-by-two in lines of 2
+    // Remaining single uncles / aunts -> pair two-by-two in lines of 2, NOT married!
     const singlePars: Node[] = [];
     parList.forEach((n) => {
       if (!parSeen.has(n.id) && !posById.has(n.id)) {
@@ -2488,14 +2610,16 @@ function VanshawaliInner() {
     });
     for (let i = 0; i < singlePars.length; i += 2) {
       if (i + 1 < singlePars.length) {
-        parPairs.push([singlePars[i], singlePars[i + 1], "up1", "up1"]);
+        parPairs.push([singlePars[i], singlePars[i + 1], "up1", "up1", false]);
       } else {
-        parPairs.push([singlePars[i], null, "up1", "up1"]);
+        parPairs.push([singlePars[i], null, "up1", "up1", false]);
       }
     }
 
     if (parPairs.length > 0) {
-      parPairs.forEach(([a, b, ga, gb]) => placePair(a, b, ga, gb));
+      parPairs.forEach(([a, b, ga, gb, isMar]) => {
+        if (a) placePair(a, b, ga, gb, isMar);
+      });
       yCursor += gGap;
     }
 
@@ -2504,12 +2628,12 @@ function VanshawaliInner() {
     yMid = yCursor;
     centreX = cx;
 
-    const primarySpouse = spouses.find((s) => !posById.has(s.id));
+    const primarySpouse = spouses.find((s) => !posById.has(s.id)) || getSpouseOf(tree?.centre.id || "");
     const selfNode = tree?.centre
       ? { ...tree.centre, relation: "self" }
       : { id: "self", display_name: "Self", relation: "self" };
-    if (primarySpouse) {
-      placePair(selfNode, primarySpouse, "self", "spouse");
+    if (primarySpouse && primarySpouse.id !== selfNode.id) {
+      placePair(selfNode, primarySpouse, "self", "spouse", true);
     } else {
       placePair(selfNode, null, "self");
     }
@@ -2522,20 +2646,20 @@ function VanshawaliInner() {
     }
     const allSiblingsList = Array.from(centreSiblingMap.values());
     const sibSeen = new Set<string>();
-    const sibPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE][] = [];
+    const sibPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE, boolean][] = [];
 
     // Siblings with spouses (Bhabhi / Jija ji)
     allSiblingsList.forEach((s) => {
       if (sibSeen.has(s.id) || posById.has(s.id)) return;
-      const sp = (spousesOfMap[s.id] || []).find((x) => !sibSeen.has(x.id) && !posById.has(x.id) && x.id !== tree?.centre.id);
-      if (sp) {
+      const sp = getSpouseOf(s.id) || (spousesOfMap[s.id] || []).find((x) => !sibSeen.has(x.id) && !posById.has(x.id) && x.id !== tree?.centre.id);
+      if (sp && sp.id !== tree?.centre.id && !sibSeen.has(sp.id)) {
         sibSeen.add(s.id);
         sibSeen.add(sp.id);
-        sibPairs.push([{ ...s, relation: "sibling" }, { ...sp, relation: "spouse", via_id: s.id }, "sibling", "spouse"]);
+        sibPairs.push([{ ...s, relation: "sibling" }, { ...sp, relation: "spouse", via_id: s.id }, "sibling", "spouse", true]);
       }
     });
 
-    // Remaining single siblings -> pair two-by-two in lines of 2
+    // Remaining single siblings -> pair two-by-two in lines of 2, NOT married!
     const singleSibs: Node[] = [];
     allSiblingsList.forEach((s) => {
       if (!sibSeen.has(s.id) && !posById.has(s.id)) {
@@ -2545,13 +2669,15 @@ function VanshawaliInner() {
     });
     for (let i = 0; i < singleSibs.length; i += 2) {
       if (i + 1 < singleSibs.length) {
-        sibPairs.push([{ ...singleSibs[i], relation: "sibling" }, { ...singleSibs[i + 1], relation: "sibling" }, "sibling", "sibling"]);
+        sibPairs.push([{ ...singleSibs[i], relation: "sibling" }, { ...singleSibs[i + 1], relation: "sibling" }, "sibling", "sibling", false]);
       } else {
-        sibPairs.push([{ ...singleSibs[i], relation: "sibling" }, null, "sibling", "sibling"]);
+        sibPairs.push([{ ...singleSibs[i], relation: "sibling" }, null, "sibling", "sibling", false]);
       }
     }
 
-    sibPairs.forEach(([a, b, ga, gb]) => placePair(a, b, ga, gb));
+    sibPairs.forEach(([a, b, ga, gb, isMar]) => {
+      if (a) placePair(a, b, ga, gb, isMar);
+    });
     yCursor += gGap;
 
     // 4. Generation -1 (Children & Nephews/Nieces)
@@ -2573,20 +2699,20 @@ function VanshawaliInner() {
     });
 
     const chSeen = new Set<string>();
-    const chPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE][] = [];
+    const chPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE, boolean][] = [];
 
     // Children with spouses (Bahu / Damaad)
     allGenMinus1.forEach((c) => {
       if (chSeen.has(c.id) || posById.has(c.id)) return;
-      const sp = (spousesOfMap[c.id] || []).find((s) => !chSeen.has(s.id) && !posById.has(s.id));
-      if (sp) {
+      const sp = getSpouseOf(c.id) || (spousesOfMap[c.id] || []).find((s) => !chSeen.has(s.id) && !posById.has(s.id));
+      if (sp && !chSeen.has(sp.id) && !posById.has(sp.id)) {
         chSeen.add(c.id);
         chSeen.add(sp.id);
-        chPairs.push([c, { ...sp, relation: "spouse", via_id: c.id }, "down1", "spouse"]);
+        chPairs.push([c, { ...sp, relation: "spouse", via_id: c.id }, "down1", "spouse", true]);
       }
     });
 
-    // Single children & nephews -> pair two-by-two in lines of 2
+    // Single children & nephews -> pair two-by-two in lines of 2, NOT married!
     const singleChs: Node[] = [];
     allGenMinus1.forEach((c) => {
       if (!chSeen.has(c.id) && !posById.has(c.id)) {
@@ -2596,13 +2722,15 @@ function VanshawaliInner() {
     });
     for (let i = 0; i < singleChs.length; i += 2) {
       if (i + 1 < singleChs.length) {
-        chPairs.push([singleChs[i], singleChs[i + 1], "down1", "down1"]);
+        chPairs.push([singleChs[i], singleChs[i + 1], "down1", "down1", false]);
       } else {
-        chPairs.push([singleChs[i], null, "down1", "down1"]);
+        chPairs.push([singleChs[i], null, "down1", "down1", false]);
       }
     }
 
-    chPairs.forEach(([a, b, ga, gb]) => placePair(a, b, ga, gb));
+    chPairs.forEach(([a, b, ga, gb, isMar]) => {
+      if (a) placePair(a, b, ga, gb, isMar);
+    });
     yCursor += gGap;
 
     // 5. Generation -2 (Grandchildren)
@@ -2621,15 +2749,15 @@ function VanshawaliInner() {
     });
 
     const gcSeen = new Set<string>();
-    const gcPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE][] = [];
+    const gcPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE, boolean][] = [];
 
     allGenMinus2.forEach((gc) => {
       if (gcSeen.has(gc.id) || posById.has(gc.id)) return;
-      const sp = (spousesOfMap[gc.id] || []).find((s) => !posById.has(s.id));
-      if (sp) {
+      const sp = getSpouseOf(gc.id) || (spousesOfMap[gc.id] || []).find((s) => !posById.has(s.id));
+      if (sp && !gcSeen.has(sp.id) && !posById.has(sp.id)) {
         gcSeen.add(gc.id);
         gcSeen.add(sp.id);
-        gcPairs.push([gc, { ...sp, relation: "spouse", via_id: gc.id }, "down2", "spouse"]);
+        gcPairs.push([gc, { ...sp, relation: "spouse", via_id: gc.id }, "down2", "spouse", true]);
       }
     });
 
@@ -2642,13 +2770,15 @@ function VanshawaliInner() {
     });
     for (let i = 0; i < singleGcs.length; i += 2) {
       if (i + 1 < singleGcs.length) {
-        gcPairs.push([singleGcs[i], singleGcs[i + 1], "down2", "down2"]);
+        gcPairs.push([singleGcs[i], singleGcs[i + 1], "down2", "down2", false]);
       } else {
-        gcPairs.push([singleGcs[i], null, "down2", "down2"]);
+        gcPairs.push([singleGcs[i], null, "down2", "down2", false]);
       }
     }
 
-    gcPairs.forEach(([a, b, ga, gb]) => placePair(a, b, ga, gb));
+    gcPairs.forEach(([a, b, ga, gb, isMar]) => {
+      if (a) placePair(a, b, ga, gb, isMar);
+    });
     yCursor += 40;
   } else {
     // -----------------------------------------------------------------
@@ -3213,207 +3343,327 @@ function VanshawaliInner() {
     if (sp) selfLayoutRef.current = { x: sp.x, y: sp.top + BUBBLE_H / 2 };
   }
 
-  const linesBlood: { x1: number; y1: number; x2: number; y2: number; key: string }[] = [];
-
-  // Blood lines — skip ALL "sibling" nodes here (gold from correct parents in sibling-set block)
-  const selfSibOnly = new Set<string>((tree?.siblings || []).map((s) => s.id));
-  if (tree) selfSibOnly.add(tree.centre.id);
-  placed.forEach((pl) => {
-    if (pl.n.relation === "spouse" || pl.n.relation === "self" || pl.n.relation === "sibling")
-      return;
-    const via = pl.n.via_id || pl.n.via_parent_id || pl.n.via_child_id;
-    let parentPos = via ? posById.get(via) : undefined;
-    if (!parentPos && parents.some((p) => p.id === pl.n.id) && tree) {
-      parentPos = posById.get(tree.centre.id);
-    }
-    if (!parentPos && children.some((c) => c.id === pl.n.id) && tree) {
-      parentPos = posById.get(tree.centre.id);
-    }
-    if (!parentPos) return;
-    if (pl.top > parentPos.top) {
-      const start = undock(parentPos.x, parentPos.top, "down");
-      const end = dock(pl.x, pl.top, pl.w, "up", pl.n.gender, pl.n.relation);
-      linesBlood.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y, key: `b-${pl.n.id}` });
-    } else {
-      const start = undock(parentPos.x, parentPos.top, "up");
-      const end = dock(pl.x, pl.top, pl.w, "down", pl.n.gender, pl.n.relation);
-      linesBlood.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y, key: `b-${pl.n.id}` });
-    }
-  });
-
-  // Dual-parent ONLY for DESCENDANTS (children / down), never for parents / up
-  // Child of X → also gold from X's spouse. Father/mother of Self must NOT get spouse lines.
-  const spousesOfPerson = (personId: string): Node[] => {
-    if (!tree) return [];
-    if (personId === tree.centre.id) return spouses;
-    return (tree.spouses_of || {})[personId] || [];
+  type BloodLine = {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    key: string;
+    fromId?: string;
+    toId?: string;
+    relTag?: string;
   };
-  const isUpRelation = (rel?: string) =>
-    !!rel &&
-    ["father", "mother", "grandfather", "grandmother"].includes(rel);
-  const dualParentDrawn = new Set<string>();
-  const linkSpouseToChild = (parentId: string, childId: string) => {
-    const pp = posById.get(parentId);
-    const cp = posById.get(childId);
-    if (!pp || !cp) return;
-    // Child must sit below parent — blocks parent-of-self false dual lines
-    if (cp.top < pp.top - 2) return;
-    spousesOfPerson(parentId).forEach((sp) => {
-      const key = `scl-${sp.id}-${childId}`;
-      if (dualParentDrawn.has(key) || linesBlood.some((ln) => ln.key === key)) return;
-      const spos = posById.get(sp.id);
-      if (!spos) return;
-      dualParentDrawn.add(key);
-      const start = undock(spos.x, spos.top, "down");
-      const end = dock(cp.x, cp.top, cp.w, "up", null, "child");
-      if (![start.x, start.y, end.x, end.y].every((n) => Number.isFinite(n))) return;
-      linesBlood.push({
-        x1: start.x,
-        y1: start.y,
-        x2: end.x,
-        y2: end.y,
-        key,
-      });
-    });
-  };
-  // Centre generation children only
-  children.forEach((c) => {
-    if (tree) linkSpouseToChild(tree.centre.id, c.id);
-  });
-  // levels_down only (grandchildren…): via = parent in the DOWN direction
-  levelsDown.forEach((lvl) => {
-    lvl.forEach((n) => {
-      if (isUpRelation(n.relation)) return;
-      const via = n.via_id || n.via_child_id;
-      if (via) linkSpouseToChild(via, n.id);
-    });
-  });
-  // Other placed descendants tagged child (not father/mother/sibling/spouse)
-  placed.forEach((pl) => {
-    const rel = pl.n.relation || "";
-    if (rel === "spouse" || rel === "self" || rel === "sibling") return;
-    if (isUpRelation(rel)) return;
-    if (rel !== "child" && !rel.startsWith("child")) return;
-    const via = pl.n.via_id || pl.n.via_parent_id || pl.n.via_child_id;
-    if (!via || via === pl.n.id) return;
-    linkSpouseToChild(via, pl.n.id);
-  });
-
-  /**
-   * Sibling connectivity (simple rules):
-   * - Yellow: between members of the SAME sibling set (Self+bros, Father+uncles, GP+his bros…)
-   * - Gold: from that set's parent(s) → each sibling (auto, like Self's parents → your bros)
-   */
-  type SibLn = { x1: number; y1: number; x2: number; y2: number; key: string };
+  const linesBlood: BloodLine[] = [];
+  type SibLn = { x1: number; y1: number; x2: number; y2: number; key: string; label?: string };
   const linesSibling: SibLn[] = [];
-  if (tree) {
-    const pairDrawn = new Set<string>();
-    const pushSib = (
-      a: { id: string; x: number; top: number; w: number },
-      b: { id: string; x: number; top: number; w: number }
+
+  if (is2ColActive) {
+    const bloodDrawn = new Set<string>();
+    const addBlood = (
+      fromId: string,
+      toId: string,
+      origin: { x: number; y: number },
+      dest: { x: number; y: number },
+      relTag: string
     ) => {
-      const pk = [a.id, b.id].sort().join("|");
-      if (pairDrawn.has(pk)) return;
-      pairDrawn.add(pk);
-      const left = a.x <= b.x ? a : b;
-      const right = a.x <= b.x ? b : a;
-      linesSibling.push({
-        x1: left.x,
-        y1: left.top + BUBBLE_H - 4,
-        x2: right.x,
-        y2: right.top + BUBBLE_H - 4,
-        key: `sib-${a.id}-${b.id}`,
+      const k = `blood-${fromId}-${toId}`;
+      if (bloodDrawn.has(k)) return;
+      bloodDrawn.add(k);
+      linesBlood.push({
+        x1: origin.x,
+        y1: origin.y,
+        x2: dest.x,
+        y2: dest.y,
+        key: k,
+        fromId,
+        toId,
+        relTag,
       });
     };
 
-    const posOf = (id: string) => {
-      const pos = posById.get(id);
-      return pos ? { id, x: pos.x, top: pos.top, w: pos.w } : null;
-    };
+    const cx = contentW / 2;
 
-    /** Yellow between every consecutive pair in a sibling set */
-    const linkSiblingSet = (ids: string[]) => {
-      const placedSet = ids.map(posOf).filter(Boolean) as {
-        id: string;
-        x: number;
-        top: number;
-        w: number;
-      }[];
-      if (placedSet.length < 2) return;
-      placedSet.sort((a, b) => a.x - b.x || a.top - b.top);
-      for (let i = 0; i < placedSet.length - 1; i++) {
-        pushSib(placedSet[i], placedSet[i + 1]);
+    // 1. Grandparents -> Parents
+    if (yGrandparents > 0 && tree) {
+      if (father && posById.has(father.id)) {
+        const fp = posById.get(father.id)!;
+        addBlood("gp", father.id, { x: cx, y: yGrandparents + BUBBLE_H }, { x: fp.x, y: fp.top }, lang === "hi" ? "पुत्र" : "Son");
       }
-    };
+      if (mother && posById.has(mother.id)) {
+        const mp = posById.get(mother.id)!;
+        addBlood("gp", mother.id, { x: cx, y: yGrandparents + BUBBLE_H }, { x: mp.x, y: mp.top }, lang === "hi" ? "पुत्री" : "Daughter");
+      }
+    }
 
-    /** Gold parent → child if both placed and line not already drawn */
-    const goldParentChild = (parentId: string, childId: string) => {
-      if (!parentId || !childId || parentId === childId) return;
+    // 2. Parents -> Self & Siblings
+    if (tree) {
+      const parOriginX = cx;
+      const parOriginY = yParents > 0 ? yParents + BUBBLE_H : (ySelf > 80 ? ySelf - 40 : 80);
+
+      // Self
+      const sp = posById.get(tree.centre.id);
+      if (sp) {
+        const selfSex = resolveSex(tree.centre.gender, tree.centre.relation);
+        const selfTag = selfSex === "F" ? (lang === "hi" ? "पुत्री" : "Daughter") : (lang === "hi" ? "पुत्र" : "Son");
+        addBlood(father?.id || mother?.id || "parent", tree.centre.id, { x: parOriginX, y: parOriginY }, { x: sp.x, y: sp.top }, selfTag);
+      }
+      // Siblings of Self
+      const centreSiblingMap = new Map<string, Node>();
+      (tree.siblings || []).forEach((s) => centreSiblingMap.set(s.id, s));
+      (tree.siblings_of?.[tree.centre.id] || []).forEach((s) => centreSiblingMap.set(s.id, s));
+      centreSiblingMap.forEach((s) => {
+        const sibPos = posById.get(s.id);
+        if (!sibPos) return;
+        const sSex = resolveSex(s.gender, s.relation);
+        const sTag = sSex === "F" ? (lang === "hi" ? "पुत्री" : "Daughter") : (lang === "hi" ? "पुत्र" : "Son");
+        addBlood(father?.id || mother?.id || "parent", s.id, { x: parOriginX, y: parOriginY }, { x: sibPos.x, y: sibPos.top }, sTag);
+      });
+    }
+
+    // 3. Self & Spouse -> Children
+    if (tree) {
+      const selfCoupleOriginX = cx;
+      const selfCoupleOriginY = ySelf + BUBBLE_H;
+      const allKids: Node[] = [];
+      const kidSeen = new Set<string>();
+      const addKid = (c: Node) => {
+        if (!c || !c.id || kidSeen.has(c.id)) return;
+        kidSeen.add(c.id);
+        allKids.push(c);
+      };
+      (tree.children || []).forEach(addKid);
+      (levelsDown[0] || []).forEach(addKid);
+      (tree.children_of?.[tree.centre.id] || []).forEach(addKid);
+
+      allKids.forEach((c) => {
+        const cp = posById.get(c.id);
+        if (!cp) return;
+        const cSex = resolveSex(c.gender, c.relation);
+        const cTag = cSex === "F" ? (lang === "hi" ? "पुत्री" : "Daughter") : (lang === "hi" ? "पुत्र" : "Son");
+        addBlood(tree.centre.id, c.id, { x: selfCoupleOriginX, y: selfCoupleOriginY }, { x: cp.x, y: cp.top }, cTag);
+      });
+    }
+
+    // 4. Siblings -> Nephews/Nieces
+    if (tree) {
+      Object.entries(tree.children_of || {}).forEach(([parentId, cList]) => {
+        if (parentId === tree.centre.id) return;
+        const pPos = posById.get(parentId);
+        if (!pPos) return;
+        cList.forEach((c) => {
+          const cp = posById.get(c.id);
+          if (!cp) return;
+          const cSex = resolveSex(c.gender, c.relation);
+          const cTag = cSex === "F" ? (lang === "hi" ? "भतीजी" : "Niece") : (lang === "hi" ? "भतीजा" : "Nephew");
+          addBlood(parentId, c.id, { x: pPos.x, y: pPos.top + BUBBLE_H }, { x: cp.x, y: cp.top }, cTag);
+        });
+      });
+    }
+
+    // 5. Children -> Grandchildren
+    if (tree) {
+      (tree.grandchildren || []).concat(levelsDown[1] || []).forEach((gc) => {
+        const gcp = posById.get(gc.id);
+        if (!gcp) return;
+        const via = gc.via_id || gc.via_child_id;
+        const viaPos = via ? posById.get(via) : null;
+        const ox = viaPos ? viaPos.x : cx;
+        const oy = viaPos ? viaPos.top + BUBBLE_H : yChildren + BUBBLE_H;
+        const gcSex = resolveSex(gc.gender, gc.relation);
+        const gcTag = gcSex === "F" ? (lang === "hi" ? "पोती" : "Granddaughter") : (lang === "hi" ? "पोता" : "Grandson");
+        addBlood(via || "child", gc.id, { x: ox, y: oy }, { x: gcp.x, y: gcp.top }, gcTag);
+      });
+    }
+  } else {
+    // Blood lines for wide canvas mode
+    const selfSibOnly = new Set<string>((tree?.siblings || []).map((s) => s.id));
+    if (tree) selfSibOnly.add(tree.centre.id);
+    placed.forEach((pl) => {
+      if (pl.n.relation === "spouse" || pl.n.relation === "self" || pl.n.relation === "sibling")
+        return;
+      const via = pl.n.via_id || pl.n.via_parent_id || pl.n.via_child_id;
+      let parentPos = via ? posById.get(via) : undefined;
+      if (!parentPos && parents.some((p) => p.id === pl.n.id) && tree) {
+        parentPos = posById.get(tree.centre.id);
+      }
+      if (!parentPos && children.some((c) => c.id === pl.n.id) && tree) {
+        parentPos = posById.get(tree.centre.id);
+      }
+      if (!parentPos) return;
+      const rInfo = resolveIndianRelationship(pl.n, tree, lang);
+      const relTag = rInfo.shortTag;
+      if (pl.top > parentPos.top) {
+        const start = undock(parentPos.x, parentPos.top, "down");
+        const end = dock(pl.x, pl.top, pl.w, "up", pl.n.gender, pl.n.relation);
+        linesBlood.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y, key: `b-${pl.n.id}`, relTag, fromId: via, toId: pl.n.id });
+      } else {
+        const start = undock(parentPos.x, parentPos.top, "up");
+        const end = dock(pl.x, pl.top, pl.w, "down", pl.n.gender, pl.n.relation);
+        linesBlood.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y, key: `b-${pl.n.id}`, relTag, fromId: via, toId: pl.n.id });
+      }
+    });
+
+    const spousesOfPerson = (personId: string): Node[] => {
+      if (!tree) return [];
+      if (personId === tree.centre.id) return spouses;
+      return (tree.spouses_of || {})[personId] || [];
+    };
+    const isUpRelation = (rel?: string) =>
+      !!rel &&
+      ["father", "mother", "grandfather", "grandmother"].includes(rel);
+    const dualParentDrawn = new Set<string>();
+    const linkSpouseToChild = (parentId: string, childId: string) => {
       const pp = posById.get(parentId);
       const cp = posById.get(childId);
       if (!pp || !cp) return;
-      const key = `sibp-${parentId}-${childId}`;
-      if (linesBlood.some((ln) => ln.key === key)) return;
-      // Full bubble-to-bubble: centre of parent edge → centre of child edge
-      const childBelow = cp.top >= pp.top - 2;
-      const start = undock(pp.x, pp.top, childBelow ? "down" : "up");
-      const end = dock(cp.x, cp.top, cp.w, childBelow ? "up" : "down", null, "child");
-      if (![start.x, start.y, end.x, end.y].every((n) => Number.isFinite(n))) return;
-      linesBlood.push({
-        x1: start.x,
-        y1: start.y,
-        x2: end.x,
-        y2: end.y,
-        key,
+      if (cp.top < pp.top - 2) return;
+      spousesOfPerson(parentId).forEach((sp) => {
+        const key = `scl-${sp.id}-${childId}`;
+        if (dualParentDrawn.has(key) || linesBlood.some((ln) => ln.key === key)) return;
+        const spos = posById.get(sp.id);
+        if (!spos) return;
+        dualParentDrawn.add(key);
+        const start = undock(spos.x, spos.top, "down");
+        const end = dock(cp.x, cp.top, cp.w, "up", null, "child");
+        if (![start.x, start.y, end.x, end.y].every((n) => Number.isFinite(n))) return;
+        const cNode = allNodesMap.get(childId);
+        const rInfo = cNode ? resolveIndianRelationship(cNode, tree, lang) : null;
+        linesBlood.push({
+          x1: start.x,
+          y1: start.y,
+          x2: end.x,
+          y2: end.y,
+          key,
+          relTag: rInfo?.shortTag,
+          fromId: sp.id,
+          toId: childId,
+        });
       });
     };
-
-    // --- Group 1: Self + Self siblings ---
-    const selfGroup = tree?.centre ? [tree.centre.id, ...siblings.map((s) => s.id)] : [];
-    linkSiblingSet(selfGroup);
-    parents.forEach((par) => {
-      selfGroup.forEach((cid) => goldParentChild(par.id, cid));
+    children.forEach((c) => {
+      if (tree) linkSpouseToChild(tree.centre.id, c.id);
+    });
+    levelsDown.forEach((lvl) => {
+      lvl.forEach((n) => {
+        if (isUpRelation(n.relation)) return;
+        const via = n.via_id || n.via_child_id;
+        if (via) linkSpouseToChild(via, n.id);
+      });
+    });
+    placed.forEach((pl) => {
+      const rel = pl.n.relation || "";
+      if (rel === "spouse" || rel === "self" || rel === "sibling") return;
+      if (isUpRelation(rel)) return;
+      if (rel !== "child" && !rel.startsWith("child")) return;
+      const via = pl.n.via_id || pl.n.via_parent_id || pl.n.via_child_id;
+      if (!via || via === pl.n.id) return;
+      linkSpouseToChild(via, pl.n.id);
     });
 
-    // --- Group 2+: Father+uncles, GP+his brothers… ---
-    // Gold ONLY from DIRECT parents of the owner (shared parents of that sibling set)
-    // e.g. Father's brother → gold from Father's parents (your grandparents), NOT great-grandparents
-    const so = tree.siblings_of || {};
-    const levels = tree.levels_up || [];
+    if (tree) {
+      const pairDrawn = new Set<string>();
+      const pushSib = (
+        a: { id: string; x: number; top: number; w: number },
+        b: { id: string; x: number; top: number; w: number }
+      ) => {
+        const pk = [a.id, b.id].sort().join("|");
+        if (pairDrawn.has(pk)) return;
+        pairDrawn.add(pk);
+        const left = a.x <= b.x ? a : b;
+        const right = a.x <= b.x ? b : a;
+        linesSibling.push({
+          x1: left.x,
+          y1: left.top + BUBBLE_H - 4,
+          x2: right.x,
+          y2: right.top + BUBBLE_H - 4,
+          key: `sib-${a.id}-${b.id}`,
+        });
+      };
 
-    /** Direct parents of personId = nodes in levels_up whose via points to personId */
-    const directParentsOf = (personId: string): string[] => {
-      const ids: string[] = [];
-      if (personId === tree.centre.id) {
-        parents.forEach((p) => ids.push(p.id));
-        return ids;
-      }
-      for (const lvl of levels) {
-        for (const n of lvl) {
-          if (n.via_id === personId || n.via_parent_id === personId) {
-            ids.push(n.id);
+      const posOf = (id: string) => {
+        const pos = posById.get(id);
+        return pos ? { id, x: pos.x, top: pos.top, w: pos.w } : null;
+      };
+
+      const linkSiblingSet = (ids: string[]) => {
+        const placedSet = ids.map(posOf).filter(Boolean) as {
+          id: string;
+          x: number;
+          top: number;
+          w: number;
+        }[];
+        if (placedSet.length < 2) return;
+        placedSet.sort((a, b) => a.x - b.x || a.top - b.top);
+        for (let i = 0; i < placedSet.length - 1; i++) {
+          pushSib(placedSet[i], placedSet[i + 1]);
+        }
+      };
+
+      const goldParentChild = (parentId: string, childId: string) => {
+        if (!parentId || !childId || parentId === childId) return;
+        const pp = posById.get(parentId);
+        const cp = posById.get(childId);
+        if (!pp || !cp) return;
+        const key = `sibp-${parentId}-${childId}`;
+        if (linesBlood.some((ln) => ln.key === key)) return;
+        const childBelow = cp.top >= pp.top - 2;
+        const start = undock(pp.x, pp.top, childBelow ? "down" : "up");
+        const end = dock(cp.x, cp.top, cp.w, childBelow ? "up" : "down", null, "child");
+        if (![start.x, start.y, end.x, end.y].every((n) => Number.isFinite(n))) return;
+        const cNode = allNodesMap.get(childId);
+        const rInfo = cNode ? resolveIndianRelationship(cNode, tree, lang) : null;
+        linesBlood.push({
+          x1: start.x,
+          y1: start.y,
+          x2: end.x,
+          y2: end.y,
+          key,
+          relTag: rInfo?.shortTag,
+          fromId: parentId,
+          toId: childId,
+        });
+      };
+
+      // Group 1: Self + Self siblings
+      const selfGroup = tree?.centre ? [tree.centre.id, ...siblings.map((s) => s.id)] : [];
+      linkSiblingSet(selfGroup);
+      parents.forEach((par) => {
+        selfGroup.forEach((cid) => goldParentChild(par.id, cid));
+      });
+
+      // Group 2+: Father+uncles, GP+his brothers…
+      const so = tree.siblings_of || {};
+      const levels = tree.levels_up || [];
+
+      const directParentsOf = (personId: string): string[] => {
+        const ids: string[] = [];
+        if (personId === tree.centre.id) {
+          parents.forEach((p) => ids.push(p.id));
+          return ids;
+        }
+        for (const lvl of levels) {
+          for (const n of lvl) {
+            if (n.via_id === personId || n.via_parent_id === personId) {
+              ids.push(n.id);
+            }
           }
         }
+        return Array.from(new Set(ids));
+      };
+
+      for (const [ownerId, list] of Object.entries(so)) {
+        if (ownerId === tree.centre.id) continue;
+        const setIds = [ownerId, ...list.map((s) => s.id)];
+        linkSiblingSet(setIds);
+        const parentIds = directParentsOf(ownerId);
+        parentIds.forEach((pid) => {
+          setIds.forEach((cid) => goldParentChild(pid, cid));
+        });
       }
-      return Array.from(new Set(ids));
-    };
 
-    for (const [ownerId, list] of Object.entries(so)) {
-      if (ownerId === tree.centre.id) continue;
-      const setIds = [ownerId, ...list.map((s) => s.id)];
-      // Yellow unchanged — between owner and their siblings
-      linkSiblingSet(setIds);
-
-      const parentIds = directParentsOf(ownerId);
-      // Gold: each direct parent → every member of this sibling set
-      parentIds.forEach((pid) => {
-        setIds.forEach((cid) => goldParentChild(pid, cid));
-      });
-    }
-
-    // Own children sibling yellow (if 2+)
-    if (children.length >= 2) {
-      linkSiblingSet(children.map((c) => c.id));
+      if (children.length >= 2) {
+        linkSiblingSet(children.map((c) => c.id));
+      }
     }
   }
 
@@ -3518,29 +3768,8 @@ function VanshawaliInner() {
   };
 
   const allTreeMembers = useMemo(() => {
-    if (!tree) return [];
-    const map = new Map<string, Node>();
-    map.set(tree.centre.id, { ...tree.centre, relation: "self" });
-    (tree.parents || []).forEach((n) => map.set(n.id, n));
-    (tree.spouses || []).forEach((n) => map.set(n.id, n));
-    (tree.siblings || []).forEach((n) => map.set(n.id, n));
-    (tree.children || []).forEach((n) => map.set(n.id, n));
-    (tree.grandparents || []).forEach((n) => map.set(n.id, n));
-    (tree.grandchildren || []).forEach((n) => map.set(n.id, n));
-    (tree.uncles_and_aunts || []).forEach((n) => map.set(n.id, n));
-    (tree.levels_up || []).flat().forEach((n) => map.set(n.id, n));
-    (tree.levels_down || []).flat().forEach((n) => map.set(n.id, n));
-    if (tree.spouses_of) {
-      Object.values(tree.spouses_of).flat().forEach((n) => map.set(n.id, n));
-    }
-    if (tree.siblings_of) {
-      Object.values(tree.siblings_of).flat().forEach((n) => map.set(n.id, n));
-    }
-    if (tree.children_of) {
-      Object.values(tree.children_of).flat().forEach((n) => map.set(n.id, n));
-    }
-    return Array.from(map.values());
-  }, [tree]);
+    return Array.from(allNodesMap.values());
+  }, [allNodesMap]);
 
   const listSections = useMemo(() => {
     if (!tree) return null;
@@ -4437,61 +4666,69 @@ function VanshawaliInner() {
       {!loading && tree && viewMode === "tree" && (
         <div
           ref={wrapRef}
-          className="flex-1 overflow-hidden pb-36 w-full relative touch-none"
-          style={{ minHeight: "55vh" }}
+          className={cn(
+            "flex-1 w-full relative pb-36",
+            is2ColActive ? "overflow-visible" : "overflow-hidden touch-none"
+          )}
+          style={{ minHeight: is2ColActive ? `${H + 60}px` : "55vh" }}
         >
-          {/* Compact Zoom Toolbar — sleek dock at bottom-right, takes zero vertical canvas space */}
-          <div className="absolute bottom-20 right-3 z-30 flex items-center bg-white/95 backdrop-blur-md rounded-full shadow-lg border border-amber-200/90 px-1.5 py-1 gap-1">
-            <button
-              type="button"
-              onClick={() => zoomBy(-ZOOM_STEP)}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-amber-800 hover:bg-amber-100/60 active:scale-95 transition-all cursor-pointer"
-              aria-label="Zoom out"
-              title="Zoom out (-)"
-            >
-              <ZoomOut size={16} />
-            </button>
-            <span className="text-[10px] font-bold text-amber-900/90 px-1 tabular-nums min-w-[34px] text-center select-none">
-              {Math.round(zoom * 100)}%
-            </span>
-            <button
-              type="button"
-              onClick={() => zoomBy(ZOOM_STEP)}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-amber-800 hover:bg-amber-100/60 active:scale-95 transition-all cursor-pointer"
-              aria-label="Zoom in"
-              title="Zoom in (+)"
-            >
-              <ZoomIn size={16} />
-            </button>
-            <div className="w-[1px] h-4 bg-amber-200/80 mx-0.5" />
-            <button
-              type="button"
-              onClick={fitAll}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-amber-800 hover:bg-amber-100/60 active:scale-95 transition-all cursor-pointer"
-              aria-label="Fit to screen"
-              title="Fit to screen"
-            >
-              <Maximize2 size={15} />
-            </button>
-            <button
-              type="button"
-              onClick={zoomReset}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-amber-800 hover:bg-amber-100/60 active:scale-95 transition-all cursor-pointer"
-              aria-label="Reset to self"
-              title="Reset to 100%"
-            >
-              <Home size={15} />
-            </button>
-          </div>
+          {/* Compact Zoom Toolbar — Wide Canvas mode only */}
+          {!is2ColActive && (
+            <div className="absolute bottom-20 right-3 z-30 flex items-center bg-white/95 backdrop-blur-md rounded-full shadow-lg border border-amber-200/90 px-1.5 py-1 gap-1">
+              <button
+                type="button"
+                onClick={() => zoomBy(-ZOOM_STEP)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-amber-800 hover:bg-amber-100/60 active:scale-95 transition-all cursor-pointer"
+                aria-label="Zoom out"
+                title="Zoom out (-)"
+              >
+                <ZoomOut size={16} />
+              </button>
+              <span className="text-[10px] font-bold text-amber-900/90 px-1 tabular-nums min-w-[34px] text-center select-none">
+                {Math.round(zoom * 100)}%
+              </span>
+              <button
+                type="button"
+                onClick={() => zoomBy(ZOOM_STEP)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-amber-800 hover:bg-amber-100/60 active:scale-95 transition-all cursor-pointer"
+                aria-label="Zoom in"
+                title="Zoom in (+)"
+              >
+                <ZoomIn size={16} />
+              </button>
+              <div className="w-[1px] h-4 bg-amber-200/80 mx-0.5" />
+              <button
+                type="button"
+                onClick={fitAll}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-amber-800 hover:bg-amber-100/60 active:scale-95 transition-all cursor-pointer"
+                aria-label="Fit to screen"
+                title="Fit to screen"
+              >
+                <Maximize2 size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={zoomReset}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-amber-800 hover:bg-amber-100/60 active:scale-95 transition-all cursor-pointer"
+                aria-label="Reset to self"
+                title="Reset to 100%"
+              >
+                <Home size={15} />
+              </button>
+            </div>
+          )}
           <div
             className="relative origin-top-left will-change-transform z-10 contain-layout"
             style={{
-              width: W,
+              width: is2ColActive ? "100%" : W,
               height: H,
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transform: is2ColActive
+                ? `translateX(${Math.max(0, (vw - contentW) / 2)}px)`
+                : `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
               transformOrigin: "0 0",
             }}
             onTouchStart={(e) => {
+              if (is2ColActive) return;
               const rect = wrapRef.current?.getBoundingClientRect();
               if (e.touches.length === 2) {
                 const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -4522,6 +4759,7 @@ function VanshawaliInner() {
               }
             }}
             onTouchMove={(e) => {
+              if (is2ColActive) return;
               if (e.touches.length === 2 && pinchRef.current) {
                 e.preventDefault();
                 const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -4557,6 +4795,7 @@ function VanshawaliInner() {
               }
             }}
             onTouchEnd={() => {
+              if (is2ColActive) return;
               pinchRef.current = null;
               dragRef.current = null;
             }}
@@ -4629,7 +4868,20 @@ function VanshawaliInner() {
             </div>
 
             <svg className="absolute inset-0 pointer-events-none" width={W} height={H}>
-              {/* EXTRA marriage bonds — light green, couples only */}
+              <defs>
+                <marker
+                  id="gold-arrow"
+                  markerWidth="7"
+                  markerHeight="7"
+                  refX="5"
+                  refY="3.5"
+                  orient="auto"
+                >
+                  <path d="M1 1 L6 3.5 L1 6 Z" fill="#D97706" />
+                </marker>
+              </defs>
+
+              {/* Marriage bonds — emerald dashed line with 💍 Vivah badge */}
               {marriagePairs.map((mp, i) => {
                 const left =
                   mp.ax <= mp.bx
@@ -4641,39 +4893,161 @@ function VanshawaliInner() {
                     : { x: mp.ax, y: mp.ay, w: mp.aw };
                 const y1 = left.y + BUBBLE_H / 2;
                 const y2 = right.y + BUBBLE_H / 2;
-                const x1 = left.x + left.w / 2 - IN;
-                const x2 = right.x - right.w / 2 + IN;
+                const x1 = left.x + left.w / 2;
+                const x2 = right.x - right.w / 2;
                 const midX = (x1 + x2) / 2;
+
+                if (is2ColActive) {
+                  return (
+                    <g key={`marry-${i}`} className="vansh-marry-float">
+                      <line
+                        x1={x1}
+                        y1={y1}
+                        x2={x2}
+                        y2={y2}
+                        stroke="#10B981"
+                        strokeWidth={2.4}
+                        strokeDasharray="5 3"
+                        opacity={0.95}
+                      />
+                      <g transform={`translate(${midX}, ${y1})`}>
+                        <rect
+                          x={-28}
+                          y={-9}
+                          width={56}
+                          height={18}
+                          rx={9}
+                          fill="#ECFDF5"
+                          stroke="#10B981"
+                          strokeWidth={1.2}
+                          filter="drop-shadow(0 1px 2px rgba(0,0,0,0.06))"
+                        />
+                        <text
+                          x={0}
+                          y={1}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fontSize={10}
+                          fontWeight="bold"
+                          fill="#065F46"
+                        >
+                          💍 {lang === "hi" ? "विवाह" : "Vivah"}
+                        </text>
+                      </g>
+                    </g>
+                  );
+                }
+
                 const arch = Math.min(18, Math.abs(x2 - x1) * 0.12 + 8);
                 const d = `M${x1} ${y1} C${midX} ${y1 - arch}, ${midX} ${y2 - arch}, ${x2} ${y2}`;
                 return (
-                  <path
-                    key={`marry-${i}`}
-                    d={d}
-                    fill="none"
-                    stroke={marryLine}
-                    strokeWidth={2.4}
-                    strokeLinecap="round"
-                    strokeDasharray="6 5"
-                    opacity={0.9}
-                    className="vansh-marry-float"
-                  />
+                  <g key={`marry-${i}`} className="vansh-marry-float">
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke={marryLine}
+                      strokeWidth={2.4}
+                      strokeLinecap="round"
+                      strokeDasharray="6 5"
+                      opacity={0.9}
+                    />
+                    <g transform={`translate(${midX}, ${(y1 + y2) / 2 - arch})`}>
+                      <circle r={9} fill="#ECFDF5" stroke="#10B981" strokeWidth={1.2} />
+                      <text textAnchor="middle" dominantBaseline="central" fontSize={10}>💍</text>
+                    </g>
+                  </g>
                 );
               })}
-              {/* Blood / parent–child */}
+
+              {/* Blood / parent–child lineage lines */}
               {linesBlood
                 .filter((ln) => !ln.key.startsWith("sib-"))
-                .map((ln) => (
-                  <path
-                    key={ln.key}
-                    d={curve(ln.x1, ln.y1, ln.x2, ln.y2)}
-                    fill="none"
-                    stroke={line}
-                    strokeWidth={2.4}
-                    strokeLinecap="round"
-                    className="vansh-gold-line"
-                  />
-                ))}
+                .map((ln) => {
+                  if (is2ColActive) {
+                    const midY = ln.y1 + (ln.y2 - ln.y1) * 0.45;
+                    const d = Math.abs(ln.x1 - ln.x2) < 4
+                      ? `M ${ln.x1} ${ln.y1} L ${ln.x2} ${ln.y2}`
+                      : `M ${ln.x1} ${ln.y1} V ${midY} H ${ln.x2} V ${ln.y2}`;
+                    return (
+                      <g key={ln.key}>
+                        <path
+                          d={d}
+                          fill="none"
+                          stroke="#D97706"
+                          strokeWidth={2.2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          markerEnd="url(#gold-arrow)"
+                          opacity={0.9}
+                        />
+                        {ln.relTag && (
+                          <g transform={`translate(${ln.x2}, ${ln.y2 - 11})`}>
+                            <rect
+                              x={-26}
+                              y={-7}
+                              width={52}
+                              height={14}
+                              rx={7}
+                              fill="#FFFBEB"
+                              stroke="#D97706"
+                              strokeWidth={1}
+                              filter="drop-shadow(0 1px 2px rgba(0,0,0,0.05))"
+                            />
+                            <text
+                              x={0}
+                              y={1}
+                              textAnchor="middle"
+                              dominantBaseline="central"
+                              fontSize={8.5}
+                              fontWeight="bold"
+                              fill="#92400E"
+                            >
+                              ↓ {ln.relTag}
+                            </text>
+                          </g>
+                        )}
+                      </g>
+                    );
+                  }
+                  return (
+                    <g key={ln.key}>
+                      <path
+                        d={curve(ln.x1, ln.y1, ln.x2, ln.y2)}
+                        fill="none"
+                        stroke={line}
+                        strokeWidth={2.4}
+                        strokeLinecap="round"
+                        className="vansh-gold-line"
+                      />
+                      {ln.relTag && (
+                        <g transform={`translate(${(ln.x1 + ln.x2) / 2}, ${(ln.y1 + ln.y2) / 2})`}>
+                          <rect
+                            x={-24}
+                            y={-6}
+                            width={48}
+                            height={13}
+                            rx={6.5}
+                            fill="#FFFBEB"
+                            stroke="#D97706"
+                            strokeWidth={0.8}
+                          />
+                          <text
+                            x={0}
+                            y={0.5}
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            fontSize={8}
+                            fontWeight="bold"
+                            fill="#92400E"
+                          >
+                            {ln.relTag}
+                          </text>
+                        </g>
+                      )}
+                    </g>
+                  );
+                })}
+
               {/* Sibling yellow: solid base + visible traveling highlight */}
               {linesSibling.map((ln) => {
                 const midX = (ln.x1 + ln.x2) / 2;
