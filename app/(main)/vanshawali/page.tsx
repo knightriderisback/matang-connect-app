@@ -247,6 +247,189 @@ const NAMEPLATE =
 /** Pull line endpoints INSIDE the bubble so no hairline gap remains */
 const IN = 10;
 
+export type RingStyle = {
+  id: string;
+  name: string;
+  bandGradient: string;
+  bandBorder: string;
+  gemIcon: string;
+  gemColor: string;
+  lineColor: string;
+  shadowColor: string;
+  badgeBg: string;
+  badgeText: string;
+};
+
+const COUPLE_RING_STYLES: RingStyle[] = [
+  {
+    id: "gold",
+    name: "Kohinoor Gold",
+    bandGradient: "from-amber-300 via-yellow-100 to-amber-500",
+    bandBorder: "#D97706",
+    gemIcon: "💎",
+    gemColor: "#F59E0B",
+    lineColor: "#D97706",
+    shadowColor: "rgba(217, 119, 6, 0.45)",
+    badgeBg: "bg-amber-50 border-amber-300",
+    badgeText: "text-amber-900",
+  },
+  {
+    id: "ruby",
+    name: "Rose-Gold Ruby",
+    bandGradient: "from-rose-300 via-pink-100 to-rose-500",
+    bandBorder: "#E11D48",
+    gemIcon: "💎",
+    gemColor: "#E11D48",
+    lineColor: "#E11D48",
+    shadowColor: "rgba(225, 29, 72, 0.45)",
+    badgeBg: "bg-rose-50 border-rose-300",
+    badgeText: "text-rose-900",
+  },
+  {
+    id: "sapphire",
+    name: "Sapphire Platinum",
+    bandGradient: "from-sky-300 via-blue-100 to-indigo-500",
+    bandBorder: "#2563EB",
+    gemIcon: "💎",
+    gemColor: "#2563EB",
+    lineColor: "#2563EB",
+    shadowColor: "rgba(37, 99, 235, 0.45)",
+    badgeBg: "bg-blue-50 border-blue-300",
+    badgeText: "text-blue-900",
+  },
+  {
+    id: "emerald",
+    name: "Emerald Eternity",
+    bandGradient: "from-emerald-300 via-teal-100 to-emerald-500",
+    bandBorder: "#059669",
+    gemIcon: "💎",
+    gemColor: "#059669",
+    lineColor: "#059669",
+    shadowColor: "rgba(5, 150, 105, 0.45)",
+    badgeBg: "bg-emerald-50 border-emerald-300",
+    badgeText: "text-emerald-900",
+  },
+  {
+    id: "amethyst",
+    name: "Amethyst Violet",
+    bandGradient: "from-purple-300 via-fuchsia-100 to-purple-600",
+    bandBorder: "#7C3AED",
+    gemIcon: "💎",
+    gemColor: "#7C3AED",
+    lineColor: "#7C3AED",
+    shadowColor: "rgba(124, 58, 237, 0.45)",
+    badgeBg: "bg-purple-50 border-purple-300",
+    badgeText: "text-purple-900",
+  },
+  {
+    id: "turquoise",
+    name: "Turquoise Diamond",
+    bandGradient: "from-cyan-300 via-teal-100 to-cyan-600",
+    bandBorder: "#0891B2",
+    gemIcon: "💎",
+    gemColor: "#0891B2",
+    lineColor: "#0891B2",
+    shadowColor: "rgba(8, 145, 178, 0.45)",
+    badgeBg: "bg-cyan-50 border-cyan-300",
+    badgeText: "text-cyan-900",
+  },
+  {
+    id: "coral",
+    name: "Sunset Coral",
+    bandGradient: "from-orange-300 via-amber-100 to-rose-500",
+    bandBorder: "#EA580C",
+    gemIcon: "💎",
+    gemColor: "#EA580C",
+    lineColor: "#EA580C",
+    shadowColor: "rgba(234, 88, 12, 0.45)",
+    badgeBg: "bg-orange-50 border-orange-300",
+    badgeText: "text-orange-900",
+  },
+  {
+    id: "platinum",
+    name: "Pure Platinum",
+    bandGradient: "from-slate-200 via-white to-slate-400",
+    bandBorder: "#475569",
+    gemIcon: "💎",
+    gemColor: "#475569",
+    lineColor: "#475569",
+    shadowColor: "rgba(71, 85, 105, 0.45)",
+    badgeBg: "bg-slate-50 border-slate-300",
+    badgeText: "text-slate-900",
+  },
+  {
+    id: "bronze",
+    name: "Champagne Bronze",
+    bandGradient: "from-amber-200 via-orange-100 to-yellow-600",
+    bandBorder: "#B45309",
+    gemIcon: "💎",
+    gemColor: "#B45309",
+    lineColor: "#B45309",
+    shadowColor: "rgba(180, 83, 9, 0.45)",
+    badgeBg: "bg-amber-50 border-amber-300",
+    badgeText: "text-amber-900",
+  },
+  {
+    id: "fuchsia",
+    name: "Imperial Fuchsia",
+    bandGradient: "from-fuchsia-300 via-pink-100 to-rose-600",
+    bandBorder: "#C026D3",
+    gemIcon: "💎",
+    gemColor: "#C026D3",
+    lineColor: "#C026D3",
+    shadowColor: "rgba(192, 38, 211, 0.45)",
+    badgeBg: "bg-fuchsia-50 border-fuchsia-300",
+    badgeText: "text-fuchsia-900",
+  },
+];
+
+function getRelationshipStyle(relTag = "", sex?: string | null) {
+  const t = relTag.toLowerCase();
+  if (t.includes("पिता") || t.includes("माता") || t.includes("father") || t.includes("mother")) {
+    return {
+      color: "#4F46E5",
+      marker: "url(#arrow-indigo)",
+      bg: "#EEF2FF",
+      border: "#4F46E5",
+      text: "#3730A3",
+    };
+  }
+  if (t.includes("भतीज") || t.includes("भांज") || t.includes("niece") || t.includes("nephew")) {
+    return {
+      color: "#0284C7",
+      marker: "url(#arrow-sky)",
+      bg: "#F0F9FF",
+      border: "#0284C7",
+      text: "#075985",
+    };
+  }
+  if (t.includes("पोत") || t.includes("नात") || t.includes("grandchild")) {
+    return {
+      color: "#7C3AED",
+      marker: "url(#arrow-purple)",
+      bg: "#FAF5FF",
+      border: "#7C3AED",
+      text: "#581C87",
+    };
+  }
+  if (t.includes("बेटी") || t.includes("पुत्री") || t.includes("daughter") || sex === "F") {
+    return {
+      color: "#E11D48",
+      marker: "url(#arrow-rose)",
+      bg: "#FFF1F2",
+      border: "#E11D48",
+      text: "#9F1239",
+    };
+  }
+  return {
+    color: "#D97706",
+    marker: "url(#arrow-gold)",
+    bg: "#FFFBEB",
+    border: "#D97706",
+    text: "#92400E",
+  };
+}
+
 /**
  * Dock INSIDE bubble (overshoot) — 100% connected, zero visible gap.
  * dir "up"   = arrives from above → top edge, then +IN into bubble
@@ -2375,10 +2558,44 @@ function VanshawaliInner() {
     ax: number; ay: number; aw: number;
     bx: number; by: number; bw: number;
     idA: string; idB: string;
+    ring: RingStyle;
   };
   const marriagePairs: MPair[] = [];
   const marriedIdSet = new Set<string>();
   const coupleSeen = new Set<string>();
+  const coupleRingMap = new Map<string, RingStyle>();
+  let nextRingIdx = 0;
+
+  const registerCoupleRing = (id1?: string | null, id2?: string | null) => {
+    if (!id1 || !id2 || id1 === id2) return;
+    let ring = coupleRingMap.get(id1) || coupleRingMap.get(id2);
+    if (!ring) {
+      ring = COUPLE_RING_STYLES[nextRingIdx++ % COUPLE_RING_STYLES.length];
+      coupleRingMap.set(id1, ring);
+      coupleRingMap.set(id2, ring);
+    }
+  };
+
+  // Pre-seed couple ring assignments across the tree
+  if (father && mother) registerCoupleRing(father.id, mother.id);
+  const gpAllNodes = [...(tree?.grandparents || []), ...(tree?.levels_up?.[1] || [])];
+  const pDadaPre = gpAllNodes.find((g) => resolveSex(g.gender, g.relation) === "M" && (!g.via_id || g.via_id === father?.id));
+  const pDadiPre = gpAllNodes.find((g) => resolveSex(g.gender, g.relation) === "F" && (!g.via_id || g.via_id === father?.id));
+  if (pDadaPre && pDadiPre) registerCoupleRing(pDadaPre.id, pDadiPre.id);
+  const mNanaPre = gpAllNodes.find((g) => g.id !== pDadaPre?.id && resolveSex(g.gender, g.relation) === "M");
+  const mNaniPre = gpAllNodes.find((g) => g.id !== pDadiPre?.id && resolveSex(g.gender, g.relation) === "F");
+  if (mNanaPre && mNaniPre) registerCoupleRing(mNanaPre.id, mNaniPre.id);
+
+  if (tree?.centre) {
+    spouses.forEach((s) => registerCoupleRing(tree.centre.id, s.id));
+  }
+  Object.entries(tree?.spouses_of || {}).forEach(([ownerId, spList]) => {
+    spList.forEach((sp) => registerCoupleRing(ownerId, sp.id));
+  });
+  spousePairs.forEach((spSet, ownerId) => {
+    spSet.forEach((spId) => registerCoupleRing(ownerId, spId));
+  });
+
   const pushCouple = (
     a: { id: string; x: number; top: number; w: number },
     b: { id: string; x: number; top: number; w: number }
@@ -2387,10 +2604,13 @@ function VanshawaliInner() {
     const key = [a.id, b.id].sort().join("|");
     if (coupleSeen.has(key)) return;
     coupleSeen.add(key);
+    registerCoupleRing(a.id, b.id);
+    const ring = coupleRingMap.get(a.id) || COUPLE_RING_STYLES[0];
     marriagePairs.push({
       ax: a.x, ay: a.top, aw: a.w,
       bx: b.x, by: b.top, bw: b.w,
       idA: a.id, idB: b.id,
+      ring,
     });
     marriedIdSet.add(a.id);
     marriedIdSet.add(b.id);
@@ -2455,6 +2675,20 @@ function VanshawaliInner() {
     return { unitCx, unitW, leftCx, rightCx };
   };
 
+  type GenerationSection = {
+    id: string;
+    top: number;
+    height: number;
+    title: string;
+    icon: string;
+    count: number;
+    borderCls: string;
+    bgCls: string;
+    headerBgCls: string;
+    badgeCls: string;
+  };
+  const generationSections: GenerationSection[] = [];
+
   let yCursor = 20;
   let centreX = cx0();
   let yMid = 180;
@@ -2473,9 +2707,11 @@ function VanshawaliInner() {
     const cGap = 16;
     const sRowH = 58;
     const lGap = 16;
-    const gGap = 44;
+    const HEADER_OFFSET = 52;
+    const SEC_PAD_BOTTOM = 16;
+    const SEC_MARGIN_BOTTOM = 44;
 
-    yCursor = 24;
+    yCursor = 20;
 
     const placePair = (
       nodeA: Node,
@@ -2566,15 +2802,33 @@ function VanshawaliInner() {
     }
 
     if (gpPairs.length > 0) {
+      const secTop = yCursor;
+      yCursor = secTop + HEADER_OFFSET;
       yGrandparents = yCursor;
+      let gpCount = 0;
       gpPairs.forEach(([a, b, ga, gb, isMar]) => {
-        if (a) placePair(a, b, ga, gb, isMar);
+        if (a) {
+          placePair(a, b, ga, gb, isMar);
+          gpCount += (b ? 2 : 1);
+        }
       });
-      yCursor += gGap;
+      const secH = yCursor - secTop - lGap + SEC_PAD_BOTTOM;
+      generationSections.push({
+        id: "grandparents",
+        top: secTop,
+        height: secH,
+        title: lang === "hi" ? "दादा-दादी / नाना-नानी पीढ़ी" : "Grandparents Generation",
+        icon: "👑",
+        count: gpCount,
+        borderCls: "border-2 border-indigo-300/80 shadow-sm",
+        bgCls: "bg-gradient-to-b from-indigo-50/80 via-indigo-50/30 to-white/90",
+        headerBgCls: "bg-gradient-to-r from-indigo-900 via-indigo-800 to-indigo-950 text-white shadow-md border border-indigo-400/50",
+        badgeCls: "bg-indigo-100 text-indigo-950 font-bold border border-indigo-300",
+      });
+      yCursor = secTop + secH + SEC_MARGIN_BOTTOM;
     }
 
     // 2. Generation +1 (Parents & Uncles/Aunts)
-    yParents = yCursor;
     const parList = [...parents, ...(tree?.uncles_and_aunts || [])];
     const parSeen = new Set<string>();
     const parPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE, boolean][] = [];
@@ -2617,23 +2871,47 @@ function VanshawaliInner() {
     }
 
     if (parPairs.length > 0) {
+      const secTop = yCursor;
+      yCursor = secTop + HEADER_OFFSET;
+      yParents = yCursor;
+      let parCount = 0;
       parPairs.forEach(([a, b, ga, gb, isMar]) => {
-        if (a) placePair(a, b, ga, gb, isMar);
+        if (a) {
+          placePair(a, b, ga, gb, isMar);
+          parCount += (b ? 2 : 1);
+        }
       });
-      yCursor += gGap;
+      const secH = yCursor - secTop - lGap + SEC_PAD_BOTTOM;
+      generationSections.push({
+        id: "parents",
+        top: secTop,
+        height: secH,
+        title: lang === "hi" ? "माता-पिता व वरिष्ठ पीढ़ी" : "Parents & Elders Generation",
+        icon: "🌻",
+        count: parCount,
+        borderCls: "border-2 border-amber-300/90 shadow-sm",
+        bgCls: "bg-gradient-to-b from-amber-50/85 via-amber-50/35 to-white/90",
+        headerBgCls: "bg-gradient-to-r from-amber-800 via-yellow-700 to-amber-900 text-amber-50 shadow-md border border-amber-400/50",
+        badgeCls: "bg-amber-100 text-amber-950 font-bold border border-amber-300",
+      });
+      yCursor = secTop + secH + SEC_MARGIN_BOTTOM;
     }
 
     // 3. Generation 0 (Self & Same Generation)
+    const secTopSelf = yCursor;
+    yCursor = secTopSelf + HEADER_OFFSET;
     ySelf = yCursor;
     yMid = yCursor;
     centreX = cx;
 
+    let selfSibCount = 1;
     const primarySpouse = spouses.find((s) => !posById.has(s.id)) || getSpouseOf(tree?.centre.id || "");
     const selfNode = tree?.centre
       ? { ...tree.centre, relation: "self" }
       : { id: "self", display_name: "Self", relation: "self" };
     if (primarySpouse && primarySpouse.id !== selfNode.id) {
       placePair(selfNode, primarySpouse, "self", "spouse", true);
+      selfSibCount++;
     } else {
       placePair(selfNode, null, "self");
     }
@@ -2676,12 +2954,28 @@ function VanshawaliInner() {
     }
 
     sibPairs.forEach(([a, b, ga, gb, isMar]) => {
-      if (a) placePair(a, b, ga, gb, isMar);
+      if (a) {
+        placePair(a, b, ga, gb, isMar);
+        selfSibCount += (b ? 2 : 1);
+      }
     });
-    yCursor += gGap;
+
+    const secHSelf = yCursor - secTopSelf - lGap + SEC_PAD_BOTTOM;
+    generationSections.push({
+      id: "self_siblings",
+      top: secTopSelf,
+      height: secHSelf,
+      title: lang === "hi" ? "स्वयं, जीवनसाथी व भाई-बहन" : "Self, Spouse & Siblings",
+      icon: "⭐",
+      count: selfSibCount,
+      borderCls: "border-2 border-amber-400 shadow-md ring-2 ring-amber-300/40",
+      bgCls: "bg-gradient-to-b from-amber-100/70 via-yellow-50/40 to-white/90",
+      headerBgCls: "bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 text-amber-950 font-black shadow-md border border-yellow-300",
+      badgeCls: "bg-amber-950 text-amber-100 font-bold border border-amber-800",
+    });
+    yCursor = secTopSelf + secHSelf + SEC_MARGIN_BOTTOM;
 
     // 4. Generation -1 (Children & Nephews/Nieces)
-    yChildren = yCursor;
     const allGenMinus1: Node[] = [];
     const gen1Seen = new Set<string>();
     const addGen1M = (c: Node) => {
@@ -2728,13 +3022,34 @@ function VanshawaliInner() {
       }
     }
 
-    chPairs.forEach(([a, b, ga, gb, isMar]) => {
-      if (a) placePair(a, b, ga, gb, isMar);
-    });
-    yCursor += gGap;
+    if (chPairs.length > 0) {
+      const secTop = yCursor;
+      yCursor = secTop + HEADER_OFFSET;
+      yChildren = yCursor;
+      let chCount = 0;
+      chPairs.forEach(([a, b, ga, gb, isMar]) => {
+        if (a) {
+          placePair(a, b, ga, gb, isMar);
+          chCount += (b ? 2 : 1);
+        }
+      });
+      const secH = yCursor - secTop - lGap + SEC_PAD_BOTTOM;
+      generationSections.push({
+        id: "children",
+        top: secTop,
+        height: secH,
+        title: lang === "hi" ? "पुत्र-पुत्री व अगली पीढ़ी" : "Children & Next Generation",
+        icon: "🌱",
+        count: chCount,
+        borderCls: "border-2 border-emerald-300/90 shadow-sm",
+        bgCls: "bg-gradient-to-b from-emerald-50/85 via-emerald-50/35 to-white/90",
+        headerBgCls: "bg-gradient-to-r from-emerald-800 via-teal-700 to-emerald-900 text-white shadow-md border border-emerald-400/50",
+        badgeCls: "bg-emerald-100 text-emerald-950 font-bold border border-emerald-300",
+      });
+      yCursor = secTop + secH + SEC_MARGIN_BOTTOM;
+    }
 
     // 5. Generation -2 (Grandchildren)
-    yGrandchildren = yCursor;
     const allGenMinus2: Node[] = [];
     const gen2Seen = new Set<string>();
     const addGen2M = (gc: Node) => {
@@ -2776,9 +3091,32 @@ function VanshawaliInner() {
       }
     }
 
-    gcPairs.forEach(([a, b, ga, gb, isMar]) => {
-      if (a) placePair(a, b, ga, gb, isMar);
-    });
+    if (gcPairs.length > 0) {
+      const secTop = yCursor;
+      yCursor = secTop + HEADER_OFFSET;
+      yGrandchildren = yCursor;
+      let gcCount = 0;
+      gcPairs.forEach(([a, b, ga, gb, isMar]) => {
+        if (a) {
+          placePair(a, b, ga, gb, isMar);
+          gcCount += (b ? 2 : 1);
+        }
+      });
+      const secH = yCursor - secTop - lGap + SEC_PAD_BOTTOM;
+      generationSections.push({
+        id: "grandchildren",
+        top: secTop,
+        height: secH,
+        title: lang === "hi" ? "पोता-पोती व नाती-नातिन" : "Grandchildren Generation",
+        icon: "🍼",
+        count: gcCount,
+        borderCls: "border-2 border-purple-300/90 shadow-sm",
+        bgCls: "bg-gradient-to-b from-purple-50/85 via-purple-50/35 to-white/90",
+        headerBgCls: "bg-gradient-to-r from-purple-900 via-fuchsia-800 to-purple-950 text-white shadow-md border border-purple-400/50",
+        badgeCls: "bg-purple-100 text-purple-950 font-bold border border-purple-300",
+      });
+      yCursor = secTop + secH + SEC_MARGIN_BOTTOM;
+    }
     yCursor += 40;
   } else {
     // -----------------------------------------------------------------
@@ -3352,6 +3690,7 @@ function VanshawaliInner() {
     fromId?: string;
     toId?: string;
     relTag?: string;
+    sex?: string | null;
   };
   const linesBlood: BloodLine[] = [];
   type SibLn = { x1: number; y1: number; x2: number; y2: number; key: string; label?: string };
@@ -3364,7 +3703,8 @@ function VanshawaliInner() {
       toId: string,
       origin: { x: number; y: number },
       dest: { x: number; y: number },
-      relTag: string
+      relTag: string,
+      sex?: string | null
     ) => {
       const k = `blood-${fromId}-${toId}`;
       if (bloodDrawn.has(k)) return;
@@ -3378,6 +3718,7 @@ function VanshawaliInner() {
         fromId,
         toId,
         relTag,
+        sex,
       });
     };
 
@@ -3387,11 +3728,11 @@ function VanshawaliInner() {
     if (yGrandparents > 0 && tree) {
       if (father && posById.has(father.id)) {
         const fp = posById.get(father.id)!;
-        addBlood("gp", father.id, { x: cx, y: yGrandparents + BUBBLE_H }, { x: fp.x, y: fp.top }, lang === "hi" ? "पुत्र" : "Son");
+        addBlood("gp", father.id, { x: cx, y: yGrandparents + BUBBLE_H }, { x: fp.x, y: fp.top }, lang === "hi" ? "पुत्र" : "Son", "M");
       }
       if (mother && posById.has(mother.id)) {
         const mp = posById.get(mother.id)!;
-        addBlood("gp", mother.id, { x: cx, y: yGrandparents + BUBBLE_H }, { x: mp.x, y: mp.top }, lang === "hi" ? "पुत्री" : "Daughter");
+        addBlood("gp", mother.id, { x: cx, y: yGrandparents + BUBBLE_H }, { x: mp.x, y: mp.top }, lang === "hi" ? "पुत्री" : "Daughter", "F");
       }
     }
 
@@ -3405,7 +3746,7 @@ function VanshawaliInner() {
       if (sp) {
         const selfSex = resolveSex(tree.centre.gender, tree.centre.relation);
         const selfTag = selfSex === "F" ? (lang === "hi" ? "पुत्री" : "Daughter") : (lang === "hi" ? "पुत्र" : "Son");
-        addBlood(father?.id || mother?.id || "parent", tree.centre.id, { x: parOriginX, y: parOriginY }, { x: sp.x, y: sp.top }, selfTag);
+        addBlood(father?.id || mother?.id || "parent", tree.centre.id, { x: parOriginX, y: parOriginY }, { x: sp.x, y: sp.top }, selfTag, selfSex);
       }
       // Siblings of Self
       const centreSiblingMap = new Map<string, Node>();
@@ -3416,7 +3757,7 @@ function VanshawaliInner() {
         if (!sibPos) return;
         const sSex = resolveSex(s.gender, s.relation);
         const sTag = sSex === "F" ? (lang === "hi" ? "पुत्री" : "Daughter") : (lang === "hi" ? "पुत्र" : "Son");
-        addBlood(father?.id || mother?.id || "parent", s.id, { x: parOriginX, y: parOriginY }, { x: sibPos.x, y: sibPos.top }, sTag);
+        addBlood(father?.id || mother?.id || "parent", s.id, { x: parOriginX, y: parOriginY }, { x: sibPos.x, y: sibPos.top }, sTag, sSex);
       });
     }
 
@@ -3440,7 +3781,7 @@ function VanshawaliInner() {
         if (!cp) return;
         const cSex = resolveSex(c.gender, c.relation);
         const cTag = cSex === "F" ? (lang === "hi" ? "पुत्री" : "Daughter") : (lang === "hi" ? "पुत्र" : "Son");
-        addBlood(tree.centre.id, c.id, { x: selfCoupleOriginX, y: selfCoupleOriginY }, { x: cp.x, y: cp.top }, cTag);
+        addBlood(tree.centre.id, c.id, { x: selfCoupleOriginX, y: selfCoupleOriginY }, { x: cp.x, y: cp.top }, cTag, cSex);
       });
     }
 
@@ -3455,7 +3796,7 @@ function VanshawaliInner() {
           if (!cp) return;
           const cSex = resolveSex(c.gender, c.relation);
           const cTag = cSex === "F" ? (lang === "hi" ? "भतीजी" : "Niece") : (lang === "hi" ? "भतीजा" : "Nephew");
-          addBlood(parentId, c.id, { x: pPos.x, y: pPos.top + BUBBLE_H }, { x: cp.x, y: cp.top }, cTag);
+          addBlood(parentId, c.id, { x: pPos.x, y: pPos.top + BUBBLE_H }, { x: cp.x, y: cp.top }, cTag, cSex);
         });
       });
     }
@@ -3471,7 +3812,7 @@ function VanshawaliInner() {
         const oy = viaPos ? viaPos.top + BUBBLE_H : yChildren + BUBBLE_H;
         const gcSex = resolveSex(gc.gender, gc.relation);
         const gcTag = gcSex === "F" ? (lang === "hi" ? "पोती" : "Granddaughter") : (lang === "hi" ? "पोता" : "Grandson");
-        addBlood(via || "child", gc.id, { x: ox, y: oy }, { x: gcp.x, y: gcp.top }, gcTag);
+        addBlood(via || "child", gc.id, { x: ox, y: oy }, { x: gcp.x, y: gcp.top }, gcTag, gcSex);
       });
     }
   } else {
@@ -3667,6 +4008,9 @@ function VanshawaliInner() {
     }
   }
 
+  if (is2ColActive) {
+    H = Math.max(H, yCursor + 80);
+  }
   if (linesSibling.length) {
     const maxDip = Math.max(...linesSibling.map((l) => Math.max(l.y1, l.y2) + 24));
     H = Math.max(H, maxDip);
@@ -3955,7 +4299,8 @@ function VanshawaliInner() {
     gen?: keyof typeof GEN_STYLE;
     isSelf?: boolean;
   }) => {
-    const isMarried = marriedIdSet.has(n.id);
+    const ring = coupleRingMap.get(n.id);
+    const isMarried = !!ring || marriedIdSet.has(n.id);
     const selfNode = isSelf || n.id === tree?.centre.id || n.relation === "self";
     const relInfo = resolveIndianRelationship(n, tree, lang);
     const rel = extra || relInfo.shortTag;
@@ -3998,8 +4343,8 @@ function VanshawaliInner() {
       badgeCls = "bg-emerald-100/80 text-emerald-900";
     }
 
-    if (isMarried) {
-      borderCls += " border-emerald-400";
+    if (isMarried && ring) {
+      borderCls += " border-amber-300/80";
     }
 
     return (
@@ -4019,43 +4364,89 @@ function VanshawaliInner() {
       >
         <div
           className={cn(
-            "flex items-center gap-2 px-2.5 py-1.5 rounded-xl border backdrop-blur-md shadow-sm group-hover:shadow-md transition-all select-none min-h-[42px]",
+            "flex items-center gap-2 px-2.5 py-1.5 rounded-xl border backdrop-blur-md transition-all select-none min-h-[44px]",
             borderCls,
             bgCls,
             isHighlighted && "ring-4 ring-amber-400 shadow-xl"
           )}
           style={{
-            boxShadow: isMarried
-              ? "0 3px 8px rgba(16,185,129,0.15), 0 1px 2px rgba(0,0,0,0.06)"
+            boxShadow: isMarried && ring
+              ? `0 2px 8px ${ring.shadowColor}, 0 1px 2px rgba(0,0,0,0.05)`
               : "0 2px 6px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
           }}
         >
-          {/* Avatar / Photo */}
-          <div className="relative shrink-0">
-            {n.photo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={n.photo_url}
-                alt=""
-                className="w-7 h-7 rounded-full object-cover border border-white/90 shadow-2xs"
-              />
-            ) : (
+          {/* Avatar / Diamond Ring Bezel */}
+          <div className="relative shrink-0 flex items-center justify-center">
+            {ring ? (
+              /* Diamond Ring for married couples with solitaire diamond mounted at 12 o'clock */
               <div
-                className={cn(
-                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-2xs border border-white/80",
-                  isSelf
-                    ? "bg-amber-400 text-amber-950"
-                    : sex === "F"
-                    ? "bg-rose-200 text-rose-800"
-                    : "bg-indigo-200 text-indigo-800"
-                )}
+                className="relative p-[2.5px] rounded-full transition-all shrink-0 flex items-center justify-center"
+                style={{
+                  background: `linear-gradient(135deg, ${ring.bandBorder}, #FFFFFF 50%, ${ring.bandBorder})`,
+                  boxShadow: `0 0 7px ${ring.shadowColor}`,
+                }}
               >
-                {cleanName.charAt(0).toUpperCase() || "?"}
+                {/* Mounted Solitaire Diamond Gem at 12 o'clock */}
+                <div
+                  className="absolute -top-2 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center select-none"
+                  style={{ fontSize: "11px", lineHeight: 1 }}
+                  title={`${ring.name} Diamond Ring`}
+                >
+                  {ring.gemIcon}
+                </div>
+
+                {n.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={n.photo_url}
+                    alt=""
+                    className="w-7 h-7 rounded-full object-cover border border-white"
+                  />
+                ) : (
+                  <div
+                    className={cn(
+                      "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border border-white",
+                      selfNode
+                        ? "bg-amber-400 text-amber-950"
+                        : sex === "F"
+                        ? "bg-rose-200 text-rose-800"
+                        : "bg-indigo-200 text-indigo-800"
+                    )}
+                  >
+                    {cleanName.charAt(0).toUpperCase() || "?"}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Standard neat circle for unmarried members */
+              <div className="relative shrink-0">
+                {n.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={n.photo_url}
+                    alt=""
+                    className="w-7 h-7 rounded-full object-cover border border-white/90 shadow-2xs"
+                  />
+                ) : (
+                  <div
+                    className={cn(
+                      "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-2xs border border-white/80",
+                      selfNode
+                        ? "bg-amber-400 text-amber-950"
+                        : sex === "F"
+                        ? "bg-rose-200 text-rose-800"
+                        : "bg-indigo-200 text-indigo-800"
+                    )}
+                  >
+                    {cleanName.charAt(0).toUpperCase() || "?"}
+                  </div>
+                )}
               </div>
             )}
+
             {isLate && (
               <span
-                className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center text-[8px] shadow-2xs"
+                className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center text-[8px] shadow-2xs z-20"
                 title={lang === "hi" ? "स्वर्गीय" : "Late"}
               >
                 🕯️
@@ -4083,12 +4474,25 @@ function VanshawaliInner() {
             <div className="flex items-center gap-1 mt-0.5">
               <span
                 className={cn(
-                  "text-[9px] leading-none px-1.5 py-0.5 rounded-full font-medium truncate max-w-[80px]",
+                  "text-[9px] leading-none px-1.5 py-0.5 rounded-full font-medium truncate max-w-[70px]",
                   badgeCls
                 )}
               >
                 {rel}
               </span>
+              {ring && (
+                <span
+                  className={cn(
+                    "text-[8px] leading-none px-1 py-0.5 rounded-full font-bold flex items-center gap-0.5 shrink-0 border",
+                    ring.badgeBg,
+                    ring.badgeText
+                  )}
+                  title={ring.name}
+                >
+                  <span>💍</span>
+                  <span className="truncate max-w-[42px]">{ring.name.split(" ")[0]}</span>
+                </span>
+              )}
               {born && (
                 <span className="text-[9px] text-gray-500 font-medium tabular-nums shrink-0">
                   {born}
@@ -4102,6 +4506,8 @@ function VanshawaliInner() {
   };
 
   const renderMemberCard = (m: Node, roleLabel?: string) => {
+    const ring = coupleRingMap.get(m.id);
+    const isMarried = !!ring || marriedIdSet.has(m.id);
     const isLate = /^(स्व\.|late|sw\.)/i.test(m.display_name) || m.status === "deceased";
     const cleanName = m.display_name.replace(/^(स्व\.|late|sw\.)\s*/i, "");
     const sex = resolveSex(m.gender, m.relation);
@@ -4116,30 +4522,71 @@ function VanshawaliInner() {
         className="flex items-center justify-between p-3 rounded-2xl bg-white border border-gray-100 hover:border-amber-300 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-[0.99]"
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="relative shrink-0">
-            {m.photo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={m.photo_url}
-                alt=""
-                className="w-10 h-10 rounded-full object-cover border border-amber-200"
-              />
-            ) : (
+          <div className="relative shrink-0 flex items-center justify-center">
+            {ring ? (
               <div
-                className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-2xs",
-                  isSelf
-                    ? "bg-amber-400 text-amber-950"
-                    : sex === "F"
-                    ? "bg-rose-100 text-rose-800"
-                    : "bg-indigo-100 text-indigo-800"
-                )}
+                className="relative p-0.5 rounded-full transition-all shrink-0 flex items-center justify-center"
+                style={{
+                  background: `linear-gradient(135deg, ${ring.bandBorder}, #FFFFFF 50%, ${ring.bandBorder})`,
+                  boxShadow: `0 0 6px ${ring.shadowColor}`,
+                }}
               >
-                {cleanName.charAt(0).toUpperCase() || "?"}
+                <div
+                  className="absolute -top-2 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center select-none"
+                  style={{ fontSize: "11px", lineHeight: 1 }}
+                  title={`${ring.name} Diamond Ring`}
+                >
+                  {ring.gemIcon}
+                </div>
+                {m.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={m.photo_url}
+                    alt=""
+                    className="w-10 h-10 rounded-full object-cover border border-white"
+                  />
+                ) : (
+                  <div
+                    className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border border-white",
+                      isSelf
+                        ? "bg-amber-400 text-amber-950"
+                        : sex === "F"
+                        ? "bg-rose-100 text-rose-800"
+                        : "bg-indigo-100 text-indigo-800"
+                    )}
+                  >
+                    {cleanName.charAt(0).toUpperCase() || "?"}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="relative shrink-0">
+                {m.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={m.photo_url}
+                    alt=""
+                    className="w-10 h-10 rounded-full object-cover border border-amber-200"
+                  />
+                ) : (
+                  <div
+                    className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-2xs",
+                      isSelf
+                        ? "bg-amber-400 text-amber-950"
+                        : sex === "F"
+                        ? "bg-rose-100 text-rose-800"
+                        : "bg-indigo-100 text-indigo-800"
+                    )}
+                  >
+                    {cleanName.charAt(0).toUpperCase() || "?"}
+                  </div>
+                )}
               </div>
             )}
             {isLate && (
-              <span className="absolute -bottom-1 -right-1 text-[11px]" title="स्वर्गीय">
+              <span className="absolute -bottom-1 -right-1 text-[11px] z-20" title="स्वर्गीय">
                 🕯️
               </span>
             )}
@@ -4152,6 +4599,19 @@ function VanshawaliInner() {
                 </span>
               )}
               <p className="text-sm font-bold text-gray-900 truncate">{cleanName}</p>
+              {ring && (
+                <span
+                  className={cn(
+                    "text-[9px] leading-none px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5 border",
+                    ring.badgeBg,
+                    ring.badgeText
+                  )}
+                  title={ring.name}
+                >
+                  <span>💍</span>
+                  <span>{ring.name}</span>
+                </span>
+              )}
             </div>
             <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5">
               <span className="text-amber-800 font-medium">
@@ -4670,7 +5130,10 @@ function VanshawaliInner() {
             "flex-1 w-full relative pb-36",
             is2ColActive ? "overflow-visible" : "overflow-hidden touch-none"
           )}
-          style={{ minHeight: is2ColActive ? `${H + 60}px` : "55vh" }}
+          style={{
+            minHeight: is2ColActive ? `${H + 60}px` : "55vh",
+            touchAction: is2ColActive ? "pan-y" : "none",
+          }}
         >
           {/* Compact Zoom Toolbar — Wide Canvas mode only */}
           {!is2ColActive && (
@@ -4718,14 +5181,18 @@ function VanshawaliInner() {
             </div>
           )}
           <div
-            className="relative origin-top-left will-change-transform z-10 contain-layout"
+            className={cn(
+              "relative origin-top-left z-10",
+              !is2ColActive && "will-change-transform contain-layout"
+            )}
             style={{
               width: is2ColActive ? "100%" : W,
               height: H,
               transform: is2ColActive
-                ? `translateX(${Math.max(0, (vw - contentW) / 2)}px)`
+                ? undefined
                 : `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
               transformOrigin: "0 0",
+              touchAction: is2ColActive ? "pan-y" : "none",
             }}
             onTouchStart={(e) => {
               if (is2ColActive) return;
@@ -4825,6 +5292,7 @@ function VanshawaliInner() {
               dragRef.current = null;
             }}
             onWheel={(e) => {
+              if (is2ColActive) return;
               e.preventDefault();
               const rect = wrapRef.current?.getBoundingClientRect();
               const fx = e.clientX - (rect?.left ?? 0);
@@ -4848,40 +5316,89 @@ function VanshawaliInner() {
               }}
             />
 
-            {/* Background Generation Guide Lanes */}
-            <div className="absolute inset-0 pointer-events-none select-none z-0">
-              {laneMarkers.map((lane) => (
+            {/* Generation Section Outlines, Distinct Backgrounds & Prominent Headings */}
+            {is2ColActive && generationSections.map((sec) => (
+              <div
+                key={sec.id}
+                className={cn(
+                  "absolute left-2.5 right-2.5 rounded-3xl border transition-all z-0",
+                  sec.borderCls,
+                  sec.bgCls
+                )}
+                style={{
+                  top: sec.top,
+                  height: sec.height,
+                }}
+              >
+                {/* Prominent Visible Generation Section Heading Banner */}
                 <div
-                  key={lane.label}
-                  className="absolute left-0 right-0 flex items-center px-4"
-                  style={{ top: lane.top }}
+                  className={cn(
+                    "absolute top-2 left-2 right-2 flex items-center justify-between px-3 py-1.5 rounded-2xl border shadow-xs z-10",
+                    sec.headerBgCls
+                  )}
                 >
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/80 backdrop-blur-xs border border-amber-200/60 shadow-2xs">
-                    <span className="text-xs">{lane.icon}</span>
-                    <span className="text-[10px] font-bold text-amber-950/70 tracking-wide uppercase">
-                      {lane.label}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base leading-none drop-shadow-xs">{sec.icon}</span>
+                    <span className="text-xs font-black tracking-wide truncate">
+                      {sec.title}
                     </span>
                   </div>
-                  <div className="flex-1 ml-3 border-t border-dashed border-amber-300/40" />
+                  <span
+                    className={cn(
+                      "text-[10px] leading-none px-2 py-0.5 rounded-full shrink-0 shadow-2xs",
+                      sec.badgeCls
+                    )}
+                  >
+                    {sec.count} {lang === "hi" ? "सदस्य" : "Members"}
+                  </span>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
 
-            <svg className="absolute inset-0 pointer-events-none" width={W} height={H}>
+            {/* Background Generation Guide Lanes (wide canvas mode only) */}
+            {!is2ColActive && (
+              <div className="absolute inset-0 pointer-events-none select-none z-0">
+                {laneMarkers.map((lane) => (
+                  <div
+                    key={lane.label}
+                    className="absolute left-0 right-0 flex items-center px-4"
+                    style={{ top: lane.top }}
+                  >
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/80 backdrop-blur-xs border border-amber-200/60 shadow-2xs">
+                      <span className="text-xs">{lane.icon}</span>
+                      <span className="text-[10px] font-bold text-amber-950/70 tracking-wide uppercase">
+                        {lane.label}
+                      </span>
+                    </div>
+                    <div className="flex-1 ml-3 border-t border-dashed border-amber-300/40" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <svg className="absolute inset-0 pointer-events-none z-10" width={W} height={H}>
               <defs>
-                <marker
-                  id="gold-arrow"
-                  markerWidth="7"
-                  markerHeight="7"
-                  refX="5"
-                  refY="3.5"
-                  orient="auto"
-                >
+                <marker id="arrow-gold" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
                   <path d="M1 1 L6 3.5 L1 6 Z" fill="#D97706" />
+                </marker>
+                <marker id="arrow-indigo" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+                  <path d="M1 1 L6 3.5 L1 6 Z" fill="#4F46E5" />
+                </marker>
+                <marker id="arrow-rose" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+                  <path d="M1 1 L6 3.5 L1 6 Z" fill="#E11D48" />
+                </marker>
+                <marker id="arrow-sky" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+                  <path d="M1 1 L6 3.5 L1 6 Z" fill="#0284C7" />
+                </marker>
+                <marker id="arrow-purple" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+                  <path d="M1 1 L6 3.5 L1 6 Z" fill="#7C3AED" />
+                </marker>
+                <marker id="arrow-emerald" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+                  <path d="M1 1 L6 3.5 L1 6 Z" fill="#059669" />
                 </marker>
               </defs>
 
-              {/* Marriage bonds — emerald dashed line with 💍 Vivah badge */}
+              {/* Marriage bonds — colored with couple's matching ring style */}
               {marriagePairs.map((mp, i) => {
                 const left =
                   mp.ax <= mp.bx
@@ -4896,40 +5413,40 @@ function VanshawaliInner() {
                 const x1 = left.x + left.w / 2;
                 const x2 = right.x - right.w / 2;
                 const midX = (x1 + x2) / 2;
+                const ring = mp.ring || COUPLE_RING_STYLES[0];
 
                 if (is2ColActive) {
                   return (
-                    <g key={`marry-${i}`} className="vansh-marry-float">
+                    <g key={`marry-${i}`}>
                       <line
                         x1={x1}
                         y1={y1}
                         x2={x2}
                         y2={y2}
-                        stroke="#10B981"
+                        stroke={ring.lineColor}
                         strokeWidth={2.4}
                         strokeDasharray="5 3"
                         opacity={0.95}
                       />
                       <g transform={`translate(${midX}, ${y1})`}>
                         <rect
-                          x={-28}
+                          x={-34}
                           y={-9}
-                          width={56}
+                          width={68}
                           height={18}
                           rx={9}
-                          fill="#ECFDF5"
-                          stroke="#10B981"
-                          strokeWidth={1.2}
-                          filter="drop-shadow(0 1px 2px rgba(0,0,0,0.06))"
+                          fill="#FFFFFF"
+                          stroke={ring.lineColor}
+                          strokeWidth={1.3}
                         />
                         <text
                           x={0}
                           y={1}
                           textAnchor="middle"
                           dominantBaseline="central"
-                          fontSize={10}
+                          fontSize={9.5}
                           fontWeight="bold"
-                          fill="#065F46"
+                          fill={ring.lineColor}
                         >
                           💍 {lang === "hi" ? "विवाह" : "Vivah"}
                         </text>
@@ -4941,28 +5458,29 @@ function VanshawaliInner() {
                 const arch = Math.min(18, Math.abs(x2 - x1) * 0.12 + 8);
                 const d = `M${x1} ${y1} C${midX} ${y1 - arch}, ${midX} ${y2 - arch}, ${x2} ${y2}`;
                 return (
-                  <g key={`marry-${i}`} className="vansh-marry-float">
+                  <g key={`marry-${i}`}>
                     <path
                       d={d}
                       fill="none"
-                      stroke={marryLine}
+                      stroke={ring.lineColor}
                       strokeWidth={2.4}
                       strokeLinecap="round"
                       strokeDasharray="6 5"
                       opacity={0.9}
                     />
                     <g transform={`translate(${midX}, ${(y1 + y2) / 2 - arch})`}>
-                      <circle r={9} fill="#ECFDF5" stroke="#10B981" strokeWidth={1.2} />
-                      <text textAnchor="middle" dominantBaseline="central" fontSize={10}>💍</text>
+                      <circle r={10} fill="#FFFFFF" stroke={ring.lineColor} strokeWidth={1.3} />
+                      <text textAnchor="middle" dominantBaseline="central" fontSize={11}>💍</text>
                     </g>
                   </g>
                 );
               })}
 
-              {/* Blood / parent–child lineage lines */}
+              {/* Blood / parent–child lineage lines with relationship-specific themes */}
               {linesBlood
                 .filter((ln) => !ln.key.startsWith("sib-"))
                 .map((ln) => {
+                  const relStyle = getRelationshipStyle(ln.relTag, ln.sex);
                   if (is2ColActive) {
                     const midY = ln.y1 + (ln.y2 - ln.y1) * 0.45;
                     const d = Math.abs(ln.x1 - ln.x2) < 4
@@ -4973,25 +5491,24 @@ function VanshawaliInner() {
                         <path
                           d={d}
                           fill="none"
-                          stroke="#D97706"
+                          stroke={relStyle.color}
                           strokeWidth={2.2}
                           strokeLinecap="round"
                           strokeLinejoin="round"
-                          markerEnd="url(#gold-arrow)"
-                          opacity={0.9}
+                          markerEnd={relStyle.marker}
+                          opacity={0.95}
                         />
                         {ln.relTag && (
                           <g transform={`translate(${ln.x2}, ${ln.y2 - 11})`}>
                             <rect
-                              x={-26}
+                              x={-28}
                               y={-7}
-                              width={52}
+                              width={56}
                               height={14}
                               rx={7}
-                              fill="#FFFBEB"
-                              stroke="#D97706"
+                              fill={relStyle.bg}
+                              stroke={relStyle.border}
                               strokeWidth={1}
-                              filter="drop-shadow(0 1px 2px rgba(0,0,0,0.05))"
                             />
                             <text
                               x={0}
@@ -5000,7 +5517,7 @@ function VanshawaliInner() {
                               dominantBaseline="central"
                               fontSize={8.5}
                               fontWeight="bold"
-                              fill="#92400E"
+                              fill={relStyle.text}
                             >
                               ↓ {ln.relTag}
                             </text>
@@ -5014,10 +5531,10 @@ function VanshawaliInner() {
                       <path
                         d={curve(ln.x1, ln.y1, ln.x2, ln.y2)}
                         fill="none"
-                        stroke={line}
+                        stroke={relStyle.color}
                         strokeWidth={2.4}
                         strokeLinecap="round"
-                        className="vansh-gold-line"
+                        opacity={0.9}
                       />
                       {ln.relTag && (
                         <g transform={`translate(${(ln.x1 + ln.x2) / 2}, ${(ln.y1 + ln.y2) / 2})`}>
@@ -5027,9 +5544,9 @@ function VanshawaliInner() {
                             width={48}
                             height={13}
                             rx={6.5}
-                            fill="#FFFBEB"
-                            stroke="#D97706"
-                            strokeWidth={0.8}
+                            fill={relStyle.bg}
+                            stroke={relStyle.border}
+                            strokeWidth={0.9}
                           />
                           <text
                             x={0}
@@ -5038,7 +5555,7 @@ function VanshawaliInner() {
                             dominantBaseline="central"
                             fontSize={8}
                             fontWeight="bold"
-                            fill="#92400E"
+                            fill={relStyle.text}
                           >
                             {ln.relTag}
                           </text>
@@ -5048,29 +5565,28 @@ function VanshawaliInner() {
                   );
                 })}
 
-              {/* Sibling yellow: solid base + visible traveling highlight */}
+              {/* Sibling amber lines */}
               {linesSibling.map((ln) => {
                 const midX = (ln.x1 + ln.x2) / 2;
                 const dip = Math.max(ln.y1, ln.y2) + 18;
                 const d = `M${ln.x1} ${ln.y1} Q${midX} ${dip} ${ln.x2} ${ln.y2}`;
                 return (
-                  <g key={ln.key} className="vansh-sib-float">
+                  <g key={ln.key}>
                     <path
                       d={d}
                       fill="none"
-                      stroke="#F9A825"
+                      stroke="#F59E0B"
                       strokeWidth={2.4}
                       strokeLinecap="round"
-                      opacity={0.85}
-                      className="vansh-sib-base"
+                      opacity={0.9}
                     />
                     <path
                       d={d}
                       fill="none"
-                      stroke="#FFF59D"
-                      strokeWidth={3.2}
+                      stroke="#FEF08A"
+                      strokeWidth={1.4}
+                      strokeDasharray="8 14"
                       strokeLinecap="round"
-                      className="vansh-sib-travel"
                     />
                   </g>
                 );
@@ -5098,7 +5614,7 @@ function VanshawaliInner() {
                     filter:
                       moveTargetId === pl.n.id
                         ? "drop-shadow(0 10px 18px rgba(16,185,129,0.45))"
-                        : "drop-shadow(0 8px 12px rgba(0,0,0,0.18))",
+                        : undefined,
                     outline:
                       moveTargetId === pl.n.id ? "2px dashed rgba(16,185,129,0.7)" : undefined,
                     outlineOffset: 4,
@@ -5203,7 +5719,7 @@ function VanshawaliInner() {
                 filter:
                   moveTargetId === tree.centre.id
                     ? "drop-shadow(0 10px 18px rgba(16,185,129,0.45))"
-                    : "drop-shadow(0 10px 16px rgba(0,0,0,0.2))",
+                    : undefined,
                 outline:
                   moveTargetId === tree.centre.id
                     ? "2px dashed rgba(16,185,129,0.7)"
