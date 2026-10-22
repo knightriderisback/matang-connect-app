@@ -43,7 +43,7 @@
  * ═══════════════════════════════════════════════════════════════
  */
 import { FeatureGate } from "@/components/shared/FeatureGate";
-import { useCallback, useEffect, useMemo, useState, Suspense, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useState, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/Toaster";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
@@ -1912,7 +1912,10 @@ function VanshawaliInner() {
   }, [tree]);
 
   const load = useCallback(() => {
-    if (!rootId) return;
+    if (!rootId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     fetch(`/api/vanshawali?userId=${rootId}`)
       .then((r) => r.json())
@@ -2261,6 +2264,32 @@ function VanshawaliInner() {
   const placed: Placed[] = [];
   const posById = new Map<string, { x: number; top: number; w: number }>();
 
+  // EXTRA: marriage pairs — every husband–wife from spouses_of + centre
+  type MPair = {
+    ax: number; ay: number; aw: number;
+    bx: number; by: number; bw: number;
+    idA: string; idB: string;
+  };
+  const marriagePairs: MPair[] = [];
+  const marriedIdSet = new Set<string>();
+  const coupleSeen = new Set<string>();
+  const pushCouple = (
+    a: { id: string; x: number; top: number; w: number },
+    b: { id: string; x: number; top: number; w: number }
+  ) => {
+    if (a.id === b.id) return;
+    const key = [a.id, b.id].sort().join("|");
+    if (coupleSeen.has(key)) return;
+    coupleSeen.add(key);
+    marriagePairs.push({
+      ax: a.x, ay: a.top, aw: a.w,
+      bx: b.x, by: b.top, bw: b.w,
+      idA: a.id, idB: b.id,
+    });
+    marriedIdSet.add(a.id);
+    marriedIdSet.add(b.id);
+  };
+
   /** Tentative width — grows if content needs more space (L/R extend) */
   let contentW = Math.max(vw, 360);
   const cx0 = () => contentW / 2;
@@ -2438,7 +2467,9 @@ function VanshawaliInner() {
     centreX = cx;
 
     const primarySpouse = spouses.find((s) => !posById.has(s.id));
-    const selfNode = tree ? { ...tree.centre, relation: "self" } : { id: "self", display_name: "Self", relation: "self" };
+    const selfNode = tree?.centre
+      ? { ...tree.centre, relation: "self" }
+      : { id: "self", display_name: "Self", relation: "self" };
     if (primarySpouse) {
       placePair(selfNode, primarySpouse, "self", "spouse");
     } else {
@@ -2448,7 +2479,9 @@ function VanshawaliInner() {
     // Deduplicate all siblings of centre
     const centreSiblingMap = new Map<string, Node>();
     (tree?.siblings || []).forEach((s) => centreSiblingMap.set(s.id, s));
-    (tree?.siblings_of?.[tree.centre.id] || []).forEach((s) => centreSiblingMap.set(s.id, s));
+    if (tree?.centre) {
+      (tree?.siblings_of?.[tree.centre.id] || []).forEach((s) => centreSiblingMap.set(s.id, s));
+    }
     const allSiblingsList = Array.from(centreSiblingMap.values());
 
     allSiblingsList.forEach((s) => {
@@ -2584,7 +2617,9 @@ function VanshawaliInner() {
     // Deduplicate all siblings of centre
     const centreSiblingMap = new Map<string, Node>();
     siblings.forEach((s) => centreSiblingMap.set(s.id, s));
-    (tree?.siblings_of?.[tree.centre.id] || []).forEach((s) => centreSiblingMap.set(s.id, s));
+    if (tree?.centre) {
+      (tree?.siblings_of?.[tree.centre.id] || []).forEach((s) => centreSiblingMap.set(s.id, s));
+    }
     const allSiblings = Array.from(centreSiblingMap.values());
 
     type Gen0Unit = {
@@ -3220,7 +3255,7 @@ function VanshawaliInner() {
     };
 
     // --- Group 1: Self + Self siblings ---
-    const selfGroup = [tree.centre.id, ...siblings.map((s) => s.id)];
+    const selfGroup = tree?.centre ? [tree.centre.id, ...siblings.map((s) => s.id)] : [];
     linkSiblingSet(selfGroup);
     parents.forEach((par) => {
       selfGroup.forEach((cid) => goldParentChild(par.id, cid));
@@ -3273,32 +3308,6 @@ function VanshawaliInner() {
     H = Math.max(H, maxDip);
   }
   canvasSizeRef.current = { W, H, cx: W / 2, cy: H / 2 };
-
-  // EXTRA: marriage pairs — every husband–wife from spouses_of + centre
-  type MPair = {
-    ax: number; ay: number; aw: number;
-    bx: number; by: number; bw: number;
-    idA: string; idB: string;
-  };
-  const marriagePairs: MPair[] = [];
-  const marriedIdSet = new Set<string>();
-  const pushCouple = (
-    a: { id: string; x: number; top: number; w: number },
-    b: { id: string; x: number; top: number; w: number }
-  ) => {
-    if (a.id === b.id) return;
-    const key = [a.id, b.id].sort().join("|");
-    if ((pushCouple as any)._seen?.has(key)) return;
-    if (!(pushCouple as any)._seen) (pushCouple as any)._seen = new Set();
-    (pushCouple as any)._seen.add(key);
-    marriagePairs.push({
-      ax: a.x, ay: a.top, aw: a.w,
-      bx: b.x, by: b.top, bw: b.w,
-      idA: a.id, idB: b.id,
-    });
-    marriedIdSet.add(a.id);
-    marriedIdSet.add(b.id);
-  };
 
   if (tree) {
     const so = tree.spouses_of || {};
@@ -4097,7 +4106,36 @@ function VanshawaliInner() {
         </div>
       </div>
 
-      {loading && <p className="text-center text-gray-400 py-20">Loading…</p>}
+      {loading && (
+        <div className="flex-1 flex flex-col items-center justify-center py-24 space-y-3">
+          <div className="w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs text-amber-900 font-semibold">{lang === "hi" ? "वंशावली लोड हो रही है..." : "Loading Vanshawali..."}</p>
+        </div>
+      )}
+
+      {/* View: Empty State when No Tree Found */}
+      {!loading && !tree && (
+        <div className="flex-1 max-w-md mx-auto w-full px-4 py-16 text-center space-y-4">
+          <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto text-3xl font-bold shadow-xs">
+            🌳
+          </div>
+          <h2 className="text-base font-bold text-gray-900">
+            {lang === "hi" ? "वंशावली उपलब्ध नहीं है" : "Vanshawali Not Found"}
+          </h2>
+          <p className="text-xs text-gray-600 leading-relaxed max-w-xs mx-auto">
+            {lang === "hi"
+              ? "परिवार का विवरण लोड करने में समस्या आई या आपकी वंशावली अभी शुरू नहीं हुई है।"
+              : "Unable to load family tree or it has not been created yet."}
+          </p>
+          <button
+            type="button"
+            onClick={load}
+            className="px-5 py-2 rounded-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+          >
+            {lang === "hi" ? "पुनः लोड करें (Retry)" : "Retry"}
+          </button>
+        </div>
+      )}
 
       {/* View 1: Family List View (Clean & Mobile-Friendly) */}
       {!loading && tree && viewMode === "list" && (
@@ -5517,11 +5555,60 @@ function VanshawaliInner() {
   );
 }
 
+class VanshawaliErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Vanshawali error caught:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center space-y-4">
+          <div className="w-14 h-14 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-2xl font-bold shadow-xs">
+            ⚠️
+          </div>
+          <h2 className="text-base font-bold text-gray-900">
+            वंशावली प्रदर्शित करने में समस्या आई
+          </h2>
+          <p className="text-xs text-gray-500 max-w-sm">
+            {this.state.error?.message || "कृपया पेज को पुनः लोड करें।"}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              window.location.reload();
+            }}
+            className="px-5 py-2.5 rounded-full bg-amber-500 text-white text-xs font-bold shadow-xs hover:bg-amber-600 active:scale-95 transition-all cursor-pointer"
+          >
+            पेज रीफ्रेश करें (Reload)
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function VanshawaliPage() {
   return (
     <FeatureGate moduleKey="vanshawali">
       <Suspense fallback={<div className="p-8 text-center text-gray-400">Loading…</div>}>
-        <VanshawaliInner />
+        <VanshawaliErrorBoundary>
+          <VanshawaliInner />
+        </VanshawaliErrorBoundary>
       </Suspense>
     </FeatureGate>
   );
