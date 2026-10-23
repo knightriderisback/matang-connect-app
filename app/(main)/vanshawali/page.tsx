@@ -692,18 +692,27 @@ function RopeKnot({
   x,
   y,
   isBottom = false,
+  corner,
 }: {
   x: number;
   y: number;
   isBottom?: boolean;
+  corner?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
 }) {
+  let rot = 0;
+  if (corner === "top-left") rot = 30;
+  else if (corner === "top-right") rot = -30;
+  else if (corner === "bottom-left") rot = 150;
+  else if (corner === "bottom-right") rot = -150;
+  else if (isBottom) rot = 180;
+
   return (
     <g
       transform={`translate(${x}, ${y})`}
       style={{ filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.32))" }}
     >
-      {/* Realistic tied rope knot physically tagging ON TOP of the card edge */}
-      <g transform={isBottom ? "rotate(180)" : undefined}>
+      {/* Realistic tied rope knot physically tagging ON TOP of the card corner */}
+      <g transform={rot !== 0 ? `rotate(${rot})` : undefined}>
         {/* Soft shadow cast directly onto card surface */}
         <ellipse cx={0} cy={1.5} rx={7} ry={3} fill="rgba(0,0,0,0.18)" />
 
@@ -831,7 +840,7 @@ function RopeKnot({
 
 /**
  * Authentic interlocking Hunter's Knot (Riggers' Bend) uniting husband and wife.
- * Features two intertwined sacred thread bights, opposing working tails, and golden wedding seal.
+ * Rendered in sacred golden thread texture (Suvarna Gathbandhan Sutra) without animation.
  */
 function HuntersKnot({
   x,
@@ -845,56 +854,70 @@ function HuntersKnot({
   return (
     <g
       transform={`translate(${x}, ${y})`}
-      style={{ filter: "drop-shadow(0 2px 3.5px rgba(0,0,0,0.32))" }}
+      style={{ filter: "drop-shadow(0 2px 3.5px rgba(0,0,0,0.35))" }}
     >
       {/* Soft shadow under knot */}
       <ellipse cx={0} cy={1.5} rx={8} ry={4} fill="rgba(0,0,0,0.22)" />
 
-      {/* Left Interlocking Bight / Loop (from Husband's thread) */}
+      {/* Left Interlocking Bight / Loop (from Husband's golden thread) */}
       <path
         d="M -6,0 C -4.5,-4 -1.5,-4.5 1,-2 C 3.5,0.5 1.5,4 -2,3.5 C -4.5,3 -5,0.5 -2.5,-1"
         fill="none"
-        stroke="#991B1B"
+        stroke="#78350F"
         strokeWidth={2.8}
         strokeLinecap="round"
       />
       <path
         d="M -6,0 C -4.5,-4 -1.5,-4.5 1,-2 C 3.5,0.5 1.5,4 -2,3.5 C -4.5,3 -5,0.5 -2.5,-1"
         fill="none"
-        stroke="#DC2626"
+        stroke="#D97706"
         strokeWidth={2.0}
+        strokeLinecap="round"
+      />
+      <path
+        d="M -6,0 C -4.5,-4 -1.5,-4.5 1,-2 C 3.5,0.5 1.5,4 -2,3.5 C -4.5,3 -5,0.5 -2.5,-1"
+        fill="none"
+        stroke="#F59E0B"
+        strokeWidth={1.2}
         strokeLinecap="round"
       />
       {/* Golden strand twist in left loop */}
       <path
         d="M -5.5,-0.5 C -4,-3.5 -1.5,-3.8 0.5,-1.8 C 2.5,0.2 1,3.2 -1.8,2.8"
         fill="none"
-        stroke="#F59E0B"
+        stroke="#FEF3C7"
         strokeWidth={0.8}
         strokeDasharray="2 3"
         strokeLinecap="round"
       />
 
-      {/* Right Interlocking Bight / Loop (from Wife's thread) */}
+      {/* Right Interlocking Bight / Loop (from Wife's golden thread) */}
       <path
         d="M 6,0 C 4.5,4 1.5,4.5 -1,2 C -3.5,-0.5 -1.5,-4 2,-3.5 C 4.5,-3 5,-0.5 2.5,1"
         fill="none"
-        stroke="#991B1B"
+        stroke="#78350F"
         strokeWidth={2.8}
         strokeLinecap="round"
       />
       <path
         d="M 6,0 C 4.5,4 1.5,4.5 -1,2 C -3.5,-0.5 -1.5,-4 2,-3.5 C 4.5,-3 5,-0.5 2.5,1"
         fill="none"
-        stroke="#DC2626"
+        stroke="#D97706"
         strokeWidth={2.0}
+        strokeLinecap="round"
+      />
+      <path
+        d="M 6,0 C 4.5,4 1.5,4.5 -1,2 C -3.5,-0.5 -1.5,-4 2,-3.5 C 4.5,-3 5,-0.5 2.5,1"
+        fill="none"
+        stroke="#F59E0B"
+        strokeWidth={1.2}
         strokeLinecap="round"
       />
       {/* Golden strand twist in right loop */}
       <path
         d="M 5.5,0.5 C 4,3.5 1.5,3.8 -0.5,1.8 C -2.5,-0.2 -1,-3.2 1.8,-2.8"
         fill="none"
-        stroke="#F59E0B"
+        stroke="#FEF3C7"
         strokeWidth={0.8}
         strokeDasharray="2 3"
         strokeLinecap="round"
@@ -904,58 +927,185 @@ function HuntersKnot({
       <path
         d="M -2.5,-1.5 Q 0,0 2.5,1.5"
         fill="none"
-        stroke="#7F1D1D"
+        stroke="#78350F"
         strokeWidth={3.0}
         strokeLinecap="round"
       />
       <path
         d="M -2.5,-1.5 Q 0,0 2.5,1.5"
         fill="none"
-        stroke="#EF4444"
+        stroke="#F59E0B"
         strokeWidth={2.0}
+        strokeLinecap="round"
+      />
+      <path
+        d="M -2,-1 Q 0,0 2,1"
+        fill="none"
+        stroke="#FFFBEB"
+        strokeWidth={0.8}
         strokeLinecap="round"
       />
 
       {/* Sacred Gathbandhan Wedding Ring Seal matching couple's rings */}
-      <ellipse cx={0} cy={0} rx={2.4} ry={2.4} fill={ring?.bandBorder || "#F59E0B"} stroke="#92400E" strokeWidth={0.6} />
-      <circle cx={0} cy={0} r={1.0} fill={ring?.gemColor || "#FEF3C7"} />
+      <ellipse cx={0} cy={0} rx={2.4} ry={2.4} fill={ring?.bandBorder || "#D97706"} stroke="#78350F" strokeWidth={0.6} />
+      <circle cx={0} cy={0} r={1.0} fill={ring?.gemColor || "#F59E0B"} />
 
       {/* Working thread tail ends emerging at opposite diagonals (Hunter's Knot signature) */}
       {/* Top Tail (Husband's end) */}
       <path
         d="M -1.5,-2.5 C -2.5,-5 -3.8,-6.5 -4.5,-8"
         fill="none"
-        stroke="#991B1B"
+        stroke="#78350F"
         strokeWidth={1.6}
         strokeLinecap="round"
       />
       <path
         d="M -1.5,-2.5 C -2.5,-5 -3.8,-6.5 -4.5,-8"
         fill="none"
-        stroke="#DC2626"
+        stroke="#F59E0B"
         strokeWidth={1.1}
         strokeLinecap="round"
       />
-      <line x1={-4.5} y1={-8} x2={-5.3} y2={-9} stroke="#F59E0B" strokeWidth={0.6} strokeLinecap="round" />
-      <line x1={-4.5} y1={-8} x2={-3.8} y2={-9.2} stroke="#FCA5A5" strokeWidth={0.6} strokeLinecap="round" />
+      <line x1={-4.5} y1={-8} x2={-5.3} y2={-9} stroke="#FEF3C7" strokeWidth={0.6} strokeLinecap="round" />
+      <line x1={-4.5} y1={-8} x2={-3.8} y2={-9.2} stroke="#FDE68A" strokeWidth={0.6} strokeLinecap="round" />
 
       {/* Bottom Tail (Wife's end) */}
       <path
         d="M 1.5,2.5 C 2.5,5 3.8,6.5 4.5,8"
         fill="none"
-        stroke="#991B1B"
+        stroke="#78350F"
         strokeWidth={1.6}
         strokeLinecap="round"
       />
       <path
         d="M 1.5,2.5 C 2.5,5 3.8,6.5 4.5,8"
         fill="none"
-        stroke="#DC2626"
+        stroke="#F59E0B"
         strokeWidth={1.1}
         strokeLinecap="round"
       />
-      <line x1={4.5} y1={8} x2={3.8} y2={9.2} stroke="#F59E0B" strokeWidth={0.6} strokeLinecap="round" />
-      <line x1={4.5} y1={8} x2={5.3} y2={9} stroke="#FCA5A5" strokeWidth={0.6} strokeLinecap="round" />
+      <line x1={4.5} y1={8} x2={3.8} y2={9.2} stroke="#FEF3C7" strokeWidth={0.6} strokeLinecap="round" />
+      <line x1={4.5} y1={8} x2={5.3} y2={9} stroke="#FDE68A" strokeWidth={0.6} strokeLinecap="round" />
+    </g>
+  );
+}
+
+/**
+ * Sacred Golden Ring-Tag Knot tying onto the Solitaire Diamond Ring on the avatar.
+ * Anchors the golden gathbandhan marriage thread directly to the member's ring.
+ */
+function RingTagKnot({
+  x,
+  y,
+  ring,
+}: {
+  x: number;
+  y: number;
+  ring?: RingStyle;
+}) {
+  return (
+    <g
+      transform={`translate(${x}, ${y})`}
+      style={{ filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.38))" }}
+    >
+      {/* Soft shadow on avatar ring */}
+      <circle cx={0} cy={1} r={6} fill="rgba(0,0,0,0.25)" />
+
+      {/* Outer Golden Binding Hitch Loop embracing the ring band */}
+      <circle
+        cx={0}
+        cy={0}
+        r={5.2}
+        fill="none"
+        stroke="#78350F"
+        strokeWidth={2.0}
+      />
+      <circle
+        cx={0}
+        cy={0}
+        r={5.2}
+        fill="none"
+        stroke="#F59E0B"
+        strokeWidth={1.4}
+      />
+      <circle
+        cx={0}
+        cy={0}
+        r={5.2}
+        fill="none"
+        stroke="#FEF3C7"
+        strokeWidth={0.7}
+        strokeDasharray="2 2"
+      />
+
+      {/* Knotted hitch turn */}
+      <path
+        d="M -3.5,2 Q 0,-3.5 3.5,2"
+        fill="none"
+        stroke="#78350F"
+        strokeWidth={2.4}
+        strokeLinecap="round"
+      />
+      <path
+        d="M -3.5,2 Q 0,-3.5 3.5,2"
+        fill="none"
+        stroke="#D97706"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+      />
+      <path
+        d="M -2,0 Q 0,-2 2,0"
+        fill="none"
+        stroke="#FEF3C7"
+        strokeWidth={0.8}
+        strokeLinecap="round"
+      />
+
+      {/* Jewel Eyelet Stud matching the couple's diamond gem */}
+      <circle
+        cx={0}
+        cy={0}
+        r={2.2}
+        fill={ring?.gemColor || "#F59E0B"}
+        stroke="#78350F"
+        strokeWidth={0.6}
+      />
+      <circle cx={-0.6} cy={-0.6} r={0.7} fill="#FFFFFF" />
+
+      {/* Frayed Golden Thread Tail Ends */}
+      <path
+        d="M -1.2,3.8 C -2.2,6 -3.5,8 -4.2,10"
+        fill="none"
+        stroke="#78350F"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      <path
+        d="M -1.2,3.8 C -2.2,6 -3.5,8 -4.2,10"
+        fill="none"
+        stroke="#F59E0B"
+        strokeWidth={1.0}
+        strokeLinecap="round"
+      />
+      <line x1={-4.2} y1={10} x2={-4.8} y2={11.2} stroke="#FEF3C7" strokeWidth={0.6} />
+      <line x1={-4.2} y1={10} x2={-3.6} y2={11.4} stroke="#FDE68A" strokeWidth={0.6} />
+
+      <path
+        d="M 1.2,3.8 C 2.2,6 3.5,8 4.2,10"
+        fill="none"
+        stroke="#78350F"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      <path
+        d="M 1.2,3.8 C 2.2,6 3.5,8 4.2,10"
+        fill="none"
+        stroke="#F59E0B"
+        strokeWidth={1.0}
+        strokeLinecap="round"
+      />
+      <line x1={4.2} y1={10} x2={3.6} y2={11.4} stroke="#FEF3C7" strokeWidth={0.6} />
+      <line x1={4.2} y1={10} x2={4.8} y2={11.2} stroke="#FDE68A" strokeWidth={0.6} />
     </g>
   );
 }
@@ -4483,17 +4633,24 @@ function VanshawaliInner() {
     x: number;
     y: number;
     isBottom?: boolean;
+    corner?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   };
 
   const bloodSegments: BloodSegment[] = [];
   const bloodKnots: RopeKnotAnchor[] = [];
   const knotSeen = new Set<string>();
 
-  const addKnot = (id: string, x: number, y: number, isBottom: boolean) => {
+  const addKnot = (
+    id: string,
+    x: number,
+    y: number,
+    isBottom: boolean,
+    corner?: "top-left" | "top-right" | "bottom-left" | "bottom-right"
+  ) => {
     const k = `${id}-${isBottom ? "bot" : "top"}`;
     if (knotSeen.has(k)) return;
     knotSeen.add(k);
-    bloodKnots.push({ key: `knot-${k}`, x, y, isBottom });
+    bloodKnots.push({ key: `knot-${k}`, x, y, isBottom, corner });
   };
 
   type SibLn = { x1: number; y1: number; x2: number; y2: number; key: string; label?: string };
@@ -4527,14 +4684,32 @@ function VanshawaliInner() {
     const cardH = is2ColActive ? 66 : BUBBLE_H;
     const cx = is2ColActive ? W / 2 : (p2 ? (p1.pos.x + p2.pos.x) / 2 : p1.pos.x);
 
-    // 1. Natural dock points at bottom of parent card(s)
-    const off1 = getDockOffset(p1.id, false);
-    const p1Bottom = { x: p1.pos.x + off1, y: p1.pos.top + cardH };
-    const p2Bottom = p2 ? { x: p2.pos.x + getDockOffset(p2.id, false), y: p2.pos.top + cardH } : null;
+    // Precise corner dock router:
+    // Upward connection (isTop): Right side members -> Top-Right corner; Left side members -> Top-Left corner
+    // Downward connection (isBottom): Right side members -> Bottom-Right corner; Left side members -> Bottom-Left corner
+    const getCornerDock = (
+      id: string,
+      pos: { x: number; top: number; w: number },
+      isTop: boolean
+    ) => {
+      const isRightSide = pos.x >= cx;
+      const cornerInset = 6;
+      const x = isRightSide
+        ? pos.x + pos.w / 2 - cornerInset
+        : pos.x - pos.w / 2 + cornerInset;
+      const y = isTop ? pos.top + 2 : pos.top + cardH - 2;
+      const corner: "top-left" | "top-right" | "bottom-left" | "bottom-right" = isTop
+        ? (isRightSide ? "top-right" : "top-left")
+        : (isRightSide ? "bottom-right" : "bottom-left");
 
-    // Sacred tied thread knot at parent origin(s)
-    addKnot(p1.id, p1Bottom.x, p1Bottom.y, true);
-    if (p2 && p2Bottom) addKnot(p2.id, p2Bottom.x, p2Bottom.y, true);
+      addKnot(id, x, y, !isTop, corner);
+      return { x, y, isRightSide, corner };
+    };
+
+    // 1. Bottom corner dock points at parent card(s)
+    // Left parent -> bottom-left corner; Right parent -> bottom-right corner
+    const p1Bottom = getCornerDock(p1.id, p1.pos, false);
+    const p2Bottom = p2 ? getCornerDock(p2.id, p2.pos, false) : null;
 
     // 2. Junction coordinates in inter-generation corridor
     let jx = cx;
@@ -4572,13 +4747,11 @@ function VanshawaliInner() {
       });
     }
 
-    // 5. Junction to each Child (with dedicated untangled lanes & sacred thread knot)
+    // 5. Junction to each Child (with dedicated untangled lanes & sacred thread corner knot)
     validChildren.forEach((c) => {
-      const cOff = getDockOffset(c.id, true);
-      const cTop = { x: c.pos.x + cOff, y: c.pos.top };
-
-      // Sacred tied thread knot at destination child card top
-      addKnot(c.id, cTop.x, cTop.y, false);
+      // Top corner dock point at destination child card
+      // Left child -> top-left corner; Right child -> top-right corner
+      const cTop = getCornerDock(c.id, c.pos, true);
 
       const isMultiRow = is2ColActive && c.pos.top > minCTop + 30;
       const isLeftCol = c.pos.x < cx;
@@ -6035,92 +6208,7 @@ function VanshawaliInner() {
                 </marker>
               </defs>
 
-              {/* Marriage bonds — sacred Mauli/Kalava braided thread uniting husband & wife rings with Hunter's Knot */}
-              {marriagePairs.map((mp, i) => {
-                const left =
-                  mp.ax <= mp.bx
-                    ? { x: mp.ax, y: mp.ay, w: mp.aw }
-                    : { x: mp.bx, y: mp.by, w: mp.bw };
-                const right =
-                  mp.ax <= mp.bx
-                    ? { x: mp.bx, y: mp.by, w: mp.bw }
-                    : { x: mp.ax, y: mp.ay, w: mp.aw };
-                const y1 = left.y + (is2ColActive ? 33 : BUBBLE_H / 2);
-                const y2 = right.y + (is2ColActive ? 33 : BUBBLE_H / 2);
-                const x1 = left.x + left.w / 2;
-                const x2 = right.x - right.w / 2;
-                const midX = (x1 + x2) / 2;
-                const midY = (y1 + y2) / 2;
 
-                const isHorizontal = x2 - x1 >= 10;
-                const sag = isHorizontal ? Math.min(6, Math.max(2, (x2 - x1) * 0.05)) : 0;
-                const kx = isHorizontal ? midX : Math.max(left.x + left.w / 2, right.x + right.w / 2) + 24;
-                const ky = isHorizontal ? midY + sag : midY;
-
-                const dLeft = isHorizontal
-                  ? `M ${x1} ${y1} Q ${(x1 + kx) / 2} ${ky + sag * 0.5} ${kx} ${ky}`
-                  : `M ${x1} ${y1} C ${kx} ${y1}, ${kx} ${ky - 10}, ${kx} ${ky}`;
-                const dRight = isHorizontal
-                  ? `M ${kx} ${ky} Q ${(kx + x2) / 2} ${ky + sag * 0.5} ${x2} ${y2}`
-                  : `M ${kx} ${ky} C ${kx} ${ky + 10}, ${kx} ${y2}, ${x2} ${y2}`;
-
-                return (
-                  <g key={`marry-${i}`}>
-                    {/* Shadow under sacred thread */}
-                    <path
-                      d={`${dLeft} ${dRight}`}
-                      fill="none"
-                      stroke="rgba(0,0,0,0.18)"
-                      strokeWidth={3.6}
-                      strokeLinecap="round"
-                    />
-                    {/* Base arterial red sacred thread (Mauli deep crimson) */}
-                    <path
-                      d={`${dLeft} ${dRight}`}
-                      fill="none"
-                      stroke="#991B1B"
-                      strokeWidth={2.6}
-                      strokeLinecap="round"
-                    />
-                    {/* Living vermilion thread core */}
-                    <path
-                      d={`${dLeft} ${dRight}`}
-                      fill="none"
-                      stroke="#DC2626"
-                      strokeWidth={1.8}
-                      strokeLinecap="round"
-                    />
-                    {/* Braided golden twist thread (sacred Kalava dhaga texture) */}
-                    <path
-                      d={`${dLeft} ${dRight}`}
-                      fill="none"
-                      stroke="#F59E0B"
-                      strokeWidth={0.9}
-                      strokeDasharray="3 4"
-                      strokeLinecap="round"
-                    />
-                    {/* Subtle warm thread highlight */}
-                    <path
-                      d={`${dLeft} ${dRight}`}
-                      fill="none"
-                      stroke="#FEF3C7"
-                      strokeWidth={0.5}
-                      strokeDasharray="1 6"
-                      strokeLinecap="round"
-                      opacity={0.8}
-                    />
-
-                    {/* Golden tie anchor rings at card connection points */}
-                    <circle cx={x1} cy={y1} r={2.8} fill="#F59E0B" stroke="#92400E" strokeWidth={0.8} />
-                    <circle cx={x1} cy={y1} r={1.2} fill="#FEF3C7" />
-                    <circle cx={x2} cy={y2} r={2.8} fill="#F59E0B" stroke="#92400E" strokeWidth={0.8} />
-                    <circle cx={x2} cy={y2} r={1.2} fill="#FEF3C7" />
-
-                    {/* Central Hunter's Knot interlocking the couple's rings */}
-                    <HuntersKnot x={kx} y={ky} ring={mp.ring} />
-                  </g>
-                );
-              })}
 
               {/* Bloodline Living Curvy Segments (Parents <-> Children) with Heartbeat Blood Pumping */}
               {bloodSegments.map((seg) => (
@@ -6402,18 +6490,119 @@ function VanshawaliInner() {
               return null;
             })}
 
-            {/* Realistic Rope Knots Overlay Layer (z-30) — Physically tags ON TOP of card borders */}
+            {/* Realistic Rope Knots & Sacred Golden Marriage Threads Overlay Layer (z-30) — Physically tags ON TOP of card corners & avatar rings */}
             <svg
               className="absolute inset-0 pointer-events-none z-30 overflow-visible"
               width={W}
               height={H}
             >
+              {/* Marriage bonds — sacred golden thread (NO red/blood color, NO animation) uniting husband & wife rings */}
+              {marriagePairs.map((mp, i) => {
+                const left =
+                  mp.ax <= mp.bx
+                    ? { x: mp.ax, y: mp.ay, w: mp.aw, id: mp.idA }
+                    : { x: mp.bx, y: mp.by, w: mp.bw, id: mp.idB };
+                const right =
+                  mp.ax <= mp.bx
+                    ? { x: mp.bx, y: mp.by, w: mp.bw, id: mp.idB }
+                    : { x: mp.ax, y: mp.ay, w: mp.aw, id: mp.idA };
+
+                // Center coordinates of avatar rings
+                const ringY1 = left.y + (is2ColActive ? 33 : BUBBLE_H / 2);
+                const ringY2 = right.y + (is2ColActive ? 33 : BUBBLE_H / 2);
+                const ringX1 = left.x - left.w / 2 + 29;
+                const ringX2 = right.x - right.w / 2 + 29;
+
+                const isHorizontal = right.x - left.x >= 20;
+                const midX = (left.x + left.w / 2 + right.x - right.w / 2) / 2;
+                const midY = (ringY1 + ringY2) / 2;
+
+                const kx = isHorizontal ? midX : Math.max(left.x + left.w / 2, right.x + right.w / 2) + 24;
+                const ky = midY;
+
+                const exitX = left.x + left.w / 2;
+                const dLeft = isHorizontal
+                  ? `M ${ringX1} ${ringY1} C ${ringX1 + 18} ${left.y - 6}, ${exitX - 6} ${left.y - 4}, ${kx} ${ky}`
+                  : `M ${ringX1} ${ringY1} C ${kx} ${ringY1}, ${kx} ${ky - 10}, ${kx} ${ky}`;
+
+                const dRight = isHorizontal
+                  ? `M ${kx} ${ky} C ${(kx + ringX2) / 2} ${ky - 4}, ${ringX2 - 10} ${right.y - 4}, ${ringX2} ${ringY2}`
+                  : `M ${kx} ${ky} C ${kx} ${ky + 10}, ${kx} ${ringY2}, ${ringX2} ${ringY2}`;
+
+                const fullD = `${dLeft} ${dRight}`;
+
+                return (
+                  <g key={`marry-gold-${i}`}>
+                    {/* Shadow under golden thread */}
+                    <path
+                      d={fullD}
+                      fill="none"
+                      stroke="rgba(0,0,0,0.18)"
+                      strokeWidth={3.4}
+                      strokeLinecap="round"
+                    />
+                    {/* Antique Bronze / Deep Gold Outer Contour */}
+                    <path
+                      d={fullD}
+                      fill="none"
+                      stroke="#78350F"
+                      strokeWidth={2.4}
+                      strokeLinecap="round"
+                    />
+                    {/* Warm Amber-Gold Cord Core (Static, NO animation) */}
+                    <path
+                      d={fullD}
+                      fill="none"
+                      stroke="#D97706"
+                      strokeWidth={1.8}
+                      strokeLinecap="round"
+                    />
+                    {/* Radiant Pure 24K Gold Strand */}
+                    <path
+                      d={fullD}
+                      fill="none"
+                      stroke="#F59E0B"
+                      strokeWidth={1.2}
+                      strokeLinecap="round"
+                    />
+                    {/* Twisted Golden Silk Thread Texture */}
+                    <path
+                      d={fullD}
+                      fill="none"
+                      stroke="#FEF3C7"
+                      strokeWidth={0.7}
+                      strokeDasharray="3 3"
+                      strokeLinecap="round"
+                    />
+                    {/* Ultra-fine shimmer strand */}
+                    <path
+                      d={fullD}
+                      fill="none"
+                      stroke="#FFFFFF"
+                      strokeWidth={0.4}
+                      strokeDasharray="1 6"
+                      strokeLinecap="round"
+                      opacity={0.85}
+                    />
+
+                    {/* Central Hunter's Knot uniting golden threads in the corridor */}
+                    <HuntersKnot x={kx} y={ky} ring={mp.ring} />
+
+                    {/* Ring-Tag Knots physically tagged directly onto avatar rings */}
+                    <RingTagKnot x={ringX1} y={ringY1} ring={mp.ring} />
+                    <RingTagKnot x={ringX2} y={ringY2} ring={mp.ring} />
+                  </g>
+                );
+              })}
+
+              {/* Realistic Rope Knots at Card Corners */}
               {bloodKnots.map((knot) => (
                 <RopeKnot
                   key={knot.key}
                   x={knot.x}
                   y={knot.y}
                   isBottom={knot.isBottom}
+                  corner={knot.corner}
                 />
               ))}
             </svg>
