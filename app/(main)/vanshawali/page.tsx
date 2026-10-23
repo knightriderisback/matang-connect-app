@@ -830,6 +830,137 @@ function RopeKnot({
 }
 
 /**
+ * Authentic interlocking Hunter's Knot (Riggers' Bend) uniting husband and wife.
+ * Features two intertwined sacred thread bights, opposing working tails, and golden wedding seal.
+ */
+function HuntersKnot({
+  x,
+  y,
+  ring,
+}: {
+  x: number;
+  y: number;
+  ring?: RingStyle;
+}) {
+  return (
+    <g
+      transform={`translate(${x}, ${y})`}
+      style={{ filter: "drop-shadow(0 2px 3.5px rgba(0,0,0,0.32))" }}
+    >
+      {/* Soft shadow under knot */}
+      <ellipse cx={0} cy={1.5} rx={8} ry={4} fill="rgba(0,0,0,0.22)" />
+
+      {/* Left Interlocking Bight / Loop (from Husband's thread) */}
+      <path
+        d="M -6,0 C -4.5,-4 -1.5,-4.5 1,-2 C 3.5,0.5 1.5,4 -2,3.5 C -4.5,3 -5,0.5 -2.5,-1"
+        fill="none"
+        stroke="#991B1B"
+        strokeWidth={2.8}
+        strokeLinecap="round"
+      />
+      <path
+        d="M -6,0 C -4.5,-4 -1.5,-4.5 1,-2 C 3.5,0.5 1.5,4 -2,3.5 C -4.5,3 -5,0.5 -2.5,-1"
+        fill="none"
+        stroke="#DC2626"
+        strokeWidth={2.0}
+        strokeLinecap="round"
+      />
+      {/* Golden strand twist in left loop */}
+      <path
+        d="M -5.5,-0.5 C -4,-3.5 -1.5,-3.8 0.5,-1.8 C 2.5,0.2 1,3.2 -1.8,2.8"
+        fill="none"
+        stroke="#F59E0B"
+        strokeWidth={0.8}
+        strokeDasharray="2 3"
+        strokeLinecap="round"
+      />
+
+      {/* Right Interlocking Bight / Loop (from Wife's thread) */}
+      <path
+        d="M 6,0 C 4.5,4 1.5,4.5 -1,2 C -3.5,-0.5 -1.5,-4 2,-3.5 C 4.5,-3 5,-0.5 2.5,1"
+        fill="none"
+        stroke="#991B1B"
+        strokeWidth={2.8}
+        strokeLinecap="round"
+      />
+      <path
+        d="M 6,0 C 4.5,4 1.5,4.5 -1,2 C -3.5,-0.5 -1.5,-4 2,-3.5 C 4.5,-3 5,-0.5 2.5,1"
+        fill="none"
+        stroke="#DC2626"
+        strokeWidth={2.0}
+        strokeLinecap="round"
+      />
+      {/* Golden strand twist in right loop */}
+      <path
+        d="M 5.5,0.5 C 4,3.5 1.5,3.8 -0.5,1.8 C -2.5,-0.2 -1,-3.2 1.8,-2.8"
+        fill="none"
+        stroke="#F59E0B"
+        strokeWidth={0.8}
+        strokeDasharray="2 3"
+        strokeLinecap="round"
+      />
+
+      {/* Central Interlocking Cross Turn (Hunter's Bend interlock core) */}
+      <path
+        d="M -2.5,-1.5 Q 0,0 2.5,1.5"
+        fill="none"
+        stroke="#7F1D1D"
+        strokeWidth={3.0}
+        strokeLinecap="round"
+      />
+      <path
+        d="M -2.5,-1.5 Q 0,0 2.5,1.5"
+        fill="none"
+        stroke="#EF4444"
+        strokeWidth={2.0}
+        strokeLinecap="round"
+      />
+
+      {/* Sacred Gathbandhan Wedding Ring Seal matching couple's rings */}
+      <ellipse cx={0} cy={0} rx={2.4} ry={2.4} fill={ring?.bandBorder || "#F59E0B"} stroke="#92400E" strokeWidth={0.6} />
+      <circle cx={0} cy={0} r={1.0} fill={ring?.gemColor || "#FEF3C7"} />
+
+      {/* Working thread tail ends emerging at opposite diagonals (Hunter's Knot signature) */}
+      {/* Top Tail (Husband's end) */}
+      <path
+        d="M -1.5,-2.5 C -2.5,-5 -3.8,-6.5 -4.5,-8"
+        fill="none"
+        stroke="#991B1B"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+      />
+      <path
+        d="M -1.5,-2.5 C -2.5,-5 -3.8,-6.5 -4.5,-8"
+        fill="none"
+        stroke="#DC2626"
+        strokeWidth={1.1}
+        strokeLinecap="round"
+      />
+      <line x1={-4.5} y1={-8} x2={-5.3} y2={-9} stroke="#F59E0B" strokeWidth={0.6} strokeLinecap="round" />
+      <line x1={-4.5} y1={-8} x2={-3.8} y2={-9.2} stroke="#FCA5A5" strokeWidth={0.6} strokeLinecap="round" />
+
+      {/* Bottom Tail (Wife's end) */}
+      <path
+        d="M 1.5,2.5 C 2.5,5 3.8,6.5 4.5,8"
+        fill="none"
+        stroke="#991B1B"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+      />
+      <path
+        d="M 1.5,2.5 C 2.5,5 3.8,6.5 4.5,8"
+        fill="none"
+        stroke="#DC2626"
+        strokeWidth={1.1}
+        strokeLinecap="round"
+      />
+      <line x1={4.5} y1={8} x2={3.8} y2={9.2} stroke="#F59E0B" strokeWidth={0.6} strokeLinecap="round" />
+      <line x1={4.5} y1={8} x2={5.3} y2={9} stroke="#FCA5A5" strokeWidth={0.6} strokeLinecap="round" />
+    </g>
+  );
+}
+
+/**
  * Precision bloodline router that maneuvers through separated parallel lanes
  * in 2-column mobile mode without touching or entangling other lines.
  */
@@ -1515,16 +1646,16 @@ function resolveIndianRelationship(
     let primaryTitle = "";
 
     if (isMaternal) {
-      shortTag = isFemale ? (isHi ? "नानी जी" : "Nani") : (isHi ? "नाना जी" : "Nana");
-      subTag = isFemale ? (isHi ? "माता की माता" : "Mother's Mother") : (isHi ? "माता के पिता" : "Mother's Father");
-      primaryTitle = isFemale ? (isHi ? "आपकी पूज्य नानी जी (माता की माता)" : "Your Respected Maternal Grandmother") : (isHi ? "आपके पूज्य नाना जी (माता के पिता)" : "Your Respected Maternal Grandfather");
+      shortTag = isFemale ? (isHi ? "नानी जी" : "Nani ji") : (isHi ? "नाना जी" : "Nana ji");
+      subTag = isFemale ? (isHi ? "माताजी की माता" : "Mother's Mother") : (isHi ? "माताजी के पिता" : "Mother's Father");
+      primaryTitle = isFemale ? (isHi ? "आपकी पूज्य नानी जी (माताजी की माता)" : "Your Respected Maternal Grandmother") : (isHi ? "आपके पूज्य नाना जी (माताजी के पिता)" : "Your Respected Maternal Grandfather");
     } else {
-      shortTag = isFemale ? (isHi ? "दादी जी" : "Dadi") : (isHi ? "दादा जी" : "Dada");
-      subTag = isFemale ? (isHi ? "पिता की माता" : "Father's Mother") : (isHi ? "पिता के पिता" : "Father's Father");
-      primaryTitle = isFemale ? (isHi ? "आपकी पूज्य दादी जी (पिता की माता)" : "Your Respected Paternal Grandmother") : (isHi ? "आपके पूज्य दादा जी (पिता के पिता)" : "Your Respected Paternal Grandfather");
+      shortTag = isFemale ? (isHi ? "दादी जी" : "Dadi ji") : (isHi ? "दादा जी" : "Dada ji");
+      subTag = isFemale ? (isHi ? "पिताजी की माता" : "Father's Mother") : (isHi ? "पिताजी के पिता" : "Father's Father");
+      primaryTitle = isFemale ? (isHi ? "आपकी पूज्य दादी जी (पिताजी की माता)" : "Your Respected Paternal Grandmother") : (isHi ? "आपके पूज्य दादा जी (पिताजी के पिता)" : "Your Respected Paternal Grandfather");
     }
 
-    const tierLabel = isHi ? "दादा-दादी / नाना-नानी पीढ़ी (Grandparents)" : "Grandparents Generation";
+    const tierLabel = isHi ? "दादा जी, दादी जी एवं नाना जी, नानी जी पीढ़ी" : "Grandparents (Dada ji - Dadi ji & Nana ji - Nani ji)";
 
     return {
       shortTag,
@@ -1870,48 +2001,122 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // 10. SPOUSE OF GRANDCHILD (Pautra-vadhu / Naati-bahu)
+  // 10. SPOUSE OF GRANDCHILD (Pote ki Bahu, Nati ki Bahu, Poti Damaad, Nati Damaad)
   // -------------------------------------------------------------
-  const gcPartnerId = Array.from(spouseMap.get(n.id) || []).find((pId) =>
-    Array.from(parentsMap.get(pId) || []).some((parId) => selfChildren.has(parId))
-  );
+  const explicitGcSpouse =
+    relLower.includes("pota_bahu") ||
+    relLower.includes("pote_ki_bahu") ||
+    relLower.includes("nati_bahu") ||
+    relLower.includes("naati_bahu") ||
+    relLower.includes("poti_damad") ||
+    relLower.includes("poti_damaad") ||
+    relLower.includes("nati_damad") ||
+    relLower.includes("natin_damad") ||
+    relLower.includes("pautra_vadhu");
 
-  if (gcPartnerId) {
-    const gcNode = allNodes.get(gcPartnerId);
-    const gcParId = Array.from(parentsMap.get(gcPartnerId) || []).find((parId) => selfChildren.has(parId));
+  const gcPartnerId =
+    Array.from(spouseMap.get(n.id) || []).find((pId) =>
+      Array.from(parentsMap.get(pId) || []).some((parId) => selfChildren.has(parId)) ||
+      (tree.grandchildren || []).some((g) => g.id === pId) ||
+      (tree.levels_down?.[1] || []).some((g) => g.id === pId)
+    ) ||
+    ((tree.grandchildren || []).some((g) => g.id === n.via_id) ? n.via_id : undefined) ||
+    ((tree.levels_down?.[1] || []).some((g) => g.id === n.via_id) ? n.via_id : undefined);
+
+  if (gcPartnerId || explicitGcSpouse) {
+    const gcNode = gcPartnerId ? allNodes.get(gcPartnerId) : undefined;
+    const gcCleanName = gcNode?.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, "") || "";
+    const gcSex = resolveSex(gcNode?.gender, gcNode?.relation);
+    const gcParId = gcPartnerId
+      ? (Array.from(parentsMap.get(gcPartnerId) || []).find((parId) => selfChildren.has(parId)) || gcNode?.via_id || gcNode?.via_child_id)
+      : undefined;
     const gcParNode = allNodes.get(gcParId || "");
-    const isSonBranch = resolveSex(gcParNode?.gender, gcParNode?.relation) === "M";
+    const gcParSex = resolveSex(gcParNode?.gender, gcParNode?.relation);
 
-    if (isSonBranch) {
-      const shortTag = isHi ? "पौत्र-वधू" : "Grandson's Wife";
-      const primaryTitle = isHi
-        ? `आपकी पौत्र-वधू (${gcNode?.display_name || "पोते"} की धर्मपत्नी)`
-        : `Your Grandson's Wife`;
-      return {
-        shortTag,
-        shortTagEn: "Grandson's Wife",
-        primaryTitle,
-        primaryTitleEn: primaryTitle,
-        category: "grandchild",
-        generationTier: -2,
-        generationLabel: isHi ? "पौत्र-वधू पीढ़ी" : "Grandchild In-Law",
-        multipleRoles: buildMultipleRoles(primaryTitle, isHi ? "पोते की धर्मपत्नी" : "Wife of grandson", isHi ? "पौत्र पीढ़ी" : "Generation -2", -2),
-      };
+    const isSonBranch =
+      relLower.includes("pota") ||
+      relLower.includes("poti") ||
+      relLower.includes("pautra") ||
+      (!relLower.includes("nati") && !relLower.includes("natin") && (gcParSex === "M" || (gcNode?.relation || "").includes("pota") || (gcNode?.relation || "").includes("poti")));
+
+    const isWife = targetSex === "F" || gcSex === "M" || relLower.includes("bahu") || relLower.includes("vadhu");
+
+    if (isWife) {
+      if (isSonBranch) {
+        // Pote ki Bahu (Son's Son's Wife)
+        const shortTag = isHi ? "पोते की बहू" : "Pote ki Bahu";
+        const subTag = isHi ? "पौत्र-वधू (पोते की पत्नी)" : "Son's Son's Wife";
+        const primaryTitle = isHi
+          ? `आपकी पोते की बहू (${gcCleanName ? `${gcCleanName} की धर्मपत्नी` : "पोते की पत्नी"})`
+          : `Your Grandson's Wife (${gcCleanName ? `Wife of ${gcCleanName}` : "Pota's Wife"})`;
+        return {
+          shortTag,
+          shortTagEn: "Grandson's Wife (Pota Bahu)",
+          subTag,
+          primaryTitle,
+          primaryTitleEn: primaryTitle,
+          category: "grandchild",
+          generationTier: -2,
+          generationLabel: isHi ? "पौत्र-वधू पीढ़ी" : "Grandchild In-Law",
+          multipleRoles: buildMultipleRoles(primaryTitle, isHi ? "पोते की धर्मपत्नी (पौत्र-वधू)" : "Wife of grandson", isHi ? "पौत्र पीढ़ी" : "Generation -2", -2),
+        };
+      } else {
+        // Nati ki Bahu (Daughter's Son's Wife)
+        const shortTag = isHi ? "नाती की बहू" : "Nati ki Bahu";
+        const subTag = isHi ? "नाती-बहू (नाती की पत्नी)" : "Daughter's Son's Wife";
+        const primaryTitle = isHi
+          ? `आपकी नाती की बहू (${gcCleanName ? `${gcCleanName} की धर्मपत्नी` : "नाती की पत्नी"})`
+          : `Your Maternal Grandson's Wife (${gcCleanName ? `Wife of ${gcCleanName}` : "Naati's Wife"})`;
+        return {
+          shortTag,
+          shortTagEn: "Grandson's Wife (Naati Bahu)",
+          subTag,
+          primaryTitle,
+          primaryTitleEn: primaryTitle,
+          category: "grandchild",
+          generationTier: -2,
+          generationLabel: isHi ? "नाती-बहू पीढ़ी" : "Grandchild In-Law",
+          multipleRoles: buildMultipleRoles(primaryTitle, isHi ? "नाती की धर्मपत्नी (नाती-बहू)" : "Wife of maternal grandson", isHi ? "पौत्र पीढ़ी" : "Generation -2", -2),
+        };
+      }
     } else {
-      const shortTag = isHi ? "नाती बहू" : "Granddaughter's In-Law";
-      const primaryTitle = isHi
-        ? `आपकी नाती बहू (${gcNode?.display_name || "नाती"} की धर्मपत्नी)`
-        : `Your Grandson's Wife (Maternal)`;
-      return {
-        shortTag,
-        shortTagEn: "Grandson's Wife",
-        primaryTitle,
-        primaryTitleEn: primaryTitle,
-        category: "grandchild",
-        generationTier: -2,
-        generationLabel: isHi ? "नाती-बहू पीढ़ी" : "Grandchild In-Law",
-        multipleRoles: buildMultipleRoles(primaryTitle, isHi ? "नाती की धर्मपत्नी" : "Wife of grandson", isHi ? "पौत्र पीढ़ी" : "Generation -2", -2),
-      };
+      if (isSonBranch) {
+        // Poti ka Damaad (Son's Daughter's Husband)
+        const shortTag = isHi ? "पोती दामाद" : "Poti Damaad";
+        const subTag = isHi ? "पोती के पति" : "Granddaughter's Husband";
+        const primaryTitle = isHi
+          ? `आपके पोती दामाद (${gcCleanName ? `${gcCleanName} के पति` : "पोती के पति"})`
+          : `Your Granddaughter's Husband (${gcCleanName ? `Husband of ${gcCleanName}` : "Poti's Husband"})`;
+        return {
+          shortTag,
+          shortTagEn: "Granddaughter's Husband (Poti Damaad)",
+          subTag,
+          primaryTitle,
+          primaryTitleEn: primaryTitle,
+          category: "grandchild",
+          generationTier: -2,
+          generationLabel: isHi ? "पोती दामाद पीढ़ी" : "Grandchild In-Law",
+          multipleRoles: buildMultipleRoles(primaryTitle, isHi ? "पोती के पति" : "Husband of granddaughter", isHi ? "पौत्र पीढ़ी" : "Generation -2", -2),
+        };
+      } else {
+        // Natin ka Damaad (Daughter's Daughter's Husband)
+        const shortTag = isHi ? "नातिन दामाद" : "Naatin Damaad";
+        const subTag = isHi ? "नातिन के पति (नाती दामाद)" : "Maternal Granddaughter's Husband";
+        const primaryTitle = isHi
+          ? `आपके नातिन दामाद (${gcCleanName ? `${gcCleanName} के पति` : "नातिन के पति"})`
+          : `Your Maternal Granddaughter's Husband (${gcCleanName ? `Husband of ${gcCleanName}` : "Naatin's Husband"})`;
+        return {
+          shortTag,
+          shortTagEn: "Maternal Granddaughter's Husband (Naati Damaad)",
+          subTag,
+          primaryTitle,
+          primaryTitleEn: primaryTitle,
+          category: "grandchild",
+          generationTier: -2,
+          generationLabel: isHi ? "नातिन दामाद पीढ़ी" : "Grandchild In-Law",
+          multipleRoles: buildMultipleRoles(primaryTitle, isHi ? "नातिन के पति" : "Husband of maternal granddaughter", isHi ? "पौत्र पीढ़ी" : "Generation -2", -2),
+        };
+      }
     }
   }
 
@@ -3270,8 +3475,8 @@ function VanshawaliInner() {
     contentW = Math.max(vw, 360);
     const cx = contentW / 2;
     const cGap = 14;
-    const sRowH = 72;
-    const lGap = 16;
+    const sRowH = 78;
+    const lGap = 18;
     const HEADER_OFFSET = 52;
     const SEC_PAD_BOTTOM = 18;
     const SEC_MARGIN_BOTTOM = 44;
@@ -3404,7 +3609,7 @@ function VanshawaliInner() {
         id: "grandparents",
         top: secTop,
         height: secH,
-        title: lang === "hi" ? "दादा-दादी व नाना-नानी पीढ़ी" : "Grandparents (Dada-Dadi, Nana-Nani)",
+        title: lang === "hi" ? "दादा जी, दादी जी एवं नाना जी, नानी जी" : "Grandparents (Dada ji - Dadi ji & Nana ji - Nani ji)",
         icon: "👑",
         count: gpCount,
         borderCls: "border-2 border-indigo-300/80 shadow-sm",
@@ -4869,13 +5074,13 @@ function VanshawaliInner() {
           }
           setSelected(n);
         }}
-        className={`group text-left transition-all active:scale-95 ${
+        className={`group text-left transition-all active:scale-95 w-full max-w-full block ${
           isHighlighted ? "scale-105 z-30" : ""
         }`}
       >
         <div
           className={cn(
-            "flex items-center gap-2 px-2.5 py-1.5 rounded-xl border backdrop-blur-md transition-all select-none min-h-[64px] w-full",
+            "flex items-center gap-2 px-2.5 py-2 rounded-xl border backdrop-blur-md transition-all select-none min-h-[66px] h-auto w-full max-w-full box-border",
             borderCls,
             bgCls,
             isHighlighted && "ring-4 ring-amber-400 shadow-xl"
@@ -4897,10 +5102,10 @@ function VanshawaliInner() {
             size={38}
           />
 
-          {/* Details: 2 to 3 vertical lines under the name */}
-          <div className="flex flex-col min-w-0 flex-1 justify-center py-0.5 leading-tight">
-            {/* Line 1: Name */}
-            <div className="flex items-center gap-1 min-w-0">
+          {/* Details: Multi-line vertical stacking (Never stretches horizontally, auto adjusts vertically) */}
+          <div className="flex flex-col min-w-0 flex-1 justify-center py-0.5 leading-tight overflow-hidden">
+            {/* Line 1: Name (wraps vertically if long) */}
+            <div className="flex items-start gap-1 min-w-0">
               {isLate && (
                 <span className="text-[9px] font-bold text-amber-800 shrink-0 px-1 py-0.2 rounded bg-amber-100/70">
                   स्व.
@@ -4908,7 +5113,7 @@ function VanshawaliInner() {
               )}
               <span
                 className={cn(
-                  "text-[12px] font-bold leading-tight truncate",
+                  "text-[12px] font-bold leading-tight break-words line-clamp-2",
                   textCls
                 )}
                 title={n.display_name}
@@ -4917,24 +5122,28 @@ function VanshawaliInner() {
               </span>
             </div>
 
-            {/* Line 2: Relationship badge & clarification */}
-            <div className="flex items-center gap-1 mt-1 min-w-0">
+            {/* Line 2: Relationship badge */}
+            <div className="flex items-center gap-1 mt-1 min-w-0 flex-wrap">
               <span
                 className={cn(
-                  "text-[9.5px] leading-tight px-1.5 py-0.5 rounded-md font-bold truncate shrink-0",
+                  "text-[9.5px] leading-tight px-1.5 py-0.5 rounded-md font-bold shrink-0",
                   badgeCls
                 )}
               >
                 {rel}
               </span>
-              {relInfo.subTag && relInfo.subTag !== rel && (
-                <span className="text-[8.5px] text-gray-500 font-medium truncate">
-                  ({relInfo.subTag})
-                </span>
-              )}
             </div>
 
-            {/* Line 3: Birth / Details */}
+            {/* Line 3: SubTag clarification (separated vertically, can wrap to multiple lines) */}
+            {relInfo.subTag && relInfo.subTag !== rel && (
+              <div className="mt-0.5 min-w-0">
+                <span className="text-[8.5px] text-gray-500 font-medium leading-tight block break-words">
+                  ({relInfo.subTag})
+                </span>
+              </div>
+            )}
+
+            {/* Line 4: Birth / Details */}
             {born && (
               <div className="flex items-center gap-1 mt-0.5 min-w-0">
                 <span className="text-[9px] text-gray-500 font-medium tabular-nums truncate">
@@ -5826,7 +6035,7 @@ function VanshawaliInner() {
                 </marker>
               </defs>
 
-              {/* Marriage bonds — emerald dashed line with ring symbol */}
+              {/* Marriage bonds — sacred Mauli/Kalava braided thread uniting husband & wife rings with Hunter's Knot */}
               {marriagePairs.map((mp, i) => {
                 const left =
                   mp.ax <= mp.bx
@@ -5841,58 +6050,74 @@ function VanshawaliInner() {
                 const x1 = left.x + left.w / 2;
                 const x2 = right.x - right.w / 2;
                 const midX = (x1 + x2) / 2;
+                const midY = (y1 + y2) / 2;
 
-                if (is2ColActive) {
-                  return (
-                    <g key={`marry-${i}`}>
-                      <line
-                        x1={x1}
-                        y1={y1}
-                        x2={x2}
-                        y2={y2}
-                        stroke="#10B981"
-                        strokeWidth={2.4}
-                        strokeDasharray="4 3"
-                        opacity={0.95}
-                      />
-                      <g transform={`translate(${midX}, ${y1})`}>
-                        <circle
-                          r={7}
-                          fill="#FFFFFF"
-                          stroke="#10B981"
-                          strokeWidth={1.2}
-                        />
-                        <text
-                          x={0}
-                          y={0.5}
-                          textAnchor="middle"
-                          dominantBaseline="central"
-                          fontSize={9}
-                        >
-                          💍
-                        </text>
-                      </g>
-                    </g>
-                  );
-                }
+                const isHorizontal = x2 - x1 >= 10;
+                const sag = isHorizontal ? Math.min(6, Math.max(2, (x2 - x1) * 0.05)) : 0;
+                const kx = isHorizontal ? midX : Math.max(left.x + left.w / 2, right.x + right.w / 2) + 24;
+                const ky = isHorizontal ? midY + sag : midY;
 
-                const arch = Math.min(18, Math.abs(x2 - x1) * 0.12 + 8);
-                const d = `M${x1} ${y1} C${midX} ${y1 - arch}, ${midX} ${y2 - arch}, ${x2} ${y2}`;
+                const dLeft = isHorizontal
+                  ? `M ${x1} ${y1} Q ${(x1 + kx) / 2} ${ky + sag * 0.5} ${kx} ${ky}`
+                  : `M ${x1} ${y1} C ${kx} ${y1}, ${kx} ${ky - 10}, ${kx} ${ky}`;
+                const dRight = isHorizontal
+                  ? `M ${kx} ${ky} Q ${(kx + x2) / 2} ${ky + sag * 0.5} ${x2} ${y2}`
+                  : `M ${kx} ${ky} C ${kx} ${ky + 10}, ${kx} ${y2}, ${x2} ${y2}`;
+
                 return (
                   <g key={`marry-${i}`}>
+                    {/* Shadow under sacred thread */}
                     <path
-                      d={d}
+                      d={`${dLeft} ${dRight}`}
                       fill="none"
-                      stroke="#10B981"
-                      strokeWidth={2.4}
+                      stroke="rgba(0,0,0,0.18)"
+                      strokeWidth={3.6}
                       strokeLinecap="round"
-                      strokeDasharray="6 5"
-                      opacity={0.9}
                     />
-                    <g transform={`translate(${midX}, ${(y1 + y2) / 2 - arch})`}>
-                      <circle r={10} fill="#FFFFFF" stroke="#10B981" strokeWidth={1.3} />
-                      <text textAnchor="middle" dominantBaseline="central" fontSize={11}>💍</text>
-                    </g>
+                    {/* Base arterial red sacred thread (Mauli deep crimson) */}
+                    <path
+                      d={`${dLeft} ${dRight}`}
+                      fill="none"
+                      stroke="#991B1B"
+                      strokeWidth={2.6}
+                      strokeLinecap="round"
+                    />
+                    {/* Living vermilion thread core */}
+                    <path
+                      d={`${dLeft} ${dRight}`}
+                      fill="none"
+                      stroke="#DC2626"
+                      strokeWidth={1.8}
+                      strokeLinecap="round"
+                    />
+                    {/* Braided golden twist thread (sacred Kalava dhaga texture) */}
+                    <path
+                      d={`${dLeft} ${dRight}`}
+                      fill="none"
+                      stroke="#F59E0B"
+                      strokeWidth={0.9}
+                      strokeDasharray="3 4"
+                      strokeLinecap="round"
+                    />
+                    {/* Subtle warm thread highlight */}
+                    <path
+                      d={`${dLeft} ${dRight}`}
+                      fill="none"
+                      stroke="#FEF3C7"
+                      strokeWidth={0.5}
+                      strokeDasharray="1 6"
+                      strokeLinecap="round"
+                      opacity={0.8}
+                    />
+
+                    {/* Golden tie anchor rings at card connection points */}
+                    <circle cx={x1} cy={y1} r={2.8} fill="#F59E0B" stroke="#92400E" strokeWidth={0.8} />
+                    <circle cx={x1} cy={y1} r={1.2} fill="#FEF3C7" />
+                    <circle cx={x2} cy={y2} r={2.8} fill="#F59E0B" stroke="#92400E" strokeWidth={0.8} />
+                    <circle cx={x2} cy={y2} r={1.2} fill="#FEF3C7" />
+
+                    {/* Central Hunter's Knot interlocking the couple's rings */}
+                    <HuntersKnot x={kx} y={ky} ring={mp.ring} />
                   </g>
                 );
               })}
@@ -5967,6 +6192,8 @@ function VanshawaliInner() {
                   style={{
                     left: pl.x,
                     top: pl.top,
+                    width: is2ColActive ? cardW : Math.max(pl.w, 140),
+                    maxWidth: is2ColActive ? cardW : 180,
                     transform: "translateX(-50%)",
                     transformOrigin: "center center",
                     touchAction: arrangeMode && moveTargetId === pl.n.id ? "none" : "pan-y",
@@ -6074,6 +6301,8 @@ function VanshawaliInner() {
               style={{
                 left: posById.get(tree.centre.id)?.x ?? centreX,
                 top: posById.get(tree.centre.id)?.top ?? yMid,
+                width: is2ColActive ? cardW : 160,
+                maxWidth: is2ColActive ? cardW : 180,
                 transform: "translateX(-50%)",
                 touchAction: arrangeMode && moveTargetId === tree.centre.id ? "none" : "pan-y",
                 filter:
