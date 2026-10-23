@@ -533,15 +533,16 @@ function SolitaireRingAvatar({
                 strokeWidth={2.0}
               />
 
-              {/* Tiny specular light glint that slowly sweeps across the shoulder */}
+              {/* Ultra-tiny specular light glint (1.8% circumference) that slowly orbits 360° around the whole ring */}
               <circle
                 cx={cx}
                 cy={cy}
                 r={r}
                 fill="none"
                 stroke="#FFFFFF"
-                strokeWidth={2.0}
-                strokeDasharray="3.5 120"
+                strokeWidth={1.8}
+                pathLength={100}
+                strokeDasharray="1.8 98.2"
                 strokeLinecap="round"
                 className="vansh-3d-shine"
               />
@@ -951,6 +952,7 @@ type IndianRoleItem = {
 type IndianRelationshipInfo = {
   shortTag: string;
   shortTagEn: string;
+  subTag?: string;
   primaryTitle: string;
   primaryTitleEn: string;
   category: "self" | "spouse" | "sibling" | "parent" | "child" | "grandparent" | "grandchild" | "relative";
@@ -1327,6 +1329,7 @@ function resolveIndianRelationship(
   if (isDirectParent) {
     const isMother = targetSex === "F" || n.relation === "mother";
     const shortTag = isMother ? (isHi ? "माता जी" : "Mother") : (isHi ? "पिता जी" : "Father");
+    const subTag = isMother ? (isHi ? "पूज्य माता" : "Mother") : (isHi ? "पूज्य पिता" : "Father");
     const primaryTitle = isMother
       ? (isHi ? "आपकी पूज्य माता जी (Mother)" : "Your Respected Mother")
       : (isHi ? "आपके पूज्य पिता जी (Father)" : "Your Respected Father");
@@ -1335,6 +1338,7 @@ function resolveIndianRelationship(
     return {
       shortTag,
       shortTagEn: isMother ? "Mother" : "Father",
+      subTag,
       primaryTitle,
       primaryTitleEn: primaryTitle,
       category: "parent",
@@ -1390,13 +1394,15 @@ function resolveIndianRelationship(
 
   if (isDirectChild) {
     const isDaughter = targetSex === "F";
-    const shortTag = isDaughter ? (isHi ? "सुपुत्री" : "Daughter") : (isHi ? "सुपुत्र" : "Son");
-    const primaryTitle = isDaughter ? (isHi ? "आपकी सुपुत्री / बेटी (Daughter)" : "Your Daughter") : (isHi ? "आपके सुपुत्र / बेटा (Son)" : "Your Son");
+    const shortTag = isDaughter ? (isHi ? "बेटी" : "Daughter") : (isHi ? "बेटा" : "Son");
+    const subTag = isDaughter ? (isHi ? "सुपुत्री" : "Daughter") : (isHi ? "सुपुत्र" : "Son");
+    const primaryTitle = isDaughter ? (isHi ? "आपकी बेटी / सुपुत्री (Daughter)" : "Your Daughter") : (isHi ? "आपका बेटा / सुपुत्र (Son)" : "Your Son");
     const tierLabel = isHi ? "संतान की पीढ़ी (Direct Lineage)" : "Children Generation (Direct)";
 
     return {
       shortTag,
       shortTagEn: isDaughter ? "Daughter" : "Son",
+      subTag,
       primaryTitle,
       primaryTitleEn: primaryTitle,
       category: "child",
@@ -1474,28 +1480,48 @@ function resolveIndianRelationship(
   // -------------------------------------------------------------
   // 6. DIRECT GRANDPARENTS (Dada / Dadi / Nana / Nani)
   // -------------------------------------------------------------
+  const relLower = (n.relation || "").toLowerCase();
   const isDirectGrandparent =
     (tree.grandparents || []).some((g) => g.id === n.id) ||
     n.relation === "grandfather" ||
     n.relation === "grandmother" ||
+    relLower.includes("dada") ||
+    relLower.includes("dadi") ||
+    relLower.includes("nana") ||
+    relLower.includes("nani") ||
     (tree.levels_up?.[1] || []).some((g) => g.id === n.id);
 
   if (isDirectGrandparent) {
+    const isExplicitMaternal =
+      relLower.includes("nana") ||
+      relLower.includes("nani") ||
+      relLower.includes("maternal");
+    const isExplicitPaternal =
+      relLower.includes("dada") ||
+      relLower.includes("dadi") ||
+      relLower.includes("paternal");
+
     const isMaternal =
-      (mother && (n.via_id === mother.id || n.via_parent_id === mother.id)) ||
-      (maternalGrandfather && n.id === maternalGrandfather.id) ||
-      (maternalGrandmother && n.id === maternalGrandmother.id);
-    const isFemale = targetSex === "F" || n.relation === "grandmother";
+      isExplicitMaternal ||
+      (!isExplicitPaternal && (
+        (mother && (n.via_id === mother.id || n.via_parent_id === mother.id)) ||
+        (maternalGrandfather && n.id === maternalGrandfather.id) ||
+        (maternalGrandmother && n.id === maternalGrandmother.id)
+      ));
+    const isFemale = targetSex === "F" || n.relation === "grandmother" || relLower.includes("dadi") || relLower.includes("nani");
 
     let shortTag = "";
+    let subTag = "";
     let primaryTitle = "";
 
     if (isMaternal) {
-      shortTag = isFemale ? (isHi ? "नानी जी" : "Maternal Grandmother (Nani)") : (isHi ? "नाना जी" : "Maternal Grandfather (Nana)");
-      primaryTitle = isFemale ? (isHi ? "आपकी पूज्य नानी जी (Nani)" : "Your Respected Maternal Grandmother") : (isHi ? "आपके पूज्य नाना जी (Nana)" : "Your Respected Maternal Grandfather");
+      shortTag = isFemale ? (isHi ? "नानी जी" : "Nani") : (isHi ? "नाना जी" : "Nana");
+      subTag = isFemale ? (isHi ? "माता की माता" : "Mother's Mother") : (isHi ? "माता के पिता" : "Mother's Father");
+      primaryTitle = isFemale ? (isHi ? "आपकी पूज्य नानी जी (माता की माता)" : "Your Respected Maternal Grandmother") : (isHi ? "आपके पूज्य नाना जी (माता के पिता)" : "Your Respected Maternal Grandfather");
     } else {
-      shortTag = isFemale ? (isHi ? "दादी जी" : "Paternal Grandmother (Dadi)") : (isHi ? "दादा जी" : "Paternal Grandfather (Dada)");
-      primaryTitle = isFemale ? (isHi ? "आपकी पूज्य दादी जी (Dadi)" : "Your Respected Paternal Grandmother") : (isHi ? "आपके पूज्य दादा जी (Dada)" : "Your Respected Paternal Grandfather");
+      shortTag = isFemale ? (isHi ? "दादी जी" : "Dadi") : (isHi ? "दादा जी" : "Dada");
+      subTag = isFemale ? (isHi ? "पिता की माता" : "Father's Mother") : (isHi ? "पिता के पिता" : "Father's Father");
+      primaryTitle = isFemale ? (isHi ? "आपकी पूज्य दादी जी (पिता की माता)" : "Your Respected Paternal Grandmother") : (isHi ? "आपके पूज्य दादा जी (पिता के पिता)" : "Your Respected Paternal Grandfather");
     }
 
     const tierLabel = isHi ? "दादा-दादी / नाना-नानी पीढ़ी (Grandparents)" : "Grandparents Generation";
@@ -1503,6 +1529,7 @@ function resolveIndianRelationship(
     return {
       shortTag,
       shortTagEn: isFemale ? (isMaternal ? "Maternal Grandmother" : "Grandmother") : (isMaternal ? "Maternal Grandfather" : "Grandfather"),
+      subTag,
       primaryTitle,
       primaryTitleEn: primaryTitle,
       category: "grandparent",
@@ -1510,7 +1537,7 @@ function resolveIndianRelationship(
       generationLabel: tierLabel,
       multipleRoles: buildMultipleRoles(
         primaryTitle,
-        isHi ? "परिवार के वरिष्ठतम पूज्य बुजुर्ग" : "Respected elders of family",
+        isHi ? `${subTag} के रूप में परिवार के वरिष्ठतम पूज्य बुजुर्ग` : "Respected elders of family",
         tierLabel,
         2
       ),
@@ -1523,29 +1550,41 @@ function resolveIndianRelationship(
   const isDirectGrandchild =
     (tree.grandchildren || []).some((g) => g.id === n.id) ||
     n.relation === "grandchild" ||
+    relLower.includes("pota") ||
+    relLower.includes("poti") ||
+    relLower.includes("nati") ||
+    relLower.includes("naati") ||
+    relLower.includes("natin") ||
     (tree.levels_down?.[1] || []).some((g) => g.id === n.id);
 
   if (isDirectGrandchild) {
     const parNode = allNodes.get(n.via_id || n.via_child_id || "");
     const parSex = resolveSex(parNode?.gender, parNode?.relation);
-    const isFemale = targetSex === "F";
+    const isExplicitMaternalGc = relLower.includes("nati") || relLower.includes("naati") || relLower.includes("natin");
+    const isExplicitPaternalGc = relLower.includes("pota") || relLower.includes("poti");
+    const isMaternalGc = isExplicitMaternalGc || (!isExplicitPaternalGc && parSex === "F");
+    const isFemale = targetSex === "F" || relLower.includes("poti") || relLower.includes("natin");
 
     let shortTag = "";
+    let subTag = "";
     let primaryTitle = "";
 
-    if (parSex === "F") {
-      shortTag = isFemale ? (isHi ? "नातिन" : "Maternal Granddaughter") : (isHi ? "नाती" : "Maternal Grandson");
+    if (isMaternalGc) {
+      shortTag = isFemale ? (isHi ? "नातिन" : "Naatin") : (isHi ? "नाती" : "Naati");
+      subTag = isFemale ? (isHi ? "बेटी की बेटी" : "Daughter's Daughter") : (isHi ? "बेटी का बेटा" : "Daughter's Son");
       primaryTitle = isFemale ? (isHi ? "आपकी नातिन (सुपुत्री की पुत्री)" : "Your Maternal Granddaughter") : (isHi ? "आपका नाती (सुपुत्री का पुत्र)" : "Your Maternal Grandson");
     } else {
-      shortTag = isFemale ? (isHi ? "पोती" : "Granddaughter") : (isHi ? "पोता" : "Grandson");
+      shortTag = isFemale ? (isHi ? "पोती" : "Poti") : (isHi ? "पोता" : "Pota");
+      subTag = isFemale ? (isHi ? "बेटे की बेटी" : "Son's Daughter") : (isHi ? "बेटे का बेटा" : "Son's Son");
       primaryTitle = isFemale ? (isHi ? "आपकी पोती / पौत्री" : "Your Granddaughter") : (isHi ? "आपका पोता / पौत्र" : "Your Grandson");
     }
 
-    const tierLabel = isHi ? "पौत्र-पौत्री / नाती पीढ़ी" : "Grandchildren Generation";
+    const tierLabel = isHi ? "पोता-पोती व नाती-नातिन पीढ़ी" : "Grandchildren Generation";
 
     return {
       shortTag,
       shortTagEn: isFemale ? "Granddaughter" : "Grandson",
+      subTag,
       primaryTitle,
       primaryTitleEn: primaryTitle,
       category: "grandchild",
@@ -1553,7 +1592,7 @@ function resolveIndianRelationship(
       generationLabel: tierLabel,
       multipleRoles: buildMultipleRoles(
         primaryTitle,
-        isHi ? "परिवार की तीसरी पीढ़ी की संतान" : "Third generation descendant",
+        isHi ? `${subTag} के रूप में परिवार की तीसरी पीढ़ी की संतान` : "Third generation descendant",
         tierLabel,
         -2
       ),
@@ -1561,18 +1600,21 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // 8. SPOUSE OF DIRECT CHILD (Bahu / Damaad)
+  // 8. SPOUSE OF DIRECT CHILD (Bahu / Damaad / Jawai)
   // -------------------------------------------------------------
-  const marriedChildId = Array.from(spouseMap.get(n.id) || []).find((pId) => selfChildren.has(pId));
+  const isExplicitChildSpouse = relLower.includes("bahu") || relLower.includes("damad") || relLower.includes("damaad") || relLower.includes("jawai");
+  const marriedChildId = Array.from(spouseMap.get(n.id) || []).find((pId) => selfChildren.has(pId)) ||
+    (isExplicitChildSpouse && selfChildren.has(n.via_id || "") ? n.via_id : undefined);
 
-  if (marriedChildId && !isDirectParent) {
-    const chNode = allNodes.get(marriedChildId);
+  if ((marriedChildId || isExplicitChildSpouse) && !isDirectParent) {
+    const chNode = marriedChildId ? allNodes.get(marriedChildId) : undefined;
     const chSex = resolveSex(chNode?.gender, chNode?.relation);
     const chCleanName = chNode?.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, "") || "";
 
-    if (chSex === "M" || targetSex === "F") {
+    if (chSex === "M" || targetSex === "F" || relLower.includes("bahu")) {
       // Son's Wife -> BAHU (Daughter-in-law)
       const shortTag = isHi ? "बहू" : "Daughter-in-law";
+      const subTag = isHi ? "पुत्र-वधू" : "Son's Wife";
       const primaryTitle = isHi
         ? `आपकी बहू / पुत्र-वधू (${chCleanName ? `${chCleanName} की धर्मपत्नी` : "सुपुत्र की पत्नी"})`
         : `Your Daughter-in-law (${chCleanName ? `Wife of ${chCleanName}` : "Son's Wife"})`;
@@ -1580,7 +1622,8 @@ function resolveIndianRelationship(
 
       return {
         shortTag,
-        shortTagEn: "Daughter-in-law",
+        shortTagEn: "Daughter-in-law (Bahu)",
+        subTag,
         primaryTitle,
         primaryTitleEn: primaryTitle,
         category: "child",
@@ -1594,16 +1637,18 @@ function resolveIndianRelationship(
         ),
       };
     } else {
-      // Daughter's Husband -> DAMAAD (Son-in-law)
-      const shortTag = isHi ? "दामाद" : "Son-in-law";
+      // Daughter's Husband -> DAMAAD / JAWAI (Son-in-law)
+      const shortTag = isHi ? "दामाद (जंवाई)" : "Son-in-law (Jawai)";
+      const subTag = isHi ? "सुपुत्री के पति" : "Daughter's Husband";
       const primaryTitle = isHi
-        ? `आपके दामाद जी (${chCleanName ? `${chCleanName} के पति` : "सुपुत्री के पति"})`
+        ? `आपके दामाद जी / जंवाई (${chCleanName ? `${chCleanName} के पति` : "सुपुत्री के पति"})`
         : `Your Son-in-law (${chCleanName ? `Husband of ${chCleanName}` : "Daughter's Husband"})`;
-      const tierLabel = isHi ? "संतान की पीढ़ी (दामाद)" : "Children Generation (Son-in-law)";
+      const tierLabel = isHi ? "संतान की पीढ़ी (दामाद/जंवाई)" : "Children Generation (Son-in-law)";
 
       return {
         shortTag,
-        shortTagEn: "Son-in-law",
+        shortTagEn: "Son-in-law (Damaad/Jawai)",
+        subTag,
         primaryTitle,
         primaryTitleEn: primaryTitle,
         category: "child",
@@ -1611,7 +1656,7 @@ function resolveIndianRelationship(
         generationLabel: tierLabel,
         multipleRoles: buildMultipleRoles(
           primaryTitle,
-          isHi ? `आपकी सुपुत्री ${chCleanName} के पति होने के नाते आपके परिवार के दामाद` : `Husband of your daughter ${chCleanName}`,
+          isHi ? `आपकी सुपुत्री ${chCleanName} के पति होने के नाते आपके परिवार के दामाद (जंवाई)` : `Husband of your daughter ${chCleanName}`,
           tierLabel,
           -1
         ),
@@ -1902,13 +1947,21 @@ function resolveIndianRelationship(
   // -------------------------------------------------------------
   // 13. FATHER'S SIBLINGS (Tau, Chacha, Bua)
   // -------------------------------------------------------------
-  if (fatherSiblings.has(n.id)) {
+  const isFatherSib =
+    fatherSiblings.has(n.id) ||
+    relLower.includes("chacha") ||
+    relLower.includes("tau") ||
+    relLower.includes("bua") ||
+    (tree.uncles_and_aunts || []).some((u) => u.id === n.id && (!u.via_id || u.via_id === father?.id));
+
+  if (isFatherSib) {
     const fBorn = father?.birth_year || null;
     const nBorn = n.birth_year || null;
-    const isOlderThanFather = fBorn && nBorn ? nBorn < fBorn : false;
+    const isOlderThanFather = (fBorn && nBorn ? nBorn < fBorn : false) || relLower.includes("tau");
 
-    if (targetSex === "M") {
+    if (targetSex === "M" || relLower.includes("chacha") || relLower.includes("tau")) {
       const shortTag = isOlderThanFather ? (isHi ? "ताऊ जी" : "Elder Uncle (Tau)") : (isHi ? "चाचा जी" : "Paternal Uncle (Chacha)");
+      const subTag = isOlderThanFather ? (isHi ? "पिता के बड़े भाई" : "Father's Elder Brother") : (isHi ? "पिता के भाई" : "Father's Brother");
       const primaryTitle = isOlderThanFather
         ? isHi ? "आपके ताऊ जी / बड़े पापा (पिताजी के बड़े भाई)" : "Your Elder Paternal Uncle (Tau)"
         : isHi ? "आपके चाचा जी / काका जी (पिताजी के भाई)" : "Your Paternal Uncle (Chacha)";
@@ -1917,6 +1970,7 @@ function resolveIndianRelationship(
       return {
         shortTag,
         shortTagEn: isOlderThanFather ? "Elder Uncle (Tau)" : "Uncle (Chacha)",
+        subTag,
         primaryTitle,
         primaryTitleEn: primaryTitle,
         category: "parent",
@@ -1931,12 +1985,14 @@ function resolveIndianRelationship(
       };
     } else {
       const shortTag = isHi ? "बुआ जी" : "Paternal Aunt (Bua)";
+      const subTag = isHi ? "पिता की बहन" : "Father's Sister";
       const primaryTitle = isHi ? "आपकी बुआ जी / फूफी (पिताजी की बहन)" : "Your Paternal Aunt (Bua)";
       const tierLabel = isHi ? "माता-पिता की पीढ़ी (बुआ जी)" : "Parents Generation (Aunt)";
 
       return {
         shortTag,
         shortTagEn: "Paternal Aunt (Bua)",
+        subTag,
         primaryTitle,
         primaryTitleEn: primaryTitle,
         category: "parent",
@@ -1957,18 +2013,20 @@ function resolveIndianRelationship(
   // -------------------------------------------------------------
   const marriedFatherSibId = Array.from(spouseMap.get(n.id) || []).find((pId) => fatherSiblings.has(pId)) ||
     (fatherSiblings.has(n.via_id || "") ? n.via_id : undefined);
+  const isFatherSibSpouse = marriedFatherSibId || relLower.includes("chachi") || relLower.includes("tai") || relLower.includes("fufa");
 
-  if (marriedFatherSibId) {
-    const sibNode = allNodes.get(marriedFatherSibId);
+  if (isFatherSibSpouse) {
+    const sibNode = marriedFatherSibId ? allNodes.get(marriedFatherSibId) : undefined;
     const sibSex = resolveSex(sibNode?.gender, sibNode?.relation);
     const sibCleanName = sibNode?.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, "") || "";
     const fBorn = father?.birth_year || null;
     const sBorn = sibNode?.birth_year || null;
-    const isOlderSib = fBorn && sBorn ? sBorn < fBorn : false;
+    const isOlderSib = (fBorn && sBorn ? sBorn < fBorn : false) || relLower.includes("tai");
 
-    if (sibSex === "M" || targetSex === "F") {
+    if (sibSex === "M" || targetSex === "F" || relLower.includes("chachi") || relLower.includes("tai")) {
       // Uncle's Wife -> TAI or CHACHI
       const shortTag = isOlderSib ? (isHi ? "ताई जी" : "Tai ji") : (isHi ? "चाची जी" : "Chachi ji");
+      const subTag = isOlderSib ? (isHi ? "ताऊ जी की पत्नी" : "Tau's Wife") : (isHi ? "चाचा जी की पत्नी" : "Chacha's Wife");
       const primaryTitle = isOlderSib
         ? isHi ? `आपकी ताई जी / बड़ी माँ (${sibCleanName} की धर्मपत्नी)` : `Your Elder Paternal Aunt (${sibCleanName}'s Wife)`
         : isHi ? `आपकी चाची जी / काकी जी (${sibCleanName} की धर्मपत्नी)` : `Your Paternal Aunt (${sibCleanName}'s Wife)`;
@@ -1977,6 +2035,7 @@ function resolveIndianRelationship(
       return {
         shortTag,
         shortTagEn: isOlderSib ? "Elder Aunt (Tai)" : "Aunt (Chachi)",
+        subTag,
         primaryTitle,
         primaryTitleEn: primaryTitle,
         category: "parent",
@@ -1987,6 +2046,7 @@ function resolveIndianRelationship(
     } else {
       // Aunt's Husband -> FUFA JI
       const shortTag = isHi ? "फूफा जी" : "Fufa ji";
+      const subTag = isHi ? "बुआ जी के पति" : "Bua's Husband";
       const primaryTitle = isHi
         ? `आपके फूफा जी (${sibCleanName ? `${sibCleanName} के पति` : "बुआ जी के पति"})`
         : `Your Paternal Uncle (Fufa ji)`;
@@ -1995,6 +2055,7 @@ function resolveIndianRelationship(
       return {
         shortTag,
         shortTagEn: "Uncle (Fufa ji)",
+        subTag,
         primaryTitle,
         primaryTitleEn: primaryTitle,
         category: "parent",
@@ -2008,15 +2069,23 @@ function resolveIndianRelationship(
   // -------------------------------------------------------------
   // 15. MOTHER'S SIBLINGS (Mama, Mausi)
   // -------------------------------------------------------------
-  if (motherSiblings.has(n.id)) {
-    if (targetSex === "M") {
+  const isMotherSib =
+    motherSiblings.has(n.id) ||
+    relLower.includes("mama") ||
+    relLower.includes("mausi") ||
+    (tree.uncles_and_aunts || []).some((u) => u.id === n.id && u.via_id === mother?.id);
+
+  if (isMotherSib) {
+    if (targetSex === "M" || relLower.includes("mama")) {
       const shortTag = isHi ? "मामा जी" : "Maternal Uncle (Mama)";
+      const subTag = isHi ? "माता के भाई" : "Mother's Brother";
       const primaryTitle = isHi ? "आपके मामा जी (माताजी के भाई)" : "Your Maternal Uncle (Mama)";
       const tierLabel = isHi ? "माता-पिता की पीढ़ी (मामा जी)" : "Parents Generation (Maternal Uncle)";
 
       return {
         shortTag,
         shortTagEn: "Maternal Uncle (Mama)",
+        subTag,
         primaryTitle,
         primaryTitleEn: primaryTitle,
         category: "parent",
@@ -2031,12 +2100,14 @@ function resolveIndianRelationship(
       };
     } else {
       const shortTag = isHi ? "मौसी जी" : "Maternal Aunt (Mausi)";
+      const subTag = isHi ? "माता की बहन" : "Mother's Sister";
       const primaryTitle = isHi ? "आपकी मौसी जी (माताजी की बहन)" : "Your Maternal Aunt (Mausi)";
       const tierLabel = isHi ? "माता-पिता की पीढ़ी (मौसी जी)" : "Parents Generation (Maternal Aunt)";
 
       return {
         shortTag,
         shortTagEn: "Maternal Aunt (Mausi)",
+        subTag,
         primaryTitle,
         primaryTitleEn: primaryTitle,
         category: "parent",
@@ -2057,47 +2128,52 @@ function resolveIndianRelationship(
   // -------------------------------------------------------------
   const marriedMotherSibId = Array.from(spouseMap.get(n.id) || []).find((pId) => motherSiblings.has(pId)) ||
     (motherSiblings.has(n.via_id || "") ? n.via_id : undefined);
+  const isMotherSibSpouse = marriedMotherSibId || relLower.includes("mami") || relLower.includes("mausa");
 
-  if (marriedMotherSibId) {
-    const sibNode = allNodes.get(marriedMotherSibId);
+  if (isMotherSibSpouse) {
+    const sibNode = marriedMotherSibId ? allNodes.get(marriedMotherSibId) : undefined;
     const sibSex = resolveSex(sibNode?.gender, sibNode?.relation);
     const sibCleanName = sibNode?.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, "") || "";
 
-    if (sibSex === "M" || targetSex === "F") {
+    if (sibSex === "M" || targetSex === "F" || relLower.includes("mami")) {
       // Mama's Wife -> MAMI
       const shortTag = isHi ? "मामी जी" : "Mami ji";
+      const subTag = isHi ? "मामा जी की पत्नी" : "Mami";
       const primaryTitle = isHi
         ? `आपकी मामी जी (${sibCleanName ? `${sibCleanName} की धर्मपत्नी` : "मामा जी की पत्नी"})`
-        : `Your Maternal Aunt (Mami ji)`;
-      const tierLabel = isHi ? "माता-पिता की पीढ़ी (मामी जी)" : "Parents Generation (Maternal Aunt)";
+        : `Your Maternal Aunt (${sibCleanName ? `Wife of ${sibCleanName}` : "Maternal Uncle's Wife"})`;
+      const tierLabel = isHi ? "माता-पिता की पीढ़ी (मामी जी)" : "Parents Generation";
 
       return {
         shortTag,
-        shortTagEn: "Maternal Aunt (Mami)",
+        shortTagEn: "Maternal Aunt (Mami ji)",
+        subTag,
         primaryTitle,
         primaryTitleEn: primaryTitle,
         category: "parent",
         generationTier: 1,
         generationLabel: tierLabel,
-        multipleRoles: buildMultipleRoles(primaryTitle, isHi ? `मामा जी ${sibCleanName} की धर्मपत्नी` : `Wife of ${sibCleanName}`, tierLabel, 1),
+        multipleRoles: buildMultipleRoles(primaryTitle, isHi ? `मामा जी की धर्मपत्नी` : `Wife of maternal uncle`, tierLabel, 1),
       };
     } else {
-      // Mausi's Husband -> MAUSA JI
+      // Mausi's Husband -> MAUSA
       const shortTag = isHi ? "मौसा जी" : "Mausa ji";
+      const subTag = isHi ? "मौसी जी के पति" : "Mausa";
       const primaryTitle = isHi
         ? `आपके मौसा जी (${sibCleanName ? `${sibCleanName} के पति` : "मौसी जी के पति"})`
-        : `Your Maternal Uncle (Mausa ji)`;
-      const tierLabel = isHi ? "माता-पिता की पीढ़ी (मौसा जी)" : "Parents Generation (Maternal Uncle)";
+        : `Your Maternal Uncle (${sibCleanName ? `Husband of ${sibCleanName}` : "Maternal Aunt's Husband"})`;
+      const tierLabel = isHi ? "माता-पिता की पीढ़ी (मौसा जी)" : "Parents Generation";
 
       return {
         shortTag,
-        shortTagEn: "Maternal Uncle (Mausa)",
+        shortTagEn: "Maternal Uncle (Mausa ji)",
+        subTag,
         primaryTitle,
         primaryTitleEn: primaryTitle,
         category: "parent",
         generationTier: 1,
         generationLabel: tierLabel,
-        multipleRoles: buildMultipleRoles(primaryTitle, isHi ? `मौसी जी ${sibCleanName} के पति` : `Husband of ${sibCleanName}`, tierLabel, 1),
+        multipleRoles: buildMultipleRoles(primaryTitle, isHi ? `मौसी जी के पति` : `Husband of maternal aunt`, tierLabel, 1),
       };
     }
   }
@@ -3242,21 +3318,43 @@ function VanshawaliInner() {
     const gpSeen = new Set<string>();
     const gpPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE, boolean][] = [];
 
-    // Check Dada + Dadi
-    const pDada = gpList.find((g) => resolveSex(g.gender, g.relation) === "M" && (!g.via_id || g.via_id === father?.id));
-    const pDadi = gpList.find((g) => resolveSex(g.gender, g.relation) === "F" && (!g.via_id || g.via_id === father?.id));
+    // Helper to check if grandparent is maternal or paternal
+    const isMaternalGp = (g: Node) => {
+      const r = (g.relation || "").toLowerCase();
+      if (r.includes("nana") || r.includes("nani") || r.includes("maternal")) return true;
+      if (mother && (g.via_id === mother.id || g.via_parent_id === mother.id)) return true;
+      return false;
+    };
+    const isPaternalGp = (g: Node) => {
+      const r = (g.relation || "").toLowerCase();
+      if (r.includes("dada") || r.includes("dadi") || r.includes("paternal")) return true;
+      if (father && (g.via_id === father.id || g.via_parent_id === father.id)) return true;
+      return false;
+    };
+
+    // 1. Dada + Dadi (Paternal - Father's parents)
+    const pDada = gpList.find((g) => isPaternalGp(g) && resolveSex(g.gender, g.relation) === "M")
+      || gpList.find((g) => !isMaternalGp(g) && resolveSex(g.gender, g.relation) === "M" && (!g.via_id || g.via_id === father?.id));
+    const pDadi = gpList.find((g) => isPaternalGp(g) && resolveSex(g.gender, g.relation) === "F")
+      || (pDada ? getSpouseOf(pDada.id) : null)
+      || gpList.find((g) => !isMaternalGp(g) && resolveSex(g.gender, g.relation) === "F" && (!g.via_id || g.via_id === father?.id));
+
     if (pDada && pDadi && pDada.id !== pDadi.id) {
       gpPairs.push([pDada, pDadi, "up2", "up2", true]);
       gpSeen.add(pDada.id);
       gpSeen.add(pDadi.id);
     } else {
       if (pDada) { gpPairs.push([pDada, null, "up2", "up2", false]); gpSeen.add(pDada.id); }
-      if (pDadi) { gpPairs.push([pDadi, null, "up2", "up2", false]); gpSeen.add(pDadi.id); }
+      if (pDadi && !gpSeen.has(pDadi.id)) { gpPairs.push([pDadi, null, "up2", "up2", false]); gpSeen.add(pDadi.id); }
     }
 
-    // Check Nana + Nani
-    const mNana = gpList.find((g) => !gpSeen.has(g.id) && resolveSex(g.gender, g.relation) === "M");
-    const mNani = gpList.find((g) => !gpSeen.has(g.id) && resolveSex(g.gender, g.relation) === "F");
+    // 2. Nana + Nani (Maternal - Mother's parents)
+    const mNana = gpList.find((g) => !gpSeen.has(g.id) && isMaternalGp(g) && resolveSex(g.gender, g.relation) === "M")
+      || gpList.find((g) => !gpSeen.has(g.id) && resolveSex(g.gender, g.relation) === "M" && g.id !== pDada?.id);
+    const mNani = gpList.find((g) => !gpSeen.has(g.id) && isMaternalGp(g) && resolveSex(g.gender, g.relation) === "F")
+      || (mNana ? getSpouseOf(mNana.id) : null)
+      || gpList.find((g) => !gpSeen.has(g.id) && resolveSex(g.gender, g.relation) === "F" && g.id !== pDadi?.id);
+
     if (mNana && mNani && mNana.id !== mNani.id) {
       gpPairs.push([mNana, mNani, "up2", "up2", true]);
       gpSeen.add(mNana.id);
@@ -3306,7 +3404,7 @@ function VanshawaliInner() {
         id: "grandparents",
         top: secTop,
         height: secH,
-        title: lang === "hi" ? "दादा-दादी / नाना-नानी पीढ़ी" : "Grandparents Generation",
+        title: lang === "hi" ? "दादा-दादी व नाना-नानी पीढ़ी" : "Grandparents (Dada-Dadi, Nana-Nani)",
         icon: "👑",
         count: gpCount,
         borderCls: "border-2 border-indigo-300/80 shadow-sm",
@@ -3375,7 +3473,7 @@ function VanshawaliInner() {
         id: "parents",
         top: secTop,
         height: secH,
-        title: lang === "hi" ? "माता-पिता व वरिष्ठ पीढ़ी" : "Parents & Elders Generation",
+        title: lang === "hi" ? "माता-पिता, चाचा-चाची व बुआ" : "Parents, Chacha-Chachi, Bua",
         icon: "🌻",
         count: parCount,
         borderCls: "border-2 border-amber-300/90 shadow-sm",
@@ -3527,7 +3625,7 @@ function VanshawaliInner() {
         id: "children",
         top: secTop,
         height: secH,
-        title: lang === "hi" ? "पुत्र-पुत्री व अगली पीढ़ी" : "Children & Next Generation",
+        title: lang === "hi" ? "बेटा-बेटी, बहू व दामाद (जंवाई)" : "Children, Bahu & Damaad/Jawai",
         icon: "🌱",
         count: chCount,
         borderCls: "border-2 border-emerald-300/90 shadow-sm",
@@ -3596,7 +3694,7 @@ function VanshawaliInner() {
         id: "grandchildren",
         top: secTop,
         height: secH,
-        title: lang === "hi" ? "पोता-पोती व नाती-नातिन" : "Grandchildren Generation",
+        title: lang === "hi" ? "पोता-पोती व नाती-नातिन" : "Grandchildren (Pota-Poti, Naati-Natni)",
         icon: "🍼",
         count: gcCount,
         borderCls: "border-2 border-purple-300/90 shadow-sm",
@@ -4288,15 +4386,32 @@ function VanshawaliInner() {
     });
   };
 
-  // 1. Grandparents -> Parents (Paternal strictly left, Maternal strictly right)
-  const gpList = (tree?.grandparents || []).concat(levelsUp[1] || []);
-  const dada = gpList.find((g) => resolveSex(g.gender, g.relation) === "M" && (!g.via_id || g.via_id === father?.id));
-  const dadi = gpList.find((g) => resolveSex(g.gender, g.relation) === "F" && (!g.via_id || g.via_id === father?.id));
+  // 1. Grandparents -> Parents (Paternal Dada/Dadi -> Father, Maternal Nana/Nani -> Mother)
+  const gpBloodList = (tree?.grandparents || []).concat(levelsUp[1] || []);
+  const isMaternalGpNode = (g: Node) => {
+    const r = (g.relation || "").toLowerCase();
+    if (r.includes("nana") || r.includes("nani") || r.includes("maternal")) return true;
+    if (mother && (g.via_id === mother.id || g.via_parent_id === mother.id)) return true;
+    return false;
+  };
+  const isPaternalGpNode = (g: Node) => {
+    const r = (g.relation || "").toLowerCase();
+    if (r.includes("dada") || r.includes("dadi") || r.includes("paternal")) return true;
+    if (father && (g.via_id === father.id || g.via_parent_id === father.id)) return true;
+    return false;
+  };
+
+  const dada = gpBloodList.find((g) => isPaternalGpNode(g) && resolveSex(g.gender, g.relation) === "M")
+    || gpBloodList.find((g) => !isMaternalGpNode(g) && resolveSex(g.gender, g.relation) === "M" && (!g.via_id || g.via_id === father?.id));
+  const dadi = gpBloodList.find((g) => isPaternalGpNode(g) && resolveSex(g.gender, g.relation) === "F")
+    || gpBloodList.find((g) => !isMaternalGpNode(g) && resolveSex(g.gender, g.relation) === "F" && (!g.via_id || g.via_id === father?.id));
   if (father && (dada || dadi)) {
     createBloodUnit("gp-paternal", dada?.id, dadi?.id, [father.id], "left");
   }
-  const nana = gpList.find((g) => resolveSex(g.gender, g.relation) === "M" && g.id !== dada?.id);
-  const nani = gpList.find((g) => resolveSex(g.gender, g.relation) === "F" && g.id !== dadi?.id);
+  const nana = gpBloodList.find((g) => isMaternalGpNode(g) && resolveSex(g.gender, g.relation) === "M")
+    || gpBloodList.find((g) => g.id !== dada?.id && resolveSex(g.gender, g.relation) === "M");
+  const nani = gpBloodList.find((g) => isMaternalGpNode(g) && resolveSex(g.gender, g.relation) === "F")
+    || gpBloodList.find((g) => g.id !== dadi?.id && resolveSex(g.gender, g.relation) === "F");
   if (mother && (nana || nani)) {
     createBloodUnit("gp-maternal", nana?.id, nani?.id, [mother.id], "right");
   }
@@ -4802,16 +4917,21 @@ function VanshawaliInner() {
               </span>
             </div>
 
-            {/* Line 2: Relationship badge */}
-            <div className="flex items-center mt-1 min-w-0">
+            {/* Line 2: Relationship badge & clarification */}
+            <div className="flex items-center gap-1 mt-1 min-w-0">
               <span
                 className={cn(
-                  "text-[9.5px] leading-tight px-1.5 py-0.5 rounded-md font-semibold truncate max-w-full inline-block",
+                  "text-[9.5px] leading-tight px-1.5 py-0.5 rounded-md font-bold truncate shrink-0",
                   badgeCls
                 )}
               >
                 {rel}
               </span>
+              {relInfo.subTag && relInfo.subTag !== rel && (
+                <span className="text-[8.5px] text-gray-500 font-medium truncate">
+                  ({relInfo.subTag})
+                </span>
+              )}
             </div>
 
             {/* Line 3: Birth / Details */}
@@ -4903,29 +5023,16 @@ function VanshawaliInner() {
         }
         .vansh-marry-float {
         }
-        @keyframes ring3dShine {
-          0% {
-            stroke-dashoffset: 14;
-            opacity: 0;
+        @keyframes ringFullOrbit {
+          from {
+            stroke-dashoffset: 0;
           }
-          12% {
-            opacity: 0.95;
-          }
-          45% {
-            stroke-dashoffset: -36;
-            opacity: 0.95;
-          }
-          58% {
-            stroke-dashoffset: -46;
-            opacity: 0;
-          }
-          100% {
-            stroke-dashoffset: -46;
-            opacity: 0;
+          to {
+            stroke-dashoffset: -100;
           }
         }
         .vansh-3d-shine {
-          animation: ring3dShine 4.0s ease-in-out infinite;
+          animation: ringFullOrbit 9.0s linear infinite;
         }
         @keyframes bloodPulse {
           0%, 100% {
