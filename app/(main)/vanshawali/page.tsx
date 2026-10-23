@@ -264,15 +264,16 @@ const COUPLE_RING_STYLES: RingStyle[] = [
     id: "silver",
     name: "Sterling Silver",
     bandGradient: "from-slate-200 via-white to-slate-400",
-    bandBorder: "#94A3B8",
+    bandBorder: "#64748B",
     bandGradientStops: [
       { offset: "0%", color: "#94A3B8" },
       { offset: "28%", color: "#FFFFFF" },
       { offset: "62%", color: "#CBD5E1" },
       { offset: "100%", color: "#64748B" },
     ],
-    gemColor: "#FFFFFF",
-    sparkleColor: "#BAE6FD",
+    // High-contrast: Silver band with Royal Sapphire Blue diamond
+    gemColor: "#2563EB",
+    sparkleColor: "#93C5FD",
     lineColor: "#64748B",
     shadowColor: "rgba(148, 163, 184, 0.45)",
   },
@@ -287,8 +288,9 @@ const COUPLE_RING_STYLES: RingStyle[] = [
       { offset: "62%", color: "#F59E0B" },
       { offset: "100%", color: "#92400E" },
     ],
-    gemColor: "#FBBF24",
-    sparkleColor: "#FEF9C3",
+    // High-contrast: Gold band with Vivid Emerald Green diamond
+    gemColor: "#059669",
+    sparkleColor: "#6EE7B7",
     lineColor: "#D97706",
     shadowColor: "rgba(217, 119, 6, 0.45)",
   },
@@ -303,8 +305,9 @@ const COUPLE_RING_STYLES: RingStyle[] = [
       { offset: "62%", color: "#FB7185" },
       { offset: "100%", color: "#881337" },
     ],
-    gemColor: "#BE123C",
-    sparkleColor: "#FDA4AF",
+    // High-contrast: Red band with Canary Yellow diamond
+    gemColor: "#FBBF24",
+    sparkleColor: "#FEF9C3",
     lineColor: "#E11D48",
     shadowColor: "rgba(225, 29, 72, 0.45)",
   },
@@ -319,8 +322,9 @@ const COUPLE_RING_STYLES: RingStyle[] = [
       { offset: "62%", color: "#60A5FA" },
       { offset: "100%", color: "#1E3A8A" },
     ],
-    gemColor: "#1D4ED8",
-    sparkleColor: "#93C5FD",
+    // High-contrast: Blue band with Crimson Ruby diamond
+    gemColor: "#DC2626",
+    sparkleColor: "#FDA4AF",
     lineColor: "#2563EB",
     shadowColor: "rgba(37, 99, 235, 0.45)",
   },
@@ -335,8 +339,9 @@ const COUPLE_RING_STYLES: RingStyle[] = [
       { offset: "62%", color: "#34D399" },
       { offset: "100%", color: "#064E3B" },
     ],
-    gemColor: "#059669",
-    sparkleColor: "#6EE7B7",
+    // High-contrast: Green band with Sunset Coral Orange diamond
+    gemColor: "#EA580C",
+    sparkleColor: "#FED7AA",
     lineColor: "#059669",
     shadowColor: "rgba(5, 150, 105, 0.45)",
   },
@@ -351,8 +356,9 @@ const COUPLE_RING_STYLES: RingStyle[] = [
       { offset: "62%", color: "#A78BFA" },
       { offset: "100%", color: "#3B0764" },
     ],
-    gemColor: "#7E22CE",
-    sparkleColor: "#DDD6FE",
+    // High-contrast: Purple band with Aquamarine Cyan diamond
+    gemColor: "#06B6D4",
+    sparkleColor: "#A5F3FC",
     lineColor: "#7C3AED",
     shadowColor: "rgba(124, 58, 237, 0.45)",
   },
@@ -367,8 +373,9 @@ const COUPLE_RING_STYLES: RingStyle[] = [
       { offset: "62%", color: "#22D3EE" },
       { offset: "100%", color: "#155E75" },
     ],
-    gemColor: "#06B6D4",
-    sparkleColor: "#A5F3FC",
+    // High-contrast: Teal band with Fuchsia Pink diamond
+    gemColor: "#C026D3",
+    sparkleColor: "#F0ABFC",
     lineColor: "#0891B2",
     shadowColor: "rgba(8, 145, 178, 0.45)",
   },
@@ -383,8 +390,9 @@ const COUPLE_RING_STYLES: RingStyle[] = [
       { offset: "62%", color: "#FB923C" },
       { offset: "100%", color: "#7C2D12" },
     ],
-    gemColor: "#EA580C",
-    sparkleColor: "#FED7AA",
+    // High-contrast: Orange band with Royal Indigo Blue diamond
+    gemColor: "#4F46E5",
+    sparkleColor: "#C7D2FE",
     lineColor: "#EA580C",
     shadowColor: "rgba(234, 88, 12, 0.45)",
   },
@@ -392,17 +400,18 @@ const COUPLE_RING_STYLES: RingStyle[] = [
     id: "garnet",
     name: "Garnet",
     bandGradient: "from-slate-700 via-slate-400 to-slate-900",
-    bandBorder: "#991B1B",
+    bandBorder: "#334155",
     bandGradientStops: [
-      { offset: "0%", color: "#334155" },
+      { offset: "0%", color: "#1E293B" },
       { offset: "28%", color: "#F1F5F9" },
-      { offset: "62%", color: "#64748B" },
+      { offset: "62%", color: "#475569" },
       { offset: "100%", color: "#0F172A" },
     ],
-    gemColor: "#991B1B",
-    sparkleColor: "#FCA5A5",
-    lineColor: "#991B1B",
-    shadowColor: "rgba(153, 27, 27, 0.45)",
+    // High-contrast: Dark Rhodium band with Peridot Lime diamond
+    gemColor: "#10B981",
+    sparkleColor: "#A7F3D0",
+    lineColor: "#334155",
+    shadowColor: "rgba(51, 65, 85, 0.45)",
   },
   {
     id: "fuchsia",
@@ -415,8 +424,9 @@ const COUPLE_RING_STYLES: RingStyle[] = [
       { offset: "62%", color: "#E879F9" },
       { offset: "100%", color: "#701A75" },
     ],
-    gemColor: "#C026D3",
-    sparkleColor: "#F0ABFC",
+    // High-contrast: Pink band with Golden Topaz diamond
+    gemColor: "#D97706",
+    sparkleColor: "#FDE68A",
     lineColor: "#C026D3",
     shadowColor: "rgba(192, 38, 211, 0.45)",
   },
@@ -523,15 +533,15 @@ function SolitaireRingAvatar({
                 strokeWidth={2.0}
               />
 
-              {/* Proper 3D luxury specular light sheen that slowly glides across the top shoulder */}
+              {/* Tiny specular light glint that slowly sweeps across the shoulder */}
               <circle
                 cx={cx}
                 cy={cy}
                 r={r}
                 fill="none"
                 stroke="#FFFFFF"
-                strokeWidth={2.4}
-                strokeDasharray={`${circ * 0.15} ${circ * 0.85}`}
+                strokeWidth={2.0}
+                strokeDasharray="3.5 120"
                 strokeLinecap="round"
                 className="vansh-3d-shine"
               />
@@ -677,7 +687,7 @@ function bezierCurve(p1: { x: number; y: number }, p2: { x: number; y: number })
   return `M ${p1.x} ${p1.y} C ${p1.x} ${cp1y}, ${p2.x} ${cp2y}, ${p2.x} ${p2.y}`;
 }
 
-function ThreadKnot({
+function RopeKnot({
   x,
   y,
   isBottom = false,
@@ -687,34 +697,132 @@ function ThreadKnot({
   isBottom?: boolean;
 }) {
   return (
-    <g transform={`translate(${x}, ${y})`}>
-      {/* Sacred Mauli / Kalava tied thread knot with golden bead seal */}
+    <g
+      transform={`translate(${x}, ${y})`}
+      style={{ filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.32))" }}
+    >
+      {/* Realistic tied rope knot physically tagging ON TOP of the card edge */}
       <g transform={isBottom ? "rotate(180)" : undefined}>
-        {/* Left thread loop */}
+        {/* Soft shadow cast directly onto card surface */}
+        <ellipse cx={0} cy={1.5} rx={7} ry={3} fill="rgba(0,0,0,0.18)" />
+
+        {/* Outer Braided Rope Loops (Figure-eight rope knot) */}
+        {/* Left Bight */}
         <path
-          d="M 0 0 C -3 -2, -4.5 -0.5, -3 1.5 C -1.8 2.5, 0 1, 0 0"
-          fill="#DC2626"
+          d="M 0,-1 C -4.5,-4 -7.5,-1.5 -6,2 C -4.5,5.5 -1.5,4 0,1.5"
+          fill="none"
           stroke="#991B1B"
-          strokeWidth={0.6}
+          strokeWidth={2.8}
+          strokeLinecap="round"
         />
-        {/* Right thread loop */}
         <path
-          d="M 0 0 C 3 -2, 4.5 -0.5, 3 1.5 C 1.8 2.5, 0 1, 0 0"
-          fill="#DC2626"
+          d="M 0,-1 C -4.5,-4 -7.5,-1.5 -6,2 C -4.5,5.5 -1.5,4 0,1.5"
+          fill="none"
+          stroke="#DC2626"
+          strokeWidth={2.0}
+          strokeLinecap="round"
+        />
+        <path
+          d="M -1,-0.5 C -4,-3 -6,-1 -5,1.5"
+          fill="none"
+          stroke="#F87171"
+          strokeWidth={0.8}
+          strokeLinecap="round"
+        />
+
+        {/* Right Bight */}
+        <path
+          d="M 0,-1 C 4.5,-4 7.5,-1.5 6,2 C 4.5,5.5 1.5,4 0,1.5"
+          fill="none"
           stroke="#991B1B"
-          strokeWidth={0.6}
+          strokeWidth={2.8}
+          strokeLinecap="round"
         />
-        {/* Two tied thread trailing strand tips */}
         <path
-          d="M -1 1.2 Q -2.5 3 -3.5 4.5 M 1 1.2 Q 2.5 3 3.5 4.5"
+          d="M 0,-1 C 4.5,-4 7.5,-1.5 6,2 C 4.5,5.5 1.5,4 0,1.5"
+          fill="none"
+          stroke="#DC2626"
+          strokeWidth={2.0}
+          strokeLinecap="round"
+        />
+        <path
+          d="M 1,-0.5 C 4,-3 6,-1 5,1.5"
+          fill="none"
+          stroke="#F87171"
+          strokeWidth={0.8}
+          strokeLinecap="round"
+        />
+
+        {/* Central Rope Turn */}
+        <path
+          d="M -3.5,0.5 Q 0,2 3.5,0.5"
+          fill="none"
+          stroke="#7F1D1D"
+          strokeWidth={3.0}
+          strokeLinecap="round"
+        />
+        <path
+          d="M -3.5,0.5 Q 0,2 3.5,0.5"
+          fill="none"
+          stroke="#B91C1C"
+          strokeWidth={2.2}
+          strokeLinecap="round"
+        />
+
+        {/* Golden Cord Seizing Wrap (Binding the rope knot tightly) */}
+        <rect
+          x={-2.2}
+          y={-1.2}
+          width={4.4}
+          height={3.2}
+          rx={1.5}
+          fill="#D97706"
+          stroke="#78350F"
+          strokeWidth={0.5}
+        />
+        <line x1={-1.5} y1={-0.5} x2={1.5} y2={-0.5} stroke="#FEF3C7" strokeWidth={0.6} />
+        <line x1={-1.5} y1={0.8} x2={1.5} y2={0.8} stroke="#FEF3C7" strokeWidth={0.6} />
+
+        {/* Rope Cord Tails (Frayed strand tips tagging onto the card surface) */}
+        {/* Left Tail */}
+        <path
+          d="M -1.8,2 C -2.8,4.5 -4.2,6 -4.8,8.5"
+          fill="none"
+          stroke="#991B1B"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+        />
+        <path
+          d="M -1.8,2 C -2.8,4.5 -4.2,6 -4.8,8.5"
           fill="none"
           stroke="#EF4444"
           strokeWidth={1.2}
           strokeLinecap="round"
         />
-        {/* Center golden knot binding bead seal */}
-        <circle r={2.0} fill="#F59E0B" stroke="#B45309" strokeWidth={0.6} />
-        <circle r={0.7} fill="#FEF3C7" />
+        <line x1={-4.8} y1={8.5} x2={-5.6} y2={9.6} stroke="#F87171" strokeWidth={0.6} strokeLinecap="round" />
+        <line x1={-4.8} y1={8.5} x2={-4.2} y2={9.8} stroke="#FCA5A5" strokeWidth={0.6} strokeLinecap="round" />
+
+        {/* Right Tail */}
+        <path
+          d="M 1.8,2 C 2.8,4.5 4.2,6 4.8,8.5"
+          fill="none"
+          stroke="#991B1B"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+        />
+        <path
+          d="M 1.8,2 C 2.8,4.5 4.2,6 4.8,8.5"
+          fill="none"
+          stroke="#EF4444"
+          strokeWidth={1.2}
+          strokeLinecap="round"
+        />
+        <line x1={4.8} y1={8.5} x2={4.2} y2={9.8} stroke="#F87171" strokeWidth={0.6} strokeLinecap="round" />
+        <line x1={4.8} y1={8.5} x2={5.6} y2={9.6} stroke="#FCA5A5" strokeWidth={0.6} strokeLinecap="round" />
+
+        {/* Center Tag Seal Ring (Golden eyelet grommet) */}
+        <circle cx={0} cy={0.4} r={1.6} fill="#F59E0B" stroke="#92400E" strokeWidth={0.4} />
+        <circle cx={0} cy={0.4} r={0.6} fill="#FFFBEB" />
       </g>
     </g>
   );
@@ -4067,7 +4175,7 @@ function VanshawaliInner() {
     d: string;
     isLeaf?: boolean;
   };
-  type ThreadKnotAnchor = {
+  type RopeKnotAnchor = {
     key: string;
     x: number;
     y: number;
@@ -4075,7 +4183,7 @@ function VanshawaliInner() {
   };
 
   const bloodSegments: BloodSegment[] = [];
-  const bloodKnots: ThreadKnotAnchor[] = [];
+  const bloodKnots: RopeKnotAnchor[] = [];
   const knotSeen = new Set<string>();
 
   const addKnot = (id: string, x: number, y: number, isBottom: boolean) => {
@@ -4128,18 +4236,20 @@ function VanshawaliInner() {
     // 2. Junction coordinates in inter-generation corridor
     let jx = cx;
     if (preferredLane === "left") {
-      jx = p1Bottom.x;
+      jx = is2ColActive ? cx - 4 : p1Bottom.x;
     } else if (preferredLane === "right") {
-      jx = p2Bottom ? p2Bottom.x : cx;
+      jx = is2ColActive ? cx + 4 : (p2Bottom ? p2Bottom.x : cx);
     } else if (!is2ColActive) {
       jx = p2Bottom ? (p1Bottom.x + p2Bottom.x) / 2 : p1Bottom.x;
     }
 
     const maxPBottom = Math.max(p1Bottom.y, p2Bottom ? p2Bottom.y : p1Bottom.y);
     const minCTop = Math.min(...validChildren.map((c) => c.pos.top));
-    const jy = minCTop > maxPBottom + 20
-      ? maxPBottom + (minCTop - maxPBottom) * 0.38
-      : maxPBottom + 18;
+    const jy = is2ColActive
+      ? Math.max(maxPBottom + 16, minCTop - 16)
+      : (minCTop > maxPBottom + 20
+          ? maxPBottom + (minCTop - maxPBottom) * 0.38
+          : maxPBottom + 18);
 
     const junc = { x: jx, y: jy };
 
@@ -5534,22 +5644,29 @@ function VanshawaliInner() {
                   height: sec.height,
                 }}
               >
-                {/* Prominent Visible Generation Section Heading Banner */}
+                {/* Split Generation Header: Left Pill for Title & Right Pill for Count */}
+                {/* Center corridor [cx - 24, cx + 24] is 100% open so bloodlines pass without ANY text/banner overlap */}
                 <div
                   className={cn(
-                    "absolute top-2 left-2 right-2 flex items-center justify-between px-3 py-1.5 rounded-2xl border shadow-xs z-10",
+                    "absolute top-2 left-2 flex items-center gap-1.5 px-2.5 py-1 rounded-xl border shadow-xs z-10 max-w-[44%]",
                     sec.headerBgCls
                   )}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-base leading-none drop-shadow-xs">{sec.icon}</span>
-                    <span className="text-xs font-black tracking-wide truncate">
-                      {sec.title}
-                    </span>
-                  </div>
+                  <span className="text-sm leading-none shrink-0 drop-shadow-xs">{sec.icon}</span>
+                  <span className="text-[11px] font-black tracking-wide truncate">
+                    {sec.title}
+                  </span>
+                </div>
+
+                <div
+                  className={cn(
+                    "absolute top-2 right-2 flex items-center px-2 py-1 rounded-xl border shadow-2xs z-10",
+                    sec.headerBgCls
+                  )}
+                >
                   <span
                     className={cn(
-                      "text-[10px] leading-none px-2 py-0.5 rounded-full shrink-0 shadow-2xs",
+                      "text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-full shrink-0 shadow-2xs",
                       sec.badgeCls
                     )}
                   >
@@ -5698,15 +5815,6 @@ function VanshawaliInner() {
                 </g>
               ))}
 
-              {/* Sacred Mauli / Kalava tied thread knots at line origins & destinations (NO floating red circle) */}
-              {bloodKnots.map((knot) => (
-                <ThreadKnot
-                  key={knot.key}
-                  x={knot.x}
-                  y={knot.y}
-                  isBottom={knot.isBottom}
-                />
-              ))}
 
               {/* Sibling amber lines */}
               {linesSibling.map((ln) => {
@@ -5957,6 +6065,22 @@ function VanshawaliInner() {
               // skip if already drawn in placed.map
               return null;
             })}
+
+            {/* Realistic Rope Knots Overlay Layer (z-30) — Physically tags ON TOP of card borders */}
+            <svg
+              className="absolute inset-0 pointer-events-none z-30 overflow-visible"
+              width={W}
+              height={H}
+            >
+              {bloodKnots.map((knot) => (
+                <RopeKnot
+                  key={knot.key}
+                  x={knot.x}
+                  y={knot.y}
+                  isBottom={knot.isBottom}
+                />
+              ))}
+            </svg>
           </div>
         </div>
       )}
