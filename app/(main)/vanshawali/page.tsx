@@ -3571,7 +3571,7 @@ function VanshawaliInner() {
         icon: "👑",
         count: gpCount,
         borderCls: "border-2 border-indigo-300/80 shadow-sm",
-        bgCls: "bg-gradient-to-b from-indigo-50/80 via-indigo-50/30 to-white/90",
+        bgCls: "bg-gradient-to-b from-indigo-50/90 via-indigo-50/65 to-white/95",
         headerBgCls: "bg-gradient-to-r from-indigo-900 via-indigo-800 to-indigo-950 text-white shadow-md border border-indigo-400/50",
         badgeCls: "bg-indigo-100 text-indigo-950 font-bold border border-indigo-300",
       });
@@ -3640,7 +3640,7 @@ function VanshawaliInner() {
         icon: "🌻",
         count: parCount,
         borderCls: "border-2 border-amber-300/90 shadow-sm",
-        bgCls: "bg-gradient-to-b from-amber-50/85 via-amber-50/35 to-white/90",
+        bgCls: "bg-gradient-to-b from-amber-50/90 via-amber-50/65 to-white/95",
         headerBgCls: "bg-gradient-to-r from-amber-800 via-yellow-700 to-amber-900 text-amber-50 shadow-md border border-amber-400/50",
         badgeCls: "bg-amber-100 text-amber-950 font-bold border border-amber-300",
       });
@@ -3719,7 +3719,7 @@ function VanshawaliInner() {
       icon: "⭐",
       count: selfSibCount,
       borderCls: "border-2 border-amber-400 shadow-md ring-2 ring-amber-300/40",
-      bgCls: "bg-gradient-to-b from-amber-100/70 via-yellow-50/40 to-white/90",
+      bgCls: "bg-gradient-to-b from-amber-100/85 via-yellow-50/65 to-white/95",
       headerBgCls: "bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 text-amber-950 font-black shadow-md border border-yellow-300",
       badgeCls: "bg-amber-950 text-amber-100 font-bold border border-amber-800",
     });
@@ -3792,7 +3792,7 @@ function VanshawaliInner() {
         icon: "🌱",
         count: chCount,
         borderCls: "border-2 border-emerald-300/90 shadow-sm",
-        bgCls: "bg-gradient-to-b from-emerald-50/85 via-emerald-50/35 to-white/90",
+        bgCls: "bg-gradient-to-b from-emerald-50/90 via-emerald-50/65 to-white/95",
         headerBgCls: "bg-gradient-to-r from-emerald-800 via-teal-700 to-emerald-900 text-white shadow-md border border-emerald-400/50",
         badgeCls: "bg-emerald-100 text-emerald-950 font-bold border border-emerald-300",
       });
@@ -3861,7 +3861,7 @@ function VanshawaliInner() {
         icon: "🍼",
         count: gcCount,
         borderCls: "border-2 border-purple-300/90 shadow-sm",
-        bgCls: "bg-gradient-to-b from-purple-50/85 via-purple-50/35 to-white/90",
+        bgCls: "bg-gradient-to-b from-purple-50/90 via-purple-50/65 to-white/95",
         headerBgCls: "bg-gradient-to-r from-purple-900 via-fuchsia-800 to-purple-950 text-white shadow-md border border-purple-400/50",
         badgeCls: "bg-purple-100 text-purple-950 font-bold border border-purple-300",
       });
@@ -5007,35 +5007,35 @@ function VanshawaliInner() {
     const sex = resolveSex(n.gender, n.relation);
     const isHighlighted = highlightId === n.id;
 
-    // Elegant semi-transparent card styling so bloodlines passing behind are subtly visible without expensive GPU backdrop blur
-    let borderCls = "border-gray-200/90";
-    let bgCls = "bg-white/88";
+    // Elegant solid card styling with subtle softness so bloodlines passing behind are faintly visible
+    let borderCls = "border-gray-200";
+    let bgCls = "bg-white/96";
     let textCls = "text-gray-900";
     let badgeCls = "bg-gray-100 text-gray-700";
 
     if (selfNode) {
       borderCls = "border-amber-400 ring-2 ring-amber-300/40";
-      bgCls = "bg-amber-50/92";
+      bgCls = "bg-amber-50/98";
       textCls = "text-amber-950 font-bold";
       badgeCls = "bg-amber-100/90 text-amber-900 font-semibold";
     } else if (gen === "spouse" || relInfo.category === "spouse") {
-      borderCls = "border-pink-300/90";
-      bgCls = "bg-rose-50/88";
+      borderCls = "border-pink-300";
+      bgCls = "bg-rose-50/96";
       textCls = "text-rose-950 font-semibold";
       badgeCls = "bg-rose-100/85 text-rose-800";
     } else if (gen === "sibling" || relInfo.category === "sibling") {
-      borderCls = "border-amber-200/90";
-      bgCls = "bg-amber-50/88";
+      borderCls = "border-amber-200";
+      bgCls = "bg-amber-50/96";
       textCls = "text-amber-950 font-semibold";
       badgeCls = "bg-amber-100/80 text-amber-900";
     } else if (gen === "up1" || gen === "up2" || gen === "up3" || relInfo.category === "parent" || relInfo.category === "grandparent") {
-      borderCls = "border-indigo-200/90";
-      bgCls = "bg-indigo-50/88";
+      borderCls = "border-indigo-200";
+      bgCls = "bg-indigo-50/96";
       textCls = "text-indigo-950 font-semibold";
       badgeCls = "bg-indigo-100/85 text-indigo-900";
     } else if (gen === "down1" || gen === "down2" || relInfo.category === "child" || relInfo.category === "grandchild") {
-      borderCls = "border-emerald-200/90";
-      bgCls = "bg-emerald-50/88";
+      borderCls = "border-emerald-200";
+      bgCls = "bg-emerald-50/96";
       textCls = "text-emerald-950 font-semibold";
       badgeCls = "bg-emerald-100/85 text-emerald-900";
     }
