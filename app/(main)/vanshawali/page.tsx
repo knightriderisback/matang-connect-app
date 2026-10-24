@@ -177,15 +177,23 @@ function resolveSex(
   relation?: string | null
 ): "M" | "F" | null {
   const g = (gender || "").toLowerCase();
-  if (g === "female" || g === "f" || g === "woman") return "F";
-  if (g === "male" || g === "m" || g === "man") return "M";
+  if (g === "female" || g === "f" || g === "woman" || g === "stree" || g === "mahila") return "F";
+  if (g === "male" || g === "m" || g === "man" || g === "purush") return "M";
   const r = (relation || "").toLowerCase();
   if (
-    ["mother", "grandmother", "wife", "spouse", "daughter", "sister"].includes(r)
+    [
+      "mother", "grandmother", "wife", "daughter", "sister",
+      "dadi", "nani", "bhabhi", "chachi", "mami", "bua", "mausi",
+      "poti", "natin", "naatin", "bahu", "vadhu", "daughter-in-law"
+    ].includes(r)
   )
     return "F";
   if (
-    ["father", "grandfather", "husband", "son", "brother"].includes(r)
+    [
+      "father", "grandfather", "husband", "son", "brother",
+      "dada", "nana", "chacha", "mama", "tau", "fufa", "mausa",
+      "jija", "damad", "damaad", "jawai", "pota", "nati", "naati", "son-in-law"
+    ].includes(r)
   )
     return "M";
   return null;
@@ -682,10 +690,15 @@ function getDockOffset(id: string, isTop: boolean): number {
 }
 
 function bezierCurve(p1: { x: number; y: number }, p2: { x: number; y: number }): string {
-  const dy = Math.max(16, p2.y - p1.y);
-  const cp1y = p1.y + dy * 0.45;
-  const cp2y = p2.y - dy * 0.45;
-  return `M ${p1.x} ${p1.y} C ${p1.x} ${cp1y}, ${p2.x} ${cp2y}, ${p2.x} ${p2.y}`;
+  const dx = p2.x - p1.x;
+  const dy = Math.max(18, p2.y - p1.y);
+  // Organic sweeping twist: lines curve naturally without stiff vertical drops or sharp corners
+  const twist = (dx >= 0 ? 1 : -1) * Math.min(10, Math.max(3, Math.abs(dx) * 0.12));
+  const cp1x = p1.x + twist;
+  const cp1y = p1.y + dy * 0.48;
+  const cp2x = p2.x - twist;
+  const cp2y = p2.y - dy * 0.48;
+  return `M ${p1.x} ${p1.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
 }
 
 function RopeKnot({
@@ -946,22 +959,33 @@ function routeTangleFreeChildLine(
   isLeftCol: boolean
 ): string {
   if (!is2Col || !isMultiRow) {
+    const dx = to.x - junc.x;
     const dy = Math.max(16, to.y - junc.y);
+    const twist = (dx >= 0 ? 1 : -1) * Math.min(8, Math.max(3, Math.abs(dx) * 0.1));
+    const c1x = junc.x + twist;
     const c1y = junc.y + dy * 0.45;
+    const c2x = to.x - twist;
     const c2y = to.y - dy * 0.45;
-    return `M ${junc.x} ${junc.y} C ${junc.x} ${c1y}, ${to.x} ${c2y}, ${to.x} ${to.y}`;
+    return `M ${junc.x} ${junc.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${to.x} ${to.y}`;
   }
 
-  // Multi-row route via dedicated highway lane so parallel lines never touch
+  // Multi-row route via dedicated smooth flowing highway lane with ZERO straight edges
+  // Uses continuous smooth cubic Bezier splines (C followed by S) so the line bends and twists seamlessly
   const laneX = isLeftCol ? cx - 3.5 : cx + 3.5;
   const dy = to.y - junc.y;
-  const entryY = junc.y + Math.min(22, Math.max(12, dy * 0.16));
-  const exitY = to.y - 14; // in the 22px clear row gap above destination card
+  const midY = junc.y + dy * 0.48;
+  const twist = (isLeftCol ? -1 : 1) * 6;
 
-  const cEntryY = (junc.y + entryY) / 2;
-  const cExitY = (exitY + to.y) / 2;
+  // S-curved descent into corridor, then smooth S-curve continuation outward into destination card corner
+  const c1x = junc.x + twist;
+  const c1y = junc.y + dy * 0.22;
+  const c2x = laneX + twist * 0.5;
+  const c2y = midY - dy * 0.18;
 
-  return `M ${junc.x} ${junc.y} C ${junc.x} ${cEntryY}, ${laneX} ${cEntryY}, ${laneX} ${entryY} L ${laneX} ${exitY} C ${laneX} ${cExitY}, ${to.x} ${cExitY}, ${to.x} ${to.y}`;
+  const c3x = to.x - twist * 0.5;
+  const c3y = to.y - dy * 0.22;
+
+  return `M ${junc.x} ${junc.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${laneX} ${midY} S ${c3x} ${c3y}, ${to.x} ${to.y}`;
 }
 
 function getRelationshipStyle(relTag = "", sex?: string | null) {
@@ -1751,7 +1775,13 @@ function resolveIndianRelationship(
     const chSex = resolveSex(chNode?.gender, chNode?.relation);
     const chCleanName = chNode?.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, "") || "";
 
-    if (chSex === "M" || targetSex === "F" || relLower.includes("bahu")) {
+    const isChildWife =
+      relLower.includes("bahu") ||
+      relLower.includes("vadhu") ||
+      (chSex === "M" && targetSex !== "M") ||
+      (targetSex === "F" && chSex !== "F");
+
+    if (isChildWife) {
       // Son's Wife -> BAHU (Daughter-in-law)
       const shortTag = isHi ? "बहू" : "Daughter-in-law";
       const subTag = isHi ? "पुत्र-वधू" : "Son's Wife";
@@ -1817,7 +1847,13 @@ function resolveIndianRelationship(
     const sBorn = sibNode?.birth_year || (sibNode?.birth_date ? parseInt(sibNode.birth_date.slice(0, 4), 10) : null);
     const isElderSib = cBorn && sBorn ? sBorn < cBorn : false;
 
-    if (sibSex === "M" || targetSex === "F") {
+    const isSibWife =
+      relLower.includes("bhabhi") ||
+      relLower.includes("bhabhi_ji") ||
+      (sibSex === "M" && targetSex !== "M") ||
+      (targetSex === "F" && sibSex !== "F");
+
+    if (isSibWife) {
       // Brother's Wife -> BHABHI
       const shortTag = isElderSib ? (isHi ? "बड़ी भाभी" : "Elder Bhabhi") : (isHi ? "भाभी" : "Bhabhi (Sister-in-law)");
       const primaryTitle = isHi
@@ -2042,13 +2078,36 @@ function resolveIndianRelationship(
     const gcParNode = allNodes.get(gcParId || "");
     const gcParSex = resolveSex(gcParNode?.gender, gcParNode?.relation);
 
+    const gcRelLower = (gcNode?.relation || "").toLowerCase();
     const isSonBranch =
       relLower.includes("pota") ||
       relLower.includes("poti") ||
       relLower.includes("pautra") ||
-      (!relLower.includes("nati") && !relLower.includes("natin") && (gcParSex === "M" || (gcNode?.relation || "").includes("pota") || (gcNode?.relation || "").includes("poti")));
+      gcRelLower.includes("pota") ||
+      gcRelLower.includes("poti") ||
+      gcRelLower.includes("pautra") ||
+      (!relLower.includes("nati") && !relLower.includes("natin") && !gcRelLower.includes("nati") && !gcRelLower.includes("natin") && gcParSex === "M");
 
-    const isWife = targetSex === "F" || gcSex === "M" || relLower.includes("bahu") || relLower.includes("vadhu");
+    // Indian Kinship Rule:
+    // Poti/Naatin (Female grandchild) -> Her spouse is HUSBAND = "पोती दामाद" or "नातिन दामाद" (NEVER a wife/bahu!)
+    // Pota/Naati (Male grandchild) -> His spouse is WIFE = "पोते की बहू" or "नाती की बहू"
+    const isGcFemale = gcSex === "F" || gcRelLower.includes("poti") || gcRelLower.includes("natin") || gcRelLower.includes("naatin");
+    const isGcMale = gcSex === "M" || gcRelLower.includes("pota") || gcRelLower.includes("nati") || gcRelLower.includes("naati");
+
+    let isWife = false;
+    if (relLower.includes("bahu") || relLower.includes("vadhu")) {
+      isWife = true;
+    } else if (relLower.includes("damad") || relLower.includes("damaad") || relLower.includes("jawai")) {
+      isWife = false;
+    } else if (targetSex === "M") {
+      isWife = false;
+    } else if (targetSex === "F") {
+      isWife = true;
+    } else if (isGcFemale) {
+      isWife = false;
+    } else if (isGcMale) {
+      isWife = true;
+    }
 
     if (isWife) {
       if (isSonBranch) {
@@ -5007,35 +5066,35 @@ function VanshawaliInner() {
     const sex = resolveSex(n.gender, n.relation);
     const isHighlighted = highlightId === n.id;
 
-    // Elegant solid card styling with subtle softness so bloodlines passing behind are faintly visible
-    let borderCls = "border-gray-200";
-    let bgCls = "bg-white/96";
+    // Exactly 50% translucent cards so bloodlines running behind are clearly visible
+    let borderCls = "border-gray-200/80";
+    let bgCls = "bg-white/50";
     let textCls = "text-gray-900";
-    let badgeCls = "bg-gray-100 text-gray-700";
+    let badgeCls = "bg-gray-100/90 text-gray-700";
 
     if (selfNode) {
       borderCls = "border-amber-400 ring-2 ring-amber-300/40";
-      bgCls = "bg-amber-50/98";
+      bgCls = "bg-amber-50/50";
       textCls = "text-amber-950 font-bold";
       badgeCls = "bg-amber-100/90 text-amber-900 font-semibold";
     } else if (gen === "spouse" || relInfo.category === "spouse") {
-      borderCls = "border-pink-300";
-      bgCls = "bg-rose-50/96";
+      borderCls = "border-pink-300/80";
+      bgCls = "bg-rose-50/50";
       textCls = "text-rose-950 font-semibold";
       badgeCls = "bg-rose-100/85 text-rose-800";
     } else if (gen === "sibling" || relInfo.category === "sibling") {
-      borderCls = "border-amber-200";
-      bgCls = "bg-amber-50/96";
+      borderCls = "border-amber-200/80";
+      bgCls = "bg-amber-50/50";
       textCls = "text-amber-950 font-semibold";
       badgeCls = "bg-amber-100/80 text-amber-900";
     } else if (gen === "up1" || gen === "up2" || gen === "up3" || relInfo.category === "parent" || relInfo.category === "grandparent") {
-      borderCls = "border-indigo-200";
-      bgCls = "bg-indigo-50/96";
+      borderCls = "border-indigo-200/80";
+      bgCls = "bg-indigo-50/50";
       textCls = "text-indigo-950 font-semibold";
       badgeCls = "bg-indigo-100/85 text-indigo-900";
     } else if (gen === "down1" || gen === "down2" || relInfo.category === "child" || relInfo.category === "grandchild") {
-      borderCls = "border-emerald-200";
-      bgCls = "bg-emerald-50/96";
+      borderCls = "border-emerald-200/80";
+      bgCls = "bg-emerald-50/50";
       textCls = "text-emerald-950 font-semibold";
       badgeCls = "bg-emerald-100/85 text-emerald-900";
     }
