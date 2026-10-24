@@ -707,10 +707,7 @@ function RopeKnot({
   else if (isBottom) rot = 180;
 
   return (
-    <g
-      transform={`translate(${x}, ${y})`}
-      style={{ filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.32))" }}
-    >
+    <g transform={`translate(${x}, ${y})`}>
       {/* Realistic tied rope knot physically tagging ON TOP of the card corner */}
       <g transform={rot !== 0 ? `rotate(${rot})` : undefined}>
         {/* Soft shadow cast directly onto card surface */}
@@ -859,10 +856,7 @@ function RingBottomKnot({
   const rot = isRightSide ? 14 : -14;
 
   return (
-    <g
-      transform={`translate(${x}, ${y})`}
-      style={{ filter: "drop-shadow(0 2px 2.5px rgba(0,0,0,0.32))" }}
-    >
+    <g transform={`translate(${x}, ${y})`}>
       <g transform={`rotate(${rot})`}>
         {/* Soft contact shadow strictly under the tied knot */}
         <ellipse cx={0} cy={3.0} rx={4.5} ry={2.2} fill="rgba(0,0,0,0.22)" />
@@ -2805,8 +2799,10 @@ function VanshawaliInner() {
     const el = wrapRef.current;
     if (!el) return;
     const measure = () => {
-      setVw(Math.max(300, el.clientWidth));
-      setVh(Math.max(200, el.clientHeight));
+      const nextVw = Math.max(300, el.clientWidth);
+      const nextVh = Math.max(200, el.clientHeight);
+      setVw((prev) => (Math.abs(prev - nextVw) > 2 ? nextVw : prev));
+      setVh((prev) => (Math.abs(prev - nextVh) > 2 ? nextVh : prev));
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -5011,35 +5007,35 @@ function VanshawaliInner() {
     const sex = resolveSex(n.gender, n.relation);
     const isHighlighted = highlightId === n.id;
 
-    // Elegant semi-transparent glassmorphism so bloodlines passing behind are subtly visible
-    let borderCls = "border-gray-200/80";
-    let bgCls = "bg-white/65 backdrop-blur-md";
+    // Elegant semi-transparent card styling so bloodlines passing behind are subtly visible without expensive GPU backdrop blur
+    let borderCls = "border-gray-200/90";
+    let bgCls = "bg-white/88";
     let textCls = "text-gray-900";
-    let badgeCls = "bg-gray-100/90 text-gray-700";
+    let badgeCls = "bg-gray-100 text-gray-700";
 
     if (selfNode) {
       borderCls = "border-amber-400 ring-2 ring-amber-300/40";
-      bgCls = "bg-amber-50/70 backdrop-blur-md";
+      bgCls = "bg-amber-50/92";
       textCls = "text-amber-950 font-bold";
       badgeCls = "bg-amber-100/90 text-amber-900 font-semibold";
     } else if (gen === "spouse" || relInfo.category === "spouse") {
-      borderCls = "border-pink-300/80";
-      bgCls = "bg-rose-50/62 backdrop-blur-md";
+      borderCls = "border-pink-300/90";
+      bgCls = "bg-rose-50/88";
       textCls = "text-rose-950 font-semibold";
       badgeCls = "bg-rose-100/85 text-rose-800";
     } else if (gen === "sibling" || relInfo.category === "sibling") {
-      borderCls = "border-amber-200/80";
-      bgCls = "bg-amber-50/60 backdrop-blur-md";
+      borderCls = "border-amber-200/90";
+      bgCls = "bg-amber-50/88";
       textCls = "text-amber-950 font-semibold";
       badgeCls = "bg-amber-100/80 text-amber-900";
     } else if (gen === "up1" || gen === "up2" || gen === "up3" || relInfo.category === "parent" || relInfo.category === "grandparent") {
-      borderCls = "border-indigo-200/80";
-      bgCls = "bg-indigo-50/60 backdrop-blur-md";
+      borderCls = "border-indigo-200/90";
+      bgCls = "bg-indigo-50/88";
       textCls = "text-indigo-950 font-semibold";
       badgeCls = "bg-indigo-100/85 text-indigo-900";
     } else if (gen === "down1" || gen === "down2" || relInfo.category === "child" || relInfo.category === "grandchild") {
-      borderCls = "border-emerald-200/80";
-      bgCls = "bg-emerald-50/60 backdrop-blur-md";
+      borderCls = "border-emerald-200/90";
+      bgCls = "bg-emerald-50/88";
       textCls = "text-emerald-950 font-semibold";
       badgeCls = "bg-emerald-100/85 text-emerald-900";
     }
@@ -5059,13 +5055,13 @@ function VanshawaliInner() {
           }
           setSelected(n);
         }}
-        className={`group text-left transition-all active:scale-95 w-full max-w-full block ${
+        className={`group text-left active:scale-95 w-full max-w-full block ${
           isHighlighted ? "scale-105 z-30" : ""
         }`}
       >
         <div
           className={cn(
-            "flex items-center gap-2 px-2.5 py-2 rounded-xl border backdrop-blur-md transition-all select-none min-h-[66px] h-auto w-full max-w-full box-border",
+            "flex items-center gap-2 px-2.5 py-2 rounded-xl border select-none min-h-[66px] h-auto w-full max-w-full box-border transition-transform",
             borderCls,
             bgCls,
             isHighlighted && "ring-4 ring-amber-400 shadow-xl"
@@ -5232,32 +5228,27 @@ function VanshawaliInner() {
           0%, 100% {
             stroke: #DC2626;
             stroke-width: 2.2;
-            filter: drop-shadow(0 0 2px rgba(220, 38, 38, 0.45));
-            opacity: 0.9;
+            opacity: 0.85;
           }
           14% {
             stroke: #EF4444;
-            stroke-width: 3.2;
-            filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.9));
+            stroke-width: 3.0;
             opacity: 1;
           }
           28% {
             stroke: #DC2626;
             stroke-width: 2.2;
-            filter: drop-shadow(0 0 2px rgba(220, 38, 38, 0.45));
-            opacity: 0.9;
+            opacity: 0.85;
           }
           42% {
             stroke: #EF4444;
-            stroke-width: 3.4;
-            filter: drop-shadow(0 0 7px rgba(239, 68, 68, 0.9));
+            stroke-width: 3.2;
             opacity: 1;
           }
           56% {
             stroke: #DC2626;
             stroke-width: 2.2;
-            filter: drop-shadow(0 0 2px rgba(220, 38, 38, 0.45));
-            opacity: 0.9;
+            opacity: 0.85;
           }
         }
         @keyframes bloodFlow {
@@ -5748,6 +5739,7 @@ function VanshawaliInner() {
           style={{
             minHeight: is2ColActive ? `${H + 60}px` : "55vh",
             touchAction: is2ColActive ? "pan-y" : "none",
+            WebkitOverflowScrolling: "touch",
           }}
         >
           {/* Compact Zoom Toolbar — Wide Canvas mode only */}
@@ -5924,9 +5916,9 @@ function VanshawaliInner() {
               draggable={false}
               style={{
                 left: W / 2,
-                top: H / 2,
-                width: Math.max(W, H) * 0.92,
-                height: Math.max(W, H) * 0.92,
+                top: is2ColActive ? Math.min(H / 2, 600) : H / 2,
+                width: is2ColActive ? Math.min(260, Math.floor(W * 0.72)) : Math.min(480, Math.floor(Math.min(W, H) * 0.5)),
+                height: is2ColActive ? Math.min(260, Math.floor(W * 0.72)) : Math.min(480, Math.floor(Math.min(W, H) * 0.5)),
                 transform: "translate(-50%, -50%)",
               }}
             />
@@ -5936,7 +5928,7 @@ function VanshawaliInner() {
               <div
                 key={sec.id}
                 className={cn(
-                  "absolute left-2.5 right-2.5 rounded-3xl border transition-all z-0",
+                  "absolute left-2.5 right-2.5 rounded-3xl border z-0",
                   sec.borderCls,
                   sec.bgCls
                 )}
@@ -5998,7 +5990,12 @@ function VanshawaliInner() {
               </div>
             )}
 
-            <svg className="absolute inset-0 pointer-events-none z-10" width={W} height={H}>
+            <svg
+              className="absolute inset-0 pointer-events-none z-10"
+              width={W}
+              height={H}
+              shapeRendering="geometricPrecision"
+            >
               <defs>
                 <marker id="arrow-gold" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
                   <path d="M1 1 L6 3.5 L1 6 Z" fill="#D97706" />
@@ -6025,6 +6022,15 @@ function VanshawaliInner() {
               {/* Bloodline Living Curvy Segments (Parents <-> Children) with Heartbeat Blood Pumping */}
               {bloodSegments.map((seg) => (
                 <g key={seg.key}>
+                  {/* Soft ambient red glow underlay (zero-cost static stroke, no Gaussian blur) */}
+                  <path
+                    d={seg.d}
+                    fill="none"
+                    stroke="#EF4444"
+                    strokeWidth={5}
+                    strokeLinecap="round"
+                    opacity={0.2}
+                  />
                   {/* Base arterial pulsating stroke */}
                   <path
                     d={seg.d}
@@ -6307,6 +6313,7 @@ function VanshawaliInner() {
               className="absolute inset-0 pointer-events-none z-30 overflow-visible"
               width={W}
               height={H}
+              shapeRendering="geometricPrecision"
             >
               {/* Marriage bonds — single golden thread hanging in the air from ring bottom to ring bottom (no middle knot) */}
               {marriagePairs.map((mp, i) => {
