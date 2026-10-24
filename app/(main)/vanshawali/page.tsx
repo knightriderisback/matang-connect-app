@@ -856,53 +856,53 @@ function RingBottomKnot({
   ring?: RingStyle;
 }) {
   // Angle tilt: Left ring knot tilts slightly right (angle towards partner), Right ring knot tilts slightly left
-  const rot = isRightSide ? 16 : -16;
+  const rot = isRightSide ? 14 : -14;
 
   return (
     <g
       transform={`translate(${x}, ${y})`}
-      style={{ filter: "drop-shadow(0 1.5px 2px rgba(0,0,0,0.32))" }}
+      style={{ filter: "drop-shadow(0 2px 2.5px rgba(0,0,0,0.32))" }}
     >
       <g transform={`rotate(${rot})`}>
-        {/* Soft contact shadow under the tied knot */}
-        <ellipse cx={0} cy={1.5} rx={4.2} ry={2.2} fill="rgba(0,0,0,0.22)" />
+        {/* Soft contact shadow strictly under the tied knot */}
+        <ellipse cx={0} cy={3.0} rx={4.5} ry={2.2} fill="rgba(0,0,0,0.22)" />
 
-        {/* Outer Loop wrapping around the bottom rim of the metal ring band */}
+        {/* Outer Loop wrapping around the bottom rim of the metal ring band (all y >= 0) */}
         <path
-          d="M -3.2,-2 C -3.5,1.5 3.5,1.5 3.2,-2"
+          d="M -3.2,0 C -3.5,3.2 3.5,3.2 3.2,0"
           fill="none"
           stroke="#78350F"
-          strokeWidth={2.2}
+          strokeWidth={2.4}
           strokeLinecap="round"
         />
         <path
-          d="M -3.2,-2 C -3.5,1.5 3.5,1.5 3.2,-2"
+          d="M -3.2,0 C -3.5,3.2 3.5,3.2 3.2,0"
           fill="none"
           stroke="#D97706"
-          strokeWidth={1.6}
+          strokeWidth={1.8}
           strokeLinecap="round"
         />
         <path
-          d="M -3.2,-2 C -3.5,1.5 3.5,1.5 3.2,-2"
+          d="M -3.2,0 C -3.5,3.2 3.5,3.2 3.2,0"
           fill="none"
           stroke="#F59E0B"
-          strokeWidth={1.0}
+          strokeWidth={1.2}
           strokeLinecap="round"
         />
         <path
-          d="M -3,-2 C -3,1 3,1 3,-2"
+          d="M -3,0 C -3,2.8 3,2.8 3,0"
           fill="none"
           stroke="#FEF3C7"
-          strokeWidth={0.5}
+          strokeWidth={0.6}
           strokeDasharray="1.5 1.5"
           strokeLinecap="round"
         />
 
-        {/* Central Knotted Hitch Turn (Seizing wrap securely binding the thread to the ring) */}
+        {/* Central Knotted Hitch Turn (Seizing wrap securely binding the thread under the ring) */}
         <ellipse
           cx={0}
-          cy={1.5}
-          rx={2.8}
+          cy={3.0}
+          rx={3.0}
           ry={1.8}
           fill="#B45309"
           stroke="#78350F"
@@ -910,30 +910,30 @@ function RingBottomKnot({
         />
         <ellipse
           cx={0}
-          cy={1.5}
-          rx={2.1}
+          cy={3.0}
+          rx={2.2}
           ry={1.2}
           fill="#F59E0B"
         />
-        <circle cx={-0.3} cy={1.2} r={0.6} fill="#FEF3C7" />
+        <circle cx={-0.3} cy={2.8} r={0.6} fill="#FEF3C7" />
 
-        {/* Small Dangling Tied Thread Tail (free end of the tied dhaga knot) */}
+        {/* Small Dangling Tied Thread Tail (free end of the tied dhaga knot hanging downwards) */}
         <path
-          d="M -0.6,3.0 Q -1.6,5.5 -2.2,7.5"
+          d="M -0.6,4.5 Q -1.6,7.2 -2.2,9.5"
           fill="none"
           stroke="#78350F"
-          strokeWidth={1.4}
+          strokeWidth={1.5}
           strokeLinecap="round"
         />
         <path
-          d="M -0.6,3.0 Q -1.6,5.5 -2.2,7.5"
+          d="M -0.6,4.5 Q -1.6,7.2 -2.2,9.5"
           fill="none"
           stroke="#F59E0B"
-          strokeWidth={0.9}
+          strokeWidth={1.0}
           strokeLinecap="round"
         />
-        <line x1={-2.2} y1={7.5} x2={-2.6} y2={8.6} stroke="#FEF3C7" strokeWidth={0.6} strokeLinecap="round" />
-        <line x1={-2.2} y1={7.5} x2={-1.8} y2={8.8} stroke="#FDE68A" strokeWidth={0.6} strokeLinecap="round" />
+        <line x1={-2.2} y1={9.5} x2={-2.6} y2={10.8} stroke="#FEF3C7" strokeWidth={0.6} strokeLinecap="round" />
+        <line x1={-2.2} y1={9.5} x2={-1.8} y2={11.0} stroke="#FDE68A" strokeWidth={0.6} strokeLinecap="round" />
       </g>
     </g>
   );
@@ -1049,7 +1049,7 @@ function undock(cx: number, topY: number, dir: "up" | "down"): { x: number; y: n
 
 function nameW(name: string, max = 175) {
   const clean = (name || "?").replace(/^(स्व\.|late|sw\.)\s*/i, "");
-  return Math.min(max, Math.max(90, Math.round(Math.max(clean.length, 3) * 7.4 + 48)));
+  return Math.min(max, Math.max(140, Math.round(Math.max(clean.length, 3) * 7.4 + 65)));
 }
 
 type IndianRoleItem = {
@@ -1427,14 +1427,115 @@ function resolveIndianRelationship(
   }
 
   // -------------------------------------------------------------
-  // 2. DIRECT PARENTS (Father / Mother) - HIGHEST PRIORITY AFTER SELF!
+  // 2. DIRECT GRANDPARENTS (Dada / Dadi / Nana / Nani) - Tier +2
+  // HIGHEST PRIORITY: Must evaluate before Direct Parents so grandparents (father/mother of parents)
+  // are NEVER misclassified as direct parents of self!
+  // -------------------------------------------------------------
+  const relLower = (n.relation || "").toLowerCase();
+  const nameLower = (n.display_name || "").toLowerCase();
+
+  const isDirectGrandparent =
+    (tree.grandparents || []).some((g) => g.id === n.id) ||
+    (tree.levels_up?.[1] || []).some((g) => g.id === n.id) ||
+    n.relation === "grandfather" ||
+    n.relation === "grandmother" ||
+    relLower.includes("dada") ||
+    relLower.includes("dadi") ||
+    relLower.includes("nana") ||
+    relLower.includes("nani") ||
+    nameLower.includes("dada") ||
+    nameLower.includes("dadi") ||
+    nameLower.includes("nana") ||
+    nameLower.includes("nani") ||
+    (father && (n.via_id === father.id || n.via_parent_id === father.id || parentsMap.get(father.id)?.has(n.id))) ||
+    (mother && (n.via_id === mother.id || n.via_parent_id === mother.id || parentsMap.get(mother.id)?.has(n.id)));
+  const isGrandparent = isDirectGrandparent;
+
+  if (isGrandparent) {
+    const isExplicitMaternal =
+      relLower.includes("nana") ||
+      relLower.includes("nani") ||
+      nameLower.includes("nana") ||
+      nameLower.includes("nani") ||
+      relLower.includes("maternal");
+    const isExplicitPaternal =
+      relLower.includes("dada") ||
+      relLower.includes("dadi") ||
+      nameLower.includes("dada") ||
+      nameLower.includes("dadi") ||
+      relLower.includes("paternal");
+
+    let isMaternal = false;
+    if (isExplicitMaternal) {
+      isMaternal = true;
+    } else if (isExplicitPaternal) {
+      isMaternal = false;
+    } else if (mother && (n.via_id === mother.id || n.via_parent_id === mother.id || parentsMap.get(mother.id)?.has(n.id))) {
+      isMaternal = true;
+    } else if (father && (n.via_id === father.id || n.via_parent_id === father.id || parentsMap.get(father.id)?.has(n.id))) {
+      isMaternal = false;
+    } else {
+      const gpAllList = [...(tree.grandparents || []), ...(tree.levels_up?.[1] || [])];
+      const males = gpAllList.filter((g) => resolveSex(g.gender, g.relation) === "M");
+      const females = gpAllList.filter((g) => resolveSex(g.gender, g.relation) === "F");
+      if (targetSex === "M") {
+        const mIdx = males.findIndex((g) => g.id === n.id);
+        isMaternal = mIdx >= 1;
+      } else {
+        const fIdx = females.findIndex((g) => g.id === n.id);
+        isMaternal = fIdx >= 1;
+      }
+    }
+
+    const isFemale = targetSex === "F" || n.relation === "grandmother" || relLower.includes("dadi") || relLower.includes("nani") || nameLower.includes("dadi") || nameLower.includes("nani");
+
+    let shortTag = "";
+    let subTag = "";
+    let primaryTitle = "";
+
+    if (isMaternal) {
+      shortTag = isFemale ? (isHi ? "नानी जी" : "Nani ji") : (isHi ? "नाना जी" : "Nana ji");
+      subTag = isFemale ? (isHi ? "माताजी की माता" : "Mother's Mother") : (isHi ? "माताजी के पिता" : "Mother's Father");
+      primaryTitle = isFemale
+        ? (isHi ? "आपकी पूज्य नानी जी (माताजी की माता)" : "Your Respected Maternal Grandmother")
+        : (isHi ? "आपके पूज्य नाना जी (माताजी के पिता)" : "Your Respected Maternal Grandfather");
+    } else {
+      shortTag = isFemale ? (isHi ? "दादी जी" : "Dadi ji") : (isHi ? "दादा जी" : "Dada ji");
+      subTag = isFemale ? (isHi ? "पिताजी की माता" : "Father's Mother") : (isHi ? "पिताजी के पिता" : "Father's Father");
+      primaryTitle = isFemale
+        ? (isHi ? "आपकी पूज्य दादी जी (पिताजी की माता)" : "Your Respected Paternal Grandmother")
+        : (isHi ? "आपके पूज्य दादा जी (पिताजी के पिता)" : "Your Respected Paternal Grandfather");
+    }
+
+    const tierLabel = isHi ? "दादा जी, दादी जी एवं नाना जी, नानी जी पीढ़ी" : "Grandparents (Dada ji - Dadi ji & Nana ji - Nani ji)";
+
+    return {
+      shortTag,
+      shortTagEn: isFemale ? (isMaternal ? "Maternal Grandmother" : "Grandmother") : (isMaternal ? "Maternal Grandfather" : "Grandfather"),
+      subTag,
+      primaryTitle,
+      primaryTitleEn: primaryTitle,
+      category: "grandparent",
+      generationTier: 2,
+      generationLabel: tierLabel,
+      multipleRoles: buildMultipleRoles(
+        primaryTitle,
+        isHi ? `${subTag} के रूप में परिवार के वरिष्ठतम पूज्य बुजुर्ग` : "Respected elders of family",
+        tierLabel,
+        2
+      ),
+    };
+  }
+
+  // -------------------------------------------------------------
+  // 3. DIRECT PARENTS (Father / Mother) - Tier +1
   // -------------------------------------------------------------
   const isDirectParent =
-    (tree.parents || []).some((p) => p.id === n.id) ||
-    n.relation === "father" ||
-    n.relation === "mother" ||
-    parentsMap.get(centre.id)?.has(n.id) ||
-    (tree.levels_up?.[0] || []).some((p) => p.id === n.id);
+    !isGrandparent &&
+    ((tree.parents || []).some((p) => p.id === n.id) ||
+     parentsMap.get(centre.id)?.has(n.id) ||
+     (tree.levels_up?.[0] || []).some((p) => p.id === n.id) ||
+     ((n.relation === "father" || n.relation === "mother") && (!n.via_id || n.via_id === centre.id)));
 
   if (isDirectParent) {
     const isMother = targetSex === "F" || n.relation === "mother";
@@ -1587,72 +1688,7 @@ function resolveIndianRelationship(
     };
   }
 
-  // -------------------------------------------------------------
-  // 6. DIRECT GRANDPARENTS (Dada / Dadi / Nana / Nani)
-  // -------------------------------------------------------------
-  const relLower = (n.relation || "").toLowerCase();
-  const isDirectGrandparent =
-    (tree.grandparents || []).some((g) => g.id === n.id) ||
-    n.relation === "grandfather" ||
-    n.relation === "grandmother" ||
-    relLower.includes("dada") ||
-    relLower.includes("dadi") ||
-    relLower.includes("nana") ||
-    relLower.includes("nani") ||
-    (tree.levels_up?.[1] || []).some((g) => g.id === n.id);
 
-  if (isDirectGrandparent) {
-    const isExplicitMaternal =
-      relLower.includes("nana") ||
-      relLower.includes("nani") ||
-      relLower.includes("maternal");
-    const isExplicitPaternal =
-      relLower.includes("dada") ||
-      relLower.includes("dadi") ||
-      relLower.includes("paternal");
-
-    const isMaternal =
-      isExplicitMaternal ||
-      (!isExplicitPaternal && (
-        (mother && (n.via_id === mother.id || n.via_parent_id === mother.id)) ||
-        (maternalGrandfather && n.id === maternalGrandfather.id) ||
-        (maternalGrandmother && n.id === maternalGrandmother.id)
-      ));
-    const isFemale = targetSex === "F" || n.relation === "grandmother" || relLower.includes("dadi") || relLower.includes("nani");
-
-    let shortTag = "";
-    let subTag = "";
-    let primaryTitle = "";
-
-    if (isMaternal) {
-      shortTag = isFemale ? (isHi ? "नानी जी" : "Nani ji") : (isHi ? "नाना जी" : "Nana ji");
-      subTag = isFemale ? (isHi ? "माताजी की माता" : "Mother's Mother") : (isHi ? "माताजी के पिता" : "Mother's Father");
-      primaryTitle = isFemale ? (isHi ? "आपकी पूज्य नानी जी (माताजी की माता)" : "Your Respected Maternal Grandmother") : (isHi ? "आपके पूज्य नाना जी (माताजी के पिता)" : "Your Respected Maternal Grandfather");
-    } else {
-      shortTag = isFemale ? (isHi ? "दादी जी" : "Dadi ji") : (isHi ? "दादा जी" : "Dada ji");
-      subTag = isFemale ? (isHi ? "पिताजी की माता" : "Father's Mother") : (isHi ? "पिताजी के पिता" : "Father's Father");
-      primaryTitle = isFemale ? (isHi ? "आपकी पूज्य दादी जी (पिताजी की माता)" : "Your Respected Paternal Grandmother") : (isHi ? "आपके पूज्य दादा जी (पिताजी के पिता)" : "Your Respected Paternal Grandfather");
-    }
-
-    const tierLabel = isHi ? "दादा जी, दादी जी एवं नाना जी, नानी जी पीढ़ी" : "Grandparents (Dada ji - Dadi ji & Nana ji - Nani ji)";
-
-    return {
-      shortTag,
-      shortTagEn: isFemale ? (isMaternal ? "Maternal Grandmother" : "Grandmother") : (isMaternal ? "Maternal Grandfather" : "Grandfather"),
-      subTag,
-      primaryTitle,
-      primaryTitleEn: primaryTitle,
-      category: "grandparent",
-      generationTier: 2,
-      generationLabel: tierLabel,
-      multipleRoles: buildMultipleRoles(
-        primaryTitle,
-        isHi ? `${subTag} के रूप में परिवार के वरिष्ठतम पूज्य बुजुर्ग` : "Respected elders of family",
-        tierLabel,
-        2
-      ),
-    };
-  }
 
   // -------------------------------------------------------------
   // 7. DIRECT GRANDCHILDREN (Pota / Poti / Naati / Naatin)
@@ -2425,59 +2461,6 @@ function resolveIndianRelationship(
     };
   }
 
-  // -------------------------------------------------------------
-  // 18. GRANDPARENTS (Dada / Dadi / Nana / Nani)
-  // -------------------------------------------------------------
-  const isGrandparent =
-    (tree.grandparents || []).some((g) => g.id === n.id) ||
-    (tree.levels_up?.[1] || []).some((g) => g.id === n.id) ||
-    n.relation === "grandfather" ||
-    n.relation === "grandmother";
-
-  if (isGrandparent) {
-    const viaParentId = n.via_id || n.via_parent_id;
-    const isPaternal = viaParentId && father && viaParentId === father.id;
-    const isMaternal = viaParentId && mother && viaParentId === mother.id;
-    const isFemale = targetSex === "F" || n.relation === "grandmother";
-
-    let shortTag = "";
-    let primaryTitle = "";
-
-    if (isPaternal) {
-      shortTag = isFemale ? (isHi ? "दादी जी" : "Grandmother (Dadi)") : (isHi ? "दादा जी" : "Grandfather (Dada)");
-      primaryTitle = isFemale
-        ? isHi ? "आपकी दादी जी (पिताजी की माता)" : "Your Paternal Grandmother (Dadi)"
-        : isHi ? "आपके दादा जी / बाबा (पिताजी के पिता)" : "Your Paternal Grandfather (Dada)";
-    } else if (isMaternal) {
-      shortTag = isFemale ? (isHi ? "नानी जी" : "Grandmother (Nani)") : (isHi ? "नाना जी" : "Grandfather (Nana)");
-      primaryTitle = isFemale
-        ? isHi ? "आपकी नानी जी (माताजी की माता)" : "Your Maternal Grandmother (Nani)"
-        : isHi ? "आपके नाना जी (माताजी के पिता)" : "Your Maternal Grandfather (Nana)";
-    } else {
-      shortTag = isFemale ? (isHi ? "दादी / नानी" : "Grandmother") : (isHi ? "दादा / नाना" : "Grandfather");
-      primaryTitle = isFemale
-        ? isHi ? "आपकी दादी जी / नानी जी" : "Your Grandmother"
-        : isHi ? "आपके दादा जी / नाना जी" : "Your Grandfather";
-    }
-
-    const tierLabel = isHi ? "पूर्वज (दादा-दादी / नाना-नानी)" : "Ancestors (Grandparents Generation)";
-
-    return {
-      shortTag,
-      shortTagEn: isFemale ? "Grandmother" : "Grandfather",
-      primaryTitle,
-      primaryTitleEn: primaryTitle,
-      category: "grandparent",
-      generationTier: 2,
-      generationLabel: tierLabel,
-      multipleRoles: buildMultipleRoles(
-        primaryTitle,
-        isHi ? "परिवार के पूज्य वरिष्ठ पूर्वज" : "Respected elder ancestor of the family",
-        tierLabel,
-        2
-      ),
-    };
-  }
 
   // -------------------------------------------------------------
   // 19. GREAT-GRANDPARENTS (Generation 3)
@@ -3271,11 +3254,11 @@ function VanshawaliInner() {
     return [nodeA, nodeB];
   };
 
-  const pad = 16;
-  const gap = 16;
-  const coupleGap = 14;
-  const subRowH = 62;
-  const levelGap = 52;
+  const pad = 24;
+  const gap = 22;
+  const coupleGap = 18;
+  const subRowH = 76;
+  const levelGap = 64;
   const BH = BUBBLE_H + 20;
 
   type Placed = {
@@ -3365,7 +3348,7 @@ function VanshawaliInner() {
     marriedIdSet.add(b.id);
   };
 
-  const cardW = is2ColActive ? Math.min(156, Math.max(136, Math.floor((Math.max(vw, 360) - 52) / 2))) : 140;
+  const cardW = is2ColActive ? Math.min(154, Math.max(130, Math.floor((Math.max(vw, 360) - 64) / 2))) : 140;
 
   /** Tentative width — grows if content needs more space (L/R extend) */
   let contentW = Math.max(vw, 360);
@@ -3453,12 +3436,12 @@ function VanshawaliInner() {
     // -----------------------------------------------------------------
     contentW = Math.max(vw, 360);
     const cx = contentW / 2;
-    const cGap = 14;
-    const sRowH = 78;
-    const lGap = 18;
-    const HEADER_OFFSET = 52;
-    const SEC_PAD_BOTTOM = 18;
-    const SEC_MARGIN_BOTTOM = 44;
+    const cGap = 18;
+    const sRowH = 84;
+    const lGap = 22;
+    const HEADER_OFFSET = 54;
+    const SEC_PAD_BOTTOM = 28;
+    const SEC_MARGIN_BOTTOM = 46;
 
     yCursor = 20;
 
@@ -5028,37 +5011,37 @@ function VanshawaliInner() {
     const sex = resolveSex(n.gender, n.relation);
     const isHighlighted = highlightId === n.id;
 
-    // Elegant unified card theme
-    let borderCls = "border-gray-200/90";
-    let bgCls = "bg-white/95";
+    // Elegant semi-transparent glassmorphism so bloodlines passing behind are subtly visible
+    let borderCls = "border-gray-200/80";
+    let bgCls = "bg-white/65 backdrop-blur-md";
     let textCls = "text-gray-900";
-    let badgeCls = "bg-gray-100 text-gray-700";
+    let badgeCls = "bg-gray-100/90 text-gray-700";
 
     if (selfNode) {
       borderCls = "border-amber-400 ring-2 ring-amber-300/40";
-      bgCls = "bg-amber-50/90";
+      bgCls = "bg-amber-50/70 backdrop-blur-md";
       textCls = "text-amber-950 font-bold";
       badgeCls = "bg-amber-100/90 text-amber-900 font-semibold";
     } else if (gen === "spouse" || relInfo.category === "spouse") {
-      borderCls = "border-pink-300/90";
-      bgCls = "bg-rose-50/70";
+      borderCls = "border-pink-300/80";
+      bgCls = "bg-rose-50/62 backdrop-blur-md";
       textCls = "text-rose-950 font-semibold";
-      badgeCls = "bg-rose-100/80 text-rose-800";
+      badgeCls = "bg-rose-100/85 text-rose-800";
     } else if (gen === "sibling" || relInfo.category === "sibling") {
-      borderCls = "border-amber-200/90";
-      bgCls = "bg-amber-50/60";
+      borderCls = "border-amber-200/80";
+      bgCls = "bg-amber-50/60 backdrop-blur-md";
       textCls = "text-amber-950 font-semibold";
-      badgeCls = "bg-amber-100/70 text-amber-900";
+      badgeCls = "bg-amber-100/80 text-amber-900";
     } else if (gen === "up1" || gen === "up2" || gen === "up3" || relInfo.category === "parent" || relInfo.category === "grandparent") {
-      borderCls = "border-indigo-200/90";
-      bgCls = "bg-indigo-50/60";
+      borderCls = "border-indigo-200/80";
+      bgCls = "bg-indigo-50/60 backdrop-blur-md";
       textCls = "text-indigo-950 font-semibold";
-      badgeCls = "bg-indigo-100/80 text-indigo-900";
+      badgeCls = "bg-indigo-100/85 text-indigo-900";
     } else if (gen === "down1" || gen === "down2" || relInfo.category === "child" || relInfo.category === "grandchild") {
-      borderCls = "border-emerald-200/90";
-      bgCls = "bg-emerald-50/60";
+      borderCls = "border-emerald-200/80";
+      bgCls = "bg-emerald-50/60 backdrop-blur-md";
       textCls = "text-emerald-950 font-semibold";
-      badgeCls = "bg-emerald-100/80 text-emerald-900";
+      badgeCls = "bg-emerald-100/85 text-emerald-900";
     }
 
     if (isMarried && ring) {
@@ -6342,25 +6325,25 @@ function VanshawaliInner() {
                 const leftAvatarX = left.x - left.w / 2 + 29;
                 const rightAvatarX = right.x - right.w / 2 + 29;
 
-                // Knot tied on bottom rim/corner of the circular metal ring band (outside avatar/photo face)
+                // Knot tied strictly on bottom rim/corner of the circular metal ring band (outside avatar/photo face)
                 // Husband: bottom-right rim of ring circle
                 const startX = leftAvatarX + 7;
-                const startY = ringY1 + 14.5;
+                const startY = ringY1 + 16.5;
 
                 // Wife: bottom-left rim of ring circle
                 const endX = rightAvatarX - 7;
-                const endY = ringY2 + 14.5;
+                const endY = ringY2 + 16.5;
 
                 const isHorizontal = endX > startX;
                 const dx = endX - startX;
-                // Graceful suspended catenary sag ("hawa mai jhulte hua")
-                const sag = Math.min(26, Math.max(16, dx * 0.14));
+                // Generous dramatic sag so the sacred thread floats loosely in the air ("zada se zada loose, dramatically hawa mai float karti hui")
+                const sag = Math.min(68, Math.max(38, dx * 0.35));
                 const lowY = Math.max(startY, endY) + sag;
 
                 // Single direct suspended thread from starting ring to ending ring (NO extra middle knot)
                 const d = isHorizontal
-                  ? `M ${startX} ${startY} C ${startX + dx * 0.28} ${lowY}, ${endX - dx * 0.28} ${lowY}, ${endX} ${endY}`
-                  : `M ${startX} ${startY} C ${Math.max(left.x + left.w / 2, right.x + right.w / 2) + 22} ${startY + 15}, ${Math.max(left.x + left.w / 2, right.x + right.w / 2) + 22} ${endY - 15}, ${endX} ${endY}`;
+                  ? `M ${startX} ${startY} C ${startX + dx * 0.22} ${lowY + 6}, ${endX - dx * 0.22} ${lowY + 6}, ${endX} ${endY}`
+                  : `M ${startX} ${startY} C ${Math.max(left.x + left.w / 2, right.x + right.w / 2) + 26} ${startY + 20}, ${Math.max(left.x + left.w / 2, right.x + right.w / 2) + 26} ${endY - 20}, ${endX} ${endY}`;
 
                 return (
                   <g key={`marry-gold-${i}`}>
