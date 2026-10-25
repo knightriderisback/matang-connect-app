@@ -479,6 +479,89 @@ function DiamondGem({
   );
 }
 
+function SacredDiyaIcon({
+  size = 14,
+  className = "",
+}: {
+  size?: number;
+  className?: string;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={cn("inline-block shrink-0 drop-shadow-[0_1px_2px_rgba(234,88,12,0.35)]", className)}
+      aria-label="पवित्र दीपक (Sacred Diya)"
+    >
+      <defs>
+        <linearGradient id="sacredDiyaClay" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#EA580C" />
+          <stop offset="45%" stopColor="#B45309" />
+          <stop offset="100%" stopColor="#78350F" />
+        </linearGradient>
+        <linearGradient id="sacredDiyaRim" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#F59E0B" />
+          <stop offset="50%" stopColor="#FEF08A" />
+          <stop offset="100%" stopColor="#D97706" />
+        </linearGradient>
+        <radialGradient id="sacredDiyaFlame" cx="50%" cy="80%" r="70%">
+          <stop offset="0%" stopColor="#FDE047" />
+          <stop offset="45%" stopColor="#F97316" />
+          <stop offset="100%" stopColor="#DC2626" />
+        </radialGradient>
+      </defs>
+
+      {/* Flame Ambient Glow */}
+      <circle cx="12" cy="7.5" r="5" fill="#FEF08A" opacity="0.3" />
+
+      {/* Outer Sacred Flame */}
+      <path
+        d="M 12 1.8 C 13.6 4.3, 15.8 6.8, 15.8 9.4 C 15.8 11.8, 14.1 13.5, 12 13.5 C 9.9 13.5, 8.2 11.8, 8.2 9.4 C 8.2 6.8, 10.4 4.3, 12 1.8 Z"
+        fill="url(#sacredDiyaFlame)"
+      />
+
+      {/* Inner Radiant Core */}
+      <path
+        d="M 12 4.6 C 13 6.3, 14.2 7.8, 14.2 9.6 C 14.2 11, 13.1 12.2, 12 12.2 C 10.9 12.2, 9.8 11, 9.8 9.6 C 9.8 7.8, 11 6.3, 12 4.6 Z"
+        fill="#FEF08A"
+        opacity="0.9"
+      />
+
+      {/* White-Hot Flame Wick Origin */}
+      <ellipse cx="12" cy="9.8" rx="1.1" ry="1.9" fill="#FFFFFF" opacity="0.95" />
+
+      {/* Clay Lamp Vessel (Terracotta Diya) */}
+      <path
+        d="M 3.8 14.2 C 5.2 19.2, 18.8 19.2, 20.2 14.2 C 17.5 15.6, 6.5 15.6, 3.8 14.2 Z"
+        fill="url(#sacredDiyaClay)"
+      />
+
+      {/* Diya Base Stand */}
+      <path
+        d="M 9.5 18.6 C 10.5 19.8, 13.5 19.8, 14.5 18.6 Z"
+        fill="#78350F"
+      />
+
+      {/* Clay Rim with warm golden highlight */}
+      <ellipse
+        cx="12"
+        cy="14.3"
+        rx="8.2"
+        ry="1.7"
+        fill="none"
+        stroke="url(#sacredDiyaRim)"
+        strokeWidth="1.1"
+      />
+
+      {/* Cotton Wick / Baati tip */}
+      <ellipse cx="12" cy="13.7" rx="0.8" ry="0.5" fill="#451A03" />
+    </svg>
+  );
+}
+
 function SolitaireRingAvatar({
   node,
   ring,
@@ -547,18 +630,19 @@ function SolitaireRingAvatar({
                 strokeWidth={2.0}
               />
 
-              {/* Ultra-tiny specular light glint (1.8% circumference) that slowly orbits 360° around the whole ring */}
+              {/* Soft luminous specular light glint orbiting around the ring band */}
               <circle
                 cx={cx}
                 cy={cy}
                 r={r}
                 fill="none"
                 stroke="#FFFFFF"
-                strokeWidth={1.8}
+                strokeWidth={2.4}
                 pathLength={100}
-                strokeDasharray="1.8 98.2"
+                strokeDasharray="2.5 97.5"
                 strokeLinecap="round"
                 className="vansh-3d-shine"
+                opacity={0.95}
               />
 
               {/* Solitaire Diamond Setting Mount seated directly ON the outer rim of the band */}
@@ -674,13 +758,13 @@ function SolitaireRingAvatar({
         </div>
       )}
 
-      {/* Late Candle badge at bottom-right */}
+      {/* Late Sacred Diya badge at bottom-right */}
       {isLate && (
         <span
-          className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center text-[8px] shadow-2xs z-30"
+          className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-amber-50 border border-amber-300 flex items-center justify-center shadow-2xs z-30"
           title="स्वर्गीय"
         >
-          🕯️
+          <SacredDiyaIcon size={11} />
         </span>
       )}
     </div>
@@ -5289,37 +5373,37 @@ function VanshawaliInner() {
     const sex = resolveSex(n.gender, n.relation);
     const isHighlighted = highlightId === n.id;
 
-    // Exactly 50% translucent cards so bloodlines running behind are clearly visible
-    let borderCls = "border-gray-200/80";
-    let bgCls = "bg-white/50";
+    // Exactly 75% translucent cards so bloodlines running behind are visible with high clarity
+    let borderCls = "border-gray-200/90";
+    let bgCls = "bg-white/75 backdrop-blur-xs";
     let textCls = "text-gray-900";
     let badgeCls = "bg-gray-100/90 text-gray-700";
 
     if (selfNode) {
-      borderCls = "border-amber-400 ring-2 ring-amber-300/40";
-      bgCls = "bg-amber-50/50";
+      borderCls = "border-amber-400 ring-2 ring-amber-300/50";
+      bgCls = "bg-amber-50/75 backdrop-blur-xs";
       textCls = "text-amber-950 font-bold";
-      badgeCls = "bg-amber-100/90 text-amber-900 font-semibold";
+      badgeCls = "bg-amber-100/95 text-amber-900 font-semibold";
     } else if (gen === "spouse" || relInfo.category === "spouse") {
-      borderCls = "border-pink-300/80";
-      bgCls = "bg-rose-50/50";
+      borderCls = "border-pink-300/90";
+      bgCls = "bg-rose-50/75 backdrop-blur-xs";
       textCls = "text-rose-950 font-semibold";
-      badgeCls = "bg-rose-100/85 text-rose-800";
+      badgeCls = "bg-rose-100/90 text-rose-800";
     } else if (gen === "sibling" || relInfo.category === "sibling") {
-      borderCls = "border-amber-200/80";
-      bgCls = "bg-amber-50/50";
+      borderCls = "border-amber-200/90";
+      bgCls = "bg-amber-50/75 backdrop-blur-xs";
       textCls = "text-amber-950 font-semibold";
-      badgeCls = "bg-amber-100/80 text-amber-900";
+      badgeCls = "bg-amber-100/90 text-amber-900";
     } else if (gen === "up1" || gen === "up2" || gen === "up3" || relInfo.category === "parent" || relInfo.category === "grandparent") {
-      borderCls = "border-indigo-200/80";
-      bgCls = "bg-indigo-50/50";
+      borderCls = "border-indigo-200/90";
+      bgCls = "bg-indigo-50/75 backdrop-blur-xs";
       textCls = "text-indigo-950 font-semibold";
-      badgeCls = "bg-indigo-100/85 text-indigo-900";
+      badgeCls = "bg-indigo-100/90 text-indigo-900";
     } else if (gen === "down1" || gen === "down2" || relInfo.category === "child" || relInfo.category === "grandchild") {
-      borderCls = "border-emerald-200/80";
-      bgCls = "bg-emerald-50/50";
+      borderCls = "border-emerald-200/90";
+      bgCls = "bg-emerald-50/75 backdrop-blur-xs";
       textCls = "text-emerald-950 font-semibold";
-      badgeCls = "bg-emerald-100/85 text-emerald-900";
+      badgeCls = "bg-emerald-100/90 text-emerald-900";
     }
 
     if (isMarried && ring) {
@@ -5370,8 +5454,9 @@ function VanshawaliInner() {
             {/* Line 1: Name (wraps vertically if long) */}
             <div className="flex items-start gap-1 min-w-0">
               {isLate && (
-                <span className="text-[9px] font-bold text-amber-800 shrink-0 px-1 py-0.2 rounded bg-amber-100/70">
-                  स्व.
+                <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-900 shrink-0 px-1 py-0.2 rounded bg-amber-100/80 border border-amber-300/60 shadow-2xs">
+                  <SacredDiyaIcon size={10} />
+                  <span>स्व.</span>
                 </span>
               )}
               <span
@@ -5504,33 +5589,18 @@ function VanshawaliInner() {
           }
         }
         .vansh-3d-shine {
-          animation: ringFullOrbit 9.0s linear infinite;
+          animation: ringFullOrbit 8.0s linear infinite;
+          filter: blur(0.9px) drop-shadow(0 0 2.5px rgba(255, 255, 255, 0.95));
+          will-change: stroke-dashoffset;
         }
         @keyframes bloodPulse {
           0%, 100% {
             stroke: #DC2626;
-            stroke-width: 2.2;
-            opacity: 0.85;
+            opacity: 0.82;
           }
-          14% {
+          50% {
             stroke: #EF4444;
-            stroke-width: 3.0;
             opacity: 1;
-          }
-          28% {
-            stroke: #DC2626;
-            stroke-width: 2.2;
-            opacity: 0.85;
-          }
-          42% {
-            stroke: #EF4444;
-            stroke-width: 3.2;
-            opacity: 1;
-          }
-          56% {
-            stroke: #DC2626;
-            stroke-width: 2.2;
-            opacity: 0.85;
           }
         }
         @keyframes bloodFlow {
@@ -5538,11 +5608,13 @@ function VanshawaliInner() {
           to { stroke-dashoffset: 0; }
         }
         .vansh-blood-line {
-          animation: bloodPulse 2.0s ease-in-out infinite;
+          animation: bloodPulse 2.4s ease-in-out infinite;
+          will-change: opacity, stroke;
         }
         .vansh-blood-flow {
           stroke-dasharray: 6 18;
-          animation: bloodFlow 1.8s linear infinite;
+          animation: bloodFlow 2.0s linear infinite;
+          will-change: stroke-dashoffset;
         }
         .vansh-logo-watermark {
           position: absolute;
@@ -5834,7 +5906,7 @@ function VanshawaliInner() {
                     {lang==="hi"?"हरी धराशायी = विवाह":"Green dashed = marriage"}
                   </p>
                   <p className="flex items-center gap-2">
-                    <span className="text-xs">🕯️</span>
+                    <SacredDiyaIcon size={13} />
                     {lang==="hi"?"दीया = स्वर्गीय (Late) सदस्य":"Diya = Late / Deceased"}
                   </p>
                 </div>
@@ -6205,78 +6277,32 @@ function VanshawaliInner() {
               }}
             />
 
-            {/* Generation Section Outlines, Distinct Backgrounds & Prominent Headings */}
+            {/* Generation Section Outlines & Backgrounds (z-0: Behind bloodlines) */}
             {is2ColActive && generationSections.map((sec) => (
               <div
-                key={sec.id}
+                key={`bg-${sec.id}`}
                 className={cn(
-                  "absolute left-2.5 right-2.5 rounded-3xl border z-0",
+                  "absolute left-2.5 right-2.5 rounded-3xl border z-0 pointer-events-none",
                   sec.borderCls,
                   sec.bgCls
                 )}
                 style={{
                   top: sec.top,
                   height: sec.height,
+                  contain: "layout style paint",
                 }}
-              >
-                {/* Split Generation Header: Left Pill for Title & Right Pill for Count */}
-                {/* Center corridor [cx - 24, cx + 24] is 100% open so bloodlines pass without ANY text/banner overlap */}
-                <div
-                  className={cn(
-                    "absolute top-2 left-2 flex items-center gap-1.5 px-2.5 py-1 rounded-xl border shadow-xs z-10 max-w-[44%]",
-                    sec.headerBgCls
-                  )}
-                >
-                  <span className="text-sm leading-none shrink-0 drop-shadow-xs">{sec.icon}</span>
-                  <span className="text-[11px] font-black tracking-wide truncate">
-                    {sec.title}
-                  </span>
-                </div>
-
-                <div
-                  className={cn(
-                    "absolute top-2 right-2 flex items-center px-2 py-1 rounded-xl border shadow-2xs z-10",
-                    sec.headerBgCls
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-full shrink-0 shadow-2xs",
-                      sec.badgeCls
-                    )}
-                  >
-                    {sec.count} {lang === "hi" ? "सदस्य" : "Members"}
-                  </span>
-                </div>
-              </div>
+              />
             ))}
-
-            {/* Background Generation Guide Lanes (wide canvas mode only) */}
-            {!is2ColActive && (
-              <div className="absolute inset-0 pointer-events-none select-none z-0">
-                {laneMarkers.map((lane) => (
-                  <div
-                    key={lane.label}
-                    className="absolute left-0 right-0 flex items-center px-4"
-                    style={{ top: lane.top }}
-                  >
-                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/80 backdrop-blur-xs border border-amber-200/60 shadow-2xs">
-                      <span className="text-xs">{lane.icon}</span>
-                      <span className="text-[10px] font-bold text-amber-950/70 tracking-wide uppercase">
-                        {lane.label}
-                      </span>
-                    </div>
-                    <div className="flex-1 ml-3 border-t border-dashed border-amber-300/40" />
-                  </div>
-                ))}
-              </div>
-            )}
 
             <svg
               className="absolute inset-0 pointer-events-none z-10"
               width={W}
               height={H}
               shapeRendering="geometricPrecision"
+              style={{
+                willChange: "transform",
+                transform: "translateZ(0)",
+              }}
             >
               <defs>
                 <marker id="arrow-gold" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
@@ -6373,7 +6399,70 @@ function VanshawaliInner() {
               })}
             </svg>
 
-            {/* All relative bubbles (auto levels) */}
+            {/* Generation Section Labels (z-[15]: Positioned ABOVE bloodlines so bloodlines go UNDERNEATH labels) */}
+            {is2ColActive && generationSections.map((sec) => (
+              <div
+                key={`labels-${sec.id}`}
+                className="absolute left-2.5 right-2.5 pointer-events-none z-[15]"
+                style={{
+                  top: sec.top,
+                  height: sec.height,
+                }}
+              >
+                {/* Split Generation Header: Left Pill for Title & Right Pill for Count */}
+                {/* Center corridor [cx - 24, cx + 24] is 100% open so bloodlines pass smoothly underneath */}
+                <div
+                  className={cn(
+                    "absolute top-2 left-2 flex items-center gap-1.5 px-2.5 py-1 rounded-xl border shadow-xs max-w-[44%] pointer-events-auto backdrop-blur-xs",
+                    sec.headerBgCls
+                  )}
+                >
+                  <span className="text-sm leading-none shrink-0 drop-shadow-xs">{sec.icon}</span>
+                  <span className="text-[11px] font-black tracking-wide truncate">
+                    {sec.title}
+                  </span>
+                </div>
+
+                <div
+                  className={cn(
+                    "absolute top-2 right-2 flex items-center px-2 py-1 rounded-xl border shadow-2xs pointer-events-auto backdrop-blur-xs",
+                    sec.headerBgCls
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-full shrink-0 shadow-2xs",
+                      sec.badgeCls
+                    )}
+                  >
+                    {sec.count} {lang === "hi" ? "सदस्य" : "Members"}
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            {/* Background Generation Guide Lanes (wide canvas mode only) - z-[15] */}
+            {!is2ColActive && (
+              <div className="absolute inset-0 pointer-events-none select-none z-[15]">
+                {laneMarkers.map((lane) => (
+                  <div
+                    key={lane.label}
+                    className="absolute left-0 right-0 flex items-center px-4"
+                    style={{ top: lane.top }}
+                  >
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/90 backdrop-blur-xs border border-amber-200/80 shadow-2xs">
+                      <span className="text-xs">{lane.icon}</span>
+                      <span className="text-[10px] font-bold text-amber-950/80 tracking-wide uppercase">
+                        {lane.label}
+                      </span>
+                    </div>
+                    <div className="flex-1 ml-3 border-t border-dashed border-amber-300/40" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* All relative bubbles (auto levels) — z-20 above bloodlines */}
             {placed.map((pl) => {
               if (tree && pl.n.id === tree.centre.id) return null;
               // Clean horizontal orientation — NO messy tilts
@@ -6381,7 +6470,7 @@ function VanshawaliInner() {
               return (
                 <div
                   key={pl.n.id}
-                  className={`absolute z-10 ${
+                  className={`absolute z-20 ${
                     arrangeMode && moveTargetId === pl.n.id
                       ? "touch-none cursor-grab active:cursor-grabbing"
                       : "cursor-pointer"
@@ -6393,6 +6482,7 @@ function VanshawaliInner() {
                     maxWidth: is2ColActive ? cardW : 180,
                     transform: "translateX(-50%)",
                     transformOrigin: "center center",
+                    willChange: "transform",
                     touchAction: arrangeMode && moveTargetId === pl.n.id ? "none" : "pan-y",
                     filter:
                       moveTargetId === pl.n.id
@@ -6501,6 +6591,7 @@ function VanshawaliInner() {
                 width: is2ColActive ? cardW : 160,
                 maxWidth: is2ColActive ? cardW : 180,
                 transform: "translateX(-50%)",
+                willChange: "transform",
                 touchAction: arrangeMode && moveTargetId === tree.centre.id ? "none" : "pan-y",
                 filter:
                   moveTargetId === tree.centre.id
@@ -7000,7 +7091,7 @@ function VanshawaliInner() {
                     className="rounded text-amber-600 focus:ring-amber-400 w-4 h-4 cursor-pointer"
                   />
                   <span className="text-xs font-semibold text-amber-950 flex items-center gap-1.5">
-                    <span>🕯️</span>
+                    <SacredDiyaIcon size={14} />
                     {lang === "hi" ? "स्वर्गीय (Late / Deceased) सदस्य" : "Late / Deceased member"}
                   </span>
                 </label>
@@ -7154,7 +7245,7 @@ function VanshawaliInner() {
                 className="rounded text-amber-600 focus:ring-amber-400 w-4 h-4 cursor-pointer"
               />
               <span className="text-xs font-semibold text-amber-950 flex items-center gap-1.5">
-                <span>🕯️</span>
+                <SacredDiyaIcon size={14} />
                 {lang === "hi" ? "स्वर्गीय (Late / Deceased) सदस्य" : "Late / Deceased member"}
               </span>
             </label>
@@ -7280,10 +7371,10 @@ function VanshawaliInner() {
                     )}
                     {isDeceased && (
                       <span
-                        className="absolute -bottom-1 -right-1 bg-amber-100 border border-amber-300 rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-xs"
+                        className="absolute -bottom-1 -right-1 bg-amber-50 border border-amber-300 rounded-full w-5 h-5 flex items-center justify-center shadow-xs"
                         title="स्वर्गीय"
                       >
-                        🕯️
+                        <SacredDiyaIcon size={13} />
                       </span>
                     )}
                   </div>
@@ -7291,8 +7382,9 @@ function VanshawaliInner() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {isDeceased && (
-                        <span className="text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300/80 px-1.5 py-0.5 rounded-md">
-                          स्व.
+                        <span className="flex items-center gap-0.5 text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300/80 px-1.5 py-0.5 rounded-md shadow-2xs">
+                          <SacredDiyaIcon size={11} />
+                          <span>स्व.</span>
                         </span>
                       )}
                       <h3 className="font-bold text-gray-900 text-lg leading-snug truncate">
