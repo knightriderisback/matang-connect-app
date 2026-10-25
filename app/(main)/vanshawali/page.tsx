@@ -66,6 +66,11 @@ import {
   TreePine,
   ListFilter,
   ChevronRight,
+  Calendar,
+  ShieldCheck,
+  Baby,
+  Users,
+  Sparkles,
 } from "lucide-react";
 
 type Node = {
@@ -79,6 +84,7 @@ type Node = {
   photo_url?: string | null;
   relation: string;
   status?: string;
+  gotra?: string | null;
   link_id?: string;
   via_id?: string;
   via_parent_id?: string;
@@ -693,10 +699,10 @@ function bezierCurve(p1: { x: number; y: number }, p2: { x: number; y: number })
   const dx = p2.x - p1.x;
   const dy = Math.max(18, p2.y - p1.y);
   // Organic sweeping twist: lines curve naturally without stiff vertical drops or sharp corners
-  const twist = (dx >= 0 ? 1 : -1) * Math.min(10, Math.max(3, Math.abs(dx) * 0.12));
+  const twist = (dx >= 0 ? 1 : -1) * Math.min(18, Math.max(6, Math.abs(dx) * 0.16));
   const cp1x = p1.x + twist;
-  const cp1y = p1.y + dy * 0.48;
-  const cp2x = p2.x - twist;
+  const cp1y = p1.y + dy * 0.52;
+  const cp2x = p2.x - twist * 0.5;
   const cp2y = p2.y - dy * 0.48;
   return `M ${p1.x} ${p1.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
 }
@@ -947,8 +953,9 @@ function RingBottomKnot({
 }
 
 /**
- * Precision bloodline router that maneuvers through separated parallel lanes
- * in 2-column mobile mode without touching or entangling other lines.
+ * Organic, continuous curvy bloodline router:
+ * 100% smooth flowing Bezier arcs with rounded twists and zero sharp edges.
+ * Routes through the inter-row gap clearance so it NEVER cuts across card text.
  */
 function routeTangleFreeChildLine(
   junc: { x: number; y: number },
@@ -958,34 +965,52 @@ function routeTangleFreeChildLine(
   isMultiRow: boolean,
   isLeftCol: boolean
 ): string {
-  if (!is2Col || !isMultiRow) {
-    const dx = to.x - junc.x;
-    const dy = Math.max(16, to.y - junc.y);
-    const twist = (dx >= 0 ? 1 : -1) * Math.min(8, Math.max(3, Math.abs(dx) * 0.1));
-    const c1x = junc.x + twist;
-    const c1y = junc.y + dy * 0.45;
-    const c2x = to.x - twist;
-    const c2y = to.y - dy * 0.45;
-    return `M ${junc.x} ${junc.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${to.x} ${to.y}`;
+  const dx = to.x - junc.x;
+  const dy = Math.max(18, to.y - junc.y);
+
+  if (!is2Col) {
+    // Wide canvas mode: Organic sweeping cubic curve with generous rounded twist
+    const twist = (dx >= 0 ? 1 : -1) * Math.min(24, Math.max(8, Math.abs(dx) * 0.16));
+    const cp1x = junc.x + twist;
+    const cp1y = junc.y + dy * 0.44;
+    const cp2x = to.x - twist * 0.5;
+    const cp2y = to.y - dy * 0.46;
+    return `M ${junc.x} ${junc.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${to.x} ${to.y}`;
   }
 
-  // Multi-row route via dedicated smooth flowing highway lane with ZERO straight edges
-  // Uses continuous smooth cubic Bezier splines (C followed by S) so the line bends and twists seamlessly
-  const laneX = isLeftCol ? cx - 3.5 : cx + 3.5;
-  const dy = to.y - junc.y;
-  const midY = junc.y + dy * 0.48;
-  const twist = (isLeftCol ? -1 : 1) * 6;
+  const outDir = isLeftCol ? -1 : 1;
 
-  // S-curved descent into corridor, then smooth S-curve continuation outward into destination card corner
-  const c1x = junc.x + twist;
-  const c1y = junc.y + dy * 0.22;
-  const c2x = laneX + twist * 0.5;
-  const c2y = midY - dy * 0.18;
+  if (!isMultiRow) {
+    // Single-row mobile: Sweeps gracefully outward through inter-row airspace ABOVE card,
+    // looping into destination corner from the outer flank so it NEVER touches card text
+    const outerOvershoot = to.x + outDir * 8; // Gentle rounded twist/forward extension
+    const cp1x = junc.x + outDir * Math.min(26, Math.abs(dx) * 0.35);
+    const cp1y = junc.y + dy * 0.22;
+    const cp2x = outerOvershoot;
+    const cp2y = to.y - Math.min(22, dy * 0.45);
+    return `M ${junc.x} ${junc.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${to.x} ${to.y}`;
+  }
 
-  const c3x = to.x - twist * 0.5;
-  const c3y = to.y - dy * 0.22;
+  // Multi-row mobile: Travels through central clear corridor (laneX), then sweeps through
+  // the empty inter-row clearance above the destination card without crossing Row 1 or card text.
+  const laneX = isLeftCol ? cx - 4 : cx + 4;
+  const breakY = Math.max(junc.y + 24, to.y - 18); // Inter-row gap directly above destination row
 
-  return `M ${junc.x} ${junc.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${laneX} ${midY} S ${c3x} ${c3y}, ${to.x} ${to.y}`;
+  // Part 1: Descent down central corridor with gentle organic wave
+  const waveTwist = outDir * 5;
+  const c1x = junc.x + waveTwist;
+  const c1y = junc.y + (breakY - junc.y) * 0.4;
+  const c2x = laneX - waveTwist * 0.3;
+  const c2y = breakY - (breakY - junc.y) * 0.35;
+
+  // Part 2: Outward sweep through empty inter-row gap into destination corner knot
+  const outerOvershoot = to.x + outDir * 8;
+  const c3x = laneX + outDir * Math.min(28, Math.abs(to.x - laneX) * 0.35);
+  const c3y = breakY + 3;
+  const c4x = outerOvershoot;
+  const c4y = to.y - 14;
+
+  return `M ${junc.x} ${junc.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${laneX} ${breakY} C ${c3x} ${c3y}, ${c4x} ${c4y}, ${to.x} ${to.y}`;
 }
 
 function getRelationshipStyle(relTag = "", sex?: string | null) {
@@ -1282,20 +1307,6 @@ function resolveIndianRelationship(
     (g) => (g.via_id === mother?.id || g.via_parent_id === mother?.id) && resolveSex(g.gender, g.relation) === "F"
   );
 
-  // Self siblings set
-  const selfSiblings = new Set<string>();
-  (siblingsMap.get(centre.id) || []).forEach((id) => selfSiblings.add(id));
-  (tree.siblings || []).forEach((s) => selfSiblings.add(s.id));
-  (tree.siblings_of?.[centre.id] || []).forEach((s) => selfSiblings.add(s.id));
-  selfSiblings.delete(centre.id);
-  if (father) selfSiblings.delete(father.id);
-  if (mother) selfSiblings.delete(mother.id);
-  (tree.parents || []).forEach((p) => selfSiblings.delete(p.id));
-  (tree.children || []).forEach((c) => selfSiblings.delete(c.id));
-  (tree.spouses || []).forEach((s) => selfSiblings.delete(s.id));
-  (tree.grandparents || []).forEach((g) => selfSiblings.delete(g.id));
-  (tree.grandchildren || []).forEach((gc) => selfSiblings.delete(gc.id));
-
   // Self direct children set
   const selfChildren = new Set<string>();
   (childrenMap.get(centre.id) || []).forEach((id) => selfChildren.add(id));
@@ -1309,6 +1320,30 @@ function resolveIndianRelationship(
   (tree.parents || []).forEach((p) => selfChildren.delete(p.id));
   (tree.siblings || []).forEach((s) => selfChildren.delete(s.id));
   (tree.spouses || []).forEach((s) => selfChildren.delete(s.id));
+
+  // Self siblings set
+  const selfSiblings = new Set<string>();
+  (siblingsMap.get(centre.id) || []).forEach((id) => selfSiblings.add(id));
+  (tree.siblings || []).forEach((s) => selfSiblings.add(s.id));
+  (tree.siblings_of?.[centre.id] || []).forEach((s) => selfSiblings.add(s.id));
+  if (father) {
+    (childrenMap.get(father.id) || []).forEach((id) => {
+      if (id !== centre.id && !selfChildren.has(id)) selfSiblings.add(id);
+    });
+  }
+  if (mother) {
+    (childrenMap.get(mother.id) || []).forEach((id) => {
+      if (id !== centre.id && !selfChildren.has(id)) selfSiblings.add(id);
+    });
+  }
+  selfSiblings.delete(centre.id);
+  if (father) selfSiblings.delete(father.id);
+  if (mother) selfSiblings.delete(mother.id);
+  (tree.parents || []).forEach((p) => selfSiblings.delete(p.id));
+  (tree.children || []).forEach((c) => selfSiblings.delete(c.id));
+  (tree.spouses || []).forEach((s) => selfSiblings.delete(s.id));
+  (tree.grandparents || []).forEach((g) => selfSiblings.delete(g.id));
+  (tree.grandchildren || []).forEach((gc) => selfSiblings.delete(gc.id));
 
   // Father siblings set (Tau, Chacha, Bua)
   const fatherSiblings = new Set<string>();
@@ -1452,21 +1487,38 @@ function resolveIndianRelationship(
   const relLower = (n.relation || "").toLowerCase();
   const nameLower = (n.display_name || "").toLowerCase();
 
+  const isSiblingOfSelf =
+    selfSiblings.has(n.id) ||
+    (tree.siblings || []).some((s) => s.id === n.id) ||
+    (tree.siblings_of?.[centre.id] || []).some((s) => s.id === n.id) ||
+    relLower === "sibling" ||
+    relLower === "brother" ||
+    relLower === "sister" ||
+    relLower.includes("bhai") ||
+    relLower.includes("behan") ||
+    relLower.includes("sahodhar") ||
+    ((n.via_id === father?.id || n.via_id === mother?.id) &&
+      (n.relation === "child" || n.relation === "sibling") &&
+      n.id !== centre.id &&
+      !(tree.children || []).some((c) => c.id === n.id) &&
+      !selfChildren.has(n.id));
+
   const isDirectGrandparent =
-    (tree.grandparents || []).some((g) => g.id === n.id) ||
-    (tree.levels_up?.[1] || []).some((g) => g.id === n.id) ||
-    n.relation === "grandfather" ||
-    n.relation === "grandmother" ||
-    relLower.includes("dada") ||
-    relLower.includes("dadi") ||
-    relLower.includes("nana") ||
-    relLower.includes("nani") ||
-    nameLower.includes("dada") ||
-    nameLower.includes("dadi") ||
-    nameLower.includes("nana") ||
-    nameLower.includes("nani") ||
-    (father && (n.via_id === father.id || n.via_parent_id === father.id || parentsMap.get(father.id)?.has(n.id))) ||
-    (mother && (n.via_id === mother.id || n.via_parent_id === mother.id || parentsMap.get(mother.id)?.has(n.id)));
+    !isSiblingOfSelf &&
+    ((tree.grandparents || []).some((g) => g.id === n.id) ||
+      (tree.levels_up?.[1] || []).some((g) => g.id === n.id) ||
+      n.relation === "grandfather" ||
+      n.relation === "grandmother" ||
+      relLower.includes("dada") ||
+      relLower.includes("dadi") ||
+      relLower.includes("nana") ||
+      relLower.includes("nani") ||
+      nameLower.includes("dada") ||
+      nameLower.includes("dadi") ||
+      nameLower.includes("nana") ||
+      nameLower.includes("nani") ||
+      (father && (parentsMap.get(father.id)?.has(n.id) || father.via_id === n.id || father.via_parent_id === n.id)) ||
+      (mother && (parentsMap.get(mother.id)?.has(n.id) || mother.via_id === n.id || mother.via_parent_id === n.id)));
   const isGrandparent = isDirectGrandparent;
 
   if (isGrandparent) {
@@ -1488,9 +1540,9 @@ function resolveIndianRelationship(
       isMaternal = true;
     } else if (isExplicitPaternal) {
       isMaternal = false;
-    } else if (mother && (n.via_id === mother.id || n.via_parent_id === mother.id || parentsMap.get(mother.id)?.has(n.id))) {
+    } else if (mother && (parentsMap.get(mother.id)?.has(n.id) || mother.via_id === n.id)) {
       isMaternal = true;
-    } else if (father && (n.via_id === father.id || n.via_parent_id === father.id || parentsMap.get(father.id)?.has(n.id))) {
+    } else if (father && (parentsMap.get(father.id)?.has(n.id) || father.via_id === n.id)) {
       isMaternal = false;
     } else {
       const gpAllList = [...(tree.grandparents || []), ...(tree.levels_up?.[1] || [])];
@@ -1550,6 +1602,7 @@ function resolveIndianRelationship(
   // -------------------------------------------------------------
   const isDirectParent =
     !isGrandparent &&
+    !isSiblingOfSelf &&
     ((tree.parents || []).some((p) => p.id === n.id) ||
      parentsMap.get(centre.id)?.has(n.id) ||
      (tree.levels_up?.[0] || []).some((p) => p.id === n.id) ||
@@ -1650,6 +1703,7 @@ function resolveIndianRelationship(
   // 5. DIRECT SIBLING OF SELF (Brother / Sister)
   // -------------------------------------------------------------
   const isDirectSibling =
+    isSiblingOfSelf ||
     (tree.siblings || []).some((s) => s.id === n.id) ||
     selfSiblings.has(n.id) ||
     (n.relation === "sibling" && (!n.via_id || n.via_id === centre.id || n.via_id === father?.id || n.via_id === mother?.id));
@@ -2818,6 +2872,7 @@ function VanshawaliInner() {
   };
   const [saEditMode, setSaEditMode] = useState(false);
   const [selected, setSelected] = useState<Node | null>(null);
+  const [showAddSubmenu, setShowAddSubmenu] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
   // New UX: Dual view (Tree / List), Search, Highlight, Late/Deceased toggle
@@ -3536,7 +3591,13 @@ function VanshawaliInner() {
     };
 
     // 1. Generation +2 (Grandparents - Dada/Dadi, Nana/Nani)
-    const gpList = [...(tree?.grandparents || []), ...(levelsUp[1] || [])];
+    const centreSibIdSet = new Set<string>((tree?.siblings || []).map((s) => s.id));
+    if (tree?.siblings_of?.[tree.centre.id]) {
+      tree.siblings_of[tree.centre.id].forEach((s) => centreSibIdSet.add(s.id));
+    }
+    const gpList = [...(tree?.grandparents || []), ...(levelsUp[1] || [])].filter(
+      (g) => !centreSibIdSet.has(g.id) && g.id !== tree?.centre.id && g.relation !== "sibling"
+    );
     const gpSeen = new Set<string>();
     const gpPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE, boolean][] = [];
 
@@ -4505,6 +4566,8 @@ function VanshawaliInner() {
 
   const bloodSegments: BloodSegment[] = [];
   const bloodKnots: RopeKnotAnchor[] = [];
+  type BloodJunction = { key: string; x: number; y: number };
+  const bloodJunctions: BloodJunction[] = [];
   const knotSeen = new Set<string>();
 
   const addKnot = (
@@ -4597,6 +4660,7 @@ function VanshawaliInner() {
           : maxPBottom + 18);
 
     const junc = { x: jx, y: jy };
+    bloodJunctions.push({ key: `bjunc-${unitKey}`, x: jx, y: jy });
 
     // 3. Parent 1 to Junction
     bloodSegments.push({
@@ -6112,6 +6176,15 @@ function VanshawaliInner() {
                 </g>
               ))}
 
+              {/* Living arterial junction confluence nodes */}
+              {bloodJunctions.map((j) => (
+                <g key={j.key}>
+                  <circle cx={j.x} cy={j.y} r={3.2} fill="#EF4444" opacity={0.65} />
+                  <circle cx={j.x} cy={j.y} r={1.8} fill="#DC2626" />
+                  <circle cx={j.x} cy={j.y} r={0.8} fill="#FEF08A" />
+                </g>
+              ))}
+
 
               {/* Sibling amber lines */}
               {linesSibling.map((ln) => {
@@ -6735,403 +6808,454 @@ function VanshawaliInner() {
       )}
 
       {/* Node actions */}
-      {selected && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/40 flex items-end sm:items-center justify-center backdrop-blur-xs"
-          onClick={() => setSelected(null)}
-        >
-          <div
-            className="w-full max-w-sm mx-3 mb-8 bg-white rounded-3xl p-4 shadow-2xl space-y-1"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header info */}
-            <div className="flex items-center gap-3 pb-2.5 border-b border-gray-100">
-              <div className="relative shrink-0">
-                {selected.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={selected.photo_url}
-                    alt=""
-                    className="w-12 h-12 rounded-full object-cover border border-amber-200 shadow-xs"
-                  />
-                ) : (
-                  <div
-                    className={cn(
-                      "w-12 h-12 rounded-full flex items-center justify-center text-base font-bold shadow-xs",
-                      selected.id === tree?.centre.id
-                        ? "bg-amber-400 text-amber-950"
-                        : resolveSex(selected.gender, selected.relation) === "F"
-                        ? "bg-rose-100 text-rose-800"
-                        : "bg-indigo-100 text-indigo-800"
-                    )}
-                  >
-                    {selected.display_name.replace(/^(स्व\.|late|sw\.)\s*/i, "").charAt(0).toUpperCase() || "?"}
-                  </div>
-                )}
-                {(/^(स्व\.|late|sw\.)/i.test(selected.display_name) || selected.status === "deceased") && (
-                  <span className="absolute -bottom-1 -right-1 text-xs" title="स्वर्गीय">
-                    🕯️
-                  </span>
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {(/^(स्व\.|late|sw\.)/i.test(selected.display_name) || selected.status === "deceased") && (
-                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100/90 px-1.5 py-0.2 rounded">
-                      स्व.
-                    </span>
-                  )}
-                  <p className="font-bold text-gray-900 text-base truncate">
-                    {selected.display_name.replace(/^(स्व\.|late|sw\.)\s*/i, "")}
-                  </p>
-                </div>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  <span className="text-amber-800 font-medium">
-                    {resolveIndianRelationship(selected, tree, lang).shortTag}
-                  </span>
-                  {formatBirth(selected) ? ` · ${formatBirth(selected)}` : ""}
-                  {selected.user_id ? " · Registered" : " · Manual"}
-                </p>
-              </div>
-            </div>
+      {selected && (() => {
+        const getSiblingParentId = (target: Node): string | undefined => {
+          if (target.id === tree?.centre.id || target.relation === "self") {
+            const f = (tree?.parents || []).find((x) => x.relation === "father");
+            const m = (tree?.parents || []).find((x) => x.relation === "mother");
+            return f?.id || m?.id;
+          }
+          const pid = target.id;
+          const levels = tree?.levels_up || [];
+          for (let d = 0; d < levels.length; d++) {
+            if (!levels[d].some((n) => n.id === pid)) continue;
+            const next = levels[d + 1] || [];
+            for (const n of next) {
+              if (n.via_id === pid || n.via_parent_id === pid) return n.id;
+            }
+          }
+          for (const lvl of levels) {
+            for (const n of lvl) {
+              if ((n.relation === "father" || n.relation === "mother") && (n.via_id === pid || n.via_parent_id === pid)) {
+                return n.id;
+              }
+            }
+          }
+          if ((tree?.children || []).some((c) => c.id === pid)) {
+            return tree?.centre.id;
+          }
+          for (const lvl of tree?.levels_down || []) {
+            for (const n of lvl) {
+              if (n.id === pid && (n.via_id || n.via_child_id)) {
+                return n.via_id || n.via_child_id || undefined;
+              }
+            }
+          }
+          return undefined;
+        };
 
-            {/* Primary Indian Relationship Card & Multiple Family Roles */}
-            {(() => {
-              const relInfo = resolveIndianRelationship(selected, tree, lang);
-              return (
-                <div className="space-y-2.5 my-2">
-                  <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50/50 border border-amber-200/90 rounded-2xl p-3 flex items-start gap-3 shadow-2xs">
-                    <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-400/40 flex items-center justify-center shrink-0 text-amber-800">
-                      <HeartHandshake size={20} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] font-bold text-amber-900 bg-amber-200/70 px-2 py-0.5 rounded-full">
-                          {relInfo.shortTag}
-                        </span>
-                        <span className="text-[10px] text-amber-700/80 font-medium">
-                          {relInfo.generationLabel}
-                        </span>
+        const relInfo = resolveIndianRelationship(selected, tree, lang);
+        const isSelf = selected.id === tree?.centre.id || selected.relation === "self";
+        const isDeceased = /^(स्व\.|late|sw\.)/i.test(selected.display_name) || selected.status === "deceased";
+        const cleanName = selected.display_name.replace(/^(स्व\.|late|sw\.)\s*/i, "");
+        const sex = resolveSex(selected.gender, selected.relation);
+
+        return (
+          <div
+            className="fixed inset-0 z-[100] bg-black/60 flex items-end sm:items-center justify-center p-3 sm:p-4 backdrop-blur-xs animate-in fade-in duration-200"
+            onClick={() => {
+              setSelected(null);
+              setShowAddSubmenu(false);
+            }}
+          >
+            <div
+              className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-amber-200/80 flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Top Accent Header Bar */}
+              <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500 px-4 py-2.5 flex items-center justify-between text-white shadow-xs">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Sparkles size={15} className="text-amber-200 shrink-0" />
+                  <span className="text-xs font-bold tracking-wide truncate">
+                    {relInfo.generationLabel}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelected(null);
+                    setShowAddSubmenu(false);
+                  }}
+                  className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 active:scale-90 flex items-center justify-center transition-all cursor-pointer text-white"
+                  title="Close"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Scrollable Content Area */}
+              <div className="p-4 overflow-y-auto space-y-3.5 divide-y divide-amber-100/70">
+                {/* Profile Hero Card */}
+                <div className="flex items-start gap-3.5">
+                  <div className="relative shrink-0 mt-0.5">
+                    {selected.photo_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={selected.photo_url}
+                        alt={selected.display_name}
+                        className="w-16 h-16 rounded-full object-cover border-2 border-amber-400 shadow-md"
+                      />
+                    ) : (
+                      <div
+                        className={cn(
+                          "w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold shadow-md border-2",
+                          isSelf
+                            ? "bg-gradient-to-br from-amber-400 to-amber-500 text-amber-950 border-amber-300"
+                            : sex === "F"
+                            ? "bg-gradient-to-br from-rose-100 to-rose-200 text-rose-800 border-rose-300"
+                            : "bg-gradient-to-br from-indigo-100 to-indigo-200 text-indigo-800 border-indigo-300"
+                        )}
+                      >
+                        {cleanName.charAt(0).toUpperCase() || "?"}
                       </div>
-                      <p className="text-xs font-bold text-amber-950 mt-1">
+                    )}
+                    {isDeceased && (
+                      <span
+                        className="absolute -bottom-1 -right-1 bg-amber-100 border border-amber-300 rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-xs"
+                        title="स्वर्गीय"
+                      >
+                        🕯️
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {isDeceased && (
+                        <span className="text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300/80 px-1.5 py-0.5 rounded-md">
+                          स्व.
+                        </span>
+                      )}
+                      <h3 className="font-bold text-gray-900 text-lg leading-snug truncate">
+                        {cleanName}
+                      </h3>
+                    </div>
+
+                    {/* Primary Relationship Banner */}
+                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-bold text-amber-900 bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-full shadow-2xs">
+                        {relInfo.shortTag}
+                      </span>
+                      <span className="text-[11px] font-medium text-amber-800 truncate">
+                        {relInfo.primaryTitle}
+                      </span>
+                    </div>
+
+                    {/* Mini status tags */}
+                    <div className="flex items-center gap-2 mt-2 flex-wrap text-[10px]">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-700">
+                        {sex === "F" ? "👩 महिला (Female)" : "👨 पुरुष (Male)"}
+                      </span>
+                      {selected.user_id ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          <ShieldCheck size={11} /> {lang === "hi" ? "पंजीकृत सदस्य" : "Registered"}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                          {lang === "hi" ? "पारिवारिक प्रविष्टि" : "Family Record"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Key Details Grid */}
+                <div className="pt-3.5 grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 rounded-2xl bg-amber-50/50 border border-amber-100">
+                    <div className="flex items-center gap-1 text-[11px] text-amber-800 font-semibold mb-0.5">
+                      <Calendar size={13} className="text-amber-600" />
+                      <span>{lang === "hi" ? "जन्म / आयु" : "Birth / Age"}</span>
+                    </div>
+                    <p className="font-bold text-gray-900">
+                      {formatBirth(selected) || (lang === "hi" ? "उल्लेख नहीं" : "Not specified")}
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-2xl bg-amber-50/50 border border-amber-100">
+                    <div className="flex items-center gap-1 text-[11px] text-amber-800 font-semibold mb-0.5">
+                      <TreePine size={13} className="text-amber-600" />
+                      <span>{lang === "hi" ? "गोत्र (Gotra)" : "Gotra"}</span>
+                    </div>
+                    <p className="font-bold text-gray-900 truncate">
+                      {selected.gotra || (lang === "hi" ? "मातंग कुल" : "Matang Lineage")}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Indian Relationship Insight Box */}
+                <div className="pt-3.5 space-y-2">
+                  <div className="bg-gradient-to-r from-amber-50 via-orange-50/60 to-amber-50/30 border border-amber-200 rounded-2xl p-3 flex items-start gap-2.5 shadow-2xs">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-400/40 flex items-center justify-center shrink-0 text-amber-800 mt-0.5">
+                      <HeartHandshake size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1 text-xs">
+                      <p className="font-bold text-amber-950">
                         {relInfo.primaryTitle}
                       </p>
-                      <p className="text-[10px] text-amber-800/80 mt-0.5">
-                        {selected.id === tree?.centre.id || selected.relation === "self"
-                          ? (lang === "hi" ? "आपकी वंशावली का केंद्र बिंदु (Main Profile)" : "Center of this Vanshawali")
-                          : (lang === "hi" ? "भारतीय पारिवारिक रिश्तेदारी के अनुसार संबंध" : "Traditional Indian Family Relationship")}
+                      <p className="text-[11px] text-amber-800/80 mt-0.5 leading-snug">
+                        {relInfo.subTag || (lang === "hi" ? "पारंपरिक भारतीय पारिवारिक संबंध" : "Traditional Indian Family Relationship")}
                       </p>
                     </div>
                   </div>
 
-                  {/* Multiple Family Roles Section */}
+                  {/* Multiple Family Roles */}
                   {relInfo.multipleRoles && relInfo.multipleRoles.length > 0 && (
-                    <div className="bg-white border border-amber-100 rounded-2xl p-2.5 space-y-1.5 shadow-2xs">
+                    <div className="bg-amber-50/30 border border-amber-100/90 rounded-2xl p-2.5 space-y-1.5">
                       <div className="flex items-center justify-between px-1">
-                        <span className="text-[11px] font-bold text-gray-800 flex items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-gray-800 flex items-center gap-1">
                           <span>👨‍👩‍👧‍👦</span>
-                          <span>
-                            {lang === "hi"
-                              ? "परिवार में अनेक संबंध व भूमिकाएँ"
-                              : "Multiple Family Roles & Relations"}
-                          </span>
+                          <span>{lang === "hi" ? "परिवार में भूमिकाएँ" : "Family Roles"}</span>
                         </span>
-                        <span className="text-[10px] text-amber-800 font-semibold bg-amber-50 border border-amber-200/60 px-1.5 py-0.2 rounded-full">
-                          {relInfo.multipleRoles.length} {lang === "hi" ? "भूमिकाएँ" : "roles"}
+                        <span className="text-[10px] font-semibold text-amber-800 bg-amber-100/70 px-1.5 py-0.2 rounded-full">
+                          {relInfo.multipleRoles.length}
                         </span>
                       </div>
-                      <div className="space-y-1 pt-0.5 max-h-48 overflow-y-auto">
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
                         {relInfo.multipleRoles.map((role, idx) => (
                           <div
                             key={idx}
-                            className="flex items-start gap-2 p-2 rounded-xl bg-amber-50/40 border border-amber-100/60 hover:bg-amber-50/80 transition-colors"
+                            className="flex items-center gap-2 p-1.5 rounded-xl bg-white/80 border border-amber-100 text-[11px]"
                           >
-                            <span className="text-sm shrink-0 mt-0.5">{role.icon}</span>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-[9px] font-bold text-amber-900 bg-amber-200/50 px-1.5 py-0.2 rounded">
-                                  {role.badge}
-                                </span>
-                                <p className="text-[11px] font-bold text-gray-900 truncate">
-                                  {role.title}
-                                </p>
-                              </div>
-                              {role.detail && (
-                                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">
-                                  {role.detail}
-                                </p>
-                              )}
-                            </div>
+                            <span className="shrink-0">{role.icon}</span>
+                            <span className="font-bold text-amber-900 shrink-0 text-[10px] bg-amber-100/80 px-1 py-0.2 rounded">
+                              {role.badge}
+                            </span>
+                            <span className="font-semibold text-gray-800 truncate">
+                              {role.title}
+                            </span>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
                 </div>
-              );
-            })()}
-            {selected.user_id && (
-              <>
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-gray-50"
-                  onClick={() => {
-                    router.push(`/vanshawali?user=${selected.user_id}`);
-                    setSelected(null);
-                  }}
-                >
-                  <Focus size={16} className="text-amber-500" /> {lang === "hi" ? "इनकी वंशावली देखें" : "Open Vanshawali"}
-                </button>
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-gray-50"
-                  onClick={() => {
-                    router.push(`/member/${selected.user_id}`);
-                    setSelected(null);
-                  }}
-                >
-                  <User size={16} className="text-amber-500" /> Profile / info
-                </button>
-              </>
-            )}
-            {canEdit && (selected.id === tree?.centre.id || selected.relation === "self") && (
-              <>
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
-                  onClick={() => {
-                    openAdd("father");
-                    setSelected(null);
-                  }}
-                >
-                  <Plus size={16} className="text-amber-500" /> {L.father}
-                </button>
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
-                  onClick={() => {
-                    openAdd("mother");
-                    setSelected(null);
-                  }}
-                >
-                  <Plus size={16} className="text-amber-500" /> {L.mother}
-                </button>
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
-                  onClick={() => {
-                    openAdd("spouse");
-                    setSelected(null);
-                  }}
-                >
-                  <Plus size={16} className="text-amber-500" /> {L.spouse}
-                </button>
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
-                  onClick={() => {
-                    openAdd("child");
-                    setSelected(null);
-                  }}
-                >
-                  <Plus size={16} className="text-amber-500" /> {L.child}
-                </button>
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
-                  onClick={() => {
-                    const father = (tree?.parents || []).find((x) => x.relation === "father");
-                    const mother = (tree?.parents || []).find((x) => x.relation === "mother");
-                    const parentId = father?.id || mother?.id;
-                    if (!parentId) {
-                      toast(
-                        lang === "hi"
-                          ? "पहले पिता/माता जोड़ें, फिर भाई-बहन"
-                          : "Add father/mother first, then sibling",
-                        "error"
-                      );
-                      return;
-                    }
-                    openAdd("sibling", parentId);
-                    setSelected(null);
-                  }}
-                >
-                  <Plus size={16} className="text-amber-500" />{" "}
-                  {lang === "hi" ? "भाई / बहन" : "Brother / Sister"}
-                </button>
-              </>
-            )}
-            {canEdit &&
-              !(selected.id === tree?.centre.id || selected.relation === "self") && (
-                <>
-                  <button
-                    type="button"
-                    className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
-                    onClick={() => {
-                      openAdd("spouse", selected.id);
-                      setSelected(null);
-                    }}
-                  >
-                    <Plus size={16} className="text-amber-500" /> {L.spouse}
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
-                    onClick={() => {
-                      openAdd("child", selected.id);
-                      setSelected(null);
-                    }}
-                  >
-                    <Plus size={16} className="text-amber-500" /> {L.child}
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
-                    onClick={() => {
-                      // Sibling OF selected = child of selected's PARENTS
-                      const pid = selected.id;
-                      let parentId: string | undefined;
-                      if (pid === tree?.centre.id) {
-                        parentId =
-                          (tree?.parents || []).find((x) => x.relation === "father")?.id ||
-                          (tree?.parents || []).find((x) => x.relation === "mother")?.id;
-                      } else {
-                        const levels = tree?.levels_up || [];
-                        for (let d = 0; d < levels.length; d++) {
-                          if (!levels[d].some((n) => n.id === pid)) continue;
-                          const next = levels[d + 1] || [];
-                          for (const n of next) {
-                            if (n.via_id === pid || n.via_parent_id === pid) {
-                              parentId = n.id;
-                              break;
-                            }
-                          }
-                          if (parentId) break;
-                        }
-                        if (!parentId) {
-                          for (const lvl of levels) {
-                            for (const n of lvl) {
-                              if (
-                                (n.relation === "father" || n.relation === "mother") &&
-                                (n.via_id === pid || n.via_parent_id === pid)
-                              ) {
-                                parentId = n.id;
-                                break;
-                              }
-                            }
-                            if (parentId) break;
-                          }
-                        }
-                        if (!parentId && (tree?.children || []).some((c) => c.id === pid)) {
-                          parentId = tree?.centre.id;
-                        }
-                        if (!parentId) {
-                          for (const lvl of tree?.levels_down || []) {
-                            for (const n of lvl) {
-                              if (n.id === pid && (n.via_id || n.via_child_id)) {
-                                parentId = n.via_id || n.via_child_id || undefined;
-                              }
-                            }
-                          }
-                        }
-                      }
-                      if (!parentId) {
-                        toast(
-                          lang === "hi"
-                            ? "इस व्यक्ति के माता/पिता पहले जोड़ें, तब भाई-बहन"
-                            : "Add this person's parents first, then brother/sister",
-                          "error"
-                        );
-                        return;
-                      }
-                      openAdd("sibling", parentId);
-                      setSelected(null);
-                    }}
-                  >
-                    <Plus size={16} className="text-amber-500" />{" "}
-                    {lang === "hi" ? "भाई / बहन (इसी के)" : "Brother / Sister (of this person)"}
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
-                    onClick={() => {
-                      const isAncestor =
-                        selected.relation === "father" ||
-                        selected.relation === "mother" ||
-                        selected.relation === "grandfather" ||
-                        selected.relation === "grandmother" ||
-                        (tree?.levels_up || []).some((lvl) =>
-                          lvl.some((n) => n.id === selected.id)
-                        );
-                      openAdd(isAncestor ? "father" : "child", selected.id);
-                      setSelected(null);
-                    }}
-                  >
-                    <Plus size={16} className="text-amber-500" />{" "}
-                    {lang === "hi" ? "माता/पिता जोड़ें" : "Add parent"}
-                  </button>
-                </>
-              )}
-            {canEdit && selected.relation !== "self" && (
-              <button
-                type="button"
-                className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium hover:bg-amber-50"
-                onClick={() => {
-                  setIsDeceasedDraft(
-                    /^(स्व\.|late|sw\.)/i.test(selected.display_name) || selected.status === "deceased"
-                  );
-                  setEditDraft({
-                    person_id: selected.id,
-                    link_id: selected.link_id,
-                    name: selected.display_name.replace(/^(स्व\.|late|sw\.)\s*/i, ""),
-                    birth_year: selected.birth_year ? String(selected.birth_year) : "",
-                    birth_date: selected.birth_date || "",
-                    gender: selected.gender || "",
-                    relation: selected.relation || "child",
-                  });
-                  setSelected(null);
-                }}
-              >
-                <Pencil size={16} className="text-amber-500" />{" "}
-                {lang === "hi" ? "एडिट" : "Edit"}
-              </button>
-            )}
-            {canEdit && selected.relation !== "self" && selected.link_id && (
-              <button
-                type="button"
-                className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-50"
-                onClick={() => removeLink(selected)}
-              >
-                <Trash2 size={16} /> Remove
-              </button>
-            )}
 
-            {/* Bubble tap se rishta badalne ka anurodh (For any member except self) */}
-            {selected.relation !== "self" && selected.id !== tree?.centre.id && (
-              <button
-                type="button"
-                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-300 shadow-2xs transition-all active:scale-[0.98] cursor-pointer mt-1"
-                onClick={() => {
-                  setChangeRelTarget(selected);
-                  setNewProposedRel(selected.relation || "relative");
-                  setRelChangeNote("");
-                  setChangeRelMsg(null);
-                  setSelected(null);
-                }}
-              >
-                <HeartHandshake size={15} className="text-amber-600 shrink-0" />
-                <span>
-                  {lang === "hi" ? "रिश्ता बदलने का अनुरोध (Request Change)" : "Request Relationship Change"}
-                </span>
-              </button>
-            )}
+                {/* Add Relative Submenu Drawer (when toggled via + Add icon button) */}
+                {showAddSubmenu && (
+                  <div className="pt-3.5 space-y-2 animate-in slide-in-from-top-2 duration-150">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-xs font-bold text-amber-950 flex items-center gap-1">
+                        <Plus size={14} className="text-amber-600" />
+                        <span>{lang === "hi" ? "नया संबंधी जोड़ें" : "Add Relative"}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddSubmenu(false)}
+                        className="text-[11px] text-amber-800 hover:text-amber-950 font-medium cursor-pointer"
+                      >
+                        {lang === "hi" ? "रद्द करें ✕" : "Cancel ✕"}
+                      </button>
+                    </div>
 
-            <button type="button" className="w-full py-2 text-sm text-gray-400" onClick={() => setSelected(null)}>
-              Close
-            </button>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {/* Add Child */}
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 p-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-950 font-semibold transition-all active:scale-95 text-left cursor-pointer"
+                        onClick={() => {
+                          openAdd("child", isSelf ? undefined : selected.id);
+                          setSelected(null);
+                          setShowAddSubmenu(false);
+                        }}
+                      >
+                        <Baby size={16} className="text-amber-600 shrink-0" />
+                        <div>
+                          <p className="font-bold text-[11px]">{lang === "hi" ? "संतान (बेटा/बेटी)" : "Child (Son/Daughter)"}</p>
+                          <p className="text-[9px] text-amber-800/80">{lang === "hi" ? "अधोगामी पीढ़ी" : "Next Gen"}</p>
+                        </div>
+                      </button>
+
+                      {/* Add Spouse */}
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 p-2.5 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-950 font-semibold transition-all active:scale-95 text-left cursor-pointer"
+                        onClick={() => {
+                          openAdd("spouse", isSelf ? undefined : selected.id);
+                          setSelected(null);
+                          setShowAddSubmenu(false);
+                        }}
+                      >
+                        <HeartHandshake size={16} className="text-rose-600 shrink-0" />
+                        <div>
+                          <p className="font-bold text-[11px]">{lang === "hi" ? "जीवनसाथी (Spouse)" : "Spouse (Partner)"}</p>
+                          <p className="text-[9px] text-rose-800/80">{lang === "hi" ? "समान पीढ़ी" : "Same Tier"}</p>
+                        </div>
+                      </button>
+
+                      {/* Add Sibling */}
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 p-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-950 font-semibold transition-all active:scale-95 text-left cursor-pointer"
+                        onClick={() => {
+                          const parentId = getSiblingParentId(selected);
+                          if (!parentId) {
+                            toast(
+                              lang === "hi"
+                                ? "इस व्यक्ति के माता/पिता पहले जोड़ें, तब भाई-बहन"
+                                : "Add this person's parents first, then brother/sister",
+                              "error"
+                            );
+                            return;
+                          }
+                          openAdd("sibling", parentId);
+                          setSelected(null);
+                          setShowAddSubmenu(false);
+                        }}
+                      >
+                        <Users size={16} className="text-amber-600 shrink-0" />
+                        <div>
+                          <p className="font-bold text-[11px]">{lang === "hi" ? "भाई / बहन" : "Brother / Sister"}</p>
+                          <p className="text-[9px] text-amber-800/80">{lang === "hi" ? "सहोदर" : "Sibling"}</p>
+                        </div>
+                      </button>
+
+                      {/* Add Parent */}
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 p-2.5 rounded-2xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-950 font-semibold transition-all active:scale-95 text-left cursor-pointer"
+                        onClick={() => {
+                          const isAncestor =
+                            selected.relation === "father" ||
+                            selected.relation === "mother" ||
+                            selected.relation === "grandfather" ||
+                            selected.relation === "grandmother" ||
+                            (tree?.levels_up || []).some((lvl) => lvl.some((n) => n.id === selected.id));
+                          openAdd(isAncestor ? "father" : "father", isSelf ? undefined : selected.id);
+                          setSelected(null);
+                          setShowAddSubmenu(false);
+                        }}
+                      >
+                        <User size={16} className="text-indigo-600 shrink-0" />
+                        <div>
+                          <p className="font-bold text-[11px]">{lang === "hi" ? "माता / पिता" : "Parent (Father/Mother)"}</p>
+                          <p className="text-[9px] text-indigo-800/80">{lang === "hi" ? "वरिष्ठ पीढ़ी" : "Upper Tier"}</p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Icon Action Bar */}
+              <div className="bg-gray-50/90 border-t border-gray-200/80 px-3 py-2.5 flex items-center justify-around gap-1.5">
+                {/* + Add Icon Button */}
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddSubmenu((v) => !v)}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-1 py-1.5 px-2 rounded-2xl transition-all cursor-pointer active:scale-95 min-w-[50px] flex-1",
+                      showAddSubmenu
+                        ? "bg-amber-600 text-white shadow-xs"
+                        : "bg-amber-100/70 hover:bg-amber-200/80 text-amber-950 border border-amber-300/70"
+                    )}
+                    title={lang === "hi" ? "संबंधी जोड़ें" : "Add Relative"}
+                  >
+                    <Plus size={17} />
+                    <span className="text-[10px] font-bold">{lang === "hi" ? "+ जोड़ें" : "+ Add"}</span>
+                  </button>
+                )}
+
+                {/* Edit Icon Button */}
+                {canEdit && selected.relation !== "self" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDeceasedDraft(isDeceased);
+                      setEditDraft({
+                        person_id: selected.id,
+                        link_id: selected.link_id,
+                        name: cleanName,
+                        birth_year: selected.birth_year ? String(selected.birth_year) : "",
+                        birth_date: selected.birth_date || "",
+                        gender: selected.gender || "",
+                        relation: selected.relation || "child",
+                      });
+                      setSelected(null);
+                      setShowAddSubmenu(false);
+                    }}
+                    className="flex flex-col items-center justify-center gap-1 py-1.5 px-2 rounded-2xl bg-amber-50 hover:bg-amber-100/90 active:scale-95 text-amber-950 border border-amber-200/80 transition-all cursor-pointer min-w-[50px] flex-1"
+                    title={lang === "hi" ? "एडिट करें" : "Edit"}
+                  >
+                    <Pencil size={17} className="text-amber-700" />
+                    <span className="text-[10px] font-bold">{lang === "hi" ? "एडिट" : "Edit"}</span>
+                  </button>
+                )}
+
+                {/* Profile Icon Button */}
+                {selected.user_id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      router.push(`/member/${selected.user_id}`);
+                      setSelected(null);
+                      setShowAddSubmenu(false);
+                    }}
+                    className="flex flex-col items-center justify-center gap-1 py-1.5 px-2 rounded-2xl bg-blue-50 hover:bg-blue-100/90 active:scale-95 text-blue-950 border border-blue-200/80 transition-all cursor-pointer min-w-[50px] flex-1"
+                    title="Profile"
+                  >
+                    <User size={17} className="text-blue-700" />
+                    <span className="text-[10px] font-bold">{lang === "hi" ? "प्रोफ़ाइल" : "Profile"}</span>
+                  </button>
+                )}
+
+                {/* Vanshawali / Tree Icon Button */}
+                {selected.user_id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      router.push(`/vanshawali?user=${selected.user_id}`);
+                      setSelected(null);
+                      setShowAddSubmenu(false);
+                    }}
+                    className="flex flex-col items-center justify-center gap-1 py-1.5 px-2 rounded-2xl bg-emerald-50 hover:bg-emerald-100/90 active:scale-95 text-emerald-950 border border-emerald-200/80 transition-all cursor-pointer min-w-[50px] flex-1"
+                    title="Vanshawali Tree"
+                  >
+                    <TreePine size={17} className="text-emerald-700" />
+                    <span className="text-[10px] font-bold">{lang === "hi" ? "वंशावली" : "Tree"}</span>
+                  </button>
+                )}
+
+                {/* Change Relation Request Icon Button (Non-self) */}
+                {selected.relation !== "self" && selected.id !== tree?.centre.id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setChangeRelTarget(selected);
+                      setNewProposedRel(selected.relation || "relative");
+                      setRelChangeNote("");
+                      setChangeRelMsg(null);
+                      setSelected(null);
+                      setShowAddSubmenu(false);
+                    }}
+                    className="flex flex-col items-center justify-center gap-1 py-1.5 px-2 rounded-2xl bg-amber-50 hover:bg-amber-100/90 active:scale-95 text-amber-950 border border-amber-200/80 transition-all cursor-pointer min-w-[50px] flex-1"
+                    title={lang === "hi" ? "रिश्ता बदलने का अनुरोध" : "Request Relationship Change"}
+                  >
+                    <HeartHandshake size={17} className="text-amber-700" />
+                    <span className="text-[10px] font-bold">{lang === "hi" ? "रिश्ता" : "Rel."}</span>
+                  </button>
+                )}
+
+                {/* Delete / Remove Icon Button */}
+                {canEdit && selected.relation !== "self" && selected.link_id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      removeLink(selected);
+                      setShowAddSubmenu(false);
+                    }}
+                    className="flex flex-col items-center justify-center gap-1 py-1.5 px-2 rounded-2xl bg-red-50 hover:bg-red-100/90 active:scale-95 text-red-700 border border-red-200/80 transition-all cursor-pointer min-w-[50px] flex-1"
+                    title="Remove Link"
+                  >
+                    <Trash2 size={17} />
+                    <span className="text-[10px] font-bold">{lang === "hi" ? "हटाएं" : "Remove"}</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Modal: Request Relationship Change (Bubble Tap -> Pending Approval) */}
       {changeRelTarget && (
