@@ -1190,6 +1190,12 @@ function resolveIndianRelationship(
   (tree.parents || []).forEach((p) => {
     linkParentChild(p.id, tree.centre.id);
     (tree.siblings || []).forEach((s) => linkParentChild(p.id, s.id));
+    if (tree.siblings_of?.[tree.centre.id]) {
+      tree.siblings_of[tree.centre.id].forEach((s) => linkParentChild(p.id, s.id));
+    }
+    (tree.children_of?.[p.id] || []).forEach((s) => {
+      if (s.id !== tree.centre.id) linkParentChild(p.id, s.id);
+    });
   });
 
   (tree.children || []).forEach((c) => {
@@ -1735,7 +1741,9 @@ function resolveIndianRelationship(
     isSiblingOfSelf ||
     (tree.siblings || []).some((s) => s.id === n.id) ||
     selfSiblings.has(n.id) ||
-    (n.relation === "sibling" && (!n.via_id || n.via_id === centre.id || n.via_id === father?.id || n.via_id === mother?.id));
+    (n.relation === "sibling" && (!n.via_id || n.via_id === centre.id || n.via_id === father?.id || n.via_id === mother?.id)) ||
+    (father && (tree.children_of?.[father.id] || []).some((s) => s.id === n.id)) ||
+    (mother && (tree.children_of?.[mother.id] || []).some((s) => s.id === n.id));
 
   if (isDirectSibling) {
     const cBorn = centre.birth_year || (centre.birth_date ? parseInt(centre.birth_date.slice(0, 4), 10) : null);
@@ -3142,6 +3150,27 @@ function VanshawaliInner() {
       isDeceasedDraft && rawName && !/^(स्व\.|late|sw\.)/i.test(rawName)
         ? `स्व. ${rawName}`
         : rawName;
+
+    let targetCentrePersonId = draft.centre_person_id;
+    let targetCentreUserId: string | undefined = draft.centre_person_id ? undefined : rootId;
+
+    if (draft.relation === "sibling") {
+      const f = (tree?.parents || []).find((x) => x.relation === "father");
+      const m = (tree?.parents || []).find((x) => x.relation === "mother");
+      const parentId = targetCentrePersonId || f?.id || m?.id;
+      if (!parentId) {
+        toast(
+          lang === "hi"
+            ? "भाई/बहन जोड़ने से पहले कृपया माता या पिता को जोड़ें"
+            : "Please add Mother or Father first before adding brother/sister",
+          "error"
+        );
+        return;
+      }
+      targetCentrePersonId = parentId;
+      targetCentreUserId = undefined;
+    }
+
     setSaving(true);
     try {
       const res = await fetch("/api/vanshawali", {
@@ -3149,8 +3178,8 @@ function VanshawaliInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "add",
-          centre_user_id: draft.centre_person_id ? undefined : rootId,
-          centre_person_id: draft.centre_person_id || undefined,
+          centre_user_id: targetCentreUserId,
+          centre_person_id: targetCentrePersonId || undefined,
           root_user_id: rootId,
           relation: draft.relation === "sibling" ? "child" : draft.relation,
           display_name: finalDisplayName || undefined,
@@ -3838,6 +3867,20 @@ function VanshawaliInner() {
     if (tree?.centre) {
       (tree?.siblings_of?.[tree.centre.id] || []).forEach((s) => centreSiblingMap.set(s.id, s));
     }
+    if (father?.id) {
+      (tree?.children_of?.[father.id] || []).forEach((s) => {
+        if (s.id !== tree?.centre.id) {
+          centreSiblingMap.set(s.id, { ...s, relation: "sibling", via_id: father.id });
+        }
+      });
+    }
+    if (mother?.id) {
+      (tree?.children_of?.[mother.id] || []).forEach((s) => {
+        if (s.id !== tree?.centre.id) {
+          centreSiblingMap.set(s.id, { ...s, relation: "sibling", via_id: mother.id });
+        }
+      });
+    }
     const allSiblingsList = Array.from(centreSiblingMap.values());
     const sibSeen = new Set<string>();
     const sibPairs: [Node, Node | null, keyof typeof GEN_STYLE, keyof typeof GEN_STYLE, boolean][] = [];
@@ -4115,6 +4158,20 @@ function VanshawaliInner() {
     siblings.forEach((s) => centreSiblingMap.set(s.id, s));
     if (tree?.centre) {
       (tree?.siblings_of?.[tree.centre.id] || []).forEach((s) => centreSiblingMap.set(s.id, s));
+    }
+    if (father?.id) {
+      (tree?.children_of?.[father.id] || []).forEach((s) => {
+        if (s.id !== tree?.centre.id) {
+          centreSiblingMap.set(s.id, { ...s, relation: "sibling", via_id: father.id });
+        }
+      });
+    }
+    if (mother?.id) {
+      (tree?.children_of?.[mother.id] || []).forEach((s) => {
+        if (s.id !== tree?.centre.id) {
+          centreSiblingMap.set(s.id, { ...s, relation: "sibling", via_id: mother.id });
+        }
+      });
     }
     const allSiblings = Array.from(centreSiblingMap.values());
 
@@ -4761,19 +4818,66 @@ function VanshawaliInner() {
   const dadi = gpBloodList.find((g) => isPaternalGpNode(g) && resolveSex(g.gender, g.relation) === "F")
     || gpBloodList.find((g) => !isMaternalGpNode(g) && resolveSex(g.gender, g.relation) === "F" && (!g.via_id || g.via_id === father?.id));
   if (father && (dada || dadi)) {
-    createBloodUnit("gp-paternal", dada?.id, dadi?.id, [father.id], "left");
+    const paternalKids = new Set<string>();
+    paternalKids.add(father.id);
+    (tree?.uncles_and_aunts || []).forEach((u) => {
+      if (!isMaternalGpNode(u)) paternalKids.add(u.id);
+    });
+    if (dada?.id) {
+      (tree?.children_of?.[dada.id] || []).forEach((u) => paternalKids.add(u.id));
+    }
+    if (dadi?.id) {
+      (tree?.children_of?.[dadi.id] || []).forEach((u) => paternalKids.add(u.id));
+    }
+    createBloodUnit("gp-paternal", dada?.id, dadi?.id, Array.from(paternalKids), "left");
   }
   const nana = gpBloodList.find((g) => isMaternalGpNode(g) && resolveSex(g.gender, g.relation) === "M")
     || gpBloodList.find((g) => g.id !== dada?.id && resolveSex(g.gender, g.relation) === "M");
   const nani = gpBloodList.find((g) => isMaternalGpNode(g) && resolveSex(g.gender, g.relation) === "F")
     || gpBloodList.find((g) => g.id !== dadi?.id && resolveSex(g.gender, g.relation) === "F");
   if (mother && (nana || nani)) {
-    createBloodUnit("gp-maternal", nana?.id, nani?.id, [mother.id], "right");
+    const maternalKids = new Set<string>();
+    maternalKids.add(mother.id);
+    (tree?.uncles_and_aunts || []).forEach((u) => {
+      if (isMaternalGpNode(u)) maternalKids.add(u.id);
+    });
+    if (nana?.id) {
+      (tree?.children_of?.[nana.id] || []).forEach((u) => maternalKids.add(u.id));
+    }
+    if (nani?.id) {
+      (tree?.children_of?.[nani.id] || []).forEach((u) => maternalKids.add(u.id));
+    }
+    createBloodUnit("gp-maternal", nana?.id, nani?.id, Array.from(maternalKids), "right");
   }
 
-  // 2. Parents -> Self (Y-fork from Self up to Mother & Father)
+  const allSelfSiblingIds = new Set<string>();
+  if (tree?.centre?.id) {
+    (tree.siblings || []).forEach((s) => allSelfSiblingIds.add(s.id));
+    if (tree.siblings_of?.[tree.centre.id]) {
+      tree.siblings_of[tree.centre.id].forEach((s) => allSelfSiblingIds.add(s.id));
+    }
+    if (father?.id) {
+      (tree.children_of?.[father.id] || []).forEach((s) => {
+        if (s.id !== tree.centre.id) allSelfSiblingIds.add(s.id);
+      });
+    }
+    if (mother?.id) {
+      (tree.children_of?.[mother.id] || []).forEach((s) => {
+        if (s.id !== tree.centre.id) allSelfSiblingIds.add(s.id);
+      });
+    }
+  }
+
+  // 2. Parents -> Self & Siblings (Dual/Single fork from Parents down to Self and all Siblings)
   if (tree && (father || mother)) {
-    createBloodUnit("parents-to-self", father?.id, mother?.id, [tree.centre.id], "center");
+    const parentKidIds = [tree.centre.id, ...Array.from(allSelfSiblingIds)];
+    createBloodUnit(
+      "parents-to-self-and-siblings",
+      father?.id,
+      mother?.id,
+      parentKidIds,
+      "center"
+    );
   }
 
   // 3. Self & Spouse -> Children (Dual fork from Self & Spouse down to all children)
@@ -4809,6 +4913,15 @@ function VanshawaliInner() {
         createBloodUnit("gkids-fallback", repChild.id, null, remainingGkids);
       }
     }
+
+    // 5. Siblings & Sibling Spouses -> Nephews & Nieces (Children of Siblings)
+    Array.from(allSelfSiblingIds).forEach((sibId) => {
+      const sKids = ((tree.children_of || {})[sibId] || []).map((k) => k.id);
+      if (sKids.length > 0) {
+        const sSpouse = getSpouseOf(sibId) || (spousesOfMap[sibId] || [])[0];
+        createBloodUnit(`sib-kids-${sibId}`, sibId, sSpouse?.id, sKids, "center");
+      }
+    });
   }
 
   if (is2ColActive) {
@@ -7060,7 +7173,13 @@ function VanshawaliInner() {
       {/* Node actions */}
       {selected && (() => {
         const getSiblingParentId = (target: Node): string | undefined => {
-          if (target.id === tree?.centre.id || target.relation === "self") {
+          if (
+            target.id === tree?.centre.id ||
+            target.relation === "self" ||
+            target.relation === "sibling" ||
+            (tree?.siblings || []).some((s) => s.id === target.id) ||
+            (tree?.centre && (tree?.siblings_of?.[tree.centre.id] || []).some((s) => s.id === target.id))
+          ) {
             const f = (tree?.parents || []).find((x) => x.relation === "father");
             const m = (tree?.parents || []).find((x) => x.relation === "mother");
             return f?.id || m?.id;
