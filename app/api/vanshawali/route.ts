@@ -544,12 +544,16 @@ function buildTree(store: Store, centre: Person, viewerId: string, isStaff: bool
       if (!children_of[id]) {
         const ch = childrenOf(id);
         if (ch.length) {
-          children_of[id] = ch.map((row) => ({
+          const isSpouseOfCentre = spouses.some((s) => s.person.id === id);
+          const filteredCh = isSpouseOfCentre
+            ? ch.filter((row) => children.some((c) => c.person.id === row.person.id) || row.person.user_id)
+            : ch;
+          children_of[id] = filteredCh.map((row) => ({
             ...mapNode(row),
             via_id: id,
             relation: "child",
           }));
-          for (const row of ch) {
+          for (const row of filteredCh) {
             if (!allTreeIds.has(row.person.id)) {
               allTreeIds.add(row.person.id);
               newlyFound++;
@@ -875,30 +879,84 @@ async function handlePost(
 
   // ACTION: REMOVE
   if (action === "remove") {
-    const link = store.links.find((l) => l.id === String(body.link_id || ""));
-    if (!link) throw new ApiError("Link not found", 404);
-    if (!canTouchLink(link, store, near, session)) throw new ApiError("Not allowed to remove", 403);
+    let link = store.links.find((l) => l.id === String(body.link_id || ""));
+    const targetPersonId = body.person_id ? String(body.person_id) : undefined;
+    const targetPerson = targetPersonId ? store.persons.find((p) => p.id === targetPersonId) : undefined;
 
-    const before = { ...link };
-    store.links = store.links.filter((l) => l.id !== link.id);
+    if (!link && targetPersonId) {
+      link = store.links.find((l) => l.from_id === targetPersonId || l.to_id === targetPersonId);
+    }
+    if (!link && !targetPerson) throw new ApiError("Link not found", 404);
+    if (link && !canTouchLink(link, store, near, session)) throw new ApiError("Not allowed to remove", 403);
 
+    const before = link ? { ...link } : null;
+
+    // Collect all links to delete
+    const linksToDelete = new Set<string>();
+    if (link) linksToDelete.add(link.id);
+
+    // If removing a child node or child link, also remove any other parent links (e.g. spouse -> child)
+    const childId =
+      link?.relation === "child"
+        ? link.to_id
+        : (link?.relation === "father" || link?.relation === "mother")
+        ? link.to_id
+        : targetPersonId;
+
+    if (childId) {
+      for (const l of store.links) {
+        if (
+          l.to_id === childId &&
+          (l.relation === "child" || l.relation === "father" || l.relation === "mother")
+        ) {
+          linksToDelete.add(l.id);
+        }
+      }
+    }
+
+    // If target person is manual (not registered user), remove all their links
+    if (targetPerson && !targetPerson.user_id) {
+      for (const l of store.links) {
+        if (l.from_id === targetPerson.id || l.to_id === targetPerson.id) {
+          linksToDelete.add(l.id);
+        }
+      }
+    }
+
+    const removedLinks = store.links.filter((l) => linksToDelete.has(l.id));
+    store.links = store.links.filter((l) => !linksToDelete.has(l.id));
+
+    // Find all orphaned manual persons
     const used = new Set<string>();
     for (const l of store.links) {
       used.add(l.from_id);
       used.add(l.to_id);
     }
-    const orphans = [link.from_id, link.to_id].filter((pid) => {
+    const orphans = new Set<string>();
+    if (targetPerson && !targetPerson.user_id) orphans.add(targetPerson.id);
+    for (const l of removedLinks) {
+      if (!used.has(l.from_id)) orphans.add(l.from_id);
+      if (!used.has(l.to_id)) orphans.add(l.to_id);
+    }
+    for (const p of store.persons) {
+      if (!p.user_id && !used.has(p.id)) orphans.add(p.id);
+    }
+
+    const orphanIds = Array.from(orphans).filter((pid) => {
       const p = store.persons.find((x) => x.id === pid);
-      return p && !p.user_id && !used.has(pid);
+      return p && !p.user_id;
     });
-    store.persons = store.persons.filter((p) => !orphans.includes(p.id));
+    store.persons = store.persons.filter((p) => !orphanIds.includes(p.id));
 
     if (isRelational) {
-      const linkUuid = uuidOf(ctx, "link", link.id);
-      if (!linkUuid) throw new ApiError("Link not found in database", 500);
-      const { error } = await supabase.from("vanshawali_relationships").delete().eq("id", linkUuid);
-      fail(error, "Removing relation");
-      for (const opId of orphans) {
+      for (const l of removedLinks) {
+        const linkUuid = uuidOf(ctx, "link", l.id);
+        if (linkUuid) {
+          const { error } = await supabase.from("vanshawali_relationships").delete().eq("id", linkUuid);
+          fail(error, "Removing relation");
+        }
+      }
+      for (const opId of orphanIds) {
         const pu = uuidOf(ctx, "person", opId);
         if (!pu) continue;
         const { error: delErr } = await supabase.from("vanshawali_persons").delete().eq("id", pu).is("user_id", null);
@@ -906,7 +964,9 @@ async function handlePost(
       }
     }
     await persistStore(supabase, store, session.userId, isRelational);
-    await audit(supabase, session.userId, "remove", "link", link.id, before, null);
+    if (link) {
+      await audit(supabase, session.userId, "remove", "link", link.id, before, null);
+    }
     return NextResponse.json({ success: true });
   }
 
@@ -961,7 +1021,8 @@ async function handlePost(
     let linkChanged: Link | null = null;
     if (body.relation && body.link_id) {
       const link = store.links.find((l) => l.id === String(body.link_id));
-      const rel = String(body.relation).toLowerCase();
+      let rel = String(body.relation).toLowerCase();
+      if (rel === "sibling") rel = "child";
       if (link && ["father", "mother", "spouse", "child"].includes(rel) && link.relation !== rel) {
         if (!canTouchLink(link, store, near, session)) throw new ApiError("Not allowed to change relation", 403);
         link.relation = rel as Link["relation"];
@@ -1012,7 +1073,10 @@ async function handlePost(
     centre = await ensurePersonForUser(store, ctx, supabase, centreUserId, isRelational, session.userId);
   }
 
-  const relation = String(body.relation || "").toLowerCase() as Link["relation"];
+  let relation = String(body.relation || "").toLowerCase() as Link["relation"];
+  if (relation === ("sibling" as any)) {
+    relation = "child";
+  }
   if (!["father", "mother", "spouse", "child"].includes(relation)) {
     throw new ApiError("relation: father|mother|spouse|child");
   }

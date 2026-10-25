@@ -1215,12 +1215,25 @@ function resolveIndianRelationship(
     });
   });
 
+  const directCentreChildren = new Set((tree.children || []).map((c) => c.id));
+
   if (tree.children_of) {
     Object.entries(tree.children_of).forEach(([parentId, list]) => {
       list.forEach((c) => {
         linkParentChild(parentId, c.id);
         const sps = spouseMap.get(parentId);
-        if (sps) sps.forEach((spId) => linkParentChild(spId, c.id));
+        if (sps) {
+          sps.forEach((spId) => {
+            // Only link to centre if centre actually has this child in tree.children
+            if (spId === tree.centre.id) {
+              if (directCentreChildren.has(c.id)) {
+                linkParentChild(spId, c.id);
+              }
+            } else {
+              linkParentChild(spId, c.id);
+            }
+          });
+        }
       });
     });
   }
@@ -1267,11 +1280,27 @@ function resolveIndianRelationship(
       .filter(Boolean)
       .join(", ");
 
-  const getChildNames = (id: string) =>
-    Array.from(childrenMap.get(id) || [])
+  const getChildNames = (id: string) => {
+    // For centre, strictly return only active children present in tree.children
+    if (id === tree.centre.id) {
+      return (tree.children || [])
+        .map((c) => c.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, ""))
+        .filter(Boolean)
+        .join(", ");
+    }
+    const isSpouseOfCentre = (tree.spouses || []).some((s) => s.id === id);
+    return Array.from(childrenMap.get(id) || [])
+      .filter((cid) => {
+        // If spouse of centre, filter out any children that were deleted from centre
+        if (isSpouseOfCentre) {
+          return directCentreChildren.has(cid);
+        }
+        return true;
+      })
       .map((cid) => allNodes.get(cid)?.display_name?.replace(/^(स्व\.|late|sw\.)\s*/i, ""))
       .filter(Boolean)
       .join(", ");
+  };
 
   const getParentNames = (id: string) =>
     Array.from(parentsMap.get(id) || [])
@@ -2888,6 +2917,7 @@ function VanshawaliInner() {
     name: string;
     birth_year: string;
     birth_date: string;
+    gender: string;
     member_user_id: string | null;
   } | null>(null);
   const [editDraft, setEditDraft] = useState<{
@@ -3126,6 +3156,7 @@ function VanshawaliInner() {
           display_name: finalDisplayName || undefined,
           birth_year: draft.birth_year || null,
           birth_date: draft.birth_date || null,
+          gender: draft.gender || (draft.relation === "mother" ? "female" : draft.relation === "father" ? "male" : undefined),
           member_user_id: draft.member_user_id || null,
         }),
       });
@@ -3168,7 +3199,7 @@ function VanshawaliInner() {
           birth_year: editDraft.birth_year || null,
           birth_date: editDraft.birth_date || null,
           gender: editDraft.gender || null,
-          relation: editDraft.relation || undefined,
+          relation: editDraft.relation === "sibling" ? "child" : (editDraft.relation || undefined),
         }),
       });
       const data = await res.json();
@@ -3196,6 +3227,7 @@ function VanshawaliInner() {
         body: JSON.stringify({
           action: "remove",
           link_id: node.link_id,
+          person_id: node.id,
           centre_person_id: tree?.centre.id,
           root_user_id: rootId,
         }),
@@ -3225,15 +3257,29 @@ function VanshawaliInner() {
     }
   };
 
-  const openAdd = (relation: string, centrePersonId?: string) => {
+  const openAdd = (relation: string, centrePersonId?: string, defaultGender?: string) => {
     if (!canEdit) return;
     setIsDeceasedDraft(false);
+    let g = defaultGender || "";
+    if (!g) {
+      if (relation === "father" || relation === "brother" || relation === "son") g = "male";
+      else if (relation === "mother" || relation === "sister" || relation === "daughter") g = "female";
+      else if (relation === "sibling" || relation === "child") g = "male";
+    }
+    const cleanRelation =
+      relation === "brother" || relation === "sister"
+        ? "sibling"
+        : relation === "son" || relation === "daughter"
+        ? "child"
+        : relation;
+
     setDraft({
-      relation,
+      relation: cleanRelation,
       centre_person_id: centrePersonId,
       name: "",
       birth_year: "",
       birth_date: "",
+      gender: g,
       member_user_id: null,
     });
     setQ("");
@@ -6586,9 +6632,16 @@ function VanshawaliInner() {
                 {lang === "hi" ? "रिश्ता (Relationship)" : "Relationship"}
               </label>
               <select
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:border-amber-400"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:border-amber-400 font-medium"
                 value={draft.relation}
-                onChange={(e) => setDraft({ ...draft, relation: e.target.value })}
+                onChange={(e) => {
+                  const r = e.target.value;
+                  let g = draft.gender;
+                  if (r === "father") g = "male";
+                  else if (r === "mother") g = "female";
+                  else if (!g) g = "male";
+                  setDraft({ ...draft, relation: r, gender: g });
+                }}
               >
                 <option value="father">{L.father}</option>
                 <option value="mother">{L.mother}</option>
@@ -6596,6 +6649,152 @@ function VanshawaliInner() {
                 <option value="child">{L.child}</option>
                 <option value="sibling">{lang === "hi" ? "भाई / बहन" : "Brother / Sister"}</option>
               </select>
+            </div>
+
+            {/* Sub-selector for brother/sister */}
+            {draft.relation === "sibling" && (
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-gray-600 block">
+                  {lang === "hi" ? "भाई या बहन चुनें" : "Select Brother or Sister"}
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDraft({ ...draft, gender: "male" })}
+                    className={cn(
+                      "py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                      draft.gender === "male"
+                        ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                        : "bg-blue-50/70 text-blue-900 border-blue-200 hover:bg-blue-100"
+                    )}
+                  >
+                    <span>👦</span>
+                    <span>{lang === "hi" ? "भाई (Brother)" : "Brother"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDraft({ ...draft, gender: "female" })}
+                    className={cn(
+                      "py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                      draft.gender === "female"
+                        ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                        : "bg-rose-50/70 text-rose-900 border-rose-200 hover:bg-rose-100"
+                    )}
+                  >
+                    <span>👧</span>
+                    <span>{lang === "hi" ? "बहन (Sister)" : "Sister"}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Sub-selector for son/daughter */}
+            {draft.relation === "child" && (
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-gray-600 block">
+                  {lang === "hi" ? "बेटा या बेटी चुनें" : "Select Son or Daughter"}
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDraft({ ...draft, gender: "male" })}
+                    className={cn(
+                      "py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                      draft.gender === "male"
+                        ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                        : "bg-blue-50/70 text-blue-900 border-blue-200 hover:bg-blue-100"
+                    )}
+                  >
+                    <span>👦</span>
+                    <span>{lang === "hi" ? "बेटा (Son)" : "Son"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDraft({ ...draft, gender: "female" })}
+                    className={cn(
+                      "py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                      draft.gender === "female"
+                        ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                        : "bg-rose-50/70 text-rose-900 border-rose-200 hover:bg-rose-100"
+                    )}
+                  >
+                    <span>👧</span>
+                    <span>{lang === "hi" ? "बेटी (Daughter)" : "Daughter"}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Sub-selector for husband/wife */}
+            {draft.relation === "spouse" && (
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-gray-600 block">
+                  {lang === "hi" ? "पति या पत्नी चुनें" : "Select Husband or Wife"}
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDraft({ ...draft, gender: "male" })}
+                    className={cn(
+                      "py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                      draft.gender === "male"
+                        ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                        : "bg-blue-50/70 text-blue-900 border-blue-200 hover:bg-blue-100"
+                    )}
+                  >
+                    <span>👨</span>
+                    <span>{lang === "hi" ? "पति (Husband)" : "Husband"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDraft({ ...draft, gender: "female" })}
+                    className={cn(
+                      "py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                      draft.gender === "female"
+                        ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                        : "bg-rose-50/70 text-rose-900 border-rose-200 hover:bg-rose-100"
+                    )}
+                  >
+                    <span>👩</span>
+                    <span>{lang === "hi" ? "पत्नी (Wife)" : "Wife"}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Explicit Gender Selector */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-gray-600 block">
+                {lang === "hi" ? "लिंग (Gender)" : "Gender"}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDraft({ ...draft, gender: "male" })}
+                  className={cn(
+                    "py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                    draft.gender === "male"
+                      ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                      : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                  )}
+                >
+                  <span>👨</span>
+                  <span>{lang === "hi" ? "पुरुष (Male)" : "Male"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDraft({ ...draft, gender: "female" })}
+                  className={cn(
+                    "py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                    draft.gender === "female"
+                      ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                      : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                  )}
+                >
+                  <span>👩</span>
+                  <span>{lang === "hi" ? "महिला (Female)" : "Female"}</span>
+                </button>
+              </div>
             </div>
 
             <div className="relative">
@@ -6762,26 +6961,77 @@ function VanshawaliInner() {
                 })
               }
             />
-            <select
-              className="w-full px-3 py-2.5 rounded-xl border text-sm"
-              value={editDraft.gender}
-              onChange={(e) => setEditDraft({ ...editDraft, gender: e.target.value })}
-            >
-              <option value="">Gender</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-            </select>
+            {/* Gender Selection */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-gray-600 block">
+                {lang === "hi" ? "लिंग (Gender)" : "Gender"}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditDraft({ ...editDraft, gender: "male" })}
+                  className={cn(
+                    "py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                    editDraft.gender === "male"
+                      ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                      : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                  )}
+                >
+                  <span>👨</span>
+                  <span>{lang === "hi" ? "पुरुष (Male)" : "Male"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditDraft({ ...editDraft, gender: "female" })}
+                  className={cn(
+                    "py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                    editDraft.gender === "female"
+                      ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                      : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                  )}
+                >
+                  <span>👩</span>
+                  <span>{lang === "hi" ? "महिला (Female)" : "Female"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Relationship in Family Selection */}
             {editDraft.link_id && (
-              <select
-                className="w-full px-3 py-2.5 rounded-xl border text-sm"
-                value={editDraft.relation}
-                onChange={(e) => setEditDraft({ ...editDraft, relation: e.target.value })}
-              >
-                <option value="father">{L.father}</option>
-                <option value="mother">{L.mother}</option>
-                <option value="spouse">{L.spouse}</option>
-                <option value="child">{L.child}</option>
-              </select>
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-gray-600 block">
+                  {lang === "hi" ? "रिश्ता / संबंध (Family Relationship)" : "Relationship in Family"}
+                </label>
+                <select
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:border-amber-400 font-medium"
+                  value={editDraft.relation}
+                  onChange={(e) => {
+                    const r = e.target.value;
+                    let g = editDraft.gender;
+                    if (r === "father") g = "male";
+                    else if (r === "mother") g = "female";
+                    setEditDraft({ ...editDraft, relation: r, gender: g });
+                  }}
+                >
+                  <option value="sibling">
+                    {lang === "hi"
+                      ? editDraft.gender === "female" ? "👭 सहोदर बहन (Sister)" : "👬 सहोदर भाई (Brother)"
+                      : editDraft.gender === "female" ? "Sister" : "Brother"}
+                  </option>
+                  <option value="child">
+                    {lang === "hi"
+                      ? editDraft.gender === "female" ? "👧 संतान - बेटी (Daughter)" : "👦 संतान - बेटा (Son)"
+                      : editDraft.gender === "female" ? "Daughter" : "Son"}
+                  </option>
+                  <option value="spouse">
+                    {lang === "hi"
+                      ? editDraft.gender === "female" ? "💍 जीवनसाथी - पत्नी (Wife)" : "💍 जीवनसाथी - पति (Husband)"
+                      : editDraft.gender === "female" ? "Wife" : "Husband"}
+                  </option>
+                  <option value="father">{lang === "hi" ? "👨 पिता जी (Father)" : "Father"}</option>
+                  <option value="mother">{lang === "hi" ? "👩 माता जी (Mother)" : "Mother"}</option>
+                </select>
+              </div>
             )}
             <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50/70 p-2.5 rounded-xl border border-amber-200/70">
               <input
@@ -7048,44 +7298,10 @@ function VanshawaliInner() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      {/* Add Child */}
+                      {/* Add Brother */}
                       <button
                         type="button"
-                        className="flex items-center gap-2 p-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-950 font-semibold transition-all active:scale-95 text-left cursor-pointer"
-                        onClick={() => {
-                          openAdd("child", isSelf ? undefined : selected.id);
-                          setSelected(null);
-                          setShowAddSubmenu(false);
-                        }}
-                      >
-                        <Baby size={16} className="text-amber-600 shrink-0" />
-                        <div>
-                          <p className="font-bold text-[11px]">{lang === "hi" ? "संतान (बेटा/बेटी)" : "Child (Son/Daughter)"}</p>
-                          <p className="text-[9px] text-amber-800/80">{lang === "hi" ? "अधोगामी पीढ़ी" : "Next Gen"}</p>
-                        </div>
-                      </button>
-
-                      {/* Add Spouse */}
-                      <button
-                        type="button"
-                        className="flex items-center gap-2 p-2.5 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-950 font-semibold transition-all active:scale-95 text-left cursor-pointer"
-                        onClick={() => {
-                          openAdd("spouse", isSelf ? undefined : selected.id);
-                          setSelected(null);
-                          setShowAddSubmenu(false);
-                        }}
-                      >
-                        <HeartHandshake size={16} className="text-rose-600 shrink-0" />
-                        <div>
-                          <p className="font-bold text-[11px]">{lang === "hi" ? "जीवनसाथी (Spouse)" : "Spouse (Partner)"}</p>
-                          <p className="text-[9px] text-rose-800/80">{lang === "hi" ? "समान पीढ़ी" : "Same Tier"}</p>
-                        </div>
-                      </button>
-
-                      {/* Add Sibling */}
-                      <button
-                        type="button"
-                        className="flex items-center gap-2 p-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-950 font-semibold transition-all active:scale-95 text-left cursor-pointer"
+                        className="flex items-center gap-2 p-2.5 rounded-2xl bg-blue-50/80 hover:bg-blue-100 border border-blue-200 text-blue-950 font-semibold transition-all active:scale-95 text-left cursor-pointer"
                         onClick={() => {
                           const parentId = getSiblingParentId(selected);
                           if (!parentId) {
@@ -7097,15 +7313,93 @@ function VanshawaliInner() {
                             );
                             return;
                           }
-                          openAdd("sibling", parentId);
+                          openAdd("sibling", parentId, "male");
                           setSelected(null);
                           setShowAddSubmenu(false);
                         }}
                       >
-                        <Users size={16} className="text-amber-600 shrink-0" />
+                        <Users size={16} className="text-blue-600 shrink-0" />
                         <div>
-                          <p className="font-bold text-[11px]">{lang === "hi" ? "भाई / बहन" : "Brother / Sister"}</p>
-                          <p className="text-[9px] text-amber-800/80">{lang === "hi" ? "सहोदर" : "Sibling"}</p>
+                          <p className="font-bold text-[11px]">{lang === "hi" ? "👦 भाई (Brother)" : "Brother"}</p>
+                          <p className="text-[9px] text-blue-800/80">{lang === "hi" ? "सहोदर भाई" : "Sibling"}</p>
+                        </div>
+                      </button>
+
+                      {/* Add Sister */}
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 p-2.5 rounded-2xl bg-rose-50/80 hover:bg-rose-100 border border-rose-200 text-rose-950 font-semibold transition-all active:scale-95 text-left cursor-pointer"
+                        onClick={() => {
+                          const parentId = getSiblingParentId(selected);
+                          if (!parentId) {
+                            toast(
+                              lang === "hi"
+                                ? "इस व्यक्ति के माता/पिता पहले जोड़ें, तब भाई-बहन"
+                                : "Add this person's parents first, then brother/sister",
+                              "error"
+                            );
+                            return;
+                          }
+                          openAdd("sibling", parentId, "female");
+                          setSelected(null);
+                          setShowAddSubmenu(false);
+                        }}
+                      >
+                        <Users size={16} className="text-rose-600 shrink-0" />
+                        <div>
+                          <p className="font-bold text-[11px]">{lang === "hi" ? "👧 बहन (Sister)" : "Sister"}</p>
+                          <p className="text-[9px] text-rose-800/80">{lang === "hi" ? "सहोदर बहन" : "Sibling"}</p>
+                        </div>
+                      </button>
+
+                      {/* Add Son */}
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 p-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-950 font-semibold transition-all active:scale-95 text-left cursor-pointer"
+                        onClick={() => {
+                          openAdd("child", isSelf ? undefined : selected.id, "male");
+                          setSelected(null);
+                          setShowAddSubmenu(false);
+                        }}
+                      >
+                        <Baby size={16} className="text-amber-600 shrink-0" />
+                        <div>
+                          <p className="font-bold text-[11px]">{lang === "hi" ? "👦 बेटा (Son)" : "Son"}</p>
+                          <p className="text-[9px] text-amber-800/80">{lang === "hi" ? "संतान पीढ़ी" : "Child"}</p>
+                        </div>
+                      </button>
+
+                      {/* Add Daughter */}
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 p-2.5 rounded-2xl bg-pink-50 hover:bg-pink-100 border border-pink-200 text-pink-950 font-semibold transition-all active:scale-95 text-left cursor-pointer"
+                        onClick={() => {
+                          openAdd("child", isSelf ? undefined : selected.id, "female");
+                          setSelected(null);
+                          setShowAddSubmenu(false);
+                        }}
+                      >
+                        <Baby size={16} className="text-pink-600 shrink-0" />
+                        <div>
+                          <p className="font-bold text-[11px]">{lang === "hi" ? "👧 बेटी (Daughter)" : "Daughter"}</p>
+                          <p className="text-[9px] text-pink-800/80">{lang === "hi" ? "संतान पीढ़ी" : "Child"}</p>
+                        </div>
+                      </button>
+
+                      {/* Add Spouse */}
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 p-2.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-950 font-semibold transition-all active:scale-95 text-left cursor-pointer"
+                        onClick={() => {
+                          openAdd("spouse", isSelf ? undefined : selected.id);
+                          setSelected(null);
+                          setShowAddSubmenu(false);
+                        }}
+                      >
+                        <HeartHandshake size={16} className="text-emerald-600 shrink-0" />
+                        <div>
+                          <p className="font-bold text-[11px]">{lang === "hi" ? "जीवनसाथी (Spouse)" : "Spouse (Partner)"}</p>
+                          <p className="text-[9px] text-emerald-800/80">{lang === "hi" ? "समान पीढ़ी" : "Same Tier"}</p>
                         </div>
                       </button>
 
