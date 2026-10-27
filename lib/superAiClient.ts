@@ -42,6 +42,8 @@ export async function querySuperAiAction(
     ? `${SUPER_AI_ENDPOINT}/api/orchestrate`
     : `${SUPER_AI_ENDPOINT}/api/chat`;
 
+  const isAsi = /^\/asi\b|asi\s*mode|deep\s*reasoning|superintelligence/i.test(message);
+
   const payload = isOrchestrate
     ? { goal: message }
     : {
@@ -49,7 +51,7 @@ export async function querySuperAiAction(
         message: message,
         language: lang,
         temperature: 0.2,
-        asi_mode: true,
+        asi_mode: isAsi,
       };
 
   try {
@@ -57,7 +59,7 @@ export async function querySuperAiAction(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(45000), // Local model inference / agent execution
+      signal: AbortSignal.timeout(60000), // Local model inference / agent execution
     });
 
     if (!res.ok) {
