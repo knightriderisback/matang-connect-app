@@ -473,6 +473,166 @@ QR: ${data.qr_code_id || "-"}`,
     };
   }
 
+  // ===== LIST FORM CONFIG =====
+  if (
+    /(?:list|show|dikhao|kya hai)\s+(?:form|parivar\s*form|census\s*form)\s*(?:sections?|fields?|config)?/i.test(
+      lower
+    )
+  ) {
+    const supabase = createAdminClient();
+    try {
+      const { data, error } = await supabase.rpc("admin_get_parivar_form_config", {
+        p_actor: actorId,
+      });
+      if (error) return { handled: true, message: `❌ Form config error: ${error.message}` };
+      if (!data || !data.length)
+        return { handled: true, message: "ℹ️ No form sections configured yet." };
+      const summary = (data as any[])
+        .map((sec, idx) => {
+          const title = sec.title?.hi || sec.title?.en || sec.slug || `Section ${idx + 1}`;
+          const fields = (sec.fields || [])
+            .map(
+              (f: any) =>
+                `    • ${f.label?.hi || f.label?.en || f.field_key} (${f.field_type})`
+            )
+            .join("\n");
+          return `${idx + 1}. 📋 ${title} [Scope: ${sec.scope || "family"}]\n${
+            fields || "    (No fields yet)"
+          }`;
+        })
+        .join("\n\n");
+      return {
+        handled: true,
+        message: `📋 Live Parivar Form Config:\n\n${summary}`,
+      };
+    } catch (e: any) {
+      return { handled: true, message: `❌ Form config check: ${e?.message}` };
+    }
+  }
+
+  // ===== CREATE FORM SECTION =====
+  const secMatch = q.match(
+    /(?:create|add|banao|naya|naye)\s+(?:form\s+)?section\s*[:：\-]?\s*(.+)/i
+  );
+  if (secMatch) {
+    const raw = secMatch[1].trim();
+    const isMemberScope = /member|vyakti|individual|sadasya|व्यक्ति|सदस्य/i.test(raw);
+    const title = raw
+      .replace(
+        /\s*(?:scope|for)?\s*(?:member|vyakti|individual|sadasya|family|parivar|परिवार|व्यक्ति|सदस्य)\s*/gi,
+        ""
+      )
+      .trim();
+    if (!title) {
+      return {
+        handled: true,
+        message: "Format: Form section banao: Shiksha & Rozgar (Scope: member)",
+      };
+    }
+    const slug = `sec_${title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .slice(0, 20)}_${Math.random().toString(36).slice(2, 5)}`;
+    const supabase = createAdminClient();
+    try {
+      const { error } = await supabase.rpc("admin_upsert_form_section", {
+        p_actor: actorId,
+        p_data: {
+          slug,
+          title: { en: title, hi: title },
+          scope: isMemberScope ? "member" : "family",
+        },
+      });
+      if (error)
+        return { handled: true, message: `❌ Form section create fail: ${error.message}` };
+      await writeAuditLog({
+        actorId,
+        action: "god_create_form_section",
+        meta: { title, scope: isMemberScope ? "member" : "family", slug },
+      });
+      return {
+        handled: true,
+        message: `✅ Form section created successfully:\n📋 "${title}"\n• Slug: ${slug}\n• Scope: ${
+          isMemberScope ? "Member" : "Family"
+        }\n• Live on Parivar Form & Form Builder!`,
+      };
+    } catch (e: any) {
+      return { handled: true, message: `❌ Form section error: ${e?.message}` };
+    }
+  }
+
+  // ===== CREATE FORM FIELD =====
+  const fieldMatch = q.match(
+    /(?:create|add|banao|naya)\s+(?:form\s+)?field\s*[:：\-]?\s*(.+)/i
+  );
+  if (fieldMatch) {
+    const raw = fieldMatch[1].trim();
+    let fieldType = "text";
+    if (/number|sankhya|digit|संख्या/i.test(raw)) fieldType = "number";
+    else if (/dropdown|select|choice|विकल्प/i.test(raw)) fieldType = "dropdown";
+    else if (/yes_no|haan_nahi|boolean|हाँ|नहीं/i.test(raw)) fieldType = "yes_no";
+    else if (/textarea|paragraph|long/i.test(raw)) fieldType = "textarea";
+
+    const label = raw
+      .replace(
+        /\s*(?:type\s*[:=]?\s*(?:number|dropdown|select|yes_no|text|textarea)|in\s+section\s+\w+|संख्या|विकल्प)\s*/gi,
+        ""
+      )
+      .trim();
+
+    if (!label) {
+      return {
+        handled: true,
+        message: "Format: Form field add karo: Annual Income (Type: number)",
+      };
+    }
+
+    const supabase = createAdminClient();
+    try {
+      const { data: sections } = await supabase.rpc("admin_get_parivar_form_config", {
+        p_actor: actorId,
+      });
+      if (!sections || !sections.length) {
+        return {
+          handled: true,
+          message: "❌ Pehle ek form section banayein: 'Form section banao: [Title]'",
+        };
+      }
+      const targetSection = (sections as any[])[0];
+      const fieldKey = `fld_${label
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .slice(0, 20)}_${Math.random().toString(36).slice(2, 5)}`;
+
+      const { error } = await supabase.rpc("admin_upsert_form_field", {
+        p_actor: actorId,
+        p_data: {
+          section_id: targetSection.id,
+          field_key: fieldKey,
+          label: { en: label, hi: label },
+          field_type: fieldType,
+          is_required: false,
+          visibility_level: "all",
+        },
+      });
+      if (error)
+        return { handled: true, message: `❌ Form field add fail: ${error.message}` };
+      await writeAuditLog({
+        actorId,
+        action: "god_create_form_field",
+        meta: { label, fieldType, sectionId: targetSection.id },
+      });
+      return {
+        handled: true,
+        message: `✅ Form field created successfully:\n🏷️ "${label}"\n• Type: ${fieldType}\n• Section: ${
+          targetSection.title?.hi || targetSection.title?.en || targetSection.slug
+        }\n• Live in Form Builder & Parivar Form!`,
+      };
+    } catch (e: any) {
+      return { handled: true, message: `❌ Form field error: ${e?.message}` };
+    }
+  }
+
   return { handled: false, message: "" };
 }
 

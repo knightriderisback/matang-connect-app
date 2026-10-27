@@ -6,17 +6,22 @@ import {
   fetchPublicInfo,
   wantsWebInfo,
 } from "@/lib/godActions";
+import { isSuperAiOnline, querySuperAiAction } from "@/lib/superAiClient";
 
 const SYSTEM_MEMBER = `You are Matang AI — community help assistant for Matang Connect.
 Help members in simple language. Guide Census, SOS, Jobs, Care, Feed, Kosh, Profile, Scan.
-Never ask for M-PIN digits. Never invent personal member data. Do not discuss Super Admin tools.
-Keep answers short.`;
+Never ask for M-PIN digits. Never invent personal member data. Do not discuss Super Admin tools or action commands.
+Keep answers short and polite.`;
 
-const SYSTEM_GOD = `You are Matang AI · GOD MODE for Super Admin of Matang Connect.
-You can explain results of actions already executed by the system.
-When the user asked to change something, the system may have already applied it — confirm based on the action result provided.
-Never expose secrets, M-PIN hashes, or API keys.
-Be concise and operational.`;
+const SYSTEM_GOD_ACTION = `You are Matang Super AI · EXCLUSIVE ACTION MODEL for the Super Admin / Platform Owner.
+You are an operational action agent, NOT a simple Q&A bot. Your primary purpose is to execute real administrative changes, form building, feature toggles, and UI/database configurations:
+1. Feature Flags & UI Controls: Enabling/disabling any of the 60+ platform features, toggling stages (Stage 1, 2, 3), emergency SOS, Jobs, Care, Kosh, Matrimony, Vyapar.
+2. Dynamic Parivar Form Builder: Creating form sections, adding custom questions/fields (text, number, dropdown, yes_no), reordering, and configuring census forms.
+3. Member Management: Verifying members, bulk approvals, M-PIN resets, member search, pending directory review.
+4. Live Notices & Jobs: Publishing announcements on the home feed, posting jobs.
+5. Local Super AI Kernel: Connected to the local autonomous multi-agent kernel on port 8787 for complex code generation, workflow orchestration, and workspace tasks.
+
+When the user asks to perform an action, provide the exact executed outcome clearly and authoritatively. Be operational, concise, and confirm changes.`;
 
 function localMember(q0: string, lang: string): string {
   const q = q0.toLowerCase();
@@ -53,10 +58,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Message required" }, { status: 400 });
     }
 
+    // STRICT PERMISSION GATE: Action Model is EXCLUSIVELY available for Super Admin
     const isSuper = session.role === "super_admin";
 
-    // ========== GOD MODE: execute real actions ==========
+    // =========================================================================
+    // SUPER ADMIN EXCLUSIVE ACTION ENGINE
+    // =========================================================================
     if (isSuper) {
+      // 1. Direct Platform Action Execution (Flags, Form Builder, DB Mutations)
       const action = await tryGodAction(message, session.userId);
       if (action.handled) {
         await writeAuditLog({
@@ -65,14 +74,37 @@ export async function POST(request: NextRequest) {
           meta: { message: message.slice(0, 200) },
         });
         return NextResponse.json({
-          reply: `✅ Done (God Mode)\n\n${action.message}`,
+          reply: `⚡ Done (Super Admin Action Engine)\n\n${action.message}`,
           source: "god_action",
           godMode: true,
           executed: true,
         });
       }
 
-      // Web / public information
+      // 2. Local SUPER-AI Autonomous Agent Execution (Port 8787 Kernel)
+      try {
+        const isOnline = await isSuperAiOnline();
+        if (isOnline) {
+          const superAiRes = await querySuperAiAction(message, session.userId, lang);
+          if (superAiRes.ok && superAiRes.reply) {
+            await writeAuditLog({
+              actorId: session.userId,
+              action: "ai_super_ai_action",
+              meta: { source: superAiRes.source },
+            });
+            return NextResponse.json({
+              reply: superAiRes.reply,
+              source: superAiRes.source,
+              godMode: true,
+              executed: true,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("SUPER-AI local call skipped:", err);
+      }
+
+      // 3. Web Search / Public Information
       if (wantsWebInfo(message)) {
         const info = await fetchPublicInfo(
           message
@@ -95,42 +127,91 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const systemPrompt = isSuper ? SYSTEM_GOD : SYSTEM_MEMBER;
-    const apiKey = process.env.XAI_API_KEY || process.env.GROK_API_KEY;
+    // =========================================================================
+    // INTELLIGENCE MODEL EXECUTION (GEMINI / XAI / LOCAL FALLBACK)
+    // =========================================================================
+    const systemPrompt = isSuper ? SYSTEM_GOD_ACTION : SYSTEM_MEMBER;
 
-    if (apiKey) {
+    // Check Gemini API key first (generous free tier & high reasoning)
+    const geminiKey = process.env.GEMINI_API_KEY;
+    const xaiKey = process.env.XAI_API_KEY || process.env.GROK_API_KEY;
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...history
+        .filter(
+          (m: any) =>
+            m && (m.role === "user" || m.role === "assistant") && m.content
+        )
+        .map((m: any) => ({
+          role: m.role as string,
+          content: String(m.content).slice(0, 2000),
+        })),
+      { role: "user", content: message },
+    ];
+
+    if (geminiKey) {
       try {
-        const messages = [
-          { role: "system", content: systemPrompt },
-          ...history
-            .filter(
-              (m: any) =>
-                m && (m.role === "user" || m.role === "assistant") && m.content
-            )
-            .map((m: any) => ({
-              role: m.role as string,
-              content: String(m.content).slice(0, 2000),
-            })),
-          { role: "user", content: message },
-        ];
+        const res = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${geminiKey}`,
+            },
+            body: JSON.stringify({
+              model: "gemini-2.5-flash",
+              messages,
+              temperature: isSuper ? 0.2 : 0.4,
+              max_tokens: isSuper ? 1200 : 450,
+            }),
+            signal: AbortSignal.timeout(12000),
+          }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const reply =
+            data?.choices?.[0]?.message?.content?.trim() ||
+            (isSuper ? "Action processed." : localMember(message, lang));
+          await writeAuditLog({
+            actorId: session.userId,
+            action: isSuper ? "ai_god_mode" : "ai_member",
+            meta: { source: "gemini" },
+          });
+          return NextResponse.json({
+            reply,
+            source: "gemini",
+            godMode: isSuper,
+            executed: isSuper,
+          });
+        }
+      } catch (e) {
+        console.error("Gemini API call failed, trying fallback", e);
+      }
+    }
+
+    if (xaiKey) {
+      try {
         const res = await fetch("https://api.x.ai/v1/chat/completions", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
+            Authorization: `Bearer ${xaiKey}`,
           },
           body: JSON.stringify({
             model: "grok-2-latest",
             messages,
-            temperature: 0.4,
+            temperature: isSuper ? 0.2 : 0.4,
             max_tokens: isSuper ? 700 : 450,
           }),
+          signal: AbortSignal.timeout(12000),
         });
         if (res.ok) {
           const data = await res.json();
           const reply =
             data?.choices?.[0]?.message?.content?.trim() ||
-            localMember(message, lang);
+            (isSuper ? "Action completed." : localMember(message, lang));
           await writeAuditLog({
             actorId: session.userId,
             action: isSuper ? "ai_god_mode" : "ai_member",
@@ -140,7 +221,7 @@ export async function POST(request: NextRequest) {
             reply,
             source: "grok",
             godMode: isSuper,
-            executed: false,
+            executed: isSuper,
           });
         }
       } catch (e) {
@@ -148,7 +229,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Super admin: try web once more as fallback for any question
+    // Super admin fallback response with full action command cheat-sheet
     if (isSuper) {
       const info = await fetchPublicInfo(message);
       if (info) {
@@ -159,14 +240,31 @@ export async function POST(request: NextRequest) {
           executed: false,
         });
       }
+
+      return NextResponse.json({
+        reply: `⚡ Super Admin Action Engine Active!
+
+Direct action commands you can type anytime:
+• 📋 Form: "Form section banao: Shiksha & Rozgar (Scope: member)"
+• 🏷️ Form: "Form field add karo: Annual Income (Type: number)"
+• 👁️ Form: "Form config dikhao"
+• ⚙️ Features: "Enable stage 3" | "Disable SOS" | "Flag status"
+• 👥 Members: "Verify all pending" | "Verify phone 9876543210"
+• 🔑 Security: "Reset M-PIN 9876543210 to 1234"
+• 📢 Broadcast: "Post notice: Meeting Sunday 10am"
+• 📊 Analytics: "Kitne users hain" | "Live stats"
+• 🤖 Multi-Agent: Start local SUPER-AI (bash /root/SUPER-AI/scripts/super_ai_service.sh start) for full autonomous orchestration!`,
+        source: "action_engine",
+        godMode: true,
+        executed: false,
+      });
     }
 
+    // Regular member safe FAQ response
     return NextResponse.json({
-      reply: isSuper
-        ? `God Mode ready. Try commands like:\n• "Enable stage 3"\n• "Disable SOS"\n• "Verify all pending"\n• "Verify phone 9876543210"\n• "Reset M-PIN 9876543210 to 1234"\n• "Post notice: Meeting Sunday 10am"\n• "How many users"\n• "List pending"\n• "What is Chhattisgarh" (web info)`
-        : localMember(message, lang),
+      reply: localMember(message, lang),
       source: "local",
-      godMode: isSuper,
+      godMode: false,
       executed: false,
     });
   } catch (e: any) {

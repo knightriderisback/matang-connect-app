@@ -18,40 +18,75 @@ const MEMBER_SUGGESTIONS: Record<string, string[]> = {
 };
 
 const GOD_SUGGESTIONS: Record<string, string[]> = {
-  en: ["Enable stage 3", "How many users", "Verify all pending", "List pending"],
-  hi: ["Stage 3 enable करो", "कितने यूजर्स हैं", "सब पेंडिंग verify करो", "Pending दिखाओ"],
-  mr: ["Stage 3 सुरू करा", "एकूण किती युजर्स आहेत", "सर्व प्रलंबित verify करा", "प्रलंबित यादी दाखवा"],
-  cg: ["Stage 3 सुरू करव", "कतका मनखे हे", "जम्मो पेंडिंग verify करव", "पेंडिंग देखव"],
-  hng: ["Stage 3 enable karo", "Total kitne users hain", "Sab pending verify karo", "Pending list dikhao"],
+  en: [
+    "Form section banao: Education",
+    "Form field add karo: Annual Income",
+    "Form config dikhao",
+    "Enable stage 3",
+    "Live stats",
+    "Verify all pending",
+  ],
+  hi: [
+    "Form section banao: शिक्षा व रोजगार",
+    "Form field add karo: वार्षिक आय",
+    "Form config dikhao",
+    "Stage 3 enable करो",
+    "Live stats दिखाओ",
+    "सब पेंडिंग verify करो",
+  ],
+  mr: [
+    "Form section banao: शिक्षण व रोजगार",
+    "Form field add karo: वार्षिक उत्पन्न",
+    "Form config दाखवा",
+    "Stage 3 सुरू करा",
+    "Live आकडेवारी दाखवा",
+    "सर्व प्रलंबित verify करा",
+  ],
+  cg: [
+    "Form section banao: शिक्षा अउ रोजगार",
+    "Form field add karo: बछर के आमदनी",
+    "Form config देखव",
+    "Stage 3 सुरू करव",
+    "कतका मनखे हे",
+    "जम्मो पेंडिंग verify करव",
+  ],
+  hng: [
+    "Form section banao: Shiksha & Rozgar",
+    "Form field add karo: Annual Income",
+    "Form config dikhao",
+    "Enable stage 3",
+    "Live stats",
+    "Verify all pending",
+  ],
 };
 
 const SUBTITLE: Record<string, { god: string; member: string }> = {
-  en: { god: "Super Admin copilot", member: "Community helper" },
-  hi: { god: "Super Admin कॉपायलट", member: "समुदाय सहायक" },
-  mr: { god: "Super Admin सहचालक", member: "समाज सहाय्यक" },
-  cg: { god: "Super Admin संगवारी", member: "समाज संगवारी" },
-  hng: { god: "Super Admin copilot", member: "Community helper" },
+  en: { god: "⚡ Action Engine · Super Admin Exclusive", member: "Community helper" },
+  hi: { god: "⚡ एक्शन मॉडल · सुपर एडमिन स्पेशल", member: "समुदाय सहायक" },
+  mr: { god: "⚡ ॲक्शन मॉडेल · सुपर ॲडमिन स्पेशल", member: "समाज सहाय्यक" },
+  cg: { god: "⚡ एक्शन मॉडल · सुपर एडमिन स्पेशल", member: "समाज संगवारी" },
+  hng: { god: "⚡ Action Engine · Super Admin Exclusive", member: "Community helper" },
 };
 
 const HINT_TEXT: Record<string, { god: string; member: string }> = {
   en: {
-    god: "God Mode: type commands — Enable stage 3, Verify all, Post notice: ..., How many users",
+    god: "Action Engine: Form creation, Feature toggles, UI modifications, Member approvals, Autonomous tasks.",
     member: "Ask about Census, SOS, Jobs, Care, Feed, Profile.",
   },
   hi: {
-    god: "God Mode: command लिखें — Enable stage 3, Verify all, Post notice: ..., कितने users हैं",
+    god: "एक्शन मॉडल: फॉर्म बनाएँ, फीचर चालू/बंद करें, UI बदलाव, सदस्य सत्यापन, ऑटोनॉमस टास्क।",
     member: "Census, SOS, Jobs, Care, Feed, Profile — पूछें।",
   },
   mr: {
-    god: "God Mode: आदेश टाइप करा — Enable stage 3, Verify all, Post notice: ..., किती users आहेत",
+    god: "ॲक्शन मॉडेल: फॉर्म तयार करा, फीचर्स सुरू/बंद, UI बदल, सभासद पडताळणी, टास्क एक्झिक्युशन.",
     member: "जनगणना, SOS, नोकऱ्या, Care, Feed बद्दल विचारा.",
   },
   cg: {
-    god: "God Mode: हुकुम लिखव — Enable stage 3, Verify all, Post notice: ..., कतका users हे",
+    god: "एक्शन मॉडल: फॉर्म बनावव, फीचर चालू/बंद करव, UI बदलाव, मनखे सत्यापन, ऑटोनॉमस टास्क।",
     member: "जनगणना, SOS, रोजगार, Care, Feed बारे म पूछव।",
   },
   hng: {
-    god: "God Mode: commands type karein — Enable stage 3, Verify all, kitne users hain",
+    god: "Action Engine: Form creation, Feature toggles, UI modifications, Member approvals, Autonomous tasks.",
     member: "Census, SOS, Jobs, Care, Feed, Profile ke baare me puchein.",
   },
 };
@@ -194,7 +229,7 @@ export function MatangAI() {
               {isSuper ? <Shield size={18} /> : <MessageCircle size={18} className="text-matang-gold" />}
               <div className="min-w-0">
                 <p className="font-semibold text-sm truncate">
-                  {isSuper ? "Matang AI · God Mode" : "Matang AI"}
+                  {isSuper ? "Matang Super AI · Action Model" : "Matang AI"}
                 </p>
                 <p className={`text-[10px] ${isSuper ? "text-amber-200/70" : "text-white/60"}`}>
                   {isSuper
@@ -276,7 +311,13 @@ export function MatangAI() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={PLACEHOLDER[currentLang] || PLACEHOLDER.hi}
+              placeholder={
+                isSuper
+                  ? currentLang === "en"
+                    ? "Action command (Form, Feature, Task)..."
+                    : "Action command (Form, Feature, Task)..."
+                  : PLACEHOLDER[currentLang] || PLACEHOLDER.hi
+              }
               disabled={loading}
               className={`flex-1 px-3 py-2 text-base sm:text-sm rounded-xl border focus:outline-none ${
                 isSuper
