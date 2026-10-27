@@ -151,43 +151,46 @@ export async function POST(request: NextRequest) {
     ];
 
     if (geminiKey) {
-      try {
-        const res = await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${geminiKey}`,
-            },
-            body: JSON.stringify({
-              model: "gemini-2.5-flash",
-              messages,
-              temperature: isSuper ? 0.2 : 0.4,
-              max_tokens: isSuper ? 1200 : 450,
-            }),
-            signal: AbortSignal.timeout(12000),
+      const candidateModels = ["gemini-3.5-flash", "gemini-flash-latest", "gemini-3.5-flash-lite"];
+      for (const m of candidateModels) {
+        try {
+          const res = await fetch(
+            "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${geminiKey}`,
+              },
+              body: JSON.stringify({
+                model: m,
+                messages,
+                temperature: isSuper ? 0.3 : 0.5,
+                max_tokens: isSuper ? 1200 : 450,
+              }),
+              signal: AbortSignal.timeout(12000),
+            }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const reply =
+              data?.choices?.[0]?.message?.content?.trim() ||
+              (isSuper ? "Action processed." : localMember(message, lang));
+            await writeAuditLog({
+              actorId: session.userId,
+              action: isSuper ? "ai_god_mode" : "ai_member",
+              meta: { source: "gemini", model: m },
+            });
+            return NextResponse.json({
+              reply,
+              source: "gemini",
+              godMode: isSuper,
+              executed: isSuper,
+            });
           }
-        );
-        if (res.ok) {
-          const data = await res.json();
-          const reply =
-            data?.choices?.[0]?.message?.content?.trim() ||
-            (isSuper ? "Action processed." : localMember(message, lang));
-          await writeAuditLog({
-            actorId: session.userId,
-            action: isSuper ? "ai_god_mode" : "ai_member",
-            meta: { source: "gemini" },
-          });
-          return NextResponse.json({
-            reply,
-            source: "gemini",
-            godMode: isSuper,
-            executed: isSuper,
-          });
+        } catch (e) {
+          console.error(`Gemini model ${m} call failed:`, e);
         }
-      } catch (e) {
-        console.error("Gemini API call failed, trying fallback", e);
       }
     }
 
@@ -242,18 +245,10 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({
-        reply: `⚡ Super Admin Action Engine Active!
-
-Direct action commands you can type anytime:
-• 📋 Form: "Form section banao: Shiksha & Rozgar (Scope: member)"
-• 🏷️ Form: "Form field add karo: Annual Income (Type: number)"
-• 👁️ Form: "Form config dikhao"
-• ⚙️ Features: "Enable stage 3" | "Disable SOS" | "Flag status"
-• 👥 Members: "Verify all pending" | "Verify phone 9876543210"
-• 🔑 Security: "Reset M-PIN 9876543210 to 1234"
-• 📢 Broadcast: "Post notice: Meeting Sunday 10am"
-• 📊 Analytics: "Kitne users hain" | "Live stats"
-• 🤖 Multi-Agent: Start local SUPER-AI (bash /root/SUPER-AI/scripts/super_ai_service.sh start) for full autonomous orchestration!`,
+        reply:
+          lang === "en"
+            ? "Hello! I am your Super Admin Action Engine. You can speak to me naturally in English or Hinglish without any prefixes — ask me to build forms, toggle features, approve members, or manage the platform!"
+            : "Namaste! Main aapka Super Admin Action Engine hoon. Aap mujhse bina kisi prefix ya command ke bilkul natural Hinglish mein baat kar sakte hain — form banana ho, feature on/off karna ho, ya members verify karne hon, bas naturally batayein!",
         source: "action_engine",
         godMode: true,
         executed: false,

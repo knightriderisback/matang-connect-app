@@ -100,6 +100,19 @@ export async function tryGodAction(
   const q = message.trim();
   const lower = q.toLowerCase();
 
+  // ===== GREETINGS & CASUAL NATURAL HINGLISH =====
+  if (
+    /^(?:hi+|hello+|hey+|heya|namaste|pranam|namaskar|kya\s*haal|kaise\s*ho|bhai|sun|suno|yo|hii+|good\s*(?:morning|evening|afternoon))[!?.]*$/i.test(
+      lower
+    )
+  ) {
+    return {
+      handled: true,
+      message:
+        "Namaste! Main aapka Super AI Action Agent hoon. Aap mujhse bina kisi command ya prefix ke bilkul natural Hinglish mein baat kar sakte hain. Form banana ho, koi feature on/off karna ho, ya pending members verify karne ho — jo bhi kaam ho bas seedhe batayein!",
+    };
+  }
+
   // ===== FLAGS ON/OFF =====
   if (wantsOn(q) || wantsOff(q)) {
     const on = wantsOn(q) && !wantsOff(q);
@@ -512,7 +525,7 @@ QR: ${data.qr_code_id || "-"}`,
 
   // ===== CREATE FORM SECTION =====
   const secMatch = q.match(
-    /(?:create|add|banao|naya|naye)\s+(?:form\s+)?section\s*[:：\-]?\s*(.+)/i
+    /(?:(?:create|add|banao|naya|naye|ek)\s+(?:form\s+)?section|(?:form\s+)?section\s+(?:banao|add\s*karo|create\s*karo|daalo?))\s*[:：\-]?\s*(.+)/i
   );
   if (secMatch) {
     const raw = secMatch[1].trim();
@@ -563,7 +576,7 @@ QR: ${data.qr_code_id || "-"}`,
 
   // ===== CREATE FORM FIELD =====
   const fieldMatch = q.match(
-    /(?:create|add|banao|naya)\s+(?:form\s+)?field\s*[:：\-]?\s*(.+)/i
+    /(?:(?:create|add|banao|naya|daalo?)\s+(?:form\s+)?field|(?:form\s+)?field\s+(?:add\s*karo|banao|daalo?|create\s*karo))\s*[:：\-]?\s*(.+)/i
   );
   if (fieldMatch) {
     const raw = fieldMatch[1].trim();
