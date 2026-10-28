@@ -261,6 +261,67 @@ const NAMEPLATE =
 /** Pull line endpoints INSIDE the bubble so no hairline gap remains */
 const IN = 10;
 
+export type Placed = {
+  n: Node;
+  x: number;
+  top: number;
+  w: number;
+  genKey: keyof typeof GEN_STYLE;
+  side?: "L" | "R";
+};
+
+export type MPair = {
+  ax: number;
+  ay: number;
+  aw: number;
+  bx: number;
+  by: number;
+  bw: number;
+  idA: string;
+  idB: string;
+  ring: RingStyle;
+};
+
+export type GenerationSection = {
+  id: string;
+  top: number;
+  height: number;
+  title: string;
+  icon: string;
+  count: number;
+  borderCls: string;
+  bgCls: string;
+  headerBgCls: string;
+  badgeCls: string;
+};
+
+export type BloodSegment = {
+  key: string;
+  d: string;
+  isLeaf?: boolean;
+};
+
+export type BloodKnot = {
+  key: string;
+  x: number;
+  y: number;
+  kind: "drop" | "dot" | "pulse";
+};
+
+export type BloodJunction = {
+  key: string;
+  x: number;
+  y: number;
+};
+
+export type LineSibling = {
+  key: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+};
+
 export type RingStyle = {
   id: string;
   name: string;
@@ -446,38 +507,7 @@ const COUPLE_RING_STYLES: RingStyle[] = [
   },
 ];
 
-function DiamondGem({
-  color = "#F59E0B",
-  sparkle = "#FFFFFF",
-  size = 12,
-  className = "",
-}: {
-  color?: string;
-  sparkle?: string;
-  size?: number;
-  className?: string;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={cn("shrink-0 select-none", className)}
-    >
-      {/* Crown / Top table */}
-      <polygon points="6,2 18,2 23,8 1,8" fill={color} />
-      <polygon points="8,2 16,2 18,8 6,8" fill={sparkle} opacity="0.55" />
-      {/* Pavilion / Bottom facets */}
-      <polygon points="1,8 23,8 12,22" fill={color} />
-      <polygon points="6,8 18,8 12,22" fill={sparkle} opacity="0.32" />
-      <polygon points="10,8 14,8 12,22" fill={sparkle} opacity="0.6" />
-      {/* Facet highlight */}
-      <circle cx="7" cy="5" r="1.2" fill="#FFFFFF" opacity="0.9" />
-    </svg>
-  );
-}
+const SILVER_RING = COUPLE_RING_STYLES[0];
 
 function SacredDiyaIcon({
   size = 14,
@@ -562,7 +592,7 @@ function SacredDiyaIcon({
   );
 }
 
-function SolitaireRingAvatar({
+const SolitaireRingAvatar = React.memo(function SolitaireRingAvatar({
   node,
   ring,
   isSelf,
@@ -769,7 +799,7 @@ function SolitaireRingAvatar({
       )}
     </div>
   );
-}
+});
 
 function getDockOffset(id: string, isTop: boolean): number {
   let h = isTop ? 17 : 37;
@@ -1097,83 +1127,6 @@ function routeTangleFreeChildLine(
   return `M ${junc.x} ${junc.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${laneX} ${breakY} C ${c3x} ${c3y}, ${c4x} ${c4y}, ${to.x} ${to.y}`;
 }
 
-function getRelationshipStyle(relTag = "", sex?: string | null) {
-  const t = relTag.toLowerCase();
-  if (t.includes("पिता") || t.includes("माता") || t.includes("father") || t.includes("mother")) {
-    return {
-      color: "#4F46E5",
-      marker: "url(#arrow-indigo)",
-      bg: "#EEF2FF",
-      border: "#4F46E5",
-      text: "#3730A3",
-    };
-  }
-  if (t.includes("भतीज") || t.includes("भांज") || t.includes("niece") || t.includes("nephew")) {
-    return {
-      color: "#0284C7",
-      marker: "url(#arrow-sky)",
-      bg: "#F0F9FF",
-      border: "#0284C7",
-      text: "#075985",
-    };
-  }
-  if (t.includes("पोत") || t.includes("नात") || t.includes("grandchild")) {
-    return {
-      color: "#7C3AED",
-      marker: "url(#arrow-purple)",
-      bg: "#FAF5FF",
-      border: "#7C3AED",
-      text: "#581C87",
-    };
-  }
-  if (t.includes("बेटी") || t.includes("पुत्री") || t.includes("daughter") || sex === "F") {
-    return {
-      color: "#E11D48",
-      marker: "url(#arrow-rose)",
-      bg: "#FFF1F2",
-      border: "#E11D48",
-      text: "#9F1239",
-    };
-  }
-  return {
-    color: "#D97706",
-    marker: "url(#arrow-gold)",
-    bg: "#FFFBEB",
-    border: "#D97706",
-    text: "#92400E",
-  };
-}
-
-/**
- * Dock INSIDE bubble (overshoot) — 100% connected, zero visible gap.
- * dir "up"   = arrives from above → top edge, then +IN into bubble
- * dir "down" = arrives from below → bottom edge, then -IN into bubble
- * male → left third, female → right third
- */
-function dock(
-  cx: number,
-  topY: number,
-  w: number,
-  dir: "up" | "down",
-  gender?: string | null,
-  relation?: string | null
-): { x: number; y: number } {
-  const sex = resolveSex(gender, relation);
-  const side = Math.min(14, w * 0.28);
-  let x = cx;
-  if (sex === "M") x = cx - w / 2 + side;
-  else if (sex === "F") x = cx + w / 2 - side;
-  // go INSIDE the pill
-  const y = dir === "up" ? topY + IN : topY + BUBBLE_H - IN;
-  return { x, y };
-}
-
-/** Start from centre edge, also slightly inside so join is solid */
-function undock(cx: number, topY: number, dir: "up" | "down"): { x: number; y: number } {
-  const y = dir === "up" ? topY + IN : topY + BUBBLE_H - IN;
-  return { x: cx, y };
-}
-
 function nameW(name: string, max = 175) {
   const clean = (name || "?").replace(/^(स्व\.|late|sw\.)\s*/i, "");
   return Math.min(max, Math.max(140, Math.round(Math.max(clean.length, 3) * 7.4 + 65)));
@@ -1198,7 +1151,41 @@ type IndianRelationshipInfo = {
   multipleRoles: IndianRoleItem[];
 };
 
+const treeRelWeakMap = new WeakMap<Tree, Map<string, IndianRelationshipInfo>>();
+
 function resolveIndianRelationship(
+  n: Node,
+  tree: Tree | null,
+  lang = "hi"
+): IndianRelationshipInfo {
+  if (!tree) {
+    return {
+      shortTag: n.display_name,
+      shortTagEn: n.display_name,
+      primaryTitle: n.display_name,
+      primaryTitleEn: n.display_name,
+      category: "relative",
+      generationTier: 0,
+      generationLabel: lang === "hi" ? "परिवार सदस्य" : "Family Member",
+      multipleRoles: [],
+    };
+  }
+
+  let cache = treeRelWeakMap.get(tree);
+  if (!cache) {
+    cache = new Map();
+    treeRelWeakMap.set(tree, cache);
+  }
+  const key = `${n.id}__${n.relation || ""}__${n.gender || ""}__${n.via_id || ""}__${n.display_name}__${lang}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+
+  const result = resolveIndianRelationshipUncached(n, tree, lang);
+  cache.set(key, result);
+  return result;
+}
+
+function resolveIndianRelationshipUncached(
   n: Node,
   tree: Tree | null,
   lang = "hi"
@@ -2821,81 +2808,375 @@ function getRelationshipExplanation(
 }
 
 /** Even slots inside [pad, W-pad], never outside screen */
-function slotXsInView(count: number, W: number, pad = 12): number[] {
-  if (count <= 0) return [];
-  if (count === 1) return [W / 2];
-  const usable = W - pad * 2;
-  const step = usable / (count - 1);
-  return Array.from({ length: count }, (_, i) => pad + i * step);
-}
+const orderCouple = (nodeA: Node, nodeB: Node): [Node, Node] => {
+  const sexA = resolveSex(nodeA.gender, nodeA.relation);
+  const sexB = resolveSex(nodeB.gender, nodeB.relation);
+  // Husband on left, Wife on right
+  if (sexA === "M" && sexB === "F") return [nodeA, nodeB];
+  if (sexA === "F" && sexB === "M") return [nodeB, nodeA];
+  if (nodeA.relation === "self") return [nodeA, nodeB];
+  if (nodeB.relation === "self") return [nodeB, nodeA];
+  return [nodeA, nodeB];
+};
 
-/** Clamp centre-x so bubble of width w stays fully inside [pad, W-pad] */
-function clampX(x: number, w: number, W: number, pad = 10) {
-  const half = w / 2;
-  return Math.max(pad + half, Math.min(W - pad - half, x));
-}
+const Tag = React.memo(function Tag({
+  n,
+  extra,
+  gen = "up1",
+  isSelf = false,
+  centreId,
+  ring,
+  isMarried,
+  relInfo,
+  isHighlighted,
+  arrangeMode,
+  onSelect,
+  onPromptMove,
+}: {
+  n: Node;
+  extra?: string;
+  gen?: keyof typeof GEN_STYLE;
+  isSelf?: boolean;
+  centreId?: string;
+  ring?: RingStyle;
+  isMarried?: boolean;
+  relInfo: IndianRelationshipInfo;
+  isHighlighted?: boolean;
+  arrangeMode?: boolean;
+  onSelect: (n: Node) => void;
+  onPromptMove: (id: string) => void;
+}) {
+  const selfNode = isSelf || (centreId && n.id === centreId) || n.relation === "self";
+  const activeRing = ring || (selfNode ? SILVER_RING : undefined);
+  const married = isMarried || !!activeRing || selfNode;
+  const rel = extra || relInfo.shortTag;
+  const born = formatBirth(n);
+  const isLate = /^(स्व.|late|sw.)/i.test(n.display_name) || n.status === "deceased";
+  const cleanName = n.display_name.replace(/^(स्व.|late|sw.)s*/i, "");
+  const sex = resolveSex(n.gender, n.relation);
 
-/**
- * Smart pack: real widths, zero horizontal overlap.
- * If row too wide for screen → wrap to next sub-row (upar/neeche stagger).
- * Returns { x, row } per item. Optional mild tilt only when still tight.
- */
-function packSmart(
-  widths: number[],
-  W: number,
-  pad = 10,
-  gap = 10,
-  preferCx?: number,
-  /** optional hard bounds — pack ONLY inside [xMin, xMax] */
-  xMin?: number,
-  xMax?: number
-): { x: number; row: number }[] {
-  const n = widths.length;
-  const lo = xMin ?? pad;
-  const hi = xMax ?? W - pad;
-  const span = Math.max(40, hi - lo);
-  if (n === 0) return [];
-  if (n === 1) {
-    const x = Math.max(lo + widths[0] / 2, Math.min(hi - widths[0] / 2, preferCx ?? (lo + hi) / 2));
-    return [{ x, row: 0 }];
+  let borderCls = "border-gray-200/90";
+  let bgCls = "bg-white/75 backdrop-blur-xs";
+  let textCls = "text-gray-900";
+  let badgeCls = "bg-gray-100/90 text-gray-700";
+
+  if (selfNode) {
+    borderCls = "border-amber-400 ring-2 ring-amber-300/50";
+    bgCls = "bg-amber-50/75 backdrop-blur-xs";
+    textCls = "text-amber-950 font-bold";
+    badgeCls = "bg-amber-100/95 text-amber-900 font-semibold";
+  } else if (gen === "spouse" || relInfo.category === "spouse") {
+    borderCls = "border-pink-300/90";
+    bgCls = "bg-rose-50/75 backdrop-blur-xs";
+    textCls = "text-rose-950 font-semibold";
+    badgeCls = "bg-rose-100/90 text-rose-800";
+  } else if (gen === "sibling" || relInfo.category === "sibling") {
+    borderCls = "border-amber-200/90";
+    bgCls = "bg-amber-50/75 backdrop-blur-xs";
+    textCls = "text-amber-950 font-semibold";
+    badgeCls = "bg-amber-100/90 text-amber-900";
+  } else if (gen === "up1" || gen === "up2" || gen === "up3" || relInfo.category === "parent" || relInfo.category === "grandparent") {
+    borderCls = "border-indigo-200/90";
+    bgCls = "bg-indigo-50/75 backdrop-blur-xs";
+    textCls = "text-indigo-950 font-semibold";
+    badgeCls = "bg-indigo-100/90 text-indigo-900";
+  } else if (gen === "down1" || gen === "down2" || relInfo.category === "child" || relInfo.category === "grandchild") {
+    borderCls = "border-emerald-200/90";
+    bgCls = "bg-emerald-50/75 backdrop-blur-xs";
+    textCls = "text-emerald-950 font-semibold";
+    badgeCls = "bg-emerald-100/90 text-emerald-900";
   }
 
-  const rows: number[][] = [[]];
-  let rowW = 0;
-  widths.forEach((w, i) => {
-    const need = (rowW > 0 ? gap : 0) + w;
-    if (rowW > 0 && rowW + need > span) {
-      rows.push([]);
-      rowW = 0;
-    }
-    rows[rows.length - 1].push(i);
-    rowW += (rows[rows.length - 1].length > 1 ? gap : 0) + w;
-  });
+  if (married && activeRing) {
+    borderCls += " border-amber-300/80";
+  }
 
-  const out: { x: number; row: number }[] = new Array(n);
-  rows.forEach((idxs, r) => {
-    const ws = idxs.map((i) => widths[i]);
-    const total = ws.reduce((s, w) => s + w, 0) + gap * Math.max(0, ws.length - 1);
-    const mid = preferCx ?? (lo + hi) / 2;
-    let start = mid - total / 2;
-    if (start < lo) start = lo;
-    if (start + total > hi) start = Math.max(lo, hi - total);
-    let cursor = start;
-    idxs.forEach((i, j) => {
-      const w = ws[j];
-      out[i] = { x: cursor + w / 2, row: r };
-      cursor += w + gap;
-    });
-  });
-  return out;
-}
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (arrangeMode) {
+          onPromptMove(n.id);
+          return;
+        }
+        onSelect(n);
+      }}
+      className={`group text-left active:scale-95 w-full max-w-full block ${
+        isHighlighted ? "scale-105 z-30" : ""
+      }`}
+    >
+      <div
+        className={cn(
+          "flex items-center gap-2 px-2.5 py-2 rounded-xl border select-none min-h-[66px] h-auto w-full max-w-full box-border transition-transform",
+          borderCls,
+          bgCls,
+          isHighlighted && "ring-4 ring-amber-400 shadow-xl"
+        )}
+        style={{
+          boxShadow: married && activeRing
+            ? `0 2px 8px ${activeRing.shadowColor}, 0 1px 2px rgba(0,0,0,0.05)`
+            : "0 2px 6px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+        }}
+      >
+        <SolitaireRingAvatar
+          node={n}
+          ring={activeRing}
+          isSelf={selfNode}
+          isLate={isLate}
+          cleanName={cleanName}
+          sex={sex}
+          size={38}
+        />
 
-/** Mild tilt (deg) only for visual air when 3+ on same row — optional polish */
-function mildTilt(i: number, count: number) {
-  if (count < 2) return 0;
-  const mid = (count - 1) / 2;
-  return Math.max(-8, Math.min(8, (i - mid) * 2.8));
-}
+        <div className="flex flex-col min-w-0 flex-1 justify-center py-0.5 leading-tight overflow-hidden">
+          <div className="flex items-start gap-1 min-w-0">
+            {isLate && (
+              <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-900 shrink-0 px-1 py-0.2 rounded bg-amber-100/80 border border-amber-300/60 shadow-2xs">
+                <SacredDiyaIcon size={10} />
+                <span>स्व.</span>
+              </span>
+            )}
+            <span
+              className={cn(
+                "text-[12px] font-bold leading-tight break-words line-clamp-2",
+                textCls
+              )}
+              title={n.display_name}
+            >
+              {cleanName}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 mt-1 min-w-0 flex-wrap">
+            <span
+              className={cn(
+                "text-[9.5px] leading-tight px-1.5 py-0.5 rounded-md font-bold shrink-0",
+                badgeCls
+              )}
+            >
+              {rel}
+            </span>
+          </div>
+
+          {relInfo.subTag && relInfo.subTag !== rel && (
+            <div className="mt-0.5 min-w-0">
+              <span className="text-[8.5px] text-gray-500 font-medium leading-tight block break-words">
+                ({relInfo.subTag})
+              </span>
+            </div>
+          )}
+
+          {born && (
+            <div className="flex items-center gap-1 mt-0.5 min-w-0">
+              <span className="text-[9px] text-gray-500 font-medium tabular-nums truncate">
+                {born}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+});
+
+const MemberCardRow = React.memo(function MemberCardRow({
+  m,
+  roleLabel,
+  isSelf,
+  ring,
+  isMarried,
+  relInfo,
+  lang,
+  onSelect,
+  onFocus,
+}: {
+  m: Node;
+  roleLabel?: string;
+  isSelf: boolean;
+  ring?: RingStyle;
+  isMarried: boolean;
+  relInfo: IndianRelationshipInfo;
+  lang: string;
+  onSelect: (m: Node) => void;
+  onFocus: (m: Node) => void;
+}) {
+  const isLate = /^(स्व.|late|sw.)/i.test(m.display_name) || m.status === "deceased";
+  const cleanName = m.display_name.replace(/^(स्व.|late|sw.)s*/i, "");
+  const sex = resolveSex(m.gender, m.relation);
+  const born = formatBirth(m);
+
+  return (
+    <div
+      onClick={() => onSelect(m)}
+      className="flex items-center justify-between p-3 rounded-2xl bg-white border border-gray-100 hover:border-amber-300 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-[0.99]"
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <SolitaireRingAvatar
+          node={m}
+          ring={ring}
+          isSelf={isSelf}
+          isLate={isLate}
+          cleanName={cleanName}
+          sex={sex}
+          size={44}
+        />
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {isLate && (
+              <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 px-1.5 py-0.2 rounded">
+                स्व.
+              </span>
+            )}
+            <p className="text-sm font-bold text-gray-900 truncate">{cleanName}</p>
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5">
+            <span className="text-amber-800 font-medium">
+              {roleLabel || relInfo.shortTag}
+            </span>
+            {born && <span>· {born}</span>}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onFocus(m);
+          }}
+          className="text-[11px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 px-2.5 py-1 rounded-full flex items-center gap-1 cursor-pointer"
+        >
+          <TreePine size={11} />
+          <span>{lang === "hi" ? "ट्री में" : "Tree"}</span>
+        </button>
+        <ChevronRight size={16} className="text-gray-400" />
+      </div>
+    </div>
+  );
+});
+
+const VanshawaliStyles = React.memo(function VanshawaliStyles() {
+  return (
+    <style>{`
+      @keyframes goldTravel {
+        to { stroke-dashoffset: -48; }
+      }
+      .vansh-gold-line {
+        stroke-dasharray: 10 8;
+        animation: goldTravel 1.8s linear infinite;
+      }
+      .vansh-sib-float {
+      }
+      .vansh-marry-float {
+      }
+      @keyframes ringFullOrbit {
+        from {
+          stroke-dashoffset: 0;
+        }
+        to {
+          stroke-dashoffset: -100;
+        }
+      }
+      .vansh-3d-shine {
+        animation: ringFullOrbit 8.0s linear infinite;
+        filter: blur(1px);
+        will-change: stroke-dashoffset;
+      }
+      @keyframes bloodPulse {
+        0%, 100% {
+          stroke: #DC2626;
+          opacity: 0.82;
+        }
+        50% {
+          stroke: #EF4444;
+          opacity: 1;
+        }
+      }
+      @keyframes bloodFlow {
+        from { stroke-dashoffset: 48; }
+        to { stroke-dashoffset: 0; }
+      }
+      .vansh-blood-line {
+        animation: bloodPulse 2.4s ease-in-out infinite;
+        will-change: opacity, stroke;
+      }
+      .vansh-blood-flow {
+        stroke-dasharray: 6 18;
+        animation: bloodFlow 2.0s linear infinite;
+        will-change: stroke-dashoffset;
+      }
+      .vansh-logo-watermark {
+        position: absolute;
+        object-fit: contain;
+        opacity: 0.1;
+        pointer-events: none;
+        z-index: 0;
+        user-select: none;
+      }
+
+      /* Heritage 3D gold lettering — no plate */
+      .vansh-heritage {
+        text-align: center;
+        line-height: 1.05;
+        padding: 2px 8px;
+      }
+      .vansh-heritage .vh-title {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", "Palatino Linotype", serif;
+        font-size: clamp(1.15rem, 5.2vw, 1.55rem);
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        background: linear-gradient(
+          175deg,
+          #fff6d0 0%,
+          #ffe08a 18%,
+          #e8b84a 40%,
+          #c4921a 62%,
+          #8b6914 82%,
+          #f0d070 100%
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        filter: drop-shadow(0 1px 0 #5c4010)
+          drop-shadow(0 2px 0 #3d2a08)
+          drop-shadow(0 3px 1px rgba(0,0,0,0.35));
+      }
+      .vansh-heritage .vh-sub {
+        margin: 2px 0 0;
+        font-family: Georgia, "Times New Roman", "Palatino Linotype", serif;
+        font-size: clamp(0.95rem, 4.2vw, 1.25rem);
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        background: linear-gradient(
+          175deg,
+          #fff8dc 0%,
+          #f0d060 30%,
+          #c9a227 55%,
+          #9a7010 80%,
+          #e8c860 100%
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        filter: drop-shadow(0 1px 0 #5c4010)
+          drop-shadow(0 2px 0 #3d2a08)
+          drop-shadow(0 2px 1px rgba(0,0,0,0.3));
+      }
+      @keyframes sibTravel {
+        to { stroke-dashoffset: -120; }
+      }
+      .vansh-sib-base {
+        stroke-dasharray: none;
+      }
+      .vansh-sib-travel {
+        stroke-dasharray: 14 106;
+        animation: sibTravel 1.4s linear infinite;
+      }
+    `}</style>
+  );
+});
 
 function VanshawaliInner() {
   const { toast } = useToast();
@@ -3512,42 +3793,20 @@ function VanshawaliInner() {
     [spousePairs, allNodesMap]
   );
 
-  const orderCouple = (nodeA: Node, nodeB: Node): [Node, Node] => {
-    const sexA = resolveSex(nodeA.gender, nodeA.relation);
-    const sexB = resolveSex(nodeB.gender, nodeB.relation);
-    // Husband on left, Wife on right
-    if (sexA === "M" && sexB === "F") return [nodeA, nodeB];
-    if (sexA === "F" && sexB === "M") return [nodeB, nodeA];
-    if (nodeA.relation === "self") return [nodeA, nodeB];
-    if (nodeB.relation === "self") return [nodeB, nodeA];
-    return [nodeA, nodeB];
-  };
+  const cardW = is2ColActive ? Math.min(154, Math.max(130, Math.floor((Math.max(vw, 360) - 64) / 2))) : 140;
 
-  const pad = 24;
-  const gap = 22;
-  const coupleGap = 18;
-  const subRowH = 76;
-  const levelGap = 64;
-  const BH = BUBBLE_H + 20;
+  const layoutData = useMemo(() => {
+    const pad = 24;
+    const gap = 22;
+    const coupleGap = 18;
+    const subRowH = 76;
+    const levelGap = 64;
+    const BH = BUBBLE_H + 20;
 
-  type Placed = {
-    n: Node;
-    x: number;
-    top: number;
-    w: number;
-    genKey: keyof typeof GEN_STYLE;
-    side?: "L" | "R";
-  };
-  const placed: Placed[] = [];
+    const placed: Placed[] = [];
   const posById = new Map<string, { x: number; top: number; w: number }>();
 
   // EXTRA: marriage pairs — every husband–wife from spouses_of + centre
-  type MPair = {
-    ax: number; ay: number; aw: number;
-    bx: number; by: number; bw: number;
-    idA: string; idB: string;
-    ring: RingStyle;
-  };
   const marriagePairs: MPair[] = [];
   const marriedIdSet = new Set<string>();
   const coupleSeen = new Set<string>();
@@ -3676,18 +3935,6 @@ function VanshawaliInner() {
     return { unitCx, unitW, leftCx, rightCx };
   };
 
-  type GenerationSection = {
-    id: string;
-    top: number;
-    height: number;
-    title: string;
-    icon: string;
-    count: number;
-    borderCls: string;
-    bgCls: string;
-    headerBgCls: string;
-    badgeCls: string;
-  };
   const generationSections: GenerationSection[] = [];
 
   let yCursor = 20;
@@ -5120,6 +5367,115 @@ function VanshawaliInner() {
     });
   }
 
+    const laneMarkers: { label: string; icon: string; top: number }[] = [];
+    if (is2ColActive) {
+      if (yGrandparents > 0) {
+        laneMarkers.push({
+          label: lang === "hi" ? "पूर्वज (दादा-दादी / नाना-नानी)" : "Ancestors (Grandparents)",
+          icon: "🏛️",
+          top: yGrandparents - 16,
+        });
+      }
+      if (yParents > 0) {
+        laneMarkers.push({
+          label: lang === "hi" ? "माता-पिता व अभिभावक" : "Parents & Guardians",
+          icon: "👨‍👩‍👧",
+          top: yParents - 16,
+        });
+      }
+      laneMarkers.push({
+        label: lang === "hi" ? "आपकी पीढ़ी (Self & जीवनसाथी/भाई-बहन)" : "Your Generation (Self & Siblings)",
+        icon: "🌟",
+        top: Math.max(10, ySelf - 16),
+      });
+      if (yChildren > 0) {
+        laneMarkers.push({
+          label: lang === "hi" ? "संतान पीढ़ी (पुत्र / पुत्री / बहू / दामाद)" : "Children Generation",
+          icon: "👶",
+          top: yChildren - 16,
+        });
+      }
+      if (yGrandchildren > 0) {
+        laneMarkers.push({
+          label: lang === "hi" ? "पौत्र व नाती पीढ़ी (Grandchildren)" : "Grandchildren Generation",
+          icon: "🍼",
+          top: yGrandchildren - 16,
+        });
+      }
+    } else {
+      if (gpPositions.length > 0 && yGpBase > 0) {
+        laneMarkers.push({
+          label: lang === "hi" ? "पूर्वज (दादा-दादी / नाना-नानी)" : "Ancestors (Grandparents)",
+          icon: "🏛️",
+          top: Math.max(10, yGpBase - 18),
+        });
+      }
+      if (parentsSorted.length > 0 && yPar > 0) {
+        laneMarkers.push({
+          label: lang === "hi" ? "माता-पिता की पीढ़ी" : "Parents Generation",
+          icon: "👨‍👩‍👧",
+          top: Math.max(10, yPar - 18),
+        });
+      }
+      laneMarkers.push({
+        label: lang === "hi" ? "आपकी पीढ़ी (Self & Sahodhar)" : "Your Generation (Self & Siblings)",
+        icon: "🌟",
+        top: Math.max(10, yMidPos - 18),
+      });
+      if (children.length > 0 && yChild > 0) {
+        laneMarkers.push({
+          label: lang === "hi" ? "संतान (पुत्र / पुत्री)" : "Children Generation",
+          icon: "👶",
+          top: Math.max(10, yChild - 18),
+        });
+      }
+      if (gcPositions.length > 0 && yGcBase > 0) {
+        laneMarkers.push({
+          label: lang === "hi" ? "पौत्र / दौहित्र (Grandchildren)" : "Grandchildren Generation",
+          icon: "🍼",
+          top: Math.max(10, yGcBase - 18),
+        });
+      }
+    }
+
+    return {
+      placed,
+      posById,
+      marriagePairs,
+      marriedIdSet,
+      coupleRingMap,
+      generationSections,
+      laneMarkers,
+      centreX,
+      yMid,
+      W,
+      H,
+      contentW,
+      bloodSegments,
+      bloodKnots,
+      bloodJunctions,
+      linesSibling,
+    };
+  }, [tree, is2ColActive, vw, floatPos, lang, allNodesMap, spousePairs, getSpouseOf, parents, children]);
+
+  const {
+    placed,
+    posById,
+    marriagePairs,
+    marriedIdSet,
+    coupleRingMap,
+    generationSections,
+    laneMarkers,
+    centreX,
+    yMid,
+    W,
+    H,
+    bloodSegments,
+    bloodKnots,
+    bloodJunctions,
+    linesSibling,
+  } = layoutData;
+
   const ZOOM_MIN = 0.18;
   const ZOOM_MAX = 2.5;
   const ZOOM_STEP = 0.1;
@@ -5273,419 +5629,18 @@ function VanshawaliInner() {
     }
   };
 
-  const laneMarkers = useMemo(() => {
-    const lanes: { label: string; icon: string; top: number }[] = [];
-    if (is2ColActive) {
-      if (yGrandparents > 0) {
-        lanes.push({
-          label: lang === "hi" ? "पूर्वज (दादा-दादी / नाना-नानी)" : "Ancestors (Grandparents)",
-          icon: "🏛️",
-          top: yGrandparents - 16,
-        });
-      }
-      if (yParents > 0) {
-        lanes.push({
-          label: lang === "hi" ? "माता-पिता व अभिभावक" : "Parents & Guardians",
-          icon: "👨‍👩‍👧",
-          top: yParents - 16,
-        });
-      }
-      lanes.push({
-        label: lang === "hi" ? "आपकी पीढ़ी (Self & जीवनसाथी/भाई-बहन)" : "Your Generation (Self & Siblings)",
-        icon: "🌟",
-        top: Math.max(10, ySelf - 16),
-      });
-      if (yChildren > 0) {
-        lanes.push({
-          label: lang === "hi" ? "संतान पीढ़ी (पुत्र / पुत्री / बहू / दामाद)" : "Children Generation",
-          icon: "👶",
-          top: yChildren - 16,
-        });
-      }
-      if (yGrandchildren > 0) {
-        lanes.push({
-          label: lang === "hi" ? "पौत्र व नाती पीढ़ी (Grandchildren)" : "Grandchildren Generation",
-          icon: "🍼",
-          top: yGrandchildren - 16,
-        });
-      }
-      return lanes;
-    }
+  const handleSelectNode = useCallback((n: Node) => {
+    setSelected(n);
+  }, []);
 
-    if (gpPositions.length > 0 && yGpBase > 0) {
-      lanes.push({
-        label: lang === "hi" ? "पूर्वज (दादा-दादी / नाना-नानी)" : "Ancestors (Grandparents)",
-        icon: "🏛️",
-        top: Math.max(10, yGpBase - 18),
-      });
-    }
-    if (parentsSorted.length > 0 && yPar > 0) {
-      lanes.push({
-        label: lang === "hi" ? "माता-पिता की पीढ़ी" : "Parents Generation",
-        icon: "👨‍👩‍👧",
-        top: Math.max(10, yPar - 18),
-      });
-    }
-    lanes.push({
-      label: lang === "hi" ? "आपकी पीढ़ी (Self & Sahodhar)" : "Your Generation (Self & Siblings)",
-      icon: "🌟",
-      top: Math.max(10, yMidPos - 18),
-    });
-    if (children.length > 0 && yChild > 0) {
-      lanes.push({
-        label: lang === "hi" ? "संतान (पुत्र / पुत्री)" : "Children Generation",
-        icon: "👶",
-        top: Math.max(10, yChild - 18),
-      });
-    }
-    if (gcPositions.length > 0 && yGcBase > 0) {
-      lanes.push({
-        label: lang === "hi" ? "पौत्र / दौहित्र (Grandchildren)" : "Grandchildren Generation",
-        icon: "🍼",
-        top: Math.max(10, yGcBase - 18),
-      });
-    }
-    return lanes;
-  }, [is2ColActive, yGrandparents, yParents, ySelf, yChildren, yGrandchildren, gpPositions.length, yGpBase, parentsSorted.length, yPar, yMidPos, children.length, yChild, gcPositions.length, yGcBase, lang]);
-
-  const line = "#E8A317";
-  const marryLine = "#6EE7B7"; // very light green
-
-  const Tag = ({
-    n,
-    extra,
-    gen = "up1",
-    isSelf = false,
-  }: {
-    n: Node;
-    extra?: string;
-    gen?: keyof typeof GEN_STYLE;
-    isSelf?: boolean;
-  }) => {
-    const selfNode = isSelf || n.id === tree?.centre.id || n.relation === "self";
-    const ring = coupleRingMap.get(n.id) || (selfNode ? SILVER_RING : undefined);
-    const isMarried = !!ring || marriedIdSet.has(n.id) || selfNode;
-    const relInfo = resolveIndianRelationship(n, tree, lang);
-    const rel = extra || relInfo.shortTag;
-    const born = formatBirth(n);
-    const isLate = /^(स्व\.|late|sw\.)/i.test(n.display_name) || n.status === "deceased";
-    const cleanName = n.display_name.replace(/^(स्व\.|late|sw\.)\s*/i, "");
-    const sex = resolveSex(n.gender, n.relation);
-    const isHighlighted = highlightId === n.id;
-
-    // Exactly 75% translucent cards so bloodlines running behind are visible with high clarity
-    let borderCls = "border-gray-200/90";
-    let bgCls = "bg-white/75 backdrop-blur-xs";
-    let textCls = "text-gray-900";
-    let badgeCls = "bg-gray-100/90 text-gray-700";
-
-    if (selfNode) {
-      borderCls = "border-amber-400 ring-2 ring-amber-300/50";
-      bgCls = "bg-amber-50/75 backdrop-blur-xs";
-      textCls = "text-amber-950 font-bold";
-      badgeCls = "bg-amber-100/95 text-amber-900 font-semibold";
-    } else if (gen === "spouse" || relInfo.category === "spouse") {
-      borderCls = "border-pink-300/90";
-      bgCls = "bg-rose-50/75 backdrop-blur-xs";
-      textCls = "text-rose-950 font-semibold";
-      badgeCls = "bg-rose-100/90 text-rose-800";
-    } else if (gen === "sibling" || relInfo.category === "sibling") {
-      borderCls = "border-amber-200/90";
-      bgCls = "bg-amber-50/75 backdrop-blur-xs";
-      textCls = "text-amber-950 font-semibold";
-      badgeCls = "bg-amber-100/90 text-amber-900";
-    } else if (gen === "up1" || gen === "up2" || gen === "up3" || relInfo.category === "parent" || relInfo.category === "grandparent") {
-      borderCls = "border-indigo-200/90";
-      bgCls = "bg-indigo-50/75 backdrop-blur-xs";
-      textCls = "text-indigo-950 font-semibold";
-      badgeCls = "bg-indigo-100/90 text-indigo-900";
-    } else if (gen === "down1" || gen === "down2" || relInfo.category === "child" || relInfo.category === "grandchild") {
-      borderCls = "border-emerald-200/90";
-      bgCls = "bg-emerald-50/75 backdrop-blur-xs";
-      textCls = "text-emerald-950 font-semibold";
-      badgeCls = "bg-emerald-100/90 text-emerald-900";
-    }
-
-    if (isMarried && ring) {
-      borderCls += " border-amber-300/80";
-    }
-
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          if (arrangeMode) {
-            setMovePromptId(n.id);
-            setSelected(null);
-            return;
-          }
-          setSelected(n);
-        }}
-        className={`group text-left active:scale-95 w-full max-w-full block ${
-          isHighlighted ? "scale-105 z-30" : ""
-        }`}
-      >
-        <div
-          className={cn(
-            "flex items-center gap-2 px-2.5 py-2 rounded-xl border select-none min-h-[66px] h-auto w-full max-w-full box-border transition-transform",
-            borderCls,
-            bgCls,
-            isHighlighted && "ring-4 ring-amber-400 shadow-xl"
-          )}
-          style={{
-            boxShadow: isMarried && ring
-              ? `0 2px 8px ${ring.shadowColor}, 0 1px 2px rgba(0,0,0,0.05)`
-              : "0 2px 6px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
-          }}
-        >
-          {/* Avatar with Solitaire Diamond Ring */}
-          <SolitaireRingAvatar
-            node={n}
-            ring={ring}
-            isSelf={selfNode}
-            isLate={isLate}
-            cleanName={cleanName}
-            sex={sex}
-            size={38}
-          />
-
-          {/* Details: Multi-line vertical stacking (Never stretches horizontally, auto adjusts vertically) */}
-          <div className="flex flex-col min-w-0 flex-1 justify-center py-0.5 leading-tight overflow-hidden">
-            {/* Line 1: Name (wraps vertically if long) */}
-            <div className="flex items-start gap-1 min-w-0">
-              {isLate && (
-                <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-900 shrink-0 px-1 py-0.2 rounded bg-amber-100/80 border border-amber-300/60 shadow-2xs">
-                  <SacredDiyaIcon size={10} />
-                  <span>स्व.</span>
-                </span>
-              )}
-              <span
-                className={cn(
-                  "text-[12px] font-bold leading-tight break-words line-clamp-2",
-                  textCls
-                )}
-                title={n.display_name}
-              >
-                {cleanName}
-              </span>
-            </div>
-
-            {/* Line 2: Relationship badge */}
-            <div className="flex items-center gap-1 mt-1 min-w-0 flex-wrap">
-              <span
-                className={cn(
-                  "text-[9.5px] leading-tight px-1.5 py-0.5 rounded-md font-bold shrink-0",
-                  badgeCls
-                )}
-              >
-                {rel}
-              </span>
-            </div>
-
-            {/* Line 3: SubTag clarification (separated vertically, can wrap to multiple lines) */}
-            {relInfo.subTag && relInfo.subTag !== rel && (
-              <div className="mt-0.5 min-w-0">
-                <span className="text-[8.5px] text-gray-500 font-medium leading-tight block break-words">
-                  ({relInfo.subTag})
-                </span>
-              </div>
-            )}
-
-            {/* Line 4: Birth / Details */}
-            {born && (
-              <div className="flex items-center gap-1 mt-0.5 min-w-0">
-                <span className="text-[9px] text-gray-500 font-medium tabular-nums truncate">
-                  {born}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </button>
-    );
-  };
-
-  const renderMemberCard = (m: Node, roleLabel?: string) => {
-    const isSelf = m.id === tree?.centre.id;
-    const ring = coupleRingMap.get(m.id) || (isSelf ? SILVER_RING : undefined);
-    const isMarried = !!ring || marriedIdSet.has(m.id) || isSelf;
-    const isLate = /^(स्व\.|late|sw\.)/i.test(m.display_name) || m.status === "deceased";
-    const cleanName = m.display_name.replace(/^(स्व\.|late|sw\.)\s*/i, "");
-    const sex = resolveSex(m.gender, m.relation);
-    const born = formatBirth(m);
-    const relInfo = resolveIndianRelationship(m, tree, lang);
-
-    return (
-      <div
-        key={m.id}
-        onClick={() => setSelected(m)}
-        className="flex items-center justify-between p-3 rounded-2xl bg-white border border-gray-100 hover:border-amber-300 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-[0.99]"
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <SolitaireRingAvatar
-            node={m}
-            ring={ring}
-            isSelf={isSelf}
-            isLate={isLate}
-            cleanName={cleanName}
-            sex={sex}
-            size={44}
-          />
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {isLate && (
-                <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 px-1.5 py-0.2 rounded">
-                  स्व.
-                </span>
-              )}
-              <p className="text-sm font-bold text-gray-900 truncate">{cleanName}</p>
-            </div>
-            <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5">
-              <span className="text-amber-800 font-medium">
-                {roleLabel || relInfo.shortTag}
-              </span>
-              {born && <span>· {born}</span>}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              focusMember(m);
-            }}
-            className="text-[11px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 px-2.5 py-1 rounded-full flex items-center gap-1 cursor-pointer"
-          >
-            <TreePine size={11} />
-            <span>{lang === "hi" ? "ट्री में" : "Tree"}</span>
-          </button>
-          <ChevronRight size={16} className="text-gray-400" />
-        </div>
-      </div>
-    );
-  };
+  const handlePromptMove = useCallback((id: string) => {
+    setMovePromptId(id);
+    setSelected(null);
+  }, []);
 
   return (
     <div className="flex flex-col min-h-[70vh] bg-[#fafafa] relative">
-      <style>{`
-        @keyframes goldTravel {
-          to { stroke-dashoffset: -48; }
-        }
-        .vansh-gold-line {
-          stroke-dasharray: 10 8;
-          animation: goldTravel 1.8s linear infinite;
-        }
-        .vansh-sib-float {
-        }
-        .vansh-marry-float {
-        }
-        @keyframes ringFullOrbit {
-          from {
-            stroke-dashoffset: 0;
-          }
-          to {
-            stroke-dashoffset: -100;
-          }
-        }
-        .vansh-3d-shine {
-          animation: ringFullOrbit 8.0s linear infinite;
-          filter: blur(0.9px) drop-shadow(0 0 2.5px rgba(255, 255, 255, 0.95));
-          will-change: stroke-dashoffset;
-        }
-        @keyframes bloodPulse {
-          0%, 100% {
-            stroke: #DC2626;
-            opacity: 0.82;
-          }
-          50% {
-            stroke: #EF4444;
-            opacity: 1;
-          }
-        }
-        @keyframes bloodFlow {
-          from { stroke-dashoffset: 48; }
-          to { stroke-dashoffset: 0; }
-        }
-        .vansh-blood-line {
-          animation: bloodPulse 2.4s ease-in-out infinite;
-          will-change: opacity, stroke;
-        }
-        .vansh-blood-flow {
-          stroke-dasharray: 6 18;
-          animation: bloodFlow 2.0s linear infinite;
-          will-change: stroke-dashoffset;
-        }
-        .vansh-logo-watermark {
-          position: absolute;
-          object-fit: contain;
-          opacity: 0.1;
-          pointer-events: none;
-          z-index: 0;
-          user-select: none;
-        }
-
-        /* Heritage 3D gold lettering — no plate */
-        .vansh-heritage {
-          text-align: center;
-          line-height: 1.05;
-          padding: 2px 8px;
-        }
-        .vansh-heritage .vh-title {
-          margin: 0;
-          font-family: Georgia, "Times New Roman", "Palatino Linotype", serif;
-          font-size: clamp(1.15rem, 5.2vw, 1.55rem);
-          font-weight: 800;
-          letter-spacing: 0.04em;
-          background: linear-gradient(
-            175deg,
-            #fff6d0 0%,
-            #ffe08a 18%,
-            #e8b84a 40%,
-            #c4921a 62%,
-            #8b6914 82%,
-            #f0d070 100%
-          );
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-          filter: drop-shadow(0 1px 0 #5c4010)
-            drop-shadow(0 2px 0 #3d2a08)
-            drop-shadow(0 3px 1px rgba(0,0,0,0.35));
-        }
-        .vansh-heritage .vh-sub {
-          margin: 2px 0 0;
-          font-family: Georgia, "Times New Roman", "Palatino Linotype", serif;
-          font-size: clamp(0.95rem, 4.2vw, 1.25rem);
-          font-weight: 700;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          background: linear-gradient(
-            175deg,
-            #fff8dc 0%,
-            #f0d060 30%,
-            #c9a227 55%,
-            #9a7010 80%,
-            #e8c860 100%
-          );
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-          filter: drop-shadow(0 1px 0 #5c4010)
-            drop-shadow(0 2px 0 #3d2a08)
-            drop-shadow(0 2px 1px rgba(0,0,0,0.3));
-        }
-        @keyframes sibTravel {
-          to { stroke-dashoffset: -120; }
-        }
-        .vansh-sib-base {
-          stroke-dasharray: none;
-        }
-        .vansh-sib-travel {
-          stroke-dasharray: 14 106;
-          animation: sibTravel 1.4s linear infinite;
-        }
-      `}</style>
+      <VanshawaliStyles />
 
       {/* Top Header & Action Controls Bar — 100% structured in flow, zero overlap */}
       <div className="relative z-30 px-3 pt-2.5 pb-2 bg-[#fafafa]/95 backdrop-blur-xs border-b border-amber-100/70">
@@ -6000,7 +5955,19 @@ function VanshawaliInner() {
                 </h3>
               </div>
               <div className="space-y-1.5">
-                {listSections.seniors.map((m) => renderMemberCard(m))}
+                {listSections.seniors.map((m) => (
+                <MemberCardRow
+                  key={m.id}
+                  m={m}
+                  isSelf={m.id === tree?.centre.id}
+                  ring={coupleRingMap.get(m.id) || (m.id === tree?.centre.id ? SILVER_RING : undefined)}
+                  isMarried={!!coupleRingMap.get(m.id) || marriedIdSet.has(m.id) || m.id === tree?.centre.id}
+                  relInfo={resolveIndianRelationship(m, tree, lang)}
+                  lang={lang}
+                  onSelect={handleSelectNode}
+                  onFocus={focusMember}
+                />
+              ))}
               </div>
             </div>
           )}
@@ -6015,7 +5982,19 @@ function VanshawaliInner() {
                 </h3>
               </div>
               <div className="space-y-1.5">
-                {listSections.parentsGen.map((m) => renderMemberCard(m))}
+                {listSections.parentsGen.map((m) => (
+                <MemberCardRow
+                  key={m.id}
+                  m={m}
+                  isSelf={m.id === tree?.centre.id}
+                  ring={coupleRingMap.get(m.id) || (m.id === tree?.centre.id ? SILVER_RING : undefined)}
+                  isMarried={!!coupleRingMap.get(m.id) || marriedIdSet.has(m.id) || m.id === tree?.centre.id}
+                  relInfo={resolveIndianRelationship(m, tree, lang)}
+                  lang={lang}
+                  onSelect={handleSelectNode}
+                  onFocus={focusMember}
+                />
+              ))}
               </div>
             </div>
           )}
@@ -6030,7 +6009,19 @@ function VanshawaliInner() {
                 </h3>
               </div>
               <div className="space-y-1.5">
-                {listSections.selfGen.map((m) => renderMemberCard(m))}
+                {listSections.selfGen.map((m) => (
+                <MemberCardRow
+                  key={m.id}
+                  m={m}
+                  isSelf={m.id === tree?.centre.id}
+                  ring={coupleRingMap.get(m.id) || (m.id === tree?.centre.id ? SILVER_RING : undefined)}
+                  isMarried={!!coupleRingMap.get(m.id) || marriedIdSet.has(m.id) || m.id === tree?.centre.id}
+                  relInfo={resolveIndianRelationship(m, tree, lang)}
+                  lang={lang}
+                  onSelect={handleSelectNode}
+                  onFocus={focusMember}
+                />
+              ))}
               </div>
             </div>
           )}
@@ -6045,7 +6036,19 @@ function VanshawaliInner() {
                 </h3>
               </div>
               <div className="space-y-1.5">
-                {listSections.directChildren.map((m) => renderMemberCard(m))}
+                {listSections.directChildren.map((m) => (
+                <MemberCardRow
+                  key={m.id}
+                  m={m}
+                  isSelf={m.id === tree?.centre.id}
+                  ring={coupleRingMap.get(m.id) || (m.id === tree?.centre.id ? SILVER_RING : undefined)}
+                  isMarried={!!coupleRingMap.get(m.id) || marriedIdSet.has(m.id) || m.id === tree?.centre.id}
+                  relInfo={resolveIndianRelationship(m, tree, lang)}
+                  lang={lang}
+                  onSelect={handleSelectNode}
+                  onFocus={focusMember}
+                />
+              ))}
               </div>
             </div>
           )}
@@ -6060,7 +6063,19 @@ function VanshawaliInner() {
                 </h3>
               </div>
               <div className="space-y-1.5">
-                {listSections.siblingChildren.map((m) => renderMemberCard(m))}
+                {listSections.siblingChildren.map((m) => (
+                <MemberCardRow
+                  key={m.id}
+                  m={m}
+                  isSelf={m.id === tree?.centre.id}
+                  ring={coupleRingMap.get(m.id) || (m.id === tree?.centre.id ? SILVER_RING : undefined)}
+                  isMarried={!!coupleRingMap.get(m.id) || marriedIdSet.has(m.id) || m.id === tree?.centre.id}
+                  relInfo={resolveIndianRelationship(m, tree, lang)}
+                  lang={lang}
+                  onSelect={handleSelectNode}
+                  onFocus={focusMember}
+                />
+              ))}
               </div>
             </div>
           )}
@@ -6075,7 +6090,19 @@ function VanshawaliInner() {
                 </h3>
               </div>
               <div className="space-y-1.5">
-                {listSections.grandChildren.map((m) => renderMemberCard(m))}
+                {listSections.grandChildren.map((m) => (
+                <MemberCardRow
+                  key={m.id}
+                  m={m}
+                  isSelf={m.id === tree?.centre.id}
+                  ring={coupleRingMap.get(m.id) || (m.id === tree?.centre.id ? SILVER_RING : undefined)}
+                  isMarried={!!coupleRingMap.get(m.id) || marriedIdSet.has(m.id) || m.id === tree?.centre.id}
+                  relInfo={resolveIndianRelationship(m, tree, lang)}
+                  lang={lang}
+                  onSelect={handleSelectNode}
+                  onFocus={focusMember}
+                />
+              ))}
               </div>
             </div>
           )}
@@ -6554,6 +6581,14 @@ function VanshawaliInner() {
                     <Tag
                       n={pl.n}
                       gen={pl.genKey}
+                      centreId={tree?.centre.id}
+                      ring={coupleRingMap.get(pl.n.id)}
+                      isMarried={marriedIdSet.has(pl.n.id)}
+                      relInfo={resolveIndianRelationship(pl.n, tree, lang)}
+                      isHighlighted={highlightId === pl.n.id}
+                      arrangeMode={arrangeMode}
+                      onSelect={handleSelectNode}
+                      onPromptMove={handlePromptMove}
                     />
                   </div>
                   {arrangeMode && movePromptId === pl.n.id && moveTargetId !== pl.n.id && (
@@ -6679,16 +6714,18 @@ function VanshawaliInner() {
                 n={{ ...tree.centre, relation: "self" }}
                 gen="self"
                 isSelf
+                centreId={tree.centre.id}
+                ring={coupleRingMap.get(tree.centre.id) || SILVER_RING}
+                isMarried
+                relInfo={resolveIndianRelationship(tree.centre, tree, lang)}
+                isHighlighted={highlightId === tree.centre.id}
+                arrangeMode={arrangeMode}
+                onSelect={handleSelectNode}
+                onPromptMove={handlePromptMove}
               />
             </div>
 
-            {/* Spouses */}
-            {spouses.map((n) => {
-              const pos = posById.get(n.id);
-              if (!pos) return null;
-              // skip if already drawn in placed.map
-              return null;
-            })}
+
 
             {/* Realistic Rope Knots & Sacred Golden Marriage Threads Overlay Layer (z-30) — Physically tags ON TOP of card corners & avatar rings */}
             <svg
