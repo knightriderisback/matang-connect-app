@@ -189,18 +189,18 @@ export function MatangAI() {
     }
   };
 
-  // Mobile: dock above bottom bar
+  // Mobile: footer (BottomNav) ke saaf upar dock (pehle overlap hota tha)
   const fabClass =
     "fixed z-40 w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-transform active:scale-95 " +
     (isSuper
       ? "bg-gradient-to-br from-purple-700 via-indigo-700 to-matang-navy text-amber-300 ring-2 ring-amber-400/60"
       : "bg-matang-navy text-matang-gold") +
-    " left-4 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:left-6 md:bottom-6";
+    " left-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:left-6 md:bottom-6";
 
   const panelClass =
     "fixed z-50 rounded-2xl shadow-2xl overflow-hidden border flex flex-col transition-all " +
     (isSuper ? "border-purple-400/50 bg-slate-950/95" : "border-matang-gold/30 bg-white") +
-    " left-3 right-3 bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))] md:left-6 md:right-auto md:w-96 md:bottom-20";
+    " left-3 right-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:left-6 md:right-auto md:w-96 md:bottom-20";
 
   return (
     <>
