@@ -55,23 +55,27 @@ async function setFlag(
   value: boolean,
   actorId: string
 ): Promise<string> {
-  const supabase = createAdminClient();
-  const payload = {
-    setting_key: key,
-    setting_value: value,
-    updated_by: actorId,
-    updated_at: new Date().toISOString(),
-  };
-  let { error } = await supabase
-    .from("app_settings")
-    .upsert(payload, { onConflict: "setting_key" });
-  if (error) {
-    await supabase.from("app_settings").delete().eq("setting_key", key);
-    ({ error } = await supabase.from("app_settings").insert(payload));
+  try {
+    const supabase = createAdminClient();
+    const payload = {
+      setting_key: key,
+      setting_value: value,
+      updated_by: actorId,
+      updated_at: new Date().toISOString(),
+    };
+    let { error } = await supabase
+      .from("app_settings")
+      .upsert(payload, { onConflict: "setting_key" });
+    if (error) {
+      await supabase.from("app_settings").delete().eq("setting_key", key);
+      ({ error } = await supabase.from("app_settings").insert(payload));
+    }
+    if (error) return `❌ ${key} save fail: ${error.message}`;
+    await writeAuditLog({ actorId, action: "god_flag_set", meta: { key, value } });
+    return `✅ ${key} → ${value ? "ON" : "OFF"}`;
+  } catch (err: any) {
+    return `❌ Flag update error (${key}): ${err?.message || "Database connection error"}`;
   }
-  if (error) return `❌ ${key} save fail: ${error.message}`;
-  await writeAuditLog({ actorId, action: "god_flag_set", meta: { key, value } });
-  return `✅ ${key} → ${value ? "ON" : "OFF"}`;
 }
 
 function extractPhones(q: string): string[] {
@@ -100,16 +104,17 @@ export async function tryGodAction(
   const q = message.trim();
   const lower = q.toLowerCase();
 
-  // ===== GREETINGS & CASUAL NATURAL HINGLISH =====
+  try {
+    // ===== GREETINGS & CASUAL NATURAL HINGLISH =====
   if (
-    /^(?:hi+|hello+|hey+|heya|namaste|pranam|namaskar|kya\s*haal|kaise\s*ho|bhai|sun|suno|yo|hii+|good\s*(?:morning|evening|afternoon))[!?.]*$/i.test(
+    /^(?:hi+|hello+|hey+|heya|namaste|pranam|namaskar|yo|hii+|good\s*(?:morning|evening|afternoon))[!?.]*$/i.test(
       lower
     )
   ) {
     return {
       handled: true,
       message:
-        "Namaste! Main aapka Super AI Action Agent hoon. Aap mujhse bina kisi command ya prefix ke bilkul natural Hinglish mein baat kar sakte hain. Form banana ho, koi feature on/off karna ho, ya pending members verify karne ho — jo bhi kaam ho bas seedhe batayein!",
+        "Namaste! Main aapka Super AI Action Agent hoon. Conversation aur platform actions (form builder, feature controls, member verification, stats) dono ke liye ready hoon. Aap naturally batayein, aaj kya karna hai?",
     };
   }
 
@@ -140,29 +145,36 @@ export async function tryGodAction(
 
   // ===== STATS =====
   if (
-    /kitne|how many|count|total|stats|summary|status report|kitna|संख्या|काउंट|report|dashboard/i.test(
+    /kitne|kitna|how many|count|total|stats|summary|status report|संख्या|काउंट|report|dashboard|kitne\s*log|registered\s*members|kitne\s*users/i.test(
       lower
     )
   ) {
-    const supabase = createAdminClient();
-    const parts: string[] = [];
-    for (const t of ["users", "notices", "jobs", "care_requests", "families"] as const) {
-      const { count, error } = await supabase
-        .from(t)
-        .select("*", { count: "exact", head: true });
-      parts.push(error ? `${t}: error` : `${t}: ${count ?? 0}`);
+    try {
+      const supabase = createAdminClient();
+      const parts: string[] = [];
+      for (const t of ["users", "notices", "jobs", "care_requests", "families"] as const) {
+        const { count, error } = await supabase
+          .from(t)
+          .select("*", { count: "exact", head: true });
+        parts.push(error ? `${t}: error` : `${t}: ${count ?? 0}`);
+      }
+      const { count: pending } = await supabase
+        .from("users")
+        .select("*", { count: "exact", head: true })
+        .eq("verification_status", "pending");
+      const { count: verified } = await supabase
+        .from("users")
+        .select("*", { count: "exact", head: true })
+        .eq("verification_status", "verified");
+      parts.push(`verified: ${verified ?? 0}`, `pending: ${pending ?? 0}`);
+      await writeAuditLog({ actorId, action: "god_stats" });
+      return { handled: true, message: "📊 Live data:\n" + parts.join("\n") };
+    } catch (err: any) {
+      return {
+        handled: true,
+        message: `📊 Live Stats: Platform operational. Detailed counts require active database connection (${err?.message || "DB checking"}).`,
+      };
     }
-    const { count: pending } = await supabase
-      .from("users")
-      .select("*", { count: "exact", head: true })
-      .eq("verification_status", "pending");
-    const { count: verified } = await supabase
-      .from("users")
-      .select("*", { count: "exact", head: true })
-      .eq("verification_status", "verified");
-    parts.push(`verified: ${verified ?? 0}`, `pending: ${pending ?? 0}`);
-    await writeAuditLog({ actorId, action: "god_stats" });
-    return { handled: true, message: "📊 Live data:\n" + parts.join("\n") };
   }
 
   // ===== VERIFY ALL (High-risk action: requires explicit CONFIRM keyword) =====
@@ -462,38 +474,42 @@ QR: ${data.qr_code_id || "-"}`,
 
   // ===== CURRENT FLAGS STATUS =====
   if (
-    /flag\s*status|which\s*module|kya\s*on|kya\s*off|feature\s*status|stage\s*status/i.test(
+    /flag\s*status|which\s*module|kya\s*on|kya\s*off|feature\s*status|stage\s*status|(?:sos|jobs?|care|kosh|vyapar|matrimony|flags?)\s*(?:status|report|kya hai)/i.test(
       lower
     )
   ) {
-    const supabase = createAdminClient();
-    const { data } = await supabase
-      .from("app_settings")
-      .select("setting_key, setting_value");
-    const lines = (data || [])
-      .filter((r) => r.setting_key in DEFAULTS)
-      .map((r) => {
-        const v = r.setting_value;
-        const on = v === true || v === "true";
-        return `${r.setting_key}: ${on ? "ON" : "OFF"}`;
-      });
-    return {
-      handled: true,
-      message:
-        lines.length > 0
-          ? "Flags:\n" + lines.join("\n")
-          : "No flag rows yet (defaults all ON for Super Admin).",
-    };
+    try {
+      const supabase = createAdminClient();
+      const { data } = await supabase
+        .from("app_settings")
+        .select("setting_key, setting_value");
+      const lines = (data || [])
+        .filter((r) => r.setting_key in DEFAULTS)
+        .map((r) => {
+          const v = r.setting_value;
+          const on = v === true || v === "true";
+          return `${r.setting_key}: ${on ? "ON" : "OFF"}`;
+        });
+      return {
+        handled: true,
+        message:
+          lines.length > 0
+            ? "Flags:\n" + lines.join("\n")
+            : "No flag rows yet (defaults all ON for Super Admin).",
+      };
+    } catch (err: any) {
+      return { handled: true, message: `📊 Flag status: ${err?.message}` };
+    }
   }
 
   // ===== LIST FORM CONFIG =====
   if (
-    /(?:list|show|dikhao|kya hai)\s+(?:form|parivar\s*form|census\s*form)\s*(?:sections?|fields?|config)?/i.test(
+    /(?:(?:form|parivar\s*form|census\s*form)\s*(?:sections?|fields?|config)?\s*(?:dikhao|show|list|batao|kya hai|status))|(?:(?:list|show|dikhao|batao|kya hai)\s+(?:form|parivar\s*form|census\s*form)\s*(?:sections?|fields?|config)?)/i.test(
       lower
     )
   ) {
-    const supabase = createAdminClient();
     try {
+      const supabase = createAdminClient();
       const { data, error } = await supabase.rpc("admin_get_parivar_form_config", {
         p_actor: actorId,
       });
@@ -525,7 +541,7 @@ QR: ${data.qr_code_id || "-"}`,
 
   // ===== CREATE FORM SECTION =====
   const secMatch = q.match(
-    /(?:(?:create|add|banao|naya|naye|ek)\s+(?:form\s+)?section|(?:form\s+)?section\s+(?:banao|add\s*karo|create\s*karo|daalo?))\s*[:：\-]?\s*(.+)/i
+    /(?:(?:create|add|banao|bana\s*do|naya|naye|ek|new)\s+(?:form\s+)?(?:me\s+)?section|(?:form\s+)?section\s+(?:banao|bana\s*do|add\s*(?:karo|kar\s*do)|create\s*(?:karo|kar\s*do)|daalo?))\s*[:：\-]?\s*(.+)/i
   );
   if (secMatch) {
     const raw = secMatch[1].trim();
@@ -546,8 +562,8 @@ QR: ${data.qr_code_id || "-"}`,
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "_")
       .slice(0, 20)}_${Math.random().toString(36).slice(2, 5)}`;
-    const supabase = createAdminClient();
     try {
+      const supabase = createAdminClient();
       const { error } = await supabase.rpc("admin_upsert_form_section", {
         p_actor: actorId,
         p_data: {
@@ -574,9 +590,9 @@ QR: ${data.qr_code_id || "-"}`,
     }
   }
 
-  // ===== CREATE FORM FIELD =====
+  // ===== CREATE FORM FIELD / QUESTION =====
   const fieldMatch = q.match(
-    /(?:(?:create|add|banao|naya|daalo?)\s+(?:form\s+)?field|(?:form\s+)?field\s+(?:add\s*karo|banao|daalo?|create\s*karo))\s*[:：\-]?\s*(.+)/i
+    /(?:(?:create|add|banao|bana\s*do|naya|daalo?|ek|new)\s+(?:form\s+)?(?:me\s+)?(?:field|question|sawal)|(?:form\s+)?(?:field|question|sawal)\s+(?:add\s*(?:karo|kar\s*do)|banao|bana\s*do|daalo?|create\s*(?:karo|kar\s*do)))\s*[:：\-]?\s*(.+)/i
   );
   if (fieldMatch) {
     const raw = fieldMatch[1].trim();
@@ -600,8 +616,8 @@ QR: ${data.qr_code_id || "-"}`,
       };
     }
 
-    const supabase = createAdminClient();
     try {
+      const supabase = createAdminClient();
       const { data: sections } = await supabase.rpc("admin_get_parivar_form_config", {
         p_actor: actorId,
       });
@@ -646,7 +662,14 @@ QR: ${data.qr_code_id || "-"}`,
     }
   }
 
-  return { handled: false, message: "" };
+    return { handled: false, message: "" };
+  } catch (err: any) {
+    console.error("tryGodAction error:", err);
+    return {
+      handled: true,
+      message: `❌ Action failed: ${err?.message || "Execution error"}`,
+    };
+  }
 }
 
 export async function fetchPublicInfo(query: string): Promise<string | null> {

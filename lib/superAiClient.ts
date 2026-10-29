@@ -20,7 +20,7 @@ export async function isSuperAiOnline(): Promise<boolean> {
   try {
     const res = await fetch(`${SUPER_AI_ENDPOINT}/api/health`, {
       method: "GET",
-      signal: AbortSignal.timeout(1200),
+      signal: AbortSignal.timeout(500),
       cache: "no-store",
     });
     return res.ok;
@@ -59,7 +59,7 @@ export async function querySuperAiAction(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(60000), // Local model inference / agent execution
+      signal: AbortSignal.timeout(12000), // Local model inference / agent execution
     });
 
     if (!res.ok) {
