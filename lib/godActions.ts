@@ -105,20 +105,7 @@ export async function tryGodAction(
   const lower = q.toLowerCase();
 
   try {
-    // ===== GREETINGS & CASUAL NATURAL HINGLISH =====
-  if (
-    /^(?:hi+|hello+|hey+|heya|namaste|pranam|namaskar|yo|hii+|good\s*(?:morning|evening|afternoon))[!?.]*$/i.test(
-      lower
-    )
-  ) {
-    return {
-      handled: true,
-      message:
-        "Namaste! Main aapka Super AI Action Agent hoon. Conversation aur platform actions (form builder, feature controls, member verification, stats) dono ke liye ready hoon. Aap naturally batayein, aaj kya karna hai?",
-    };
-  }
-
-  // ===== FLAGS ON/OFF =====
+    // ===== FLAGS ON/OFF =====
   if (wantsOn(q) || wantsOff(q)) {
     const on = wantsOn(q) && !wantsOff(q);
     if (/all\s*(stage|module|feature)|saari|sab\s*(module|stage|feature)|सभी|सारे/i.test(q) && on) {
